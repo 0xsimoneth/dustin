@@ -1,0 +1,25 @@
+# Local tooling (stellar-build skills repo, cloned separately)
+stellar-build/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Logs and OS files
+*.log
+.DS_Store
+
+# Coverage
+coverage/
+
+# stellar-build project-local tooling config
+.stellar-build/
