@@ -1,6 +1,6 @@
 # Story 1.1: Build the messy fixture account on testnet
 
-Status: review
+Status: done
 
 ## Story
 
@@ -104,6 +104,21 @@ dev-story workflow (AI developer agent)
 - `test/fixtures/horizon/messy/*.json` (new: recorded Horizon JSON and the public manifest)
 - `docs/stories/1-1-messy-fixture-builder.md`, `docs/stories/sprint-status.yaml` (modified)
 
+## Senior Developer Review (AI)
+
+- Date: 2026-09-26
+- Scope: commits a7048e9..c8ea0b1 (Epic 1), adversarial review plus an edge-case walk by an independent review agent (read-only), 18 findings across the epic.
+- Fixes: commits 6806927 (planner and inspector), 2358130 (property test), 9475995 (fixture builder and plan output), 1c9868e (evidence).
+- Outcome: changes requested, all resolved.
+
+### Action Items
+
+- [x] Low: keys lived only in memory until the build ended, and the manifest was written before keys.json. The builder now hands the keys over before any account is funded and the CLI stores keys.json (mode 600, never overwritten) first.
+- [x] Low: fixture ids had one-second resolution; they now carry a random 6-hex suffix.
+- [x] Low: the builder's own 504 handling polled for about 60 s of a 120 s time bound and reported a failed transaction as retryable. Steps and the zero-spendable probe now use the shared `submitAndConfirm`.
+- [x] Low: `fixture verify` printed lines up to 172 columns; the output now wraps at 120.
+
 ## Change Log
 
 - 2026-09-26: messy fixture recipe, builder, verifier and CLI; first live fixture built and verified. Status: review.
+- 2026-09-26: Review findings resolved. Status: done.

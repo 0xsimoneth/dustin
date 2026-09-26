@@ -130,7 +130,7 @@ stories:
     title: Build the messy fixture account on testnet
     epic: E1
     week: 1
-    status: review
+    status: done
     estimate_hours: 8
     deliverable: D3
   - key: 1-2-baseline-recording
@@ -146,7 +146,7 @@ stories:
     title: Account inspector across all subentry types
     epic: E1
     week: 1
-    status: review
+    status: done
     estimate_hours: 8
     deliverable: D1
   - key: 1-4-plan-model-ordering-engine
@@ -162,7 +162,7 @@ stories:
     title: Transaction grouping, fee estimation and reason strings
     epic: E1
     week: 1
-    status: review
+    status: done
     estimate_hours: 6
     deliverable: D1
   - key: 1-6-dry-run-guarantee-tests
@@ -170,7 +170,7 @@ stories:
     title: Dry-run guarantee and planner test suite
     epic: E1
     week: 1
-    status: review
+    status: done
     estimate_hours: 6
     deliverable: D1
   - key: 1-7-cli-plan-command
@@ -178,7 +178,7 @@ stories:
     title: CLI dustin plan and committed fixture plan output
     epic: E1
     week: 1
-    status: review
+    status: done
     estimate_hours: 6
     deliverable: D1
   - key: 2-1-fee-bump-submission-engine

@@ -1,6 +1,6 @@
 # Story 1.3: Account inspector across all subentry types
 
-Status: review
+Status: done
 
 ## Story
 
@@ -75,6 +75,20 @@ dev-story workflow (AI developer agent)
 - `test/helpers/recorded-horizon.ts`, `test/unit/inspect/inspect.test.ts` (new)
 - `docs/stories/1-3-account-inspector.md`, `docs/stories/sprint-status.yaml` (modified)
 
+## Senior Developer Review (AI)
+
+- Date: 2026-09-26
+- Scope: commits a7048e9..c8ea0b1 (Epic 1), adversarial review plus an edge-case walk by an independent review agent (read-only), 18 findings across the epic.
+- Fixes: commits 6806927 (planner and inspector), 2358130 (property test), 9475995 (fixture builder and plan output), 1c9868e (evidence).
+- Outcome: changes requested, all resolved.
+
+### Action Items
+
+- [x] Medium: a muxed (M...) destination inherited its base account's SEP-29 `memo_required`, which blocked the plan and ruled out rung 3; the SDK skips the check for muxed addresses, so the inspector now reports `memoRequired: false` for them.
+- [x] Low: sorting used locale-dependent `localeCompare`, so asset codes that differ only in case (B-20) could change step ids and the plan hash; the inspector sorts by code point.
+- [x] Low: `INVALID_ADDRESS` and `CONTRACT_ACCOUNT` carried no remedy (1-7 AC4); both do now.
+
 ## Change Log
 
 - 2026-09-26: Account inspector with ledger reader, address validation, snapshot hash and ladder inputs. Status: review.
+- 2026-09-26: Review findings resolved. Status: done.

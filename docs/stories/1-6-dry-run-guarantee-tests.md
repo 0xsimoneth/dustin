@@ -1,6 +1,6 @@
 # Story 1.6: Dry-run guarantee and planner test suite
 
-Status: review
+Status: done
 
 ## Story
 
@@ -64,6 +64,19 @@ dev-story workflow (AI developer agent)
 - `test/testnet/plan-readonly.test.ts` (new)
 - `docs/stories/1-6-dry-run-guarantee-tests.md`, `docs/stories/sprint-status.yaml`
 
+## Senior Developer Review (AI)
+
+- Date: 2026-09-26
+- Scope: commits a7048e9..c8ea0b1 (Epic 1), adversarial review plus an edge-case walk by an independent review agent (read-only), 18 findings across the epic.
+- Fixes: commits 6806927 (planner and inspector), 2358130 (property test), 9475995 (fixture builder and plan output), 1c9868e (evidence).
+- Outcome: changes requested, all resolved; one item accepted as a risk.
+
+### Action Items
+
+- [x] Low: the "never reads a secret" test only proved the secret was not printed; it now records every environment read and every HTTP method, and the plan-versus-close test compares the whole plan.
+- [x] Low (accepted risk, no change): `.env` is loaded for every command, so `DUSTIN_*_SECRET` values from it reach `process.env` during `dustin plan`. The planner never reads them (proved by the environment-read test) and they are never printed or sent.
+
 ## Change Log
 
 - 2026-09-26: Import boundary for the read-only zone, request and type tests, full plan snapshot, live read-only test. Status: review.
+- 2026-09-26: Review findings resolved. Status: done.

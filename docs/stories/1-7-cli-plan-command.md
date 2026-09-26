@@ -1,6 +1,6 @@
 # Story 1.7: CLI `dustin plan` and committed fixture plan output
 
-Status: review
+Status: done
 
 ## Story
 
@@ -70,6 +70,19 @@ dev-story workflow (AI developer agent)
 - `evidence/plan/fixture-plan.txt`, `evidence/plan/fixture-plan.json` (new)
 - `docs/stories/1-7-cli-plan-command.md`, `docs/stories/sprint-status.yaml`
 
+## Senior Developer Review (AI)
+
+- Date: 2026-09-26
+- Scope: commits a7048e9..c8ea0b1 (Epic 1), adversarial review plus an edge-case walk by an independent review agent (read-only), 18 findings across the epic.
+- Fixes: commits 6806927 (planner and inspector), 2358130 (property test), 9475995 (fixture builder and plan output), 1c9868e (evidence).
+- Outcome: changes requested, all resolved.
+
+### Action Items
+
+- [x] Medium: `--base-fee` was parsed with `parseInt` and never validated; it must be whole stroops from 100 to 1,000,000, otherwise exit 2.
+- [x] Low: the Next line dropped `--memo` and suggested `--execute` for partial and blocked plans; it keeps the flags that shaped the plan and suggests `--execute --partial` with an explanation.
+
 ## Change Log
 
 - 2026-09-26: `dustin plan`, dry-run `dustin close`, `renderPlan()` and the committed fixture plan. Status: review.
+- 2026-09-26: Review findings resolved. Status: done.

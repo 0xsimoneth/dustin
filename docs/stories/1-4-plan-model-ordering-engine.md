@@ -29,6 +29,10 @@ so that the plan can be executed top to bottom without any step being blocked by
 - [x] Task 6: pool constituents in the inspector (`GET /liquidity_pools/{id}`) (AC: 4)
 - [x] Task 7: tests on the recorded fixture and synthetic variants (AC: 1-8)
 
+### Review Follow-ups (AI)
+
+- [ ] [AI-Review][Low] Plan the removal of a zero-balance pool-share trustline (`changeTrust` with the pool asset, limit 0) before its pool's asset trustlines, and block only non-zero shares (architecture section 4.4).
+
 ## Dev Notes
 
 - Canonical decisions 6, 8, 9, 10, 11 (docs/README.md); architecture sections 4.3, 4.4, 5 and 8; PRD FR-02, FR-03, FR-06, FR-08, FR-14.
@@ -81,6 +85,23 @@ dev-story workflow (AI developer agent)
 - `test/unit/inspect/inspect.test.ts` (modified)
 - `docs/stories/1-4-plan-model-ordering-engine.md`, `docs/stories/1-5-grouping-fee-estimation.md`, `docs/stories/sprint-status.yaml`
 
+## Senior Developer Review (AI)
+
+- Date: 2026-09-26
+- Scope: commits a7048e9..c8ea0b1 (Epic 1), adversarial review plus an edge-case walk by an independent review agent (read-only), 18 findings across the epic.
+- Fixes: commits 6806927 (planner and inspector), 2358130 (property test), 9475995 (fixture builder and plan output), 1c9868e (evidence).
+- Outcome: changes requested; one item open.
+
+### Action Items
+
+- [x] Medium: liquidity pool shares were unclosable items (status `partial`); they are now a `LIQUIDITY_POOL_SHARES` merge blocker (canonical decision 11, 1-4 AC4/AC5).
+- [x] Low: slippage was rounded down, so `destMin` equalled the quote for dust; it is rounded up and clamped to at least 1 stroop.
+- [x] Low: the signing check ignored the low threshold; cleanup needs max(low, medium) and the merge max(low, high). The widened property test then found that a raised medium threshold alone gave a blocked plan with no blocker; it now reports `THRESHOLD_UNMET`.
+- [x] Low: rung 3 could pay the account itself; a destination equal to the account is ruled out.
+- [ ] Low: a pool-share trustline with a zero balance must be removed like any other trustline (architecture section 4.4); today it still counts as a blocker and keeps its pool's asset trustlines.
+- [x] Low: sponsored offers were credited to their sponsor even without a cancel step; attribution now follows the cancel steps, sorted by code point.
+
 ## Change Log
 
 - 2026-09-26: Plan model, disposal ladder, blockers, guard, recovery and the ordering engine. Status: review.
+- 2026-09-26: Review findings resolved except the zero-balance pool-share item. Status: review.

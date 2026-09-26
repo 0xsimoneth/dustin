@@ -1,6 +1,6 @@
 # Story 1.5: Transaction grouping, fee estimation and plan hash
 
-Status: review
+Status: done
 
 ## Story
 
@@ -72,6 +72,21 @@ dev-story workflow (AI developer agent)
 - `test/unit/smoke.test.ts` (modified)
 - `docs/stories/1-5-grouping-fee-estimation.md`, `docs/stories/sprint-status.yaml` (modified)
 
+## Senior Developer Review (AI)
+
+- Date: 2026-09-26
+- Scope: commits a7048e9..c8ea0b1 (Epic 1), adversarial review plus an edge-case walk by an independent review agent (read-only), 18 findings across the epic.
+- Fixes: commits 6806927 (planner and inspector), 2358130 (property test), 9475995 (fixture builder and plan output), 1c9868e (evidence).
+- Outcome: changes requested, all resolved.
+
+### Action Items
+
+- [x] Low: the quoted path changed `planHash` (1-5 AC4); it is left out of the structural hash.
+- [x] Low: a merge-only transaction claimed the cleanup had filled the operation limit; the reason now says there is nothing to clean up.
+- [x] Low: `PlanOptions` were not validated (fractional or negative slippage, NaN fees, a 1-operation limit); invalid values throw `CONFIG_INVALID`, and the memo is limited to 28 bytes.
+- [x] Low: the property generator never produced blockers, a failing guard, pools, B-24 or rung 3 without room, used random keys, and did not assert 1-5 AC2. It now covers all of them over 600 seeds with deterministic keys and asserts that each branch is reached.
+
 ## Change Log
 
 - 2026-09-26: Grouping, fee summary, guard placement, structural plan hash and `planClose()`. Status: review.
+- 2026-09-26: Review findings resolved. Status: done.
