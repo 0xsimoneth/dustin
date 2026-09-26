@@ -105,7 +105,10 @@ describe("dustin close --execute: the typed confirmation", () => {
   for (const [name, answer] of cases) {
     it(`declines on ${name}: exit 3, nothing submitted`, async () => {
       const world = zeroSpendableWorld();
-      const typed = answer === "WXYZ" && world.destination.endsWith("WXYZ") ? "QQQQ" : answer;
+      // A wrong answer differs from the destination's tail in its first character.
+      const tail = world.destination.slice(-4);
+      const typed =
+        answer === "WXYZ" ? `${tail.startsWith("W") ? "Q" : "W"}${tail.slice(1)}` : answer;
       const r = await closeCli(world, executeArgs(world), { answer: typed });
       expect(r.code).toBe(3);
       expect(r.err).toContain("CONFIRMATION_DECLINED");

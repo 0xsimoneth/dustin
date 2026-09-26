@@ -22,6 +22,10 @@ function tempDir(dotEnv?: string): string {
   return dir;
 }
 
+/** The same key with its last character changed, so its checksum can never be valid. */
+const lastCharacterChanged = (secret: string) =>
+  `${secret.slice(0, -1)}${secret.endsWith("A") ? "B" : "A"}`;
+
 const accountKeys = Keypair.random();
 const sponsorKeys = Keypair.random();
 
@@ -134,7 +138,7 @@ describe("loadCloseSigners", () => {
       () =>
         loadCloseSigners(account, {
           env: env({
-            DUSTIN_ACCOUNT_SECRET: `${accountKeys.secret().slice(0, 55)}A`,
+            DUSTIN_ACCOUNT_SECRET: lastCharacterChanged(accountKeys.secret()),
             DUSTIN_SPONSOR_SECRET: sponsorKeys.secret(),
           }),
         }),
