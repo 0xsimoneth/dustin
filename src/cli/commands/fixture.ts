@@ -7,7 +7,7 @@ import {
 } from "../../config/network.js";
 import { DustinError } from "../../errors/dustin-error.js";
 import { buildMessyFixture } from "../../fixture/builder.js";
-import { readManifest } from "../../fixture/manifest.js";
+import { readManifest, type FixtureKeys } from "../../fixture/manifest.js";
 import {
   expectationFromManifest,
   loadVerifyInput,
@@ -28,6 +28,15 @@ export interface CommandContext {
 
 const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
 
+/** Secrets: owner-only permissions, never overwritten, never printed. Returns the file path. */
+export function writeFixtureKeys(baseDir: string, keys: FixtureKeys): string {
+  const dir = join(baseDir, keys.id);
+  mkdirSync(dir, { recursive: true, mode: 0o700 });
+  const path = join(dir, "keys.json");
+  writeFileSync(path, json(keys), { mode: 0o600, flag: "wx" });
+  return path;
+}
+
 export async function fixtureCreate(
   options: { profile: string; dir: string; out?: string; json?: boolean },
   ctx: CommandContext,
@@ -39,16 +48,20 @@ export async function fixtureCreate(
       { stage: "config" },
     );
   }
-  const { manifest, keys, recorded } = await buildMessyFixture({
+  const { manifest, recorded } = await buildMessyFixture({
     config: ctx.config(),
+    ...(ctx.fetch ? { fetch: ctx.fetch } : {}),
     log: (line) => ctx.io.stderr(`${line}\n`),
+    // Stored before any account is funded, so a build that stops halfway keeps its keys.
+    onKeys: (keys) => {
+      const path = writeFixtureKeys(options.dir, keys);
+      ctx.io.stderr(`Secret keys saved to ${path} (mode 600, testnet only, never commit)\n`);
+    },
   });
 
   const dir = join(options.dir, manifest.id);
   mkdirSync(join(dir, "horizon"), { recursive: true, mode: 0o700 });
   writeFileSync(join(dir, "manifest.json"), json(manifest));
-  // Secrets: owner-only permissions, never overwritten, never printed.
-  writeFileSync(join(dir, "keys.json"), json(keys), { mode: 0o600, flag: "wx" });
   for (const [key, response] of Object.entries(recorded)) {
     writeFileSync(join(dir, "horizon", `${key}.json`), json(response));
   }

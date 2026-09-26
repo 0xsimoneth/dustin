@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import {
   Asset,
   Horizon,
@@ -18,12 +18,19 @@ import {
   type ResolvedConfig,
 } from "../config/network.js";
 import { DustinError } from "../errors/dustin-error.js";
+import {
+  horizonSubmitter,
+  submitAndConfirm,
+  type SubmitOutcome,
+  type Submitter,
+} from "../execute/submit.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
 import {
   accountOffers,
   horizonJson,
   latestLedger,
+  type FetchLike,
   type HorizonJsonClient,
 } from "../reader/horizon-json.js";
 import { strictSendToNativePath, type CreditAssetRef } from "../reader/ledger-reader.js";
@@ -48,6 +55,13 @@ export interface BuildOptions {
   friendbotUrl?: string;
   /** How long to wait for Horizon's path finder to see the market maker's bid. */
   pathWaitMs?: number;
+  /** HTTP for the testnet check, Friendbot, Horizon reads and submission (tests). */
+  fetch?: FetchLike;
+  /**
+   * Receives the new secret keys before any account is funded, so a build that stops halfway
+   * still leaves the keys to every account it touched. Must store them before returning.
+   */
+  onKeys?: (keys: FixtureKeys) => void;
 }
 
 export interface RecordedResponse {
@@ -74,6 +88,52 @@ const ROLES: MessyRole[] = [
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** `messy-<UTC second>-<6 hex>`: the suffix keeps two builds started in the same second apart. */
+export function fixtureId(createdAt: Date, suffix = randomBytes(3).toString("hex")): string {
+  const second = createdAt
+    .toISOString()
+    .replace(/[-:]/g, "")
+    .replace(/\.\d+Z$/, "Z");
+  return `messy-${second}-${suffix}`;
+}
+
+/** The error for a fixture step whose transaction did not apply. */
+export function stepError(
+  step: string,
+  outcome: Exclude<SubmitOutcome, { kind: "applied" }>,
+): DustinError {
+  if (outcome.kind === "unknown") {
+    return new DustinError(
+      "HORIZON_UNAVAILABLE",
+      `Fixture step "${step}" was not seen on the ledger before its time bound passed.`,
+      {
+        stage: "submit",
+        retryable: true,
+        verdict: "retry-same",
+        remedy: "Run the command again; it builds a new fixture with new keys.",
+        horizon: { hash: outcome.hash },
+      },
+    );
+  }
+  const { codes } = outcome;
+  const inner = codes.innerTransaction ? ` / ${codes.innerTransaction}` : "";
+  const ops = codes.operations?.length ? ` [${codes.operations.join(", ")}]` : "";
+  return new DustinError(
+    "FIXTURE_STEP_FAILED",
+    `Fixture step "${step}" failed: ${codes.transaction ?? "?"}${inner}${ops}.`,
+    {
+      stage: "submit",
+      horizon: {
+        status: outcome.status,
+        ...(codes.transaction ? { transaction: codes.transaction } : {}),
+        ...(codes.innerTransaction ? { innerTransaction: codes.innerTransaction } : {}),
+        ...(codes.operations ? { operations: codes.operations } : {}),
+        hash: outcome.hash,
+      },
+    },
+  );
+}
+
 /**
  * Builds a fresh `messy` fixture on testnet from Friendbot funding alone, drains it to exactly its
  * minimum balance and verifies it. Every call creates new keys, so it is repeatable after a testnet
@@ -83,24 +143,34 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
   const config = resolveConfig(options.config);
   const log = options.log ?? (() => undefined);
   const createdAt = (options.now ?? (() => new Date()))();
-  await verifyHorizonIsTestnet(config.horizonUrl);
+  const doFetch: FetchLike = options.fetch ?? ((url, init) => fetch(url, init));
+  await verifyHorizonIsTestnet(config.horizonUrl, doFetch);
 
   const server = new Horizon.Server(config.horizonUrl, {
     allowHttp: config.horizonUrl.startsWith("http://"),
   });
-  const client = horizonJson(config.horizonUrl);
+  const client = horizonJson(config.horizonUrl, { fetch: doFetch });
+  const submitter = horizonSubmitter(config.horizonUrl, { fetch: doFetch });
   const keypairs = Object.fromEntries(ROLES.map((r) => [r, Keypair.random()])) as Record<
     MessyRole,
     Keypair
   >;
   const roles = Object.fromEntries(ROLES.map((r) => [r, keypairs[r].publicKey()])) as MessyRoles;
-  const id = `messy-${createdAt
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d+Z$/, "Z")}`;
+  const id = fixtureId(createdAt);
+  const keys: FixtureKeys = {
+    schemaVersion: 1,
+    kind: "dustin-fixture-keys",
+    id,
+    note: "Testnet secret keys for this fixture. Never commit this file.",
+    secrets: Object.fromEntries(ROLES.map((r) => [r, keypairs[r].secret()])) as Record<
+      MessyRole,
+      string
+    >,
+  };
+  options.onKeys?.(keys);
 
   log(`Funding the fee sponsor ${roles.sponsor} from Friendbot`);
-  await friendbot(options.friendbotUrl ?? FRIENDBOT_URL, roles.sponsor);
+  await friendbot(options.friendbotUrl ?? FRIENDBOT_URL, roles.sponsor, doFetch);
   const createdAtLedger = (await latestLedger(client)).sequence;
   const baseFee = baseFeeFromFeeStats(await server.feeStats());
   log(
@@ -139,8 +209,13 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
     const envelope = step.feeBumped
       ? wrapInFeeBump(inner, keypairs.sponsor, baseFee, config.networkPassphrase)
       : inner;
-    const ledger = await submit(server, client, envelope, step.name);
-    record(step.name, envelope, ledger, step.feeBumped ? inner : undefined);
+    const outcome = await submitAndConfirm(submitter, {
+      xdr: envelope.toXDR(),
+      hash: hashHex(envelope),
+      maxTime: Number(inner.timeBounds?.maxTime ?? 0),
+    });
+    if (outcome.kind !== "applied") throw stepError(step.name, outcome);
+    record(step.name, envelope, outcome.ledger, step.feeBumped ? inner : undefined);
   };
 
   log(`Building fixture ${roles.fixture}`);
@@ -183,7 +258,13 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
     `Strict-send path for ${liquidPath.asset}: ${liquidPath.sourceAmount} -> ${liquidPath.destinationAmount} XLM`,
   );
 
-  const zeroSpendableProof = await proveZeroSpendable(server, keypairs.fixture, baseFee, config);
+  const zeroSpendableProof = await proveZeroSpendable(
+    server,
+    submitter,
+    keypairs.fixture,
+    baseFee,
+    config,
+  );
   log(`Unbumped transaction from the fixture rejected with ${zeroSpendableProof.resultCode}`);
 
   const offers = await accountOffers(client, roles.fixture);
@@ -234,17 +315,6 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
   manifest.verification = verifyFixture(
     await loadVerifyInput(client, expectationFromManifest(manifest), roles.fixture),
   );
-
-  const keys: FixtureKeys = {
-    schemaVersion: 1,
-    kind: "dustin-fixture-keys",
-    id,
-    note: "Testnet secret keys for this fixture. Never commit this file.",
-    secrets: Object.fromEntries(ROLES.map((r) => [r, keypairs[r].secret()])) as Record<
-      MessyRole,
-      string
-    >,
-  };
   return { manifest, keys, recorded: await recordHorizon(client, roles) };
 }
 
@@ -264,12 +334,14 @@ async function mustGetAccount(client: HorizonJsonClient, id: string): Promise<Ho
   return account;
 }
 
-async function friendbot(url: string, publicKey: string): Promise<void> {
+async function friendbot(url: string, publicKey: string, doFetch: FetchLike): Promise<void> {
   let problem = "";
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await sleep(2000 * attempt);
     try {
-      const response = await fetch(`${url}/?addr=${encodeURIComponent(publicKey)}`);
+      const response = await doFetch(`${url}/?addr=${encodeURIComponent(publicKey)}`, {
+        signal: AbortSignal.timeout(30_000),
+      });
       if (response.ok) return;
       problem = `HTTP ${response.status}`;
     } catch {
@@ -282,68 +354,6 @@ async function friendbot(url: string, publicKey: string): Promise<void> {
     verdict: "retry-same",
     remedy: "Friendbot is rate limited; wait a minute and run the command again.",
   });
-}
-
-interface ResultCodes {
-  transaction?: string;
-  inner_transaction?: string;
-  operations?: string[];
-}
-
-function resultCodesOf(error: unknown): { status?: number; codes?: ResultCodes } {
-  const response = (
-    error as { response?: { status?: number; data?: { extras?: { result_codes?: ResultCodes } } } }
-  ).response;
-  return { status: response?.status, codes: response?.data?.extras?.result_codes };
-}
-
-/** Submits one envelope. A 504 is not a failure: the transaction may still land, so poll its hash. */
-async function submit(
-  server: Horizon.Server,
-  client: HorizonJsonClient,
-  envelope: Transaction | FeeBumpTransaction,
-  step: string,
-): Promise<number> {
-  try {
-    const response = await server.submitTransaction(envelope, { skipMemoRequiredCheck: true });
-    return response.ledger;
-  } catch (error) {
-    const { status, codes } = resultCodesOf(error);
-    if (codes) {
-      const ops = codes.operations?.length ? ` [${codes.operations.join(", ")}]` : "";
-      throw new DustinError(
-        "FIXTURE_STEP_FAILED",
-        `Fixture step "${step}" failed: ${codes.transaction ?? "?"}${codes.inner_transaction ? ` / ${codes.inner_transaction}` : ""}${ops}.`,
-        {
-          stage: "submit",
-          horizon: {
-            ...(status !== undefined ? { status } : {}),
-            ...(codes.transaction ? { transaction: codes.transaction } : {}),
-            ...(codes.inner_transaction ? { innerTransaction: codes.inner_transaction } : {}),
-            ...(codes.operations ? { operations: codes.operations } : {}),
-            hash: hashHex(envelope),
-          },
-        },
-      );
-    }
-    if (status === 504) {
-      const hash = hashHex(envelope);
-      for (let i = 0; i < 30; i++) {
-        await sleep(2000);
-        const tx = await client.get<{ successful: boolean; ledger: number }>(
-          `/transactions/${hash}`,
-        );
-        if (tx?.successful) return tx.ledger;
-        if (tx && !tx.successful) break;
-      }
-    }
-    throw new DustinError("HORIZON_UNAVAILABLE", `Submitting fixture step "${step}" failed.`, {
-      stage: "submit",
-      retryable: true,
-      verdict: "retry-same",
-      cause: error,
-    });
-  }
 }
 
 /**
@@ -394,6 +404,7 @@ async function waitForLiquidPath(
  */
 async function proveZeroSpendable(
   server: Horizon.Server,
+  submitter: Submitter,
   fixture: Keypair,
   baseFee: number,
   config: ResolvedConfig,
@@ -410,19 +421,20 @@ async function proveZeroSpendable(
     .setTimeout(60)
     .build();
   probe.sign(fixture);
-  try {
-    await server.submitTransaction(probe, { skipMemoRequiredCheck: true });
-  } catch (error) {
-    const { codes } = resultCodesOf(error);
-    if (codes?.transaction !== "tx_insufficient_balance") {
-      throw invalid(
-        `the unbumped probe was rejected with ${codes?.transaction ?? "an unexpected error"}`,
-      );
-    }
-    const after = await server.loadAccount(fixture.publicKey());
-    return { resultCode: codes.transaction, sequenceUnchanged: after.sequence === sequenceBefore };
+  const outcome = await submitAndConfirm(submitter, {
+    xdr: probe.toXDR(),
+    hash: hashHex(probe),
+    maxTime: Number(probe.timeBounds?.maxTime ?? 0),
+  });
+  if (outcome.kind === "applied") {
+    throw invalid("an unbumped transaction from the fixture succeeded, so it holds spendable XLM");
   }
-  throw invalid("an unbumped transaction from the fixture succeeded, so it holds spendable XLM");
+  const code = outcome.kind === "unknown" ? undefined : outcome.codes.transaction;
+  if (outcome.kind !== "rejected" || code !== "tx_insufficient_balance") {
+    throw invalid(`the unbumped probe ended ${outcome.kind} with ${code ?? "no result code"}`);
+  }
+  const after = await server.loadAccount(fixture.publicKey());
+  return { resultCode: code, sequenceUnchanged: after.sequence === sequenceBefore };
 }
 
 async function recordHorizon(

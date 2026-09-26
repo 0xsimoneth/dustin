@@ -179,11 +179,21 @@ export function verifyFixture(input: VerifyInput): VerifyResult {
 }
 
 export function renderVerify(result: VerifyResult): string {
-  const width = Math.max(...result.checks.map((c) => c.label.length));
-  const lines = result.checks.map(
-    (c) =>
-      `${c.pass ? "PASS" : "FAIL"}  ${c.appendixB ? "[Appendix B] " : "             "}${c.label.padEnd(width)}  ${c.observed}`,
-  );
+  // Each check on its own line, the Horizon evidence wrapped below it (at most 120 columns).
+  const lines: string[] = [];
+  for (const c of result.checks) {
+    lines.push(`${c.pass ? "PASS" : "FAIL"}  ${c.appendixB ? "[Appendix B] " : ""}${c.label}`);
+    let line = "";
+    for (const word of `observed: ${c.observed}`.split(" ")) {
+      if (line && 6 + line.length + 1 + word.length > 120) {
+        lines.push(`      ${line}`);
+        line = word;
+      } else {
+        line = line ? `${line} ${word}` : word;
+      }
+    }
+    if (line) lines.push(`      ${line}`);
+  }
   lines.push("", result.pass ? "Fixture verified: every check passed." : "Fixture NOT verified.");
   return `${lines.join("\n")}\n`;
 }

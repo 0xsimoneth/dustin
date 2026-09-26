@@ -109,12 +109,32 @@ describe("dustin plan", () => {
     expect(r.err).toContain("HORIZON_UNAVAILABLE");
   });
 
-  it("never reads a secret from the environment", async () => {
+  it("never reads a secret from the environment and only sends GET requests", async () => {
     const seed = "S" + "A".repeat(55);
+    const read: string[] = [];
+    const env = new Proxy<Record<string, string>>(
+      { DUSTIN_ACCOUNT_SECRET: seed, DUSTIN_SPONSOR_SECRET: seed },
+      {
+        get(target, name, receiver) {
+          if (typeof name === "string") read.push(name);
+          return Reflect.get(target, name, receiver) as unknown;
+        },
+      },
+    );
+    const methods: string[] = [];
+    const { fetch } = recordedFetch(recorded);
     const r = await cli(["plan", messy.fixture, "--to", messy.destination], {
-      env: { DUSTIN_ACCOUNT_SECRET: seed, DUSTIN_SPONSOR_SECRET: seed },
+      env,
+      fetch: (url, init) => {
+        methods.push(init?.method ?? "GET");
+        return fetch(url, init);
+      },
     });
     expect(r.code).toBe(0);
+    // The proxy is consulted (the network settings are read), but never for a secret.
+    expect(read.some((name) => name.startsWith("DUSTIN_"))).toBe(true);
+    expect(read.filter((name) => /SECRET/i.test(name))).toEqual([]);
+    expect(new Set(methods)).toEqual(new Set(["GET"]));
     expect(r.out + r.err).not.toContain(seed);
   });
 });
@@ -124,7 +144,8 @@ describe("dustin close without --execute", () => {
     const plan = await cli(["plan", messy.fixture, "--to", messy.destination]);
     const close = await cli(["close", messy.fixture, "--to", messy.destination]);
     expect(close.code).toBe(0);
-    expect(close.out).toContain(plan.out.split("Next:")[0]!.trim().split("\n")[0]!);
+    // The whole plan is identical; only the closing "Next:" hint differs.
+    expect(close.out.split("Next:")[0]).toBe(plan.out.split("Next:")[0]);
     expect(close.out).toContain("Next: add --execute to run this plan");
   });
 });
