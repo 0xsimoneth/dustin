@@ -1,0 +1,9 @@
+{
+  "path": "/paths/strict-send?source_asset_type=credit_alphanum12&source_asset_code=DUSTC&source_asset_issuer=GDC7DOSJT6AIQ74S3T4XQ3YKGDSTNOEXUDJPC36ZMYFBYXD2CG5YLQEB&source_amount=0.0000005&destination_assets=native",
+  "status": 200,
+  "body": {
+    "_embedded": {
+      "records": []
+    }
+  }
+}

@@ -2,7 +2,7 @@ import { CommanderError } from "commander";
 import { DustinError } from "../errors/dustin-error.js";
 import { containsSecretSeed, redact } from "../errors/redact.js";
 import { ExitCode, exitCodeFor } from "./exit-codes.js";
-import { buildProgram, type CliIo } from "./program.js";
+import { buildProgram, type CliDeps, type CliIo, type CliState } from "./program.js";
 
 export type { CliIo } from "./program.js";
 
@@ -10,7 +10,12 @@ export type { CliIo } from "./program.js";
  * Runs the CLI and returns the exit code. Secrets are refused on argv before anything is parsed
  * (docs/README.md canonical decision 4): argv is visible in process listings and shell history.
  */
-export async function run(argv: string[], io: CliIo, version: string): Promise<number> {
+export async function run(
+  argv: string[],
+  io: CliIo,
+  version: string,
+  deps: CliDeps = { env: {} },
+): Promise<number> {
   const position = argv.slice(2).findIndex((arg) => containsSecretSeed(arg));
   if (position >= 0) {
     io.stderr(
@@ -20,9 +25,10 @@ export async function run(argv: string[], io: CliIo, version: string): Promise<n
     return ExitCode.USAGE;
   }
 
+  const state: CliState = { exitCode: ExitCode.OK };
   try {
-    await buildProgram(version, io).parseAsync(argv);
-    return ExitCode.OK;
+    await buildProgram(version, io, deps, state).parseAsync(argv);
+    return state.exitCode;
   } catch (error) {
     if (error instanceof CommanderError) {
       // Commander has already printed help, the version or the usage error.

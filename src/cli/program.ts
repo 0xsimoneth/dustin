@@ -1,9 +1,23 @@
 import { Command, Option } from "commander";
+import { configFromEnv, resolveConfig } from "../config/network.js";
 import { DustinError, notImplemented } from "../errors/dustin-error.js";
+import type { FetchLike } from "../reader/horizon-json.js";
+import { fixtureCreate, fixtureVerify, type CommandContext } from "./commands/fixture.js";
+import type { ExitCode } from "./exit-codes.js";
 
 export interface CliIo {
   stdout: (text: string) => void;
   stderr: (text: string) => void;
+}
+
+export interface CliDeps {
+  env: Record<string, string | undefined>;
+  fetch?: FetchLike;
+}
+
+/** Commands report their exit code here; `run()` returns it. */
+export interface CliState {
+  exitCode: ExitCode;
 }
 
 /**
@@ -11,7 +25,17 @@ export interface CliIo {
  * `--to` is canonical and `--destination` is an alias; `close` without `--execute` is a dry run.
  * Settings are applied before the subcommands are added so that they inherit them.
  */
-export function buildProgram(version: string, io: CliIo): Command {
+export function buildProgram(
+  version: string,
+  io: CliIo,
+  deps: CliDeps = { env: {} },
+  state: CliState = { exitCode: 0 },
+): Command {
+  const ctx: CommandContext = {
+    io,
+    config: () => resolveConfig(configFromEnv(deps.env)),
+    ...(deps.fetch ? { fetch: deps.fetch } : {}),
+  };
   const program = new Command("dustin")
     .description(
       "Plan and close messy Stellar testnet accounts with fee-bumped, sponsor-paid transactions.",
@@ -64,6 +88,35 @@ export function buildProgram(version: string, io: CliIo): Command {
     .option("--json", "print the report as one JSON document")
     .action(() => {
       throw notImplemented("dustin close", "plan");
+    });
+
+  const fixture = program
+    .command("fixture")
+    .description("Build and verify testnet fixture accounts (testnet only).");
+
+  fixture
+    .command("create")
+    .description("Build a fresh fixture account on testnet from Friendbot funding.")
+    .option("--profile <name>", "fixture profile", "messy")
+    .option(
+      "--dir <path>",
+      "directory for the manifest, keys and recorded Horizon JSON",
+      ".fixture",
+    )
+    .option("--out <file>", "also write the public manifest to this file")
+    .option("--json", "print the manifest as JSON")
+    .action(async (options: { profile: string; dir: string; out?: string; json?: boolean }) => {
+      state.exitCode = await fixtureCreate(options, ctx);
+    });
+
+  fixture
+    .command("verify")
+    .description("Check a fixture against SOW Appendix B. Read-only.")
+    .argument("<manifest>", "manifest.json written by `dustin fixture create`")
+    .option("--snapshot <file>", "write the Horizon evidence as JSON")
+    .option("--json", "print the result as JSON")
+    .action(async (manifest: string, options: { snapshot?: string; json?: boolean }) => {
+      state.exitCode = await fixtureVerify(manifest, options, ctx);
     });
 
   return program;

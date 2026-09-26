@@ -1,0 +1,61 @@
+{
+  "path": "/ledgers?order=desc&limit=1",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/ledgers?cursor=&limit=1&order=desc"
+      },
+      "next": {
+        "href": "https://horizon-testnet.stellar.org/ledgers?cursor=20935075055009792&limit=1&order=desc"
+      },
+      "prev": {
+        "href": "https://horizon-testnet.stellar.org/ledgers?cursor=20935075055009792&limit=1&order=asc"
+      }
+    },
+    "_embedded": {
+      "records": [
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/ledgers/4874327"
+            },
+            "transactions": {
+              "href": "https://horizon-testnet.stellar.org/ledgers/4874327/transactions{?cursor,limit,order}",
+              "templated": true
+            },
+            "operations": {
+              "href": "https://horizon-testnet.stellar.org/ledgers/4874327/operations{?cursor,limit,order}",
+              "templated": true
+            },
+            "payments": {
+              "href": "https://horizon-testnet.stellar.org/ledgers/4874327/payments{?cursor,limit,order}",
+              "templated": true
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/ledgers/4874327/effects{?cursor,limit,order}",
+              "templated": true
+            }
+          },
+          "id": "fcd8dbeeb4dcec1ac7dc61e63a53811fc22f949e648a5e798d0fe75413081da2",
+          "paging_token": "20935075055009792",
+          "hash": "fcd8dbeeb4dcec1ac7dc61e63a53811fc22f949e648a5e798d0fe75413081da2",
+          "prev_hash": "ef9d1dfa1ee81edf6cedf7aca55f729561c1671bd6ba4c146a7ad7cedd85028a",
+          "sequence": 4874327,
+          "successful_transaction_count": 22,
+          "failed_transaction_count": 2,
+          "operation_count": 22,
+          "tx_set_operation_count": 24,
+          "closed_at": "2026-09-26T04:00:22Z",
+          "total_coins": "100000000000.0000000",
+          "fee_pool": "648397.5499994",
+          "base_fee_in_stroops": 100,
+          "base_reserve_in_stroops": 5000000,
+          "max_tx_set_size": 200,
+          "protocol_version": 28,
+          "header_xdr": "AAAAHO+dHfoe6B7fbO33rKVfcpVhwWcb1rpMFGp6187dhQKK38e1iEqYOY7n3pr5QeoAlmqKx4XfnfYUfX7XzT7+HbAAAAAAardDVgAAAAAAAAABAAAAALVdELK7fShO1cA6R6XhtZDJD1eDVUccxFB7voIE0jyLAAAAQEA08CjBmA4+d0AJJvRZYMIWpwB1sTfFoW23Rza2GzGzdWHMeNdeDtaO7Oc6qs9e686IAcF8OAvNAaAjSCGKNAWSbkZIBp5zjOltzS2D1jTEECk5swEoS+cYKbyLPHVJ3a+lFteZB5c+HatEaBp5Kblec6wfIVunUY/jjHTy8CofAEpgVw3gtrOnZAAAAAAF5asOcNoAAAAAAAAAAAAMnTkAAABkAExLQAAAAMiuvNU/DF0vZfKK7aSmPJGS5qROVRCuijjdj6NtUoPRdkHOntbfJCkRGGLdsdcvRsLo+0492XKquR9pv9O4CYuCtRat3cS1yF5r6FWZkvgSMpIKbC1WA8Iw4rwa+UDCQH8AfbRzTOUFrgCd0a1NWFFVuKGt8FhQJ3iV3juXCzeRGwAAAAA="
+        }
+      ]
+    }
+  }
+}

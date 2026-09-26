@@ -29,8 +29,8 @@ development_status:
   0-3-continuous-integration: review
   0-4-env-testnet-guard-license: review
   epic-0-retrospective: optional
-  epic-1: backlog
-  1-1-messy-fixture-builder: backlog
+  epic-1: in-progress
+  1-1-messy-fixture-builder: review
   1-2-baseline-recording: backlog
   1-3-account-inspector: backlog
   1-4-plan-model-ordering-engine: backlog
@@ -130,7 +130,7 @@ stories:
     title: Build the messy fixture account on testnet
     epic: E1
     week: 1
-    status: backlog
+    status: review
     estimate_hours: 8
     deliverable: D3
   - key: 1-2-baseline-recording

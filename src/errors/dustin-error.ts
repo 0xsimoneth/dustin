@@ -9,7 +9,11 @@ export type DustinErrorCode =
   | "CONFIG_INVALID"
   | "MAINNET_REFUSED"
   | "SECRET_IN_ARGV"
-  | "HORIZON_UNAVAILABLE";
+  | "HORIZON_UNAVAILABLE"
+  | "FRIENDBOT_FAILED"
+  | "FIXTURE_STEP_FAILED"
+  | "FIXTURE_INVALID"
+  | "MANIFEST_INVALID";
 
 export type ErrorStage =
   "config" | "inspect" | "plan" | "build" | "sponsor" | "submit" | "confirm" | "merge";

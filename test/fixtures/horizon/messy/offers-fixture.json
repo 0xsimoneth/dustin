@@ -1,0 +1,81 @@
+{
+  "path": "/accounts/GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK/offers?limit=200&order=asc",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK/offers?cursor=&limit=200&order=asc"
+      },
+      "next": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK/offers?cursor=826681&limit=200&order=asc"
+      },
+      "prev": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK/offers?cursor=826680&limit=200&order=desc"
+      }
+    },
+    "_embedded": {
+      "records": [
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/offers/826680"
+            },
+            "offer_maker": {
+              "href": "https://horizon-testnet.stellar.org/accounts/GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK"
+            }
+          },
+          "id": "826680",
+          "paging_token": "826680",
+          "seller": "GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK",
+          "selling": {
+            "asset_type": "credit_alphanum12",
+            "asset_code": "DUSTA",
+            "asset_issuer": "GDC7DOSJT6AIQ74S3T4XQ3YKGDSTNOEXUDJPC36ZMYFBYXD2CG5YLQEB"
+          },
+          "buying": {
+            "asset_type": "native"
+          },
+          "amount": "0.0000002",
+          "price_r": {
+            "n": 100,
+            "d": 1
+          },
+          "price": "100.0000000",
+          "last_modified_ledger": 4874326,
+          "last_modified_time": "2026-09-26T04:00:17Z"
+        },
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/offers/826681"
+            },
+            "offer_maker": {
+              "href": "https://horizon-testnet.stellar.org/accounts/GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK"
+            }
+          },
+          "id": "826681",
+          "paging_token": "826681",
+          "seller": "GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK",
+          "selling": {
+            "asset_type": "credit_alphanum12",
+            "asset_code": "DUSTC",
+            "asset_issuer": "GDC7DOSJT6AIQ74S3T4XQ3YKGDSTNOEXUDJPC36ZMYFBYXD2CG5YLQEB"
+          },
+          "buying": {
+            "asset_type": "credit_alphanum12",
+            "asset_code": "DUSTB",
+            "asset_issuer": "GDC7DOSJT6AIQ74S3T4XQ3YKGDSTNOEXUDJPC36ZMYFBYXD2CG5YLQEB"
+          },
+          "amount": "0.0000002",
+          "price_r": {
+            "n": 1,
+            "d": 1
+          },
+          "price": "1.0000000",
+          "last_modified_ledger": 4874326,
+          "last_modified_time": "2026-09-26T04:00:17Z"
+        }
+      ]
+    }
+  }
+}

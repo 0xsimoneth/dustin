@@ -5,6 +5,7 @@ import { DustinError } from "../errors/dustin-error.js";
 export const TESTNET_PASSPHRASE: string = Networks.TESTNET;
 export const DEFAULT_HORIZON_URL = "https://horizon-testnet.stellar.org";
 export const DEFAULT_EXPLORER_BASE = "https://stellar.expert/explorer/testnet";
+export const FRIENDBOT_URL = "https://friendbot.stellar.org";
 
 export interface DustinConfig {
   /** Horizon base URL; it must serve the testnet (checked with `verifyHorizonIsTestnet`). */
