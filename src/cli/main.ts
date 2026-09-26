@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
+import { terminalPrompt } from "./prompt.js";
 import { run } from "./run.js";
 
 const require = createRequire(import.meta.url);
@@ -11,5 +12,9 @@ process.exitCode = await run(
   process.argv,
   { stdout: (text) => process.stdout.write(text), stderr: (text) => process.stderr.write(text) },
   version,
-  { env: process.env, cwd: process.cwd() },
+  {
+    env: process.env,
+    cwd: process.cwd(),
+    prompt: terminalPrompt({ input: process.stdin, output: process.stderr }),
+  },
 );
