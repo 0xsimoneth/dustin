@@ -29,6 +29,8 @@ export class FeeSponsor {
   private readonly networkPassphrase: string;
   private readonly maxBaseFeeStroops: number;
   private readonly budgetStroops: number;
+  /** The largest total bid signed for each inner source and sequence number. */
+  private readonly largestBid = new Map<string, number>();
   private spent = 0;
 
   constructor(signer: Signer, options: FeeSponsorOptions) {
@@ -48,9 +50,20 @@ export class FeeSponsor {
     this.budgetStroops = options.budgetStroops ?? DEFAULT_BUDGET_STROOPS;
   }
 
-  /** The sum of the fee-bump bids signed so far in this close. */
+  /**
+   * The most this close can cost the sponsor so far: for every sequence number, the largest bid
+   * signed for it. An inner sequence number is consumed once, at apply time, whatever envelope
+   * carries it (https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions#application),
+   * so of all the envelopes signed for one sequence number at most one is ever charged; a rebuild
+   * for the same sequence number with a higher bid (E2-S3) needs only the difference.
+   */
   get spentBidStroops(): number {
     return this.spent;
+  }
+
+  /** The largest total bid (base fee x (operations + 1)) the budget still allows for a sequence number. */
+  headroomStroops(source: string, sequence: string): number {
+    return this.budgetStroops - this.spent + (this.largestBid.get(`${source}:${sequence}`) ?? 0);
   }
 
   async wrap(inner: Transaction, baseFeeStroops: number): Promise<FeeBumpTransaction> {
@@ -67,7 +80,10 @@ export class FeeSponsor {
       this.maxBaseFeeStroops,
     );
     const total = bid * (inner.operations.length + 1);
-    if (this.spent + total > this.budgetStroops) {
+    const key = `${inner.source}:${inner.sequence}`;
+    const previous = this.largestBid.get(key) ?? 0;
+    const spentAfter = this.spent - previous + Math.max(previous, total);
+    if (spentAfter > this.budgetStroops) {
       throw new DustinError(
         "SPONSOR_BUDGET_EXCEEDED",
         `Signing this fee bump (bid ${total} stroops) would exceed the close budget of ${this.budgetStroops} stroops.`,
@@ -84,7 +100,8 @@ export class FeeSponsor {
       this.networkPassphrase,
     );
     await this.signer.sign(feeBump);
-    this.spent += total;
+    this.largestBid.set(key, Math.max(previous, total));
+    this.spent = spentAfter;
     return feeBump;
   }
 }
