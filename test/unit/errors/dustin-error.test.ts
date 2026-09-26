@@ -68,3 +68,40 @@ describe("DustinError causes (review findings)", () => {
     expect((outer.cause as DustinError).code).toBe("HORIZON_UNAVAILABLE");
   });
 });
+
+describe("DustinError with a close report (review finding R1)", () => {
+  const report = (text: string) =>
+    ({ kind: "dustin-close-report", status: "failed", message: text }) as never;
+
+  it("carries the report, redacted, and serialises it", () => {
+    const seed = Keypair.random().secret();
+    const e = new DustinError("EXECUTION_INTERRUPTED", "stopped", {
+      stage: "submit",
+      report: report(`leaked ${seed}`),
+    });
+    expect(e.report).toMatchObject({ status: "failed", message: `leaked ${REDACTED_SEED}` });
+    expect(JSON.stringify(e)).toContain('"report"');
+    expect(JSON.stringify(e)).not.toContain(seed);
+  });
+
+  it("withReport keeps the code, stage and verdict and chains the original as the cause", () => {
+    const original = new DustinError("HORIZON_UNAVAILABLE", "down", {
+      stage: "submit",
+      retryable: true,
+      verdict: "retry-same",
+      remedy: "try again",
+    });
+    const attached = original.withReport(report("partial"));
+    expect(attached).toMatchObject({
+      code: "HORIZON_UNAVAILABLE",
+      stage: "submit",
+      retryable: true,
+      verdict: "retry-same",
+      remedy: "try again",
+      message: "down",
+    });
+    expect(attached.cause).toBe(original);
+    expect(attached.report).toMatchObject({ message: "partial" });
+    expect(original.report).toBeUndefined();
+  });
+});

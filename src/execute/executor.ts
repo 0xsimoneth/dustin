@@ -49,6 +49,11 @@ export interface ExecuteOptions {
   /** When the account changed since the plan: stop (default) or continue with the fresh plan. */
   onDrift?: "abort" | "replan";
   onEvent?: (event: CloseEvent) => void;
+  /**
+   * Called with a copy of the report whenever it changes (created, each submission, each outcome,
+   * finished), so a caller can persist it while the run progresses (PRD FR-17, AC-E2-S3-6).
+   */
+  onReport?: (report: CloseReport) => void;
   config?: DustinConfig;
   reader?: LedgerReader;
   submitter?: Submitter;
@@ -163,10 +168,13 @@ export async function executeClose(
     },
     verification: null,
   };
+  const publish = () => options.onReport?.(structuredClone(report));
+  publish();
   const finish = (status: CloseStatus, message: string | null) => {
     report.status = status;
     report.message = message;
     report.finishedAt = new Date().toISOString();
+    publish();
     emit({ type: "done", status });
     return report;
   };
@@ -298,6 +306,7 @@ export async function executeClose(
       explorerUrl: `${config.explorerBaseUrl}/tx/${hash}`,
     };
     report.transactions.push(entry);
+    publish();
     emit({ type: "tx:submitted", index: tx.index, hash, explorerUrl: entry.explorerUrl });
     const outcome = await submitAndConfirm(
       submitter,
@@ -334,6 +343,7 @@ export async function executeClose(
         detail: JSON.stringify(entry.resultCodes ?? {}),
       });
     }
+    publish();
     return entry;
   }
 

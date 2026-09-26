@@ -33,6 +33,26 @@ function setup() {
 }
 
 describe("executeClose on the fake ledger", () => {
+  it("publishes a copy of the report after every change, ending with the final status", async () => {
+    const { deps, plan } = setup();
+    const copies: Array<{ status: string; transactions: number; finished: boolean }> = [];
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onReport: (r) =>
+        copies.push({
+          status: r.status,
+          transactions: r.transactions.length,
+          finished: r.finishedAt !== null,
+        }),
+    });
+    expect(copies[0]).toEqual({ status: "aborted", transactions: 0, finished: false });
+    expect(copies.at(-1)).toEqual({ status: "closed", transactions: 3, finished: true });
+    // Each submission is published before its outcome is known.
+    expect(copies.some((c) => c.transactions === 1 && !c.finished)).toBe(true);
+    expect(report.transactions).toHaveLength(3);
+  });
+
   it("closes the messy fixture in the planned fee-bumped transactions and verifies it is gone", async () => {
     const { ledger, deps, plan } = setup();
     const destinationBefore = ledger.native(messy.destination);

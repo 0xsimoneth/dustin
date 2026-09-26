@@ -1,3 +1,4 @@
+import type { CloseReport } from "../execute/report.js";
 import { redact, redactValue } from "./redact.js";
 
 /**
@@ -5,6 +6,10 @@ import { redact, redactValue } from "./redact.js";
  * (docs/adr/ADR-0006-error-taxonomy.md). Codes are added as the stories that raise them land.
  */
 export type DustinErrorCode =
+  | "MISSING_ACCOUNT_SECRET"
+  | "MISSING_SPONSOR_SECRET"
+  | "CONFIRMATION_DECLINED"
+  | "EXECUTION_INTERRUPTED"
   | "NOT_IMPLEMENTED"
   | "CONFIG_INVALID"
   | "MAINNET_REFUSED"
@@ -48,6 +53,11 @@ export interface DustinErrorOptions {
   details?: Record<string, JsonScalar>;
   horizon?: HorizonFailure;
   cause?: unknown;
+  /**
+   * The close report as it stood when an execution stopped on this error, so no hash of an
+   * already submitted transaction is lost (PRD NFR-03, review finding R1).
+   */
+  report?: CloseReport;
 }
 
 /** The single error type of the SDK and CLI. Every text field is redacted on construction. */
@@ -60,6 +70,7 @@ export class DustinError extends Error {
   readonly remedy?: string;
   readonly details?: Record<string, JsonScalar>;
   readonly horizon?: HorizonFailure;
+  readonly report?: CloseReport;
 
   constructor(code: DustinErrorCode, message: string, options: DustinErrorOptions) {
     super(
@@ -73,6 +84,21 @@ export class DustinError extends Error {
     if (options.remedy !== undefined) this.remedy = redact(options.remedy);
     if (options.details !== undefined) this.details = redactValue(options.details);
     if (options.horizon !== undefined) this.horizon = redactValue(options.horizon);
+    if (options.report !== undefined) this.report = redactValue(options.report);
+  }
+
+  /** The same error with the close report attached; the original becomes the cause. */
+  withReport(report: CloseReport): DustinError {
+    return new DustinError(this.code, this.message, {
+      stage: this.stage,
+      retryable: this.retryable,
+      verdict: this.verdict,
+      ...(this.remedy !== undefined ? { remedy: this.remedy } : {}),
+      ...(this.details !== undefined ? { details: this.details } : {}),
+      ...(this.horizon !== undefined ? { horizon: this.horizon } : {}),
+      cause: this,
+      report,
+    });
   }
 
   toJSON(): Record<string, unknown> {
@@ -86,6 +112,7 @@ export class DustinError extends Error {
       remedy: this.remedy,
       details: this.details,
       horizon: this.horizon,
+      report: this.report,
     };
   }
 }
