@@ -1,6 +1,7 @@
 # Stellar Instawards — Statement of Work (Accepted)
 
 > Status: **Accepted**. Awarded budget: **$5,000**.
+> Personal names and contact details are omitted from this public copy in line with the repository rules; the signed SOW held by the ambassador chapter is authoritative.
 > Actual sprint window: funds received **2026-09-22**, final delivery deadline **2026-10-22** (the suggested start date in section 1 was superseded).
 > Program: Stellar Instawards, via the Stellar Türkiye ambassador chapter.
 

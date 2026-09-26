@@ -4,11 +4,11 @@ Paste everything below this line into a fresh Claude Code session opened in the 
 
 ---
 
-You are taking over Dustin, a Stellar Instaward project ($5,000, 30 days) that closes messy Stellar classic accounts with fee-bumped sponsored transactions. Planning is complete; your job is to build it. Nothing has been coded yet.
+You are taking over Dustin, a Stellar Instaward project ($5,000, 30 days) that closes messy Stellar classic accounts with fee-bumped sponsored transactions. Planning is complete; your job is to build it. Implementation started on 2026-09-26: read `docs/progress-log.md` and `docs/stories/sprint-status.yaml` first to see what is done, in review, or blocked, and continue from the "Next" line of the latest session summary.
 
 ## Hard rules
 
-1. Read `CLAUDE.md` in the repository root and follow it: commits authored only as `0xsimoneth` (verify `git config user.name` and `git config user.email` before the first commit and stop if they differ), remote must stay `git@github-work:0xsimoneth/dustin.git`, run `gh auth switch --user 0xsimoneth` before any `gh` command, no "Co-Authored-By" or "Generated with" lines, no personal names, emails, usernames or local absolute paths anywhere in code, docs, commits or PRs, everything in English.
+1. Read `CLAUDE.md` in the repository root and follow it: commits authored only as `0xsimoneth` (verify `git config user.name` and `git config user.email` before the first commit and stop if they differ), the `origin` remote must stay exactly as `CLAUDE.md` specifies, run `gh auth switch --user 0xsimoneth` before any `gh` command, no "Co-Authored-By" or "Generated with" lines, no personal names, emails, usernames or local absolute paths anywhere in code, docs, commits or PRs, everything in English.
 2. Do not touch `stellar-build/`, `.stellar-build/`, `CLAUDE.md` or `.git/info/exclude`.
 3. Testnet only. Never configure, sign for or submit to mainnet. Never print, log or commit a secret; secrets come from `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` (a `.env.example` documents them, `.env` is gitignored).
 4. Do not publish to npm, create GitHub releases or record videos yourself; prepare them and hand the action to the builder.
@@ -40,6 +40,10 @@ Funds received 2026-09-22, final deadline 2026-10-22. Week 1 ends 2026-09-28 (fi
 - Test first (red, green, refactor). Offline unit tests with recorded Horizon fixtures run on every commit; testnet integration tests run behind an explicit flag and build a fresh fixture per run.
 - One commit per story or smaller, English messages, story ID in the message. Update `docs/stories/sprint-status.yaml` when a story changes state and append a dated entry to `docs/progress-log.md` (create it) at the end of every session: what was done, what is blocked, next step.
 - Non-negotiable technical decisions (from `docs/README.md`): package `stellar-dustin` with bin `dustin`; TypeScript 5.9, tsup (ESM and CJS), vitest, commander, Node 22.12 or newer, `@stellar/stellar-sdk` 17.1.0 pinned; Horizon only; every transaction fee-bumped with the sponsor signing only the outer envelope and the inner fee set to 0; base fee from `fee_stats` p80 with a per-operation cap and a per-close budget of 5 XLM; all amounts as BigInt stroops; `changeTrust` limit as the string `"0"`; `close` without `--execute` is a dry run; typed confirmation is the last four characters of the destination; `--yes` only with `--execute`; `--partial` to proceed with unclosable items; exit codes 0 to 6 as in `docs/README.md` decision 5; two fixtures, `messy` for the metric and `edge` for the unclosable case; ladder in SOW order by default with `--prefer-destination` as an option (decision 8, approved); planner is pure and type-level unable to sign; sequence guard reported as `unblocksAtLedger`.
+
+## Review findings to close first
+
+An independent review of Epics 0 to 2 is in `docs/reviews/2026-09-26-e0-e2-review.md`. Before starting E2-S3 proper, close R1 (report survives thrown errors), R2 (refuse over-budget plans before signing) and R6 (testnet Horizon check on every entry point); fold R7, R9 to R12, R17 and R18 into E2-S3/E2-S4; R13 and R14 belong to E3-S5; R15 is a tracker fix; R16 defines what E2-S6 must commit under `evidence/runs/`. Do not run a live evidence close until R1 to R3 are closed.
 
 ## Start here (day 1)
 
