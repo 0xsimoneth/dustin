@@ -36,7 +36,7 @@ development_status:
   1-4-plan-model-ordering-engine: review
   1-5-grouping-fee-estimation: review
   1-6-dry-run-guarantee-tests: review
-  1-7-cli-plan-command: in-progress
+  1-7-cli-plan-command: review
   epic-1-retrospective: optional
   epic-2: backlog
   2-1-fee-bump-submission-engine: backlog
@@ -178,7 +178,7 @@ stories:
     title: CLI dustin plan and committed fixture plan output
     epic: E1
     week: 1
-    status: in-progress
+    status: review
     estimate_hours: 6
     deliverable: D1
   - key: 2-1-fee-bump-submission-engine

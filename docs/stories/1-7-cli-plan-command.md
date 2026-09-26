@@ -1,6 +1,6 @@
 # Story 1.7: CLI `dustin plan` and committed fixture plan output
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -19,10 +19,10 @@ so that I can verify Deliverable 1 without writing code.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `renderPlan()` (`src/render/plan-text.ts`) (AC: 1, 6)
-- [ ] Task 2: `plan` and dry-run `close` commands (AC: 1-4)
-- [ ] Task 3: `scripts/evidence-plan.mjs` and the committed output (AC: 5)
-- [ ] Task 4: CLI tests on recorded Horizon (AC: 1-4)
+- [x] Task 1: `renderPlan()` (`src/render/plan-text.ts`) (AC: 1, 6)
+- [x] Task 2: `plan` and dry-run `close` commands (AC: 1-4)
+- [x] Task 3: `scripts/evidence-plan.mjs` and the committed output (AC: 5)
+- [x] Task 4: CLI tests on recorded Horizon (AC: 1-4)
 
 ## Dev Notes
 
@@ -43,10 +43,33 @@ dev-story workflow (AI developer agent)
 
 ### Implementation Plan
 
+- `renderPlan()` (`src/render/plan-text.ts`): header with full addresses and the reserve position, steps with a short action and the wrapped reason, transactions with bids, unclosable items and blockers with remedies, warnings, accounting (shortened addresses), the sequence guard, the plan hash and the next command. Lines stay within 120 columns; the next command uses a shell line continuation so the full addresses remain copyable.
+- `dustin plan` and the dry-run `dustin close` share `buildPlan()`; neither reads a secret. The plan now carries `reserve` (balance, minimum, spendable, base reserve) so "zero spendable XLM" is visible in the D1 evidence; the plan hash does not include it.
+- `scripts/evidence-plan.mjs` writes `evidence/plan/fixture-plan.txt` (command line and capture time at the top) and `fixture-plan.json` (a wrapper with the command, the capture time, the code commit and the plan).
+
 ### Debug Log References
+
+- Red: eight CLI tests failed before the commands existed.
+- The 120-column check caught the fee line (123), the accounting lines and the next command (147); fixed by shorter wording, shortened addresses in the accounting and a line continuation.
 
 ### Completion Notes List
 
+- AC1: on the live fixture `dustin plan` printed the 12-step plan, `CLOSABLE`, balance 4.0000000 = minimum, spendable 0.0000000, 4.0000007 XLM to the destination and 0.5 XLM to the reserve sponsor; exit 0. A partial plan also exits 0 and shows `TRUSTLINE_NOT_AUTHORIZED` with its remedy.
+- AC2: `--json` output parses as the plan (12 steps).
+- AC3: `dustin close` without `--execute` prints the same plan and "Next: add --execute to run this plan"; a secret-looking environment variable never appears.
+- AC4: missing destination, malformed or contract address and `--network public` exit 2; an unreachable Horizon exits 6.
+- AC5: `evidence/plan/fixture-plan.txt` and `.json` committed for fixture `messy-20260926T035942Z`.
+- AC6: `renderPlan` is exported from the package.
+- 136 unit tests pass; lint, typecheck and the package check pass.
+
 ### File List
 
+- `src/render/plan-text.ts`, `src/cli/commands/plan.ts`, `scripts/evidence-plan.mjs` (new)
+- `src/cli/program.ts`, `src/cli/commands/fixture.ts`, `src/plan/model.ts`, `src/plan/plan.ts`, `src/index.ts`, `package.json` (modified)
+- `test/unit/cli/plan-command.test.ts` (new); `test/unit/cli/run.test.ts`, `test/unit/plan/__snapshots__/dry-run.test.ts.snap` (modified)
+- `evidence/plan/fixture-plan.txt`, `evidence/plan/fixture-plan.json` (new)
+- `docs/stories/1-7-cli-plan-command.md`, `docs/stories/sprint-status.yaml`
+
 ## Change Log
+
+- 2026-09-26: `dustin plan`, dry-run `dustin close`, `renderPlan()` and the committed fixture plan. Status: review.
