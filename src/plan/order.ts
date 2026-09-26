@@ -45,8 +45,9 @@ type Draft = Omit<CloseStep, "id" | "dependsOn"> & { ref: number; deps: number[]
  * The ordering engine (architecture section 5.1; PRD section 8). Pure: it reads only the snapshot.
  * R1 offers first; R2 dispose before removing; R3 sponsored trustlines are removed by the owner
  * like any other; R4 data entries any time before the merge; R5 signers are left to the merge;
- * R6 pool shares are reported, never touched; R7 the merge last; R9 market-dependent steps
- * isolated. Units come out in execution order: cleanup, then conversions, then the merge.
+ * R6 held pool shares are reported, never touched, and an empty pool-share trustline is removed
+ * before its pool's asset trustlines; R7 the merge last; R9 market-dependent steps isolated.
+ * Units come out in execution order: cleanup, then conversions, then the merge.
  */
 export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): OrderResult {
   const ladderOrder: LadderOrder = options.preferDestination ? "prefer-destination" : "sow";
