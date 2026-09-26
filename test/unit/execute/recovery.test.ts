@@ -616,3 +616,60 @@ describe("E2-S3: resuming and progress", () => {
     expect(copies.at(-1)!.status).toBe("closed");
   });
 });
+
+describe("E2-S3: final states that need care", () => {
+  it("does not call a merge that applied a close while Horizon still returns the account", async () => {
+    let stale: unknown = null;
+    const { deps, plan } = setup((l) => async (url, init) => {
+      if (stale && url.endsWith(`/accounts/${messy.fixture}`)) {
+        return new Response(JSON.stringify(stale));
+      }
+      return l.fetch(url, init);
+    });
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      verifyTimeoutMs: 10_000,
+      onEvent: (e) => {
+        // Horizon keeps serving the account as it was before the merge.
+        if (e.type === "tx:building" && e.index === 2) stale = { status: "cached" };
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.stop).toMatchObject({ code: "ACCOUNT_STILL_EXISTS", verdict: "stop" });
+    expect(report.verification).toMatchObject({ accountExists: true });
+  });
+
+  it("stops when a transaction found failed after a 504 has no result codes to classify", async () => {
+    const { ledger, deps, plan } = setup();
+    // The fake ledger's records carry no result XDR, like a Horizon without it.
+    ledger.faults.push("504-applied");
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:building" && e.index === 0) {
+          ledger.offers.set(messy.fixture, []);
+        }
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.transactions[0]).toMatchObject({ result: "failed", resultCodes: {} });
+    expect(report.stop).toMatchObject({ code: "OPERATION_FAILED" });
+    expect(report.message).toMatch(/without an operation result/);
+  });
+
+  it("ends aborted, not failed, when the account vanishes before anything was submitted", async () => {
+    const { ledger, deps, plan } = setup();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "plan") ledger.accounts.delete(messy.fixture);
+      },
+    });
+    expect(report.status).toBe("aborted");
+    expect(report.stop).toMatchObject({ code: "ACCOUNT_MISSING" });
+    expect(ledger.submissions).toHaveLength(0);
+  });
+});
