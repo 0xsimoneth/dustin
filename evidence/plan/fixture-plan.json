@@ -1,7 +1,7 @@
 {
   "command": "dustin plan GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK --to GBQGFM635UIV2BTCTYSMKKJBESY47VXZLCIPGKW3GZJSSY6B45U2DH2C --sponsor GBISNFQ4KAM62Z22MGKULQ7PI6H3RVMMWJZTWU6NP2DAIYAVN7XYQN4K",
-  "capturedAt": "2026-09-26T04:31:29.179Z",
-  "commit": "92760e57f686c343440afb2042032ca384996b97",
+  "capturedAt": "2026-09-26T05:01:01.913Z",
+  "commit": "94759958f0610593185d9b48c36aa0eb9790c403",
   "fixture": "messy-20260926T035942Z",
   "plan": {
     "schemaVersion": 1,
@@ -15,8 +15,8 @@
     "feeSponsor": "GBISNFQ4KAM62Z22MGKULQ7PI6H3RVMMWJZTWU6NP2DAIYAVN7XYQN4K",
     "memo": null,
     "observed": {
-      "ledger": 4874701,
-      "closedAt": "2026-09-26T04:31:32Z"
+      "ledger": 4875055,
+      "closedAt": "2026-09-26T05:01:02Z"
     },
     "reserve": {
       "balance": "4.0000000",
@@ -64,7 +64,7 @@
             "d": 1
           }
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "dependsOn": []
       },
       {
@@ -107,7 +107,7 @@
             "d": 1
           }
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "dependsOn": []
       },
       {
@@ -141,7 +141,7 @@
             }
           ]
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "reason": "Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000003 DUSTB back to its issuer GDC7DOSJT6AIQ74S3T4XQ3YKGDSTNOEXUDJPC36ZMYFBYXD2CG5YLQEB, which burns it.",
         "operation": {
           "type": "payment",
@@ -186,7 +186,7 @@
         "reserveReleasedTo": {
           "to": "account"
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "dependsOn": [
           "S03",
           "S02"
@@ -221,7 +221,7 @@
             }
           ]
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "reason": "Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000005 DUSTC back to its issuer GDC7DOSJT6AIQ74S3T4XQ3YKGDSTNOEXUDJPC36ZMYFBYXD2CG5YLQEB, which burns it.",
         "operation": {
           "type": "payment",
@@ -266,7 +266,7 @@
         "reserveReleasedTo": {
           "to": "account"
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "dependsOn": [
           "S05",
           "S02"
@@ -303,7 +303,7 @@
             }
           ]
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "reason": "Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000001 SPTA back to its issuer GDC7DOSJT6AIQ74S3T4XQ3YKGDSTNOEXUDJPC36ZMYFBYXD2CG5YLQEB, which burns it.",
         "operation": {
           "type": "payment",
@@ -349,7 +349,7 @@
           "to": "sponsor",
           "sponsor": "GAFW2SI3HWF354G43KDJP74TU2OSNFXMDN7OTYXAGTW3MNCRJLUKGGLE"
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "dependsOn": [
           "S07"
         ]
@@ -369,7 +369,7 @@
           "name": "dustin.fixture",
           "value": null
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "dependsOn": []
       },
       {
@@ -392,7 +392,7 @@
           "amount": "0.0000007",
           "to": "GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK",
           "quotedXlm": "0.0000007",
-          "destMinXlm": "0.0000007",
+          "destMinXlm": "0.0000006",
           "fallbackRungs": [
             "return_to_issuer"
           ],
@@ -403,8 +403,8 @@
             }
           ]
         },
-        "feeEstimateStroops": 83005,
-        "reason": "Sell the full 0.0000007 DUSTA for about 0.0000007 XLM (at least 0.0000007) with a strict-send path payment to this account; the XLM leaves with the merge. It runs in its own transaction so a moved market cannot roll back the rest.",
+        "feeEstimateStroops": 83087,
+        "reason": "Sell the full 0.0000007 DUSTA for about 0.0000007 XLM (at least 0.0000006) with a strict-send path payment to this account; the XLM leaves with the merge. It runs in its own transaction so a moved market cannot roll back the rest.",
         "operation": {
           "type": "pathPaymentStrictSend",
           "sendAsset": {
@@ -417,7 +417,7 @@
           "destAsset": {
             "type": "native"
           },
-          "destMin": "0.0000007",
+          "destMin": "0.0000006",
           "path": []
         },
         "dependsOn": [
@@ -453,7 +453,7 @@
         "reserveReleasedTo": {
           "to": "account"
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "dependsOn": [
           "S10",
           "S01"
@@ -473,7 +473,7 @@
           "type": "accountMerge",
           "destination": "GBQGFM635UIV2BTCTYSMKKJBESY47VXZLCIPGKW3GZJSSY6B45U2DH2C"
         },
-        "feeEstimateStroops": 83005,
+        "feeEstimateStroops": 83087,
         "dependsOn": [
           "S01",
           "S02",
@@ -506,7 +506,7 @@
         ],
         "opCount": 9,
         "innerFeeStroops": 0,
-        "feeBumpFeeStroops": 830050,
+        "feeBumpFeeStroops": 830870,
         "reason": "Deterministic cleanup with no market dependency (offer cancellations, returns to issuers, transfers to the destination, removal of emptied trustlines and data entries), grouped into one fee-bumped transaction of at most 100 operations."
       },
       {
@@ -518,7 +518,7 @@
         ],
         "opCount": 2,
         "innerFeeStroops": 0,
-        "feeBumpFeeStroops": 249015,
+        "feeBumpFeeStroops": 249261,
         "reason": "Market-dependent sale of DUSTA isolated with its trustline removal, so a moved market cannot roll back the rest of the close."
       },
       {
@@ -529,7 +529,7 @@
         ],
         "opCount": 1,
         "innerFeeStroops": 0,
-        "feeBumpFeeStroops": 166010,
+        "feeBumpFeeStroops": 166174,
         "reason": "The merge runs alone after a fresh preflight, because the path payments before it depend on the market and could change the plan."
       }
     ],
@@ -552,26 +552,26 @@
       "feesPaidByAccount": "0"
     },
     "fees": {
-      "baseFeeStroops": 83005,
+      "baseFeeStroops": 83087,
       "basis": "fee_stats",
       "maxBaseFeeStroops": 1000000,
       "perTransactionStroops": [
-        830050,
-        249015,
-        166010
+        830870,
+        249261,
+        166174
       ],
-      "totalStroops": 1245075,
+      "totalStroops": 1246305,
       "budgetStroops": 50000000,
       "withinBudget": true,
       "payer": "GBISNFQ4KAM62Z22MGKULQ7PI6H3RVMMWJZTWU6NP2DAIYAVN7XYQN4K"
     },
     "sequenceGuard": {
       "sequenceAtMerge": "20935049285206023",
-      "earliestLedger": 4874702,
+      "earliestLedger": 4875056,
       "ok": true,
       "unblocksAtLedger": null,
       "etaSeconds": null
     },
-    "planHash": "9e332e6cd2e9e9524eb0f69b17891e51c3c7573cba9c898c19ca5dbbbe6f40e6"
+    "planHash": "25be835c88e84af36e96e17fa00fcbf465f6f39a7c6075deab940106eff38c85"
   }
 }
