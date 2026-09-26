@@ -1,5 +1,10 @@
 import { formatStroops, toStroops } from "../amounts.js";
-import { assertTestnetPassphrase, resolveConfig, type DustinConfig } from "../config/network.js";
+import {
+  assertTestnetPassphrase,
+  resolveConfig,
+  verifyHorizonIsTestnet,
+  type DustinConfig,
+} from "../config/network.js";
 import { DustinError } from "../errors/dustin-error.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
 import type { ClosePlan, CloseStep, PlannedTransaction } from "../plan/model.js";
@@ -122,6 +127,11 @@ export async function executeClose(
 
   const config = resolveConfig(options.config);
   const reader = options.reader ?? horizonReader(horizonJson(config.horizonUrl));
+  // The planner checks the passphrase of the Horizon it reads, which says nothing about where the
+  // envelopes go. With the default submitter they go to config.horizonUrl, so that server must
+  // prove it serves the testnet before anything is signed (review finding R6). An injected
+  // submitter is the caller's responsibility.
+  if (!options.submitter) await verifyHorizonIsTestnet(config.horizonUrl);
   const submitter = options.submitter ?? horizonSubmitter(config.horizonUrl);
   const emit = (event: CloseEvent) => options.onEvent?.(event);
 
@@ -181,6 +191,15 @@ export async function executeClose(
     );
   }
   if (fresh.transactions.length === 0) return finish("aborted", "The plan has nothing to execute.");
+  // Review finding R2: a plan whose bids already exceed the budget would be stopped by the sponsor
+  // part-way, after the cleanup and before the merge. Refuse it before anything is signed.
+  if (!fresh.fees.withinBudget) {
+    const { totalStroops, budgetStroops } = fresh.fees;
+    return finish(
+      "aborted",
+      `The fee bids of this plan total ${totalStroops} stroops (${formatStroops(BigInt(totalStroops))} XLM), above the close budget of ${budgetStroops} stroops (${formatStroops(BigInt(budgetStroops))} XLM); nothing was signed. Raise the close budget or wait for network fees to fall, then run the close again.`,
+    );
+  }
   if (plan.destination === sponsorKey) {
     report.warnings.push(
       "The destination is also the fee sponsor: it pays the fees and receives the merged XLM.",

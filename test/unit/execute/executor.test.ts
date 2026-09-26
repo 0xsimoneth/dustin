@@ -1,5 +1,5 @@
 import { Account, MuxedAccount } from "@stellar/stellar-sdk";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import { horizonSubmitter } from "../../../src/execute/submit.js";
 import { planClose } from "../../../src/plan/plan-close.js";
@@ -304,5 +304,75 @@ describe("merge preflight in the executor (review findings R9, R10)", () => {
     expect(report.status).toBe("failed");
     expect(report.message).toMatch(/SEP-29/);
     expect(report.transactions.map((t) => t.phase)).toEqual(["cleanup", "convert"]);
+  });
+});
+
+describe("checks before anything is signed (review findings R2, R6)", () => {
+  const countingSigners = () => {
+    const calls = { account: 0, sponsor: 0 };
+    return {
+      calls,
+      signers: {
+        account: { publicKey: () => messy.fixture, sign: () => void calls.account++ },
+        feeSponsor: { publicKey: () => messy.sponsor, sign: () => void calls.sponsor++ },
+      },
+    };
+  };
+
+  it("refuses a plan whose fee bids exceed the close budget, with the numbers and a remedy", async () => {
+    const { ledger, deps } = setup();
+    const plan = await planClose(
+      {
+        account: messy.fixture,
+        destination: messy.destination,
+        feeSponsor: messy.sponsor,
+        budgetStroops: 1000,
+      },
+      { reader: deps.reader },
+    );
+    expect(plan.fees).toMatchObject({ totalStroops: 1500, withinBudget: false });
+    const { calls, signers: counting } = countingSigners();
+    const report = await executeClose(plan, counting, { confirm: true, ...deps });
+    expect(report.status).toBe("aborted");
+    expect(report.message).toMatch(/1500 stroops/);
+    expect(report.message).toMatch(/budget of 1000 stroops/);
+    expect(report.message).toMatch(/raise the close budget/i);
+    expect(calls).toEqual({ account: 0, sponsor: 0 });
+    expect(ledger.submissions).toHaveLength(0);
+  });
+
+  it("checks that the default submitter's Horizon serves the testnet before signing", async () => {
+    const { ledger, deps, plan } = setup();
+    const p = await plan();
+    const mainnetRoot = (url: string, init?: RequestInit) =>
+      url === `${TESTNET_HORIZON}/`
+        ? Promise.resolve(
+            new Response(
+              JSON.stringify({
+                network_passphrase: "Public Global Stellar Network ; September 2015",
+              }),
+            ),
+          )
+        : ledger.fetch(url, init);
+    vi.stubGlobal("fetch", mainnetRoot);
+    const { calls, signers: counting } = countingSigners();
+    await expect(
+      executeClose(p, counting, { confirm: true, reader: deps.reader, pollIntervalMs: 0 }),
+    ).rejects.toMatchObject({ code: "MAINNET_REFUSED" });
+    expect(calls).toEqual({ account: 0, sponsor: 0 });
+    expect(ledger.submissions).toHaveLength(0);
+  });
+
+  it("closes through the default submitter once its Horizon is shown to be testnet", async () => {
+    const { ledger, deps, plan } = setup();
+    const p = await plan();
+    vi.stubGlobal("fetch", ledger.fetch);
+    const report = await executeClose(p, signers(), {
+      confirm: true,
+      reader: deps.reader,
+      pollIntervalMs: 0,
+    });
+    expect(report.status).toBe("closed");
+    expect(ledger.submissions).toHaveLength(3);
   });
 });
