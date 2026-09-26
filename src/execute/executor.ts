@@ -32,6 +32,7 @@ import {
   type StepOutcome,
   type StopReason,
 } from "./report.js";
+import type { ResultCodes } from "./result-codes.js";
 import { horizonSubmitter, type Submitter } from "./submit.js";
 import { verifyClosed } from "./verify.js";
 
@@ -462,7 +463,16 @@ class CloseRun {
           this.applied(steps, outcome);
           continue;
         }
-        const next = await this.afterFailure(tx, steps, outcome);
+        const next =
+          outcome.kind === "replan"
+            ? await this.replanFrom({
+                tx,
+                hash: outcome.entry.hash,
+                codes: outcome.codes,
+                explanation: outcome.reason,
+                where: outcome.reason,
+              })
+            : await this.afterFailure(tx, steps, outcome);
         if (next.kind === "stop") return this.stopped(next.stop);
         current = next.plan;
         continue rounds;
@@ -513,7 +523,7 @@ class CloseRun {
     steps: CloseStep[],
     outcome: Extract<TransactionOutcome, { kind: "failed" }>,
   ): Promise<AfterFailure> {
-    const { options, reader, fresh, plan, sponsorKey } = this.input;
+    const { reader, plan } = this.input;
     const at = {
       round: this.round,
       txIndex: tx.index,
@@ -571,6 +581,49 @@ class CloseRun {
         detail: `${where} It failed twice, so the run stops here, before the merge.`,
       });
     }
+    if (failure.demoteRung1 && step?.subject.type === "trustline") {
+      this.demoted.add(assetKey(step.subject.asset));
+    }
+    return this.replanFrom({
+      tx,
+      hash: at.hash,
+      codes: outcome.codes,
+      explanation: failure.explanation,
+      where,
+      ...(stepId ? { stepId } : {}),
+    });
+  }
+
+  /**
+   * Plans the rest again from live state with the user's options (architecture section 7.2), at
+   * most `maxReplans` times, and checks the new plan: drift against the approved plan follows
+   * `onDrift`, and a plan that can no longer merge stops unless `allowPartial`.
+   */
+  private async replanFrom(trigger: {
+    tx: PlannedTransaction;
+    hash: string;
+    codes: ResultCodes;
+    explanation: string;
+    /** One sentence that opens the stop's detail. */
+    where: string;
+    stepId?: string;
+  }): Promise<AfterFailure> {
+    const { options, reader, fresh, plan, sponsorKey } = this.input;
+    const { tx, where, stepId } = trigger;
+    const stopWith = (
+      stop: Omit<StopReason, "stage" | "round" | "txIndex" | "hash">,
+    ): AfterFailure => ({
+      kind: "stop",
+      stop: {
+        stage: "submit",
+        round: this.round,
+        txIndex: tx.index,
+        hash: trigger.hash,
+        resultCodes: trigger.codes,
+        ...(stepId ? { stepId } : {}),
+        ...stop,
+      },
+    });
     if (this.report.replans.length >= (options.maxReplans ?? 3)) {
       return stopWith({
         code: "REPLAN_LIMIT",
@@ -578,28 +631,25 @@ class CloseRun {
         detail: `${where} The run already re-planned ${this.report.replans.length} times, so it stops here.`,
       });
     }
-
-    if (failure.demoteRung1 && step?.subject.type === "trustline") {
-      this.demoted.add(assetKey(step.subject.asset));
-    }
     this.stage = "plan";
     const allowed = new Set([...rungOneAssets(fresh)].filter((a) => !this.demoted.has(a)));
     const next = await planClose(replanInput(plan, sponsorKey, options), {
       reader: withPathsOnlyFor(reader, allowed),
     });
     const drift = replanDrift(fresh, next);
+    const triggerRound = this.round;
     this.round += 1;
     this.report.replans.push({
       round: this.round,
       at: this.timestamp(),
       planHash: next.planHash,
       trigger: {
-        round: at.round,
+        round: triggerRound,
         txIndex: tx.index,
-        hash: at.hash,
+        hash: trigger.hash,
         stepId: stepId ?? null,
-        resultCodes: outcome.codes,
-        explanation: failure.explanation,
+        resultCodes: trigger.codes,
+        explanation: trigger.explanation,
       },
       demoted: [...this.demoted],
       drift,

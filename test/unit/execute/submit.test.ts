@@ -1,5 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
-import { horizonSubmitter, submitAndConfirm } from "../../../src/execute/submit.js";
+import {
+  horizonSubmitter,
+  lookupTransaction,
+  submitAndConfirm,
+} from "../../../src/execute/submit.js";
 
 const HASH = "ab".repeat(32);
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -228,5 +232,77 @@ describe("submitAndConfirm classification", () => {
       ledgerCloseTime: () => Promise.resolve(envelope.maxTime - 100),
     });
     expect(r).toEqual({ kind: "unknown", hash: HASH, mayStillApply: true });
+  });
+});
+
+// Review finding 1: only a 404 says "not found"; any other failed lookup proves nothing.
+describe("lookups by hash", () => {
+  const clock = () => {
+    let t = 1_000_000;
+    return {
+      now: () => t,
+      sleep: (ms: number) => {
+        t += ms / 1000;
+        return Promise.resolve();
+      },
+    };
+  };
+  const envelope = { xdr: "ENV", hash: HASH, maxTime: 1_000_100 };
+  const sequence = (answers: Array<number | object>) => {
+    const fetch = vi.fn((_url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") return Promise.resolve(json({ status: 504 }, 504));
+      const next = answers.length > 1 ? answers.shift()! : answers[0]!;
+      return Promise.resolve(typeof next === "number" ? json({ status: next }, next) : json(next));
+    });
+    return horizonSubmitter("https://h.example", { fetch });
+  };
+
+  it("tells found, missing and error apart", async () => {
+    const s = sequence([applied, 404, 503]);
+    expect(await s.lookup!(HASH)).toMatchObject({ kind: "found" });
+    expect(await s.lookup!(HASH)).toEqual({ kind: "missing" });
+    expect(await s.lookup!(HASH)).toEqual({ kind: "error", detail: "HTTP 503" });
+    // The old accessor still answers null for both.
+    expect(await sequence([503]).transaction(HASH)).toBeNull();
+  });
+
+  it("reports a lookup error instead of 'not found' when the ledger clock has passed the bound", async () => {
+    const r = await submitAndConfirm(sequence([503]), envelope, {
+      ...clock(),
+      pollIntervalMs: 5000,
+      ledgerCloseTime: () => Promise.resolve(envelope.maxTime + 1),
+    });
+    expect(r).toEqual({ kind: "unknown", hash: HASH, lookupError: "HTTP 503" });
+  });
+
+  it("reports a lookup error on the local clock too", async () => {
+    const r = await submitAndConfirm(sequence([429]), envelope, {
+      ...clock(),
+      pollIntervalMs: 5000,
+    });
+    expect(r).toEqual({ kind: "unknown", hash: HASH, lookupError: "HTTP 429" });
+  });
+
+  it("takes a 404 after a failed lookup as conclusive once the ledger passed the bound", async () => {
+    const r = await submitAndConfirm(sequence([503, 503, 404]), envelope, {
+      ...clock(),
+      pollIntervalMs: 5000,
+      ledgerCloseTime: () => Promise.resolve(envelope.maxTime + 1),
+    });
+    expect(r).toEqual({ kind: "unknown", hash: HASH });
+  });
+
+  it("treats a submitter without lookup() as unable to prove a transaction missing", async () => {
+    const legacy = {
+      submit: () => Promise.resolve({ status: 504, body: null }),
+      transaction: () => Promise.resolve(null),
+    };
+    expect(await lookupTransaction(legacy, HASH)).toMatchObject({ kind: "error" });
+    const r = await submitAndConfirm(legacy, envelope, {
+      ...clock(),
+      pollIntervalMs: 5000,
+      ledgerCloseTime: () => Promise.resolve(envelope.maxTime + 1),
+    });
+    expect(r.kind === "unknown" && typeof r.lookupError === "string").toBe(true);
   });
 });

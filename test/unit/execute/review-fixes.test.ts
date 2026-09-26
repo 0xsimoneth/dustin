@@ -24,6 +24,51 @@ describe("review finding 8: the fake ledger names a missing source as Horizon do
   });
 });
 
+describe("review finding 1: a failed lookup by hash proves nothing", () => {
+  it("never sends a 504'd envelope that applied twice while lookups answer 503", async () => {
+    const { ledger, deps, plan } = harness(
+      (_l, fetch) => (url, init) =>
+        url.includes("/transactions/") ? reply(503) : fetch(url, init),
+    );
+    ledger.faults.push("504-applied");
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    expect(ledger.submissions).toHaveLength(1);
+    expect(report.status).toBe("failed");
+    expect(report.transactions).toEqual([expect.objectContaining({ result: "unknown" })]);
+    expect(report.stop).toMatchObject({ code: "OUTCOME_UNKNOWN", verdict: "replan" });
+    expect(report.message).toMatch(/could not be looked up/);
+  });
+
+  it("re-plans instead of sending the same operations at a new sequence after tx_bad_seq", async () => {
+    let lost: string | null = null;
+    const { ledger, deps, plan } = harness(
+      (_l, fetch) => (url, init) =>
+        // Horizon loses the first envelope's record: its lookups keep answering 404.
+        lost && url.endsWith(`/transactions/${lost}`) ? reply(404) : fetch(url, init),
+    );
+    ledger.faults.push("504-applied");
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 1) lost = e.hash;
+      },
+    });
+    const round0tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
+    expect(round0tx0.map((t) => [t.attempt, t.result])).toEqual([
+      [1, "unknown"],
+      [2, "rejected"],
+    ]);
+    // The cleanup's operations were never sent at another sequence number.
+    expect(new Set(round0tx0.map((t) => t.sequence)).size).toBe(1);
+    expect(report.replans[0]!.trigger.resultCodes).toMatchObject({
+      innerTransaction: "tx_bad_seq",
+    });
+    expect(report.status).toBe("closed");
+    expect(ledger.submissions).toHaveLength(4);
+  });
+});
+
 describe("review finding 6: waits follow the injected clock and the ledger's clock", () => {
   it("rebuilds an envelope that expired unconfirmed once the ledger's clock passed its bound", async () => {
     const { ledger, clock, deps, plan } = harness();

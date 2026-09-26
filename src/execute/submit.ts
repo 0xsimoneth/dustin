@@ -9,9 +9,11 @@ export type { ResultCodes } from "./result-codes.js";
  *   with inner tx_failed;
  * - rejected: refused before inclusion (nothing consumed), e.g. tx_bad_seq, tx_insufficient_fee,
  *   a 400 without result codes or a 429 (status tells which);
- * - unknown: not found by hash after its upper time bound passed, so it can never apply; only then
- *   may a replacement for the same sequence number be built. `mayStillApply` marks the exception:
- *   no ledger has closed past the time bound yet, so the envelope must not be replaced.
+ * - unknown: not found by hash (Horizon answered 404) after its upper time bound passed, so it
+ *   never applied and never can; only then may a replacement for the same sequence number be
+ *   built. Two flags mark the exceptions, when the envelope must not be replaced:
+ *   `mayStillApply` (no ledger has closed past the time bound yet) and `lookupError` (the last
+ *   lookups by hash failed, so whether it applied is not known; review finding 1).
  */
 export type SubmitOutcome =
   | { kind: "applied"; hash: string; ledger: number; feeChargedStroops: number; resultXdr: string }
@@ -25,7 +27,7 @@ export type SubmitOutcome =
       resultXdr?: string;
     }
   | { kind: "rejected"; hash: string; status: number; codes: ResultCodes }
-  | { kind: "unknown"; hash: string; mayStillApply?: boolean };
+  | { kind: "unknown"; hash: string; mayStillApply?: boolean; lookupError?: string };
 
 export interface TransactionRecord {
   hash: string;
@@ -35,11 +37,43 @@ export interface TransactionRecord {
   result_xdr: string;
 }
 
+/**
+ * What a lookup by hash proves: the transaction was included (`found`), Horizon does not know it
+ * (`missing`, HTTP 404), or nothing at all (`error`: a 429, a 5xx, a timeout or an unreadable
+ * body). Only `missing` counts as not found; an `error` never lets an envelope be replaced.
+ */
+export type TransactionLookup =
+  | { kind: "found"; record: TransactionRecord }
+  | { kind: "missing" }
+  | { kind: "error"; detail: string };
+
 export interface Submitter {
   submit(
     envelopeXdr: string,
   ): Promise<{ status: number; body: unknown } | { networkError: unknown }>;
+  /** The transaction by hash, or null; a null cannot tell a 404 from a failed lookup. */
   transaction(hash: string): Promise<TransactionRecord | null>;
+  /**
+   * The three-state lookup. A submitter without it is read through `transaction`, whose null is
+   * then taken as an error: safe, since the executor never rebuilds on an error.
+   */
+  lookup?(hash: string): Promise<TransactionLookup>;
+}
+
+/** Looks a transaction up by hash with whatever the submitter offers (review finding 1). */
+export async function lookupTransaction(
+  submitter: Submitter,
+  hash: string,
+): Promise<TransactionLookup> {
+  if (submitter.lookup) return submitter.lookup(hash);
+  try {
+    const record = await submitter.transaction(hash);
+    return record
+      ? { kind: "found", record }
+      : { kind: "error", detail: "the submitter cannot tell a missing transaction from an error" };
+  } catch (error) {
+    return { kind: "error", detail: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 /** Horizon `POST /transactions` and `GET /transactions/{hash}`. The only write path in Dustin. */
@@ -49,7 +83,26 @@ export function horizonSubmitter(
 ): Submitter {
   const doFetch: FetchLike = options.fetch ?? ((url, init) => fetch(url, init));
   const timeoutMs = options.timeoutMs ?? 60_000;
+  const lookup = async (hash: string): Promise<TransactionLookup> => {
+    let response: Response;
+    try {
+      response = await doFetch(`${horizonUrl}/transactions/${hash}`, {
+        headers: { accept: "application/json" },
+        signal: AbortSignal.timeout(timeoutMs),
+      });
+    } catch (error) {
+      return { kind: "error", detail: error instanceof Error ? error.message : String(error) };
+    }
+    if (response.status === 404) return { kind: "missing" };
+    if (!response.ok) return { kind: "error", detail: `HTTP ${response.status}` };
+    try {
+      return { kind: "found", record: (await response.json()) as TransactionRecord };
+    } catch {
+      return { kind: "error", detail: "a response body that is not JSON" };
+    }
+  };
   return {
+    lookup,
     async submit(envelopeXdr) {
       try {
         const response = await doFetch(`${horizonUrl}/transactions`, {
@@ -73,16 +126,8 @@ export function horizonSubmitter(
       }
     },
     async transaction(hash) {
-      try {
-        const response = await doFetch(`${horizonUrl}/transactions/${hash}`, {
-          headers: { accept: "application/json" },
-          signal: AbortSignal.timeout(timeoutMs),
-        });
-        if (!response.ok) return null;
-        return (await response.json()) as TransactionRecord;
-      } catch {
-        return null;
-      }
+      const found = await lookup(hash);
+      return found.kind === "found" ? found.record : null;
     },
   };
 }
@@ -238,9 +283,13 @@ async function confirmByLocalClock(
   const now = options.now ?? (() => Date.now() / 1000);
   const deadline = envelope.maxTime + (options.graceSeconds ?? 10);
   for (;;) {
-    const record = await submitter.transaction(envelope.hash);
-    if (record) return outcomeFromRecord(envelope.hash, record);
-    if (now() > deadline) return { kind: "unknown", hash: envelope.hash };
+    const found = await lookupTransaction(submitter, envelope.hash);
+    if (found.kind === "found") return outcomeFromRecord(envelope.hash, found.record);
+    if (now() > deadline) {
+      return found.kind === "error"
+        ? { kind: "unknown", hash: envelope.hash, lookupError: found.detail }
+        : { kind: "unknown", hash: envelope.hash };
+    }
     await (options.sleep ?? defaultSleep)(options.pollIntervalMs ?? 2000);
   }
 }
@@ -260,25 +309,37 @@ async function confirmByLedgerClock(
   const now = options.now ?? (() => Date.now() / 1000);
   const started = now();
   let firstClose: number | null = null;
+  // Set once a ledger closed after maxTime: no later ledger can include the envelope (close times
+  // only grow), and every earlier ledger is already ingested, so a 404 from then on is conclusive.
+  let pastBound = false;
   for (;;) {
-    const record = await submitter.transaction(envelope.hash);
-    if (record) return outcomeFromRecord(envelope.hash, record);
+    const found = await lookupTransaction(submitter, envelope.hash);
+    if (found.kind === "found") return outcomeFromRecord(envelope.hash, found.record);
+    if (pastBound && found.kind === "missing") return { kind: "unknown", hash: envelope.hash };
     firstClose ??= await ledgerCloseTime();
     const waited = now() - started;
-    if (firstClose + waited > envelope.maxTime && (await ledgerCloseTime()) > envelope.maxTime) {
-      // Close times only grow, so no later ledger can include the envelope, and every earlier
-      // ledger is already ingested: one more lookup is conclusive.
-      const last = await submitter.transaction(envelope.hash);
-      return last
-        ? outcomeFromRecord(envelope.hash, last)
-        : { kind: "unknown", hash: envelope.hash };
+    if (
+      !pastBound &&
+      firstClose + waited > envelope.maxTime &&
+      (await ledgerCloseTime()) > envelope.maxTime
+    ) {
+      pastBound = true;
+      continue;
     }
+    // A failed lookup proves nothing, so it is only tried again, within the same bound.
     const limit =
       envelope.maxTime -
       firstClose +
       (options.graceSeconds ?? 10) +
       (options.ledgerWaitSeconds ?? 60);
-    if (waited > limit) return { kind: "unknown", hash: envelope.hash, mayStillApply: true };
+    if (waited > limit) {
+      return {
+        kind: "unknown",
+        hash: envelope.hash,
+        ...(pastBound ? {} : { mayStillApply: true }),
+        ...(found.kind === "error" ? { lookupError: found.detail } : {}),
+      };
+    }
     await (options.sleep ?? defaultSleep)(options.pollIntervalMs ?? 2000);
   }
 }

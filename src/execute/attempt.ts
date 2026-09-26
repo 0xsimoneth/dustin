@@ -10,6 +10,7 @@ import type { CloseEvent } from "./events.js";
 import type { StopReason, SubmittedTransaction } from "./report.js";
 import type { ResultCodes } from "./result-codes.js";
 import {
+  lookupTransaction,
   outcomeFromRecord,
   submitAndConfirm,
   type SubmitOutcome,
@@ -58,7 +59,13 @@ export interface AttemptContext {
 export type TransactionOutcome =
   | { kind: "applied"; entry: SubmittedTransaction; resultXdr: string }
   | { kind: "failed"; entry: SubmittedTransaction; codes: ResultCodes }
-  | { kind: "stopped"; stop: StopReason };
+  | { kind: "stopped"; stop: StopReason }
+  /**
+   * The account's sequence number moved on while an earlier envelope of this transaction was
+   * never seen on the ledger: the rest must be planned again from the ledger, never sent again at
+   * a new sequence number (review finding 1; ADR-0006 `TX_BAD_SEQ`: "else replan").
+   */
+  | { kind: "replan"; entry: SubmittedTransaction; codes: ResultCodes; reason: string };
 
 const short = (hash: string) => `${hash.slice(0, 8)}...`;
 
@@ -244,6 +251,15 @@ export async function submitPlannedTransaction(
     if (outcome.kind === "failed") return { kind: "failed", entry, codes: outcome.codes };
 
     if (outcome.kind === "unknown") {
+      if (outcome.lookupError) {
+        // A lookup that failed proves nothing: the envelope may have applied (review finding 1).
+        return stop(
+          "OUTCOME_UNKNOWN",
+          "replan",
+          `${label} (${hash}) could not be looked up by hash (${outcome.lookupError}), so whether it applied is not known; nothing was rebuilt. Run the close again once Horizon answers; it continues from the ledger.`,
+          { hash },
+        );
+      }
       if (outcome.mayStillApply) {
         return stop(
           "OUTCOME_UNKNOWN",
@@ -298,11 +314,13 @@ export async function submitPlannedTransaction(
             { hash, resultCodes: outcome.codes },
           );
         }
-        // An earlier envelope of this transaction may have applied after all.
-        for (const earlier of envelopes.slice(0, -1)) {
-          const record = await ctx.submitter.transaction(earlier.hash);
-          if (!record) continue;
-          const found = outcomeFromRecord(earlier.hash, record);
+        // An earlier envelope of this transaction that was never seen on the ledger may have
+        // applied after all; refused ones cannot have.
+        const unseen = envelopes.slice(0, -1).filter((e) => e.result === "unknown");
+        for (const earlier of unseen) {
+          const lookup = await lookupTransaction(ctx.submitter, earlier.hash);
+          if (lookup.kind !== "found") continue;
+          const found = outcomeFromRecord(earlier.hash, lookup.record);
           recordOutcome(earlier, found);
           ctx.changed();
           if (found.kind === "applied") {
@@ -317,6 +335,16 @@ export async function submitPlannedTransaction(
           }
           if (found.kind === "failed")
             return { kind: "failed", entry: earlier, codes: found.codes };
+        }
+        if (unseen.length > 0) {
+          // Still not seen: the operations may have applied with it, so sending them again at the
+          // account's new sequence number could apply them twice. Plan the rest from the ledger.
+          return {
+            kind: "replan",
+            entry,
+            codes: outcome.codes,
+            reason: `${label} was refused with tx_bad_seq while an earlier envelope of it (${short(unseen.at(-1)!.hash)}) was never seen on the ledger, so the rest is planned again from the ledger instead of sending the same operations at a new sequence number.`,
+          };
         }
         const fresh = await ctx.reader.account(plan.account);
         if (!fresh) {
