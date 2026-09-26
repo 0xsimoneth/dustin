@@ -1,6 +1,6 @@
 # Story 0.4: Environment handling, testnet-only guard, redaction and README skeleton
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -19,11 +19,11 @@ so that my sponsor key is never logged and the tool cannot touch a network with 
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `DustinError` per ADR-0006 (AC: 2, 4)
-- [ ] Task 2: `redact()` (AC: 4)
-- [ ] Task 3: network config and testnet guard (AC: 2, 3)
-- [ ] Task 4: argv secret guard in the CLI (AC: 5)
-- [ ] Task 5: `.env.example`, `.gitignore`, README skeleton (AC: 1, 6)
+- [x] Task 1: `DustinError` per ADR-0006 (AC: 2, 4)
+- [x] Task 2: `redact()` (AC: 4)
+- [x] Task 3: network config and testnet guard (AC: 2, 3)
+- [x] Task 4: argv secret guard in the CLI (AC: 5)
+- [x] Task 5: `.env.example`, `.gitignore`, README skeleton (AC: 1, 6)
 
 ## Dev Notes
 
@@ -48,10 +48,50 @@ dev-story workflow (AI developer agent)
 
 ### Implementation Plan
 
+- `src/errors/redact.ts`: one seed pattern, `(?<![A-Z2-7])S[A-Z2-7]{55}(?![A-Z2-7])`, used both to redact and to detect. The lookarounds keep public keys, muxed addresses and longer base32 runs intact; seed-shaped strings with a bad checksum are still redacted.
+- `src/errors/dustin-error.ts`: the ADR-0006 shape (`code`, `stage`, `retryable`, `verdict`, `remedy`, `details`, `horizon`); message, remedy, details, horizon fields and the cause are redacted in the constructor, and `toJSON()` exposes only public fields.
+- `src/config/network.ts`: `resolveConfig()` (no I/O) refuses any passphrase but testnet and validates URLs; `verifyHorizonIsTestnet()` reads `GET /` and refuses a Horizon that serves another network; `configFromEnv()` reads only `DUSTIN_HORIZON_URL` and `DUSTIN_EXPLORER_BASE`.
+- `src/cli/run.ts`: a testable CLI core returning the exit code. Secret-looking arguments are refused before parsing; commander usage errors map to exit 2; a global `--network` option refuses anything but `testnet`. `src/cli/exit-codes.ts` holds the decision-5 table.
+- `src/cli/env.ts`: `.env` is loaded with `process.loadEnvFile()` by the CLI only.
+
 ### Debug Log References
+
+- Red: the four new test files failed on missing modules; green after implementation.
+- `@typescript-eslint/unbound-method` flagged the method signatures of `CliIo` passed to commander; changed to function-typed properties.
+- Commander settings (`exitOverride`, `configureOutput`) are applied before subcommands are created so that they inherit them.
 
 ### Completion Notes List
 
+- AC1: `.env.example` documents the four variables; `git check-ignore` confirms `.env`, `.env.local` and `.fixture/keys.json` are ignored and `.env.example` is tracked.
+- AC2: `resolveConfig()` throws `MAINNET_REFUSED` for the public, futurenet and arbitrary passphrases with no `fetch` call; a static test asserts `src/` never mentions the public network constant, passphrase or Horizon host.
+- AC3: `verifyHorizonIsTestnet()` passes for the testnet passphrase, throws `MAINNET_REFUSED` for another network and a retryable `HORIZON_UNAVAILABLE` when Horizon is unreachable or answers an error status.
+- AC4: `redact()`/`redactValue()` and `DustinError` redaction are covered by unit tests, including a real `Keypair.random().secret()`.
+- AC5: `dustin close X --to S...` exits 2 with `SECRET_IN_ARGV` and does not echo the value (also covered for `--memo=S...`); `--network public` exits 2 with `MAINNET_REFUSED`; a missing argument exits 2.
+- AC6: README skeleton per docs/documentation-plan.md section 1 (what and why, safety model, what is not handled, exit codes, status). The CI badge is added in E0-S3; the npm badge after the first publish.
+- 27 unit tests pass; lint, format check, typecheck and the package check pass.
+
 ### File List
 
+- `src/errors/redact.ts` (new)
+- `src/errors/dustin-error.ts` (modified)
+- `src/config/network.ts` (new)
+- `src/cli/exit-codes.ts` (new)
+- `src/cli/run.ts` (new)
+- `src/cli/env.ts` (new)
+- `src/cli/program.ts` (modified)
+- `src/cli/main.ts` (modified)
+- `src/index.ts` (modified)
+- `test/unit/errors/redact.test.ts` (new)
+- `test/unit/errors/dustin-error.test.ts` (new)
+- `test/unit/config/network.test.ts` (new)
+- `test/unit/config/no-mainnet.test.ts` (new)
+- `test/unit/cli/run.test.ts` (new)
+- `test/unit/smoke.test.ts` (modified)
+- `.env.example` (new)
+- `.gitignore` (modified: `.fixture/`)
+- `README.md` (modified)
+- `docs/stories/0-4-env-testnet-guard-license.md`, `docs/stories/sprint-status.yaml` (modified)
+
 ## Change Log
+
+- 2026-09-26: Error taxonomy base, redaction, testnet guard, argv secret guard, exit codes, `.env.example` and README skeleton. LICENSE was delivered in E0-S1. Status: review.

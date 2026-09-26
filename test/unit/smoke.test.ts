@@ -18,7 +18,7 @@ describe("public API stubs", () => {
 
 describe("CLI program", () => {
   it("lists the plan and close commands", () => {
-    const help = buildProgram("0.0.0").helpInformation();
+    const help = buildProgram("0.0.0", { stdout: () => {}, stderr: () => {} }).helpInformation();
     expect(help).toMatch(/\bplan\b/);
     expect(help).toMatch(/\bclose\b/);
   });

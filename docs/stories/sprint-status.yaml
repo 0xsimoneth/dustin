@@ -27,7 +27,7 @@ development_status:
   0-1-package-scaffold: review
   0-2-lint-format-test-runner: review
   0-3-continuous-integration: ready-for-dev
-  0-4-env-testnet-guard-license: ready-for-dev
+  0-4-env-testnet-guard-license: review
   epic-0-retrospective: optional
   epic-1: backlog
   1-1-messy-fixture-builder: backlog
@@ -122,7 +122,7 @@ stories:
     title: Environment handling, testnet-only guard, MIT license and README skeleton
     epic: E0
     week: 1
-    status: ready-for-dev
+    status: review
     estimate_hours: 2
     deliverable: D1
   - key: 1-1-messy-fixture-builder

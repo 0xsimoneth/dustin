@@ -1,17 +1,37 @@
 import { Command, Option } from "commander";
-import { notImplemented } from "../errors/dustin-error.js";
+import { DustinError, notImplemented } from "../errors/dustin-error.js";
+
+export interface CliIo {
+  stdout: (text: string) => void;
+  stderr: (text: string) => void;
+}
 
 /**
  * Builds the `dustin` command tree. Flags follow docs/README.md canonical decision 4:
  * `--to` is canonical and `--destination` is an alias; `close` without `--execute` is a dry run.
+ * Settings are applied before the subcommands are added so that they inherit them.
  */
-export function buildProgram(version: string): Command {
+export function buildProgram(version: string, io: CliIo): Command {
   const program = new Command("dustin")
     .description(
       "Plan and close messy Stellar testnet accounts with fee-bumped, sponsor-paid transactions.",
     )
     .version(version)
-    .showHelpAfterError();
+    .exitOverride()
+    .configureOutput({ writeOut: io.stdout, writeErr: io.stderr })
+    .showHelpAfterError()
+    .option("--network <name>", "network to use; only testnet is supported", "testnet");
+
+  program.hook("preAction", (command) => {
+    const { network } = command.opts<{ network: string }>();
+    if (network !== "testnet") {
+      throw new DustinError(
+        "MAINNET_REFUSED",
+        `Dustin is testnet-only in this release; network "${network}" is refused.`,
+        { stage: "config", remedy: "Use --network testnet or leave the option out." },
+      );
+    }
+  });
 
   program
     .command("plan")
@@ -25,7 +45,7 @@ export function buildProgram(version: string): Command {
     .option("--prefer-destination", "try the destination transfer before the return to issuer")
     .option("--json", "print the plan as one JSON document")
     .action(() => {
-      throw notImplemented("dustin plan");
+      throw notImplemented("dustin plan", "plan");
     });
 
   program
@@ -43,7 +63,7 @@ export function buildProgram(version: string): Command {
     .option("--memo <memo>", "memo for destinations that require one (SEP-29)")
     .option("--json", "print the report as one JSON document")
     .action(() => {
-      throw notImplemented("dustin close");
+      throw notImplemented("dustin close", "plan");
     });
 
   return program;

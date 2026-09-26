@@ -1,0 +1,34 @@
+import type { DustinError } from "../errors/dustin-error.js";
+
+/** CLI exit codes, docs/README.md canonical decision 5. */
+export const ExitCode = {
+  /** Plan printed, or account closed and verified gone. */
+  OK: 0,
+  /** Unexpected error. */
+  UNEXPECTED: 1,
+  /** Usage or validation error: bad address, secret on argv, wrong key, mainnet, missing secrets. */
+  USAGE: 2,
+  /** Nothing executed: confirmation missing or declined, or blockers without --partial. */
+  NOTHING_EXECUTED: 3,
+  /** Partial: the run completed what it could and the account still exists. */
+  PARTIAL: 4,
+  /** Stopped or failed during execution; re-run to continue. */
+  STOPPED: 5,
+  /** Horizon unreachable before any submission. */
+  HORIZON_UNREACHABLE: 6,
+} as const;
+
+export type ExitCode = (typeof ExitCode)[keyof typeof ExitCode];
+
+export function exitCodeFor(error: DustinError): ExitCode {
+  switch (error.code) {
+    case "CONFIG_INVALID":
+    case "MAINNET_REFUSED":
+    case "SECRET_IN_ARGV":
+      return ExitCode.USAGE;
+    case "HORIZON_UNAVAILABLE":
+      return ExitCode.HORIZON_UNREACHABLE;
+    default:
+      return ExitCode.UNEXPECTED;
+  }
+}

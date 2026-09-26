@@ -26,3 +26,6 @@ coverage/
 
 # npm pack output
 *.tgz
+
+# Fixture keys written by the fixture builder (testnet only, never committed)
+.fixture/
