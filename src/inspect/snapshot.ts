@@ -28,6 +28,8 @@ export interface PoolShareInfo {
   poolId: string;
   balance: string;
   sponsor: string | null;
+  /** The pool's two assets ("native" or "CODE:ISSUER"); null if Horizon did not return the pool. */
+  assets: string[] | null;
 }
 
 export interface OfferInfo {

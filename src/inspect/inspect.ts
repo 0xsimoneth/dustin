@@ -128,7 +128,8 @@ export async function inspectAccount(
   const withBalance = trustlines.filter((t) => toStroops(t.balance) > 0n);
   const issuerIds = [...new Set(withBalance.map((t) => t.asset.issuer))].sort();
 
-  const [offers, issuerAccounts, quotes, claimable] = await Promise.all([
+  const poolBalances = raw.balances.filter((b) => b.asset_type === "liquidity_pool_shares");
+  const [offers, issuerAccounts, quotes, claimable, poolAssets] = await Promise.all([
     reader.offers(account),
     Promise.all(issuerIds.map((id) => reader.account(id))),
     Promise.all(
@@ -139,6 +140,7 @@ export async function inspectAccount(
       })),
     ),
     raw.num_sponsoring > 0 ? reader.claimableBalancesSponsoredBy(account) : Promise.resolve(null),
+    Promise.all(poolBalances.map((b) => reader.liquidityPoolAssets(b.liquidity_pool_id ?? ""))),
   ]);
   const issuers: IssuerInfo[] = issuerIds.map((id, i) => ({
     account: id,
@@ -182,12 +184,12 @@ export async function inspectAccount(
       spendable: formatStroops(reserve.spendable),
     },
     trustlines,
-    poolShares: raw.balances
-      .filter((b) => b.asset_type === "liquidity_pool_shares")
-      .map((b) => ({
+    poolShares: poolBalances
+      .map((b, i) => ({
         poolId: b.liquidity_pool_id ?? "",
         balance: amount(b.balance),
         sponsor: b.sponsor ?? null,
+        assets: poolAssets[i] ?? null,
       }))
       .sort((a, b) => a.poolId.localeCompare(b.poolId)),
     offers: offers

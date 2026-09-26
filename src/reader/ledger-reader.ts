@@ -34,6 +34,8 @@ export interface LedgerReader {
   offers(id: string): Promise<HorizonOffer[]>;
   strictSendPathsToNative(asset: CreditAssetRef, amount: string): Promise<PathRecord[]>;
   claimableBalancesSponsoredBy(id: string): Promise<number>;
+  /** Reserve assets of a liquidity pool ("native" or "CODE:ISSUER"), or null if not found. */
+  liquidityPoolAssets(id: string): Promise<string[] | null>;
 }
 
 /** `GET /paths/strict-send` for selling `amount` of `asset` into XLM. */
@@ -65,6 +67,10 @@ export function horizonReader(client: HorizonJsonClient): LedgerReader {
     async strictSendPathsToNative(asset, amount) {
       const page = await client.get<Page<PathRecord>>(strictSendToNativePath(asset, amount));
       return page?._embedded.records ?? [];
+    },
+    async liquidityPoolAssets(id) {
+      const pool = await client.get<{ reserves: { asset: string }[] }>(`/liquidity_pools/${id}`);
+      return pool ? pool.reserves.map((r) => r.asset) : null;
     },
     async claimableBalancesSponsoredBy(id) {
       let count = 0;

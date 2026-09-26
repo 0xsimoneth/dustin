@@ -201,6 +201,12 @@ describe("inspectAccount variants", () => {
     const { reader: r, requests } = reader({
       [accountPath]: acc,
       [`/accounts/${m.destination}`]: dest,
+      [`/liquidity_pools/${"ab".repeat(32)}`]: {
+        reserves: [
+          { asset: "native", amount: "1.0000000" },
+          { asset: `DUSTC:${m.issuer}`, amount: "1.0000000" },
+        ],
+      },
       [cb]: {
         _embedded: {
           records: [
@@ -213,7 +219,12 @@ describe("inspectAccount variants", () => {
     const s = await inspectAccount(m.fixture, { destination: m.destination, reader: r });
     if (!s.exists) throw new Error("expected an existing account");
     expect(s.poolShares).toEqual([
-      { poolId: "ab".repeat(32), balance: "1.0000000", sponsor: null },
+      {
+        poolId: "ab".repeat(32),
+        balance: "1.0000000",
+        sponsor: null,
+        assets: ["native", `DUSTC:${m.issuer}`],
+      },
     ]);
     expect(s.trustlines).toHaveLength(4);
     expect(s.claimableBalancesSponsored).toBe(2);
