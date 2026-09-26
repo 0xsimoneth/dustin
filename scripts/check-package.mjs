@@ -31,12 +31,23 @@ function checkBinary() {
 }
 
 function checkTarball() {
-  const [report] = JSON.parse(execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { encoding: "utf8" }));
+  const [report] = JSON.parse(
+    execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { encoding: "utf8" }),
+  );
   const files = report.files.map((f) => f.path).sort();
   const allowed = /^(package\.json|README\.md|LICENSE|CHANGELOG\.md|dist\/.+)$/;
   const unexpected = files.filter((f) => !allowed.test(f));
   assert.deepEqual(unexpected, [], `unexpected files in the tarball: ${unexpected.join(", ")}`);
-  for (const required of ["LICENSE", "README.md", "package.json", "dist/index.js", "dist/index.cjs", "dist/index.d.ts", "dist/index.d.cts", "dist/cli/main.js"]) {
+  for (const required of [
+    "LICENSE",
+    "README.md",
+    "package.json",
+    "dist/index.js",
+    "dist/index.cjs",
+    "dist/index.d.ts",
+    "dist/index.d.cts",
+    "dist/cli/main.js",
+  ]) {
     assert.ok(files.includes(required), `missing from the tarball: ${required}`);
   }
   // A Stellar secret seed is "S" followed by 55 base32 characters; none may ship.

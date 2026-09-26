@@ -15,7 +15,9 @@ export function buildProgram(version: string): Command {
 
   program
     .command("plan")
-    .description("Print the ordered close plan for an account. Dry run: nothing is signed or submitted.")
+    .description(
+      "Print the ordered close plan for an account. Dry run: nothing is signed or submitted.",
+    )
     .argument("<account>", "G... address of the account to close")
     .option("--to <destination>", "G... address that receives the XLM through the merge")
     .addOption(new Option("--destination <destination>", "alias of --to").hideHelp())

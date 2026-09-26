@@ -51,15 +51,27 @@
     "typecheck": "tsc --noEmit",
     "check:package": "node scripts/check-package.mjs",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run typecheck"
+    "prepublishOnly": "npm run typecheck",
+    "test": "vitest run --project unit",
+    "test:testnet": "vitest run --project testnet",
+    "coverage": "vitest run --project unit --coverage",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.1.0",
     "commander": "^14.0.3"
   },
   "devDependencies": {
+    "@eslint/js": "10.0.1",
     "@types/node": "^24.13.6",
+    "@vitest/coverage-v8": "5.0.2",
+    "eslint": "10.11.0",
+    "prettier": "3.9.9",
     "tsup": "8.5.1",
-    "typescript": "5.9.3"
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.1",
+    "vitest": "5.0.2"
   }
 }
