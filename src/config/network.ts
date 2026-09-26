@@ -60,8 +60,16 @@ function normaliseHttpUrl(value: string, field: string): string {
 
 /**
  * Applies defaults, refuses any network passphrase but testnet and validates the URLs. Makes no
- * network call: whether a Horizon URL really serves the testnet is checked by
- * `verifyHorizonIsTestnet()`, which every command runs before it reads or writes.
+ * network call. Whether a Horizon URL really serves the testnet is checked by other layers:
+ * - `verifyHorizonIsTestnet()` (`GET /`, `network_passphrase`, and a check that the answer comes
+ *   from a Horizon server) runs before the first read in the CLI commands (`plan`, `close` with
+ *   and without `--execute`, `fixture create`, `fixture verify`), in the fixture builder, and in
+ *   the executor for its default submit endpoint;
+ * - `inspectAccount()` reads the passphrase through its ledger reader (`GET /`) and refuses
+ *   anything but testnet before it reads an account, so `planClose()` and the executor's fresh
+ *   re-plan cannot read another network's ledger even through a custom reader;
+ * - `executeClose()`, the inner-transaction builder and the fee sponsor refuse a plan or a
+ *   passphrase that is not testnet before anything is signed.
  */
 export function resolveConfig(config: DustinConfig = {}): ResolvedConfig {
   const networkPassphrase = config.networkPassphrase ?? TESTNET_PASSPHRASE;

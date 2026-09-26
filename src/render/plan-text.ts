@@ -77,12 +77,22 @@ const STATUS: Record<ClosePlan["status"], string> = {
 export interface RenderPlanOptions {
   /** The command to suggest at the end; omitted when not given. */
   next?: string;
+  /** The first line; the default says the plan is a dry run. */
+  heading?: string;
+}
+
+/** The sponsor's per-close budget and whether the plan's bid fits in it (review R2). */
+function budgetLine(fees: ClosePlan["fees"]): string {
+  const budget = `${xlm(fees.budgetStroops)} per close for the sponsor`;
+  return fees.withinBudget
+    ? `${budget}; the bid above is within it`
+    : `${budget}; the bid above EXCEEDS it: wait for network fees to fall or lower the bid (--base-fee)`;
 }
 
 export function renderPlan(plan: ClosePlan, options: RenderPlanOptions = {}): string {
   const out: string[] = [];
   const sponsor = plan.feeSponsor ?? "(not given; pass --sponsor)";
-  out.push("Dustin plan  (dry run: nothing is signed, nothing is submitted)");
+  out.push(options.heading ?? "Dustin plan  (dry run: nothing is signed, nothing is submitted)");
   out.push(
     `Network      testnet   ledger ${grouped(plan.observed.ledger)}   observed ${plan.observed.closedAt}`,
   );
@@ -97,6 +107,8 @@ export function renderPlan(plan: ClosePlan, options: RenderPlanOptions = {}): st
     `Fees         bid up to ${xlm(plan.fees.totalStroops)} (${grouped(plan.fees.baseFeeStroops)} stroops per operation), ` +
       "paid by the sponsor; the account pays 0",
   );
+  const [firstBudget = "", ...moreBudget] = wrap(budgetLine(plan.fees), 13);
+  out.push(`Budget       ${firstBudget.trimStart()}`, ...moreBudget);
   out.push(`Status       ${STATUS[plan.status]}`);
 
   if (plan.steps.length > 0) {

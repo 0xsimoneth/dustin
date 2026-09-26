@@ -1,8 +1,15 @@
 import { Command, Option } from "commander";
 import { configFromEnv, resolveConfig } from "../config/network.js";
-import { DustinError, notImplemented } from "../errors/dustin-error.js";
+import { DustinError } from "../errors/dustin-error.js";
 import { redact } from "../errors/redact.js";
+import type { executeClose } from "../execute/executor.js";
 import type { FetchLike } from "../reader/horizon-json.js";
+import {
+  closeExecute,
+  ignoredFlagsNote,
+  type CloseCommandOptions,
+  type Prompt,
+} from "./commands/close.js";
 import { fixtureCreate, fixtureVerify, type CommandContext } from "./commands/fixture.js";
 import { buildPlan, planCommand, printPlan, type PlanCommandOptions } from "./commands/plan.js";
 import type { ExitCode } from "./exit-codes.js";
@@ -13,9 +20,22 @@ export interface CliIo {
 }
 
 export interface CliDeps {
+  /** The process environment: the network settings, and the secrets for `close --execute`. */
   env: Record<string, string | undefined>;
+  /**
+   * The working directory whose `.env` supplies the two secrets to `close --execute`, and only to
+   * it (review R7). Without it no `.env` is read.
+   */
+  cwd?: string;
   fetch?: FetchLike;
   horizon?: { retries?: number; backoffMs?: number };
+  /**
+   * Asks the typed confirmation of `close --execute` and resolves with the answer, or with null
+   * on EOF or a non-interactive input. Without it the input counts as non-interactive.
+   */
+  prompt?: Prompt;
+  /** Executor overrides for tests: the poll interval after a timeout, or the executor itself. */
+  execute?: { pollIntervalMs?: number; executeClose?: typeof executeClose };
 }
 
 /** Commands report their exit code here; `run()` returns it. */
@@ -99,11 +119,34 @@ export function buildProgram(
     .option("--partial", "proceed even if some items are unclosable; the account is not merged")
     .option("--prefer-destination", "try the destination transfer before the return to issuer")
     .option("--memo <memo>", "memo for destinations that require one (SEP-29)")
-    .option("--base-fee <stroops>", "fee bid per operation instead of the fee_stats estimate")
-    .option("--json", "print the report as one JSON document")
-    .action(async (account: string, options: PlanCommandOptions & { execute?: boolean }) => {
-      if (options.execute) throw notImplemented("dustin close --execute", "submit");
+    .option(
+      "--base-fee <stroops>",
+      "fee bid per operation instead of the fee_stats estimate; with --execute, the highest bid",
+    )
+    .option("--json", "print one JSON document: the plan, or with --execute the final close report")
+    .option(
+      "--report <file>",
+      "with --execute, keep the close report (JSON) in this file, updated as the run goes",
+    )
+    .addHelpText(
+      "after",
+      "\nWith --execute, the secrets come from DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET in the\n" +
+        "environment, else from .env in the working directory; never from the command line.\n",
+    )
+    .action(async (account: string, options: CloseCommandOptions) => {
+      if (options.execute) {
+        state.exitCode = await closeExecute(account, options, {
+          ...ctx,
+          // Secrets and `.env` are reachable only from here (review R7).
+          secrets: { env: deps.env, ...(deps.cwd !== undefined ? { cwd: deps.cwd } : {}) },
+          ...(deps.prompt ? { prompt: deps.prompt } : {}),
+          ...(deps.execute ? { execute: deps.execute } : {}),
+        });
+        return;
+      }
       // Canonical decision 4: without --execute, close behaves exactly like plan.
+      const note = ignoredFlagsNote(options);
+      if (note) io.stderr(note);
       const plan = await buildPlan(account, options, ctx);
       printPlan(plan, options, ctx, "add --execute to run this plan");
       state.exitCode = 0;

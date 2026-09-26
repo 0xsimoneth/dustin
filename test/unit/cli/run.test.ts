@@ -58,14 +58,30 @@ describe("dustin CLI run()", () => {
     const c = capture();
     const argv = [
       ...node,
+      "plan",
+      Keypair.random().publicKey(),
+      "--to",
+      Keypair.random().publicKey(),
+    ];
+    // A broken HTTP client that resolves with no response at all: a bug, not a Dustin error.
+    const broken = () => Promise.resolve(null as unknown as Response);
+    expect(await run(argv, c.io, "1.2.3", { env: {}, fetch: broken })).toBe(1);
+    expect(c.err()).toContain("unexpected error");
+  });
+
+  it("no longer answers close --execute with NOT_IMPLEMENTED: without secrets it exits 2", async () => {
+    const c = capture();
+    const argv = [
+      ...node,
       "close",
       Keypair.random().publicKey(),
       "--to",
       Keypair.random().publicKey(),
       "--execute",
     ];
-    expect(await run(argv, c.io, "1.2.3")).toBe(1);
-    expect(c.err()).toContain("NOT_IMPLEMENTED");
+    expect(await run(argv, c.io, "1.2.3")).toBe(2);
+    expect(c.err()).toContain("MISSING_ACCOUNT_SECRET");
+    expect(c.err()).not.toContain("NOT_IMPLEMENTED");
   });
 });
 
