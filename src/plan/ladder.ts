@@ -23,7 +23,7 @@ type Evaluation =
   | { viable: true; to: string; quotedXlm?: string; destMinXlm?: string }
   | { viable: false; reason: string };
 
-const ORDERS: Record<LadderOrder, DisposalRung[]> = {
+export const LADDER_ORDERS: Record<LadderOrder, DisposalRung[]> = {
   // SOW order (canonical decision 8).
   sow: ["path_payment", "return_to_issuer", "send_to_destination"],
   // --prefer-destination: the destination before the burn.
@@ -60,7 +60,7 @@ export function chooseRung(
     return_to_issuer: evaluateIssuer(snapshot, line, options.memo),
     send_to_destination: evaluateDestination(snapshot, line, options.memo),
   };
-  const order = ORDERS[options.order];
+  const order = LADDER_ORDERS[options.order];
   const ruledOut = order.flatMap((rung) => {
     const e = evaluations[rung];
     return e.viable ? [] : [{ rung, reason: e.reason }];

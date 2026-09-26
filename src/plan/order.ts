@@ -7,7 +7,7 @@ import type {
 } from "../inspect/snapshot.js";
 import { assetKey } from "../inspect/snapshot.js";
 import { mergeBlockers, signingCapability } from "./blockers.js";
-import { chooseRung } from "./ladder.js";
+import { LADDER_ORDERS, chooseRung } from "./ladder.js";
 import type {
   Blocker,
   CloseStep,
@@ -269,7 +269,12 @@ function disposal(
   order: LadderOrder,
 ): Draft {
   const code = line.asset.code;
-  const why = decision.ruledOut.map((r) => `${sentence(r.reason)}. `).join("");
+  // Explain only the rungs tried before the chosen one; later rungs did not decide anything.
+  const tried = LADDER_ORDERS[order].slice(0, LADDER_ORDERS[order].indexOf(decision.rung));
+  const why = decision.ruledOut
+    .filter((r) => tried.includes(r.rung))
+    .map((r) => `${sentence(r.reason)}. `)
+    .join("");
   const subject = {
     type: "trustline" as const,
     asset: line.asset,

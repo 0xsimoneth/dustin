@@ -10,6 +10,10 @@ export type {
 } from "./errors/dustin-error.js";
 export { redact } from "./errors/redact.js";
 export { inspectAccount } from "./inspect/inspect.js";
+export { planClose } from "./plan/plan-close.js";
+export type { PlanCloseInput, PlanCloseOptions } from "./plan/plan-close.js";
+export { planFromSnapshot } from "./plan/plan.js";
+export type * from "./plan/model.js";
 export type { InspectOptions } from "./inspect/inspect.js";
 export type * from "./inspect/snapshot.js";
 export type { LedgerReader } from "./reader/ledger-reader.js";
@@ -21,11 +25,6 @@ export {
   verifyHorizonIsTestnet,
 } from "./config/network.js";
 export type { DustinConfig, ResolvedConfig } from "./config/network.js";
-
-/** Read-only close planner (SOW Deliverable 1). Implemented in Epic 1. */
-export function planClose(): Promise<never> {
-  return Promise.reject(notImplemented("planClose", "plan"));
-}
 
 /** Fee-bumped close executor (SOW Deliverable 2). Implemented in Epic 2. */
 export function executeClose(): Promise<never> {

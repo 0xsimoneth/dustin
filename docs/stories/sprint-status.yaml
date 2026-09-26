@@ -34,7 +34,7 @@ development_status:
   1-2-baseline-recording: in-progress
   1-3-account-inspector: review
   1-4-plan-model-ordering-engine: review
-  1-5-grouping-fee-estimation: ready-for-dev
+  1-5-grouping-fee-estimation: review
   1-6-dry-run-guarantee-tests: backlog
   1-7-cli-plan-command: backlog
   epic-1-retrospective: optional
@@ -162,7 +162,7 @@ stories:
     title: Transaction grouping, fee estimation and reason strings
     epic: E1
     week: 1
-    status: ready-for-dev
+    status: review
     estimate_hours: 6
     deliverable: D1
   - key: 1-6-dry-run-guarantee-tests

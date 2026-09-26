@@ -3,11 +3,11 @@ import { describe, expect, it } from "vitest";
 import { buildProgram } from "../../src/cli/program.js";
 import { DustinError, executeClose, planClose } from "../../src/index.js";
 
-describe("public API stubs", () => {
-  it("planClose rejects with NOT_IMPLEMENTED", async () => {
-    await expect(planClose()).rejects.toMatchObject({
+describe("public API", () => {
+  it("planClose refuses a malformed account before any request", async () => {
+    await expect(planClose({ account: "nope", destination: "nope" })).rejects.toMatchObject({
       name: "DustinError",
-      code: "NOT_IMPLEMENTED",
+      code: "INVALID_ADDRESS",
     });
   });
 

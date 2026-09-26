@@ -1,0 +1,25 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`planFromSnapshot on the recorded fixture > keeps the fixture's reasons stable 1`] = `
+{
+  "steps": [
+    "S01 cancel_offer: Open offer 826680 sells 0.0000002 DUSTA for XLM. Offers are subentries that block the merge, and their liabilities stop the balance from moving and the trustline from being removed; it is cancelled with amount 0.",
+    "S02 cancel_offer: Open offer 826681 sells 0.0000002 DUSTC for DUSTB. Offers are subentries that block the merge, and their liabilities stop the balance from moving and the trustline from being removed; it is cancelled with amount 0.",
+    "S03 dispose_balance: Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000003 DUSTB back to its issuer GDC7DOSJT6AIQ74S3T4XQ3YKGDSTNOEXUDJPC36ZMYFBYXD2CG5YLQEB, which burns it.",
+    "S04 remove_trustline: The DUSTB trustline is empty once the balance is disposed of; a trustline is a subentry that blocks the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.",
+    "S05 dispose_balance: Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000005 DUSTC back to its issuer GDC7DOSJT6AIQ74S3T4XQ3YKGDSTNOEXUDJPC36ZMYFBYXD2CG5YLQEB, which burns it.",
+    "S06 remove_trustline: The DUSTC trustline is empty once the balance is disposed of; a trustline is a subentry that blocks the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.",
+    "S07 dispose_balance: Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000001 SPTA back to its issuer GDC7DOSJT6AIQ74S3T4XQ3YKGDSTNOEXUDJPC36ZMYFBYXD2CG5YLQEB, which burns it.",
+    "S08 remove_trustline: The SPTA trustline is empty once the balance is disposed of; a trustline is a subentry that blocks the merge. Removing it (limit 0) needs only this account's signature and returns its 0.5 XLM reserve to the reserve sponsor GAFW2SI3HWF354G43KDJP74TU2OSNFXMDN7OTYXAGTW3MNCRJLUKGGLE, not to this account.",
+    "S09 remove_data: Data entry "dustin.fixture" is a subentry that blocks the merge; a manage-data operation without a value deletes it.",
+    "S10 dispose_balance: Sell the full 0.0000007 DUSTA for about 0.0000007 XLM (at least 0.0000007) with a strict-send path payment to this account; the XLM leaves with the merge. It runs in its own transaction so a moved market cannot roll back the rest.",
+    "S11 remove_trustline: The DUSTA trustline is empty once the balance is disposed of; a trustline is a subentry that blocks the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.",
+    "S12 merge: Every subentry is removed by the earlier steps; the account sponsors nothing, is not immutable and the destination exists. The merge sends the whole XLM balance to GBQGFM635UIV2BTCTYSMKKJBESY47VXZLCIPGKW3GZJSSY6B45U2DH2C and deletes the account. It cannot be undone.",
+  ],
+  "transactions": [
+    "0 cleanup: Deterministic cleanup with no market dependency (offer cancellations, returns to issuers, transfers to the destination, removal of emptied trustlines and data entries), grouped into one fee-bumped transaction of at most 100 operations.",
+    "1 convert: Market-dependent sale of DUSTA isolated with its trustline removal, so a moved market cannot roll back the rest of the close.",
+    "2 merge: The merge runs alone after a fresh preflight, because the path payments before it depend on the market and could change the plan.",
+  ],
+}
+`;
