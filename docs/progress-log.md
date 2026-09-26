@@ -37,3 +37,27 @@ Consequences for the ladder (to be applied in E2-S5 and E3-S2):
 - The only unclosable balances are trustlines that are not authorized or only authorized to maintain liabilities (plus pool shares, which are out of scope).
 - In the default SOW order, rung 3 (destination) is reached only if rung 2 is refused for another reason, in practice a memo-required issuer without `--memo`. With `--prefer-destination` rung 3 is tried first.
 - A strict-send quote taken in the same ledger as an offer change can be empty. The fixture builder polls until the path appears, and the plan records the ledger its quotes were taken at.
+
+### Session summary (2026-09-26)
+
+Done:
+
+- Epic 0 (scaffold, lint, format, two test tiers, CI, testnet guard, licence) reviewed and done.
+- Epic 1 done except E1-S2: fixture builder and live `messy` fixture `messy-20260926T035942Z`, account inspector, plan model and ordering engine, grouping and fees, dry-run guarantee, `dustin plan` and the dry-run `dustin close`, committed plan evidence (`evidence/plan/`).
+- Epic 1 code review: 18 findings, all resolved except one accepted risk (`.env` is loaded for `dustin plan`, whose secrets are never read). The widened property test (600 seeds) found one more case: a raised medium threshold alone gave a blocked plan without a blocker; fixed. Empty pool-share trustlines are now removed (architecture section 4.4).
+- E2-S1 (sponsor-paid fee-bump engine) and E2-S2 (execute a close plan) implemented; a live close of a fresh messy fixture passed on testnet (account 404, sponsor paid every fee, destination credited exactly the merged amount). Both are in review.
+- CI is green on Node 22 and 24; all commits are pushed.
+- The npm publish dry run of the 0.0.1 placeholder is prepared (`npm pack --dry-run`, `check:package`).
+
+Traps recorded this session:
+
+- SDK 17.1.0 `Keypair.sign()` returns a `Uint8Array`, like `Transaction.hash()`; hex-encode with `Buffer.from(...)`.
+- `tx_fee_bump_inner_failed` means the inner transaction was included and failed only when `inner_transaction` is `tx_failed`; other inner codes (for example `tx_bad_auth_extra`, `tx_bad_seq`) were rejected at validation and consumed nothing (`src/execute/submit.ts`).
+
+Blocked (human actions):
+
+- `npm login` and `npm publish` of the 0.0.1 name placeholder with 2FA.
+- E1-S2: record the Demolisher baseline run per `evidence/baseline/README.md`.
+- Choose the video hosting; the chapter lead's written acknowledgement comes at the end.
+
+Next: E2-S3 retry and recovery (unknown outcomes, ladder fallback, fee escalation, `tx_bad_seq`), E2-S4 `close --execute` with typed confirmation and a receipt, then E2-S6 live evidence and the Epic 2 review.
