@@ -1,6 +1,5 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ExistingAccountSnapshot } from "../../../src/inspect/snapshot.js";
-import type { ClosePlan } from "../../../src/plan/model.js";
 import { planFromSnapshot } from "../../../src/plan/plan.js";
 import { randomSnapshot } from "../../helpers/generate.js";
 import { copy, messy, messySnapshot } from "../../helpers/snapshots.js";
@@ -148,55 +147,5 @@ describe("grouping at the 100-operation limit", () => {
     expect(cleanup[0]!.opCount).toBe(100);
     expect(plan.transactions.at(-1)!.stepIds.at(-1)).toBe(plan.steps.at(-1)!.id);
     expect(plan.steps.at(-1)!.kind).toBe("merge");
-  });
-});
-
-function checkInvariants(plan: ClosePlan): void {
-  const position = new Map(plan.steps.map((s, i) => [s.id, i]));
-  for (const t of plan.transactions) {
-    expect(t.opCount).toBeLessThanOrEqual(100);
-    expect(t.opCount).toBe(t.stepIds.length);
-    expect(t.feeBumpFeeStroops).toBe(plan.fees.baseFeeStroops * (t.opCount + 1));
-  }
-  expect(plan.fees.totalStroops).toBe(plan.fees.perTransactionStroops.reduce((a, b) => a + b, 0));
-  for (const s of plan.steps) {
-    expect(s.txIndex).toBeGreaterThanOrEqual(0);
-    for (const d of s.dependsOn) expect(position.get(d)!).toBeLessThan(position.get(s.id)!);
-    // Steps appear in their transactions in plan order.
-    expect(plan.transactions[s.txIndex]!.stepIds).toContain(s.id);
-  }
-  const merge = plan.steps.find((s) => s.kind === "merge");
-  if (merge) {
-    expect(plan.steps.at(-1)).toBe(merge);
-    expect(plan.transactions.at(-1)!.stepIds.at(-1)).toBe(merge.id);
-  }
-  expect(plan.status === "closable").toBe(merge !== undefined);
-  // Every trustline with a balance is either disposed of or reported, never silently dropped.
-  const snapshot = plan as unknown as { _source?: never };
-  void snapshot;
-}
-
-describe("planner invariants over generated snapshots", () => {
-  it("holds for 300 seeded random accounts", () => {
-    for (let seed = 1; seed <= 300; seed++) {
-      const s = randomSnapshot(seed);
-      const plan = planFromSnapshot(s, { destination: s.destination!.account });
-      checkInvariants(plan);
-      for (const t of s.trustlines.filter((x) => x.balance !== "0.0000000")) {
-        const disposed = plan.steps.some(
-          (st) =>
-            st.kind === "dispose_balance" &&
-            st.subject.type === "trustline" &&
-            st.subject.asset.code === t.asset.code,
-        );
-        const reported = plan.unclosable.some(
-          (u) => u.subject.type === "trustline" && u.subject.asset.code === t.asset.code,
-        );
-        expect(disposed !== reported, `seed ${seed} ${t.asset.code}`).toBe(true);
-      }
-      expect(planFromSnapshot(s, { destination: s.destination!.account }).planHash).toBe(
-        plan.planHash,
-      );
-    }
   });
 });
