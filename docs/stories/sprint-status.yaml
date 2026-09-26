@@ -14,7 +14,7 @@
 # Budget by SOW deliverable: D1 60 h, D2 80 h, D3 40 h, D4 20 h (total 200 h).
 
 generated: "2026-09-25"
-last_updated: "2026-09-25"
+last_updated: "2026-09-26"
 project: dustin
 project_key: dustin
 tracking_system: file-system
@@ -23,11 +23,11 @@ epics_document: docs/epics-and-stories.md
 sow_document: SUCCESSFUL_SOW.md
 
 development_status:
-  epic-0: backlog
-  0-1-package-scaffold: backlog
-  0-2-lint-format-test-runner: backlog
-  0-3-continuous-integration: backlog
-  0-4-env-testnet-guard-license: backlog
+  epic-0: in-progress
+  0-1-package-scaffold: review
+  0-2-lint-format-test-runner: ready-for-dev
+  0-3-continuous-integration: ready-for-dev
+  0-4-env-testnet-guard-license: ready-for-dev
   epic-0-retrospective: optional
   epic-1: backlog
   1-1-messy-fixture-builder: backlog
@@ -98,7 +98,7 @@ stories:
     title: TypeScript package scaffold with typed API and CLI entry point
     epic: E0
     week: 1
-    status: backlog
+    status: review
     estimate_hours: 4
     deliverable: D1
   - key: 0-2-lint-format-test-runner
@@ -106,7 +106,7 @@ stories:
     title: Lint, format and test runner
     epic: E0
     week: 1
-    status: backlog
+    status: ready-for-dev
     estimate_hours: 2
     deliverable: D1
   - key: 0-3-continuous-integration
@@ -114,7 +114,7 @@ stories:
     title: Continuous integration with a gated testnet job
     epic: E0
     week: 1
-    status: backlog
+    status: ready-for-dev
     estimate_hours: 2
     deliverable: D1
   - key: 0-4-env-testnet-guard-license
@@ -122,7 +122,7 @@ stories:
     title: Environment handling, testnet-only guard, MIT license and README skeleton
     epic: E0
     week: 1
-    status: backlog
+    status: ready-for-dev
     estimate_hours: 2
     deliverable: D1
   - key: 1-1-messy-fixture-builder

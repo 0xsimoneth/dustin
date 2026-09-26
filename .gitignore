@@ -23,3 +23,6 @@ coverage/
 
 # stellar-build project-local tooling config
 .stellar-build/
+
+# npm pack output
+*.tgz
