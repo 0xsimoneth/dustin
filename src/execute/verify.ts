@@ -50,7 +50,7 @@ export async function verifyClosed(
     const result: ClosedVerification = {
       accountExists: record !== null,
       horizonStatus: record === null ? 404 : 200,
-      checkedAt: new Date().toISOString(),
+      checkedAt: new Date(now()).toISOString(),
       ledger: ledger.sequence,
       accountUrl: `${config.explorerBaseUrl}/account/${account}`,
     };

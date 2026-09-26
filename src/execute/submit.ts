@@ -189,27 +189,27 @@ function fromResponse(hash: string, status: number, raw: unknown): SubmitOutcome
 export interface ConfirmOptions {
   /** Pause between lookups by hash; default 2000 ms. */
   pollIntervalMs?: number;
-  /** How long to keep looking after the upper time bound, by the local clock; default 10 s. */
+  /** How long to keep looking after the upper time bound; default 10 s. */
   graceSeconds?: number;
-  /** Local clock in Unix seconds. */
+  /** Local clock in Unix seconds. With `ledgerCloseTime` it only measures how long the wait lasts. */
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   /**
-   * Close time (Unix seconds) of the latest ledger Horizon has ingested. When given, an envelope is
-   * reported expired only once a ledger closed after its upper time bound, whatever the local
-   * clock says; without it, the local clock decides.
+   * Close time (Unix seconds) of the latest ledger Horizon has ingested. When given, the deadline
+   * comes from the ledger's clock: an envelope is reported gone only once a ledger closed after its
+   * upper time bound, whatever the local clock says. Without it, the local clock decides.
    */
   ledgerCloseTime?: () => Promise<number>;
-  /** How long to wait for such a ledger after the local deadline; default 60 s. */
+  /** How long to wait, beyond the time bound and the grace, for such a ledger; default 60 s. */
   ledgerWaitSeconds?: number;
 }
 
 /**
  * Submits one envelope and learns its fate. A 504, a 5xx or a lost connection is not a failure: the
  * transaction may still land, so the same envelope is looked up by hash until its upper time bound
- * (plus a grace of two ledgers) has passed. Time bounds are checked against ledger close times
+ * has passed. Time bounds are checked against ledger close times
  * (https://developers.stellar.org/docs/learn/fundamentals/transactions/operations-and-transactions#time-bounds),
- * so with `ledgerCloseTime` the envelope is declared expired only after a ledger closed past its
+ * so with `ledgerCloseTime` the envelope is declared gone only after a ledger closed past its
  * `maxTime` and a last lookup still finds nothing; only then may the caller build a replacement for
  * the same sequence number (architecture 7.3; Horizon timeout guidance:
  * https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/http-status-codes/horizon-specific/timeout).
@@ -219,33 +219,66 @@ export async function submitAndConfirm(
   envelope: { xdr: string; hash: string; maxTime: number },
   options: ConfirmOptions = {},
 ): Promise<SubmitOutcome> {
-  const now = options.now ?? (() => Date.now() / 1000);
-  const sleep = options.sleep ?? defaultSleep;
-  const pollMs = options.pollIntervalMs ?? 2000;
   const response = await submitter.submit(envelope.xdr);
   if ("status" in response) {
     const known = fromResponse(envelope.hash, response.status, response.body);
     if (known) return known;
   }
+  return options.ledgerCloseTime
+    ? confirmByLedgerClock(submitter, envelope, options, options.ledgerCloseTime)
+    : confirmByLocalClock(submitter, envelope, options);
+}
+
+/** Without a ledger clock: look the envelope up until the local clock passes its bound. */
+async function confirmByLocalClock(
+  submitter: Submitter,
+  envelope: { hash: string; maxTime: number },
+  options: ConfirmOptions,
+): Promise<SubmitOutcome> {
+  const now = options.now ?? (() => Date.now() / 1000);
   const deadline = envelope.maxTime + (options.graceSeconds ?? 10);
   for (;;) {
     const record = await submitter.transaction(envelope.hash);
     if (record) return outcomeFromRecord(envelope.hash, record);
-    if (now() > deadline) break;
-    await sleep(pollMs);
+    if (now() > deadline) return { kind: "unknown", hash: envelope.hash };
+    await (options.sleep ?? defaultSleep)(options.pollIntervalMs ?? 2000);
   }
-  if (!options.ledgerCloseTime) return { kind: "unknown", hash: envelope.hash };
-  const waitUntil = now() + (options.ledgerWaitSeconds ?? 60);
+}
+
+/**
+ * With a ledger clock: the time bound is judged by ledger close times, and the local clock only
+ * measures how long the wait has lasted, so a skewed local clock can neither end the wait early
+ * nor make it endless. Horizon is asked for the latest close time once at the start, and again
+ * only when that reading plus the time waited says the bound has probably passed.
+ */
+async function confirmByLedgerClock(
+  submitter: Submitter,
+  envelope: { hash: string; maxTime: number },
+  options: ConfirmOptions,
+  ledgerCloseTime: () => Promise<number>,
+): Promise<SubmitOutcome> {
+  const now = options.now ?? (() => Date.now() / 1000);
+  const started = now();
+  let firstClose: number | null = null;
   for (;;) {
-    // Close times only grow, so once one ledger closed after maxTime no later ledger can include
-    // the envelope; every earlier ledger is already ingested, so a last lookup is conclusive.
-    if ((await options.ledgerCloseTime()) > envelope.maxTime) {
-      const record = await submitter.transaction(envelope.hash);
-      return record
-        ? outcomeFromRecord(envelope.hash, record)
+    const record = await submitter.transaction(envelope.hash);
+    if (record) return outcomeFromRecord(envelope.hash, record);
+    firstClose ??= await ledgerCloseTime();
+    const waited = now() - started;
+    if (firstClose + waited > envelope.maxTime && (await ledgerCloseTime()) > envelope.maxTime) {
+      // Close times only grow, so no later ledger can include the envelope, and every earlier
+      // ledger is already ingested: one more lookup is conclusive.
+      const last = await submitter.transaction(envelope.hash);
+      return last
+        ? outcomeFromRecord(envelope.hash, last)
         : { kind: "unknown", hash: envelope.hash };
     }
-    if (now() > waitUntil) return { kind: "unknown", hash: envelope.hash, mayStillApply: true };
-    await sleep(pollMs);
+    const limit =
+      envelope.maxTime -
+      firstClose +
+      (options.graceSeconds ?? 10) +
+      (options.ledgerWaitSeconds ?? 60);
+    if (waited > limit) return { kind: "unknown", hash: envelope.hash, mayStillApply: true };
+    await (options.sleep ?? defaultSleep)(options.pollIntervalMs ?? 2000);
   }
 }

@@ -7,14 +7,21 @@ import { FakeLedger } from "../../helpers/fake-ledger.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
 
-/** A clock that moves only when the code under test waits, so no test waits real time. */
-export function testClock(startMs = Date.now()) {
+/**
+ * A clock that moves only when the code under test waits, so no test waits real time. A wait that
+ * never ends (a deadline read from another clock) fails the test after `maxSleeps` waits instead
+ * of spinning.
+ */
+export function testClock(startMs = Date.now(), maxSleeps = 1000) {
   let t = startMs;
   const sleeps: number[] = [];
   return {
     now: () => t,
     sleep: (ms: number) => {
       sleeps.push(ms);
+      if (sleeps.length > maxSleeps) {
+        return Promise.reject(new Error(`waited ${maxSleeps} times without reaching a deadline`));
+      }
       t += Math.max(ms, 1);
       return Promise.resolve();
     },

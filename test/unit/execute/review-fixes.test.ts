@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { executeClose } from "../../../src/execute/executor.js";
 import { messy } from "../../helpers/snapshots.js";
-import { harness, signers } from "./harness.js";
+import { harness, reply, signers } from "./harness.js";
 
 // Findings of the independent review of the E2-S3 executor (2026-09-26). Every test here runs on
 // an injected clock: no fake global Date, no real waiting.
@@ -21,5 +21,68 @@ describe("review finding 8: the fake ledger names a missing source as Horizon do
       transaction: "tx_fee_bump_inner_failed",
       innerTransaction: "tx_no_source_account",
     });
+  });
+});
+
+describe("review finding 6: waits follow the injected clock and the ledger's clock", () => {
+  it("rebuilds an envelope that expired unconfirmed once the ledger's clock passed its bound", async () => {
+    const { ledger, clock, deps, plan } = harness();
+    ledger.faults.push("504-not-applied");
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    expect(report.status).toBe("closed");
+    const [first, second] = report.transactions.filter((t) => t.round === 0 && t.index === 0);
+    expect(first).toMatchObject({ attempt: 1, result: "unknown" });
+    expect(second).toMatchObject({ attempt: 2, result: "applied", sequence: first!.sequence });
+    // Horizon's ledgers (on the test clock here) had passed the old envelope's bound.
+    expect(clock.now() / 1000).toBeGreaterThan(first!.maxTime);
+    expect(Date.parse(report.finishedAt!)).toBe(clock.now());
+  });
+
+  it("gives up after ledgerWaitSeconds when no ledger closes past the bound", async () => {
+    let frozen: string | null = null;
+    const { ledger, clock, deps, plan } = harness((_l, fetch) => async (url, init) => {
+      const response = await fetch(url, init);
+      if (!url.includes("/ledgers")) return response;
+      const page = (await response.json()) as {
+        _embedded: { records: { closed_at: string }[] };
+      };
+      frozen ??= page._embedded.records[0]!.closed_at;
+      page._embedded.records[0]!.closed_at = frozen;
+      return new Response(JSON.stringify(page));
+    });
+    ledger.faults.push("504-not-applied");
+    const started = clock.now();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      ledgerWaitSeconds: 30,
+    });
+    expect(report.stop).toMatchObject({ code: "OUTCOME_UNKNOWN" });
+    expect(ledger.submissions).toHaveLength(1);
+    // About the 120 s time bound (floored to whole seconds), the 10 s grace and the 30 s wait,
+    // measured on the test clock.
+    const waited = (clock.now() - started) / 1000;
+    expect(waited).toBeGreaterThanOrEqual(155);
+    expect(waited).toBeLessThan(200);
+  });
+
+  it("waits for the final 404 on the injected clock", async () => {
+    let stale = false;
+    const { clock, deps, plan } = harness(
+      (_l, fetch) => (url, init) =>
+        stale && url.endsWith(`/accounts/${messy.fixture}`)
+          ? reply(200, { status: "cached" })
+          : fetch(url, init),
+    );
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      verifyTimeoutMs: 10_000,
+      onEvent: (e) => {
+        if (e.type === "tx:building" && e.index === 2) stale = true;
+      },
+    });
+    expect(report.stop).toMatchObject({ code: "ACCOUNT_STILL_EXISTS" });
+    expect(clock.sleeps.filter((ms) => ms === 5000).length).toBeGreaterThanOrEqual(2);
   });
 });

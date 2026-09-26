@@ -91,6 +91,16 @@ export interface ExecuteOptions {
   verifyTimeoutMs?: number;
   /** Waits between lookups and retries; injectable for tests and custom schedulers. */
   sleep?: (ms: number) => Promise<void>;
+  /**
+   * Local clock in milliseconds, for report timestamps and for measuring how long a wait lasts;
+   * whether a time bound has passed is judged by ledger close times. Default `Date.now`.
+   */
+  now?: () => number;
+  /**
+   * How long to wait, beyond an unconfirmed envelope's time bound and the grace, for a ledger that
+   * closed after the bound; after it the run stops with OUTCOME_UNKNOWN. Default 60 s.
+   */
+  ledgerWaitSeconds?: number;
 }
 
 /**
@@ -225,7 +235,7 @@ class CloseRun {
       status: "aborted",
       message: null,
       stop: null,
-      startedAt: new Date().toISOString(),
+      startedAt: new Date((options.now ?? Date.now)()).toISOString(),
       finishedAt: null,
       transactions: [],
       steps: fresh.steps.map((s) => ({ stepId: s.id, status: "not_run", txIndex: s.txIndex })),
@@ -249,6 +259,8 @@ class CloseRun {
       backoffMs: options.backoffMs ?? 1000,
       maxAttempts: options.maxAttemptsPerTransaction ?? 5,
       maxRateLimitRetries: options.maxRateLimitRetries ?? 5,
+      ledgerWaitSeconds: options.ledgerWaitSeconds ?? 60,
+      now: options.now ?? (() => Date.now()),
       sleep: options.sleep ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms))),
     };
   }
@@ -260,6 +272,10 @@ class CloseRun {
     } catch (error) {
       throw this.interrupted(error);
     }
+  }
+
+  private timestamp(): string {
+    return new Date(this.settings.now()).toISOString();
   }
 
   private publish(): void {
@@ -275,7 +291,7 @@ class CloseRun {
     this.report.status = status;
     this.report.message = message;
     this.report.stop = stop;
-    this.report.finishedAt = new Date().toISOString();
+    this.report.finishedAt = this.timestamp();
     this.publish();
     this.input.emit({ type: "done", status });
     return this.report;
@@ -294,7 +310,7 @@ class CloseRun {
       this.report.verification = {
         accountExists: false,
         horizonStatus: 404,
-        checkedAt: new Date().toISOString(),
+        checkedAt: this.timestamp(),
         accountUrl: `${this.input.config.explorerBaseUrl}/account/${plan.account}`,
         ledger: fresh.observed.ledger,
       };
@@ -575,7 +591,7 @@ class CloseRun {
     this.round += 1;
     this.report.replans.push({
       round: this.round,
-      at: new Date().toISOString(),
+      at: this.timestamp(),
       planHash: next.planHash,
       trigger: {
         round: at.round,
@@ -676,6 +692,7 @@ class CloseRun {
       timeoutMs: this.merge ? (this.input.options.verifyTimeoutMs ?? 30_000) : 0,
       intervalMs: this.settings.pollIntervalMs,
       sleep: this.settings.sleep,
+      now: this.settings.now,
     });
     this.report.verification = v;
     this.input.emit({ type: "verified", accountExists: v.accountExists });

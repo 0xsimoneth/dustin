@@ -27,6 +27,10 @@ export interface AttemptSettings {
   maxAttempts: number;
   /** Posts of one envelope after a 429. */
   maxRateLimitRetries: number;
+  /** How long to wait, beyond a time bound and the grace, for a ledger that closed after it. */
+  ledgerWaitSeconds: number;
+  /** Local clock in milliseconds; it only measures how long waits last. */
+  now: () => number;
   sleep: (ms: number) => Promise<void>;
 }
 
@@ -350,6 +354,8 @@ async function postWithBackoff(
       {
         pollIntervalMs: settings.pollIntervalMs,
         graceSeconds: settings.graceSeconds,
+        ledgerWaitSeconds: settings.ledgerWaitSeconds,
+        now: () => settings.now() / 1000,
         sleep: settings.sleep,
         ledgerCloseTime: async () => Date.parse((await ctx.reader.latestLedger()).closed_at) / 1000,
       },

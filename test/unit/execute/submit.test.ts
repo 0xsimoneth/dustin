@@ -199,8 +199,9 @@ describe("submitAndConfirm classification", () => {
     });
     expect(r).toEqual({ kind: "unknown", hash: HASH });
     expect(ledgerCloseTime).toHaveBeenCalledTimes(3);
-    // Polled until the local deadline, then one last lookup once the ledger had passed maxTime.
-    expect(c.now()).toBeGreaterThan(envelope.maxTime + 10);
+    // The ledger's clock decided: this machine's clock (95 s behind it here) never reached maxTime,
+    // and the last lookup came after the ledger had passed it (review finding 6).
+    expect(c.now()).toBeLessThan(envelope.maxTime);
     expect(lookups).toBeGreaterThan(2);
   });
 
