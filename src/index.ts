@@ -13,6 +13,8 @@ export { inspectAccount } from "./inspect/inspect.js";
 export { planClose } from "./plan/plan-close.js";
 export type { PlanCloseInput, PlanCloseOptions } from "./plan/plan-close.js";
 export { planFromSnapshot } from "./plan/plan.js";
+export { renderPlan } from "./render/plan-text.js";
+export type { RenderPlanOptions } from "./render/plan-text.js";
 export type * from "./plan/model.js";
 export type { InspectOptions } from "./inspect/inspect.js";
 export type * from "./inspect/snapshot.js";

@@ -22,6 +22,8 @@ export interface CommandContext {
   io: CliIo;
   config: () => ResolvedConfig;
   fetch?: FetchLike;
+  /** Horizon retry tuning (tests); defaults apply otherwise. */
+  horizon?: { retries?: number; backoffMs?: number };
 }
 
 const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
@@ -84,7 +86,10 @@ export async function fixtureVerify(
   assertTestnetPassphrase(manifest.network.passphrase);
   const config = ctx.config();
   await verifyHorizonIsTestnet(config.horizonUrl, ctx.fetch);
-  const client = horizonJson(config.horizonUrl, ctx.fetch ? { fetch: ctx.fetch } : {});
+  const client = horizonJson(config.horizonUrl, {
+    ...(ctx.fetch ? { fetch: ctx.fetch } : {}),
+    ...ctx.horizon,
+  });
   const input = await loadVerifyInput(
     client,
     expectationFromManifest(manifest),

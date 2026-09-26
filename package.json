@@ -58,7 +58,8 @@
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "postpack": "npm run check:package"
+    "postpack": "npm run check:package",
+    "evidence:plan": "node scripts/evidence-plan.mjs"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.1.0",

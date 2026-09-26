@@ -37,6 +37,14 @@ export function planFromSnapshot(s: AccountSnapshot, options: PlanOptions): Clos
     feeSponsor,
     memo: options.memo ?? null,
     observed: { ledger: s.observed.ledger, closedAt: s.observed.closedAt },
+    reserve: s.exists
+      ? { balance: s.native.balance, ...s.reserve }
+      : {
+          balance: "0.0000000",
+          minimum: "0.0000000",
+          spendable: "0.0000000",
+          baseReserve: "0.0000000",
+        },
     snapshotHash: s.snapshotHash,
     ladderOrder: options.preferDestination ? ("prefer-destination" as const) : ("sow" as const),
   };

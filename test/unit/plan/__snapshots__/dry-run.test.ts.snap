@@ -47,6 +47,12 @@ exports[`dry-run guarantee > produces the committed plan for the recorded fixtur
     ],
     "xlmToDestination": "4.0000007",
   },
+  "reserve": {
+    "balance": "4.0000000",
+    "baseReserve": "0.5000000",
+    "minimum": "4.0000000",
+    "spendable": "0.0000000",
+  },
   "schemaVersion": 1,
   "sequenceGuard": {
     "earliestLedger": 4874328,

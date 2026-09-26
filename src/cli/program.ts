@@ -4,6 +4,7 @@ import { DustinError, notImplemented } from "../errors/dustin-error.js";
 import { redact } from "../errors/redact.js";
 import type { FetchLike } from "../reader/horizon-json.js";
 import { fixtureCreate, fixtureVerify, type CommandContext } from "./commands/fixture.js";
+import { buildPlan, planCommand, printPlan, type PlanCommandOptions } from "./commands/plan.js";
 import type { ExitCode } from "./exit-codes.js";
 
 export interface CliIo {
@@ -14,6 +15,7 @@ export interface CliIo {
 export interface CliDeps {
   env: Record<string, string | undefined>;
   fetch?: FetchLike;
+  horizon?: { retries?: number; backoffMs?: number };
 }
 
 /** Commands report their exit code here; `run()` returns it. */
@@ -36,6 +38,7 @@ export function buildProgram(
     io,
     config: () => resolveConfig(configFromEnv(deps.env)),
     ...(deps.fetch ? { fetch: deps.fetch } : {}),
+    ...(deps.horizon ? { horizon: deps.horizon } : {}),
   };
   const program = new Command("dustin")
     .description(
@@ -75,9 +78,10 @@ export function buildProgram(
     .option("--sponsor <sponsor>", "G... address of the fee sponsor, used for the fee attribution")
     .option("--prefer-destination", "try the destination transfer before the return to issuer")
     .option("--memo <memo>", "memo for destinations that require one (SEP-29)")
+    .option("--base-fee <stroops>", "fee bid per operation instead of the fee_stats estimate")
     .option("--json", "print the plan as one JSON document")
-    .action(() => {
-      throw notImplemented("dustin plan", "plan");
+    .action(async (account: string, options: PlanCommandOptions) => {
+      state.exitCode = await planCommand(account, options, ctx);
     });
 
   program
@@ -95,9 +99,14 @@ export function buildProgram(
     .option("--partial", "proceed even if some items are unclosable; the account is not merged")
     .option("--prefer-destination", "try the destination transfer before the return to issuer")
     .option("--memo <memo>", "memo for destinations that require one (SEP-29)")
+    .option("--base-fee <stroops>", "fee bid per operation instead of the fee_stats estimate")
     .option("--json", "print the report as one JSON document")
-    .action(() => {
-      throw notImplemented("dustin close", "plan");
+    .action(async (account: string, options: PlanCommandOptions & { execute?: boolean }) => {
+      if (options.execute) throw notImplemented("dustin close --execute", "submit");
+      // Canonical decision 4: without --execute, close behaves exactly like plan.
+      const plan = await buildPlan(account, options, ctx);
+      printPlan(plan, options, ctx, "add --execute to run this plan");
+      state.exitCode = 0;
     });
 
   const fixture = program

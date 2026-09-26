@@ -56,7 +56,15 @@ describe("dustin CLI run()", () => {
 
   it("maps an unexpected failure to exit 1", async () => {
     const c = capture();
-    expect(await run([...node, "plan", Keypair.random().publicKey()], c.io, "1.2.3")).toBe(1);
+    const argv = [
+      ...node,
+      "close",
+      Keypair.random().publicKey(),
+      "--to",
+      Keypair.random().publicKey(),
+      "--execute",
+    ];
+    expect(await run(argv, c.io, "1.2.3")).toBe(1);
     expect(c.err()).toContain("NOT_IMPLEMENTED");
   });
 });
@@ -89,7 +97,12 @@ describe("argv secret guard (review findings)", () => {
     const acct = Keypair.random().publicKey();
     const dest = Keypair.random().publicKey();
     const a = capture();
-    expect(await run([...node, "plan", acct, "--to", dest, "--memo", "m"], a.io, "1.2.3")).toBe(1); // reaches NOT_IMPLEMENTED
+    // --memo parses (not a usage error); with the unit tier offline the run stops at Horizon (exit 6).
+    const planned = await run([...node, "plan", acct, "--to", dest, "--memo", "m"], a.io, "1.2.3", {
+      env: {},
+      horizon: { retries: 0, backoffMs: 0 },
+    });
+    expect(planned).toBe(6);
     const b = capture();
     expect(
       await run([...node, "plan", acct, "--to", dest, "--destination", dest], b.io, "1.2.3"),

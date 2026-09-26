@@ -163,6 +163,8 @@ export interface ClosePlan {
   feeSponsor: string | null;
   memo: string | null;
   observed: { ledger: number; closedAt: string };
+  /** The account's XLM position when observed; "0.0000000" everywhere for a missing account. */
+  reserve: { balance: string; minimum: string; spendable: string; baseReserve: string };
   snapshotHash: string;
   planHash: string;
   status: PlanStatus;
