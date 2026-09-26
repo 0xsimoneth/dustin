@@ -1,5 +1,3 @@
-import { notImplemented } from "./errors/dustin-error.js";
-
 export { DustinError } from "./errors/dustin-error.js";
 export type {
   DustinErrorCode,
@@ -28,7 +26,14 @@ export {
 } from "./config/network.js";
 export type { DustinConfig, ResolvedConfig } from "./config/network.js";
 
-/** Fee-bumped close executor (SOW Deliverable 2). Implemented in Epic 2. */
-export function executeClose(): Promise<never> {
-  return Promise.reject(notImplemented("executeClose", "submit"));
-}
+// Fee-bumped close executor (SOW Deliverable 2, review R3).
+export { executeClose } from "./execute/executor.js";
+export type { CloseEvent, ExecuteOptions, Signers } from "./execute/executor.js";
+export type {
+  CloseReport,
+  CloseStatus,
+  StepOutcome,
+  SubmittedTransaction,
+} from "./execute/report.js";
+export { keypairSigner } from "./sponsor/signer.js";
+export type { Signer } from "./sponsor/signer.js";
