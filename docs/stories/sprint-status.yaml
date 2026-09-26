@@ -26,7 +26,7 @@ development_status:
   epic-0: in-progress
   0-1-package-scaffold: review
   0-2-lint-format-test-runner: review
-  0-3-continuous-integration: ready-for-dev
+  0-3-continuous-integration: review
   0-4-env-testnet-guard-license: review
   epic-0-retrospective: optional
   epic-1: backlog
@@ -114,7 +114,7 @@ stories:
     title: Continuous integration with a gated testnet job
     epic: E0
     week: 1
-    status: ready-for-dev
+    status: review
     estimate_hours: 2
     deliverable: D1
   - key: 0-4-env-testnet-guard-license

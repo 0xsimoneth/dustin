@@ -1,6 +1,6 @@
 # Story 0.3: Continuous integration with a gated testnet job
 
-Status: ready-for-dev
+Status: review
 
 ## Story
 
@@ -17,9 +17,9 @@ so that the repository state I am asked to trust is checked by a machine.
 
 ## Tasks / Subtasks
 
-- [ ] Task 1: `ci.yml` (AC: 1, 4)
-- [ ] Task 2: `testnet.yml` (AC: 2, 4)
-- [ ] Task 3: README badge (AC: 3)
+- [x] Task 1: `ci.yml` (AC: 1, 4)
+- [x] Task 2: `testnet.yml` (AC: 2, 4)
+- [x] Task 3: README badge (AC: 3)
 
 ## Dev Notes
 
@@ -39,10 +39,28 @@ dev-story workflow (AI developer agent)
 
 ### Implementation Plan
 
+- `ci.yml`: push and pull request, Node 22 and 24 matrix, `npm ci`, lint, format check, typecheck, build, unit tests, the package check, and `npm audit --omit=dev --audit-level=high` on runtime dependencies. `permissions: contents: read`.
+- `testnet.yml`: `workflow_dispatch` only, Node 24, `DUSTIN_TESTNET=1 npm run test:testnet`, one run at a time (`concurrency: testnet`), 30-minute timeout, no secrets.
+- Action versions from the GitHub releases API on 2026-09-26: `actions/checkout` v7.0.1, `actions/setup-node` v7.0.0.
+
 ### Debug Log References
+
+- The workflow command sequence was run in a fresh `git clone` of the repository (no untracked files): every step passed, and the testnet tier passed with `DUSTIN_TESTNET=1`.
 
 ### Completion Notes List
 
+- AC1: the workflow and its command sequence are in place and pass locally from a fresh clone; the first GitHub-hosted run happens on the next push.
+- AC2: the testnet job only has a `workflow_dispatch` trigger and references no secret.
+- AC3: README shows the CI badge.
+- AC4: `grep secrets.` over `.github/` finds nothing; both workflows set `permissions: contents: read`.
+
 ### File List
 
+- `.github/workflows/ci.yml` (new)
+- `.github/workflows/testnet.yml` (new)
+- `README.md` (modified: CI badge)
+- `docs/stories/0-3-continuous-integration.md`, `docs/stories/sprint-status.yaml` (modified)
+
 ## Change Log
+
+- 2026-09-26: CI workflow for the offline tier and a manual testnet workflow without secrets. Status: review (first GitHub-hosted run pending the next push).

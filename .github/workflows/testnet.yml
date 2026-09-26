@@ -1,0 +1,30 @@
+# Testnet tier, run on demand only. It needs no repository secret: every run funds its own
+# throwaway accounts from Friendbot (docs/adr/ADR-0005-testing-strategy.md).
+name: Testnet tier
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: testnet
+  cancel-in-progress: false
+
+jobs:
+  testnet:
+    name: Testnet tier (Node 24)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:testnet
+        env:
+          DUSTIN_TESTNET: "1"
