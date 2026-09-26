@@ -38,8 +38,8 @@ development_status:
   1-6-dry-run-guarantee-tests: review
   1-7-cli-plan-command: review
   epic-1-retrospective: optional
-  epic-2: backlog
-  2-1-fee-bump-submission-engine: backlog
+  epic-2: in-progress
+  2-1-fee-bump-submission-engine: review
   2-2-simple-close-executor: backlog
   2-3-retry-recovery-resume: backlog
   2-4-verification-receipt: backlog
@@ -186,7 +186,7 @@ stories:
     title: Sponsor-paid fee-bump submission engine
     epic: E2
     week: 2
-    status: backlog
+    status: review
     estimate_hours: 12
     deliverable: D2
   - key: 2-2-simple-close-executor

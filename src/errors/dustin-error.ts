@@ -15,7 +15,10 @@ export type DustinErrorCode =
   | "FIXTURE_INVALID"
   | "MANIFEST_INVALID"
   | "INVALID_ADDRESS"
-  | "CONTRACT_ACCOUNT";
+  | "CONTRACT_ACCOUNT"
+  | "TOO_MANY_OPERATIONS"
+  | "SPONSOR_REFUSED"
+  | "SPONSOR_BUDGET_EXCEEDED";
 
 export type ErrorStage =
   "config" | "inspect" | "plan" | "build" | "sponsor" | "submit" | "confirm" | "merge";
