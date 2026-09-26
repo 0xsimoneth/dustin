@@ -58,9 +58,9 @@ export async function buildPlan(
   account: string,
   options: PlanCommandOptions,
   ctx: CommandContext,
-  feeSponsor: string | undefined = options.sponsor,
 ): Promise<ClosePlan> {
   const destination = destinationOf(options);
+  const feeSponsor = options.sponsor;
   checkAddresses(account, destination, feeSponsor);
   const baseFee = parseBaseFee(options.baseFee);
   const config = ctx.config();
