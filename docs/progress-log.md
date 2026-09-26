@@ -1,0 +1,39 @@
+# Progress log
+
+One dated entry per working session: what was done, what is blocked, the next step.
+
+## 2026-09-26 (sprint day 5, week 1)
+
+### Day-1 experiments (docs/technical-spike.md section 8.4)
+
+Script: `scripts/spike/day1.ts`. Raw results (public keys, hashes, Horizon result codes; no secrets): `docs/research/day1-experiments-2026-09-26.json`. Testnet, protocol 28, Horizon ledger 4874030 at the start of the run, fee sponsor `GD7Q65UF75MAHRK3F7LA6HFPZRQEOIR7LXIF2DZQAWWAPXFBM3MEEKDL`. Every account was a throwaway created for the run. Base fee bid: `fee_stats.fee_charged.p80` = 82,746 stroops per operation.
+
+| # | Question | Observed | Transaction (outer hash) |
+|---|---|---|---|
+| 1 | Can an account with zero spendable XLM source a fee-bumped transaction whose inner fee is `"0"`? | Yes. Account at 3.0000000 XLM with a 3.0000000 minimum. An unbumped transaction from it was rejected with `tx_insufficient_balance` and did not consume its sequence number. The fee-bumped `manageData` delete with inner fee `"0"` succeeded; the account balance stayed 3.0000000. Horizon shows `fee_account` = sponsor, `inner_transaction.max_fee` = `"0"`, `max_fee` = 165,492 (2 x 82,746 bid) and `fee_charged` = 200. Inner fee `"100"` also succeeds with the balance unchanged. | `7fb410dbc1ac43e902e156ac14757d78fa9376ec0aa1498c5690e587c18e5c56` (control: `db6e7acbbefe41de7600481571020a9f8ab803f5fa01f9c2823b2186537d262d`) |
+| 2 | Does `manageSellOffer(amount "0")` delete an offer created with `manageBuyOffer`? | Yes, using the offer record's own assets and `price_r` (the record stores it as selling XLM, buying DUST, `price_r` 2/1). | `4ab3b9b38c9521079606851b7c265379cfd7660156d93c3cbf6102be73aeef29` |
+| 3 | Does the owner alone delete a sponsored trustline, with the reserve returning to the sponsor? | Yes. Reserve sponsor `num_sponsoring` 1 -> 0, owner `num_sponsored` 1 -> 0, reserve sponsor balance unchanged (no XLM moves). Effects: `trustline_removed`, `trustline_sponsorship_removed`. Adding the reserve sponsor's signature to the inner transaction is rejected: `tx_fee_bump_inner_failed` / inner `tx_bad_auth_extra`. | `400a437f699c8f5a8b8ab2aeb05cb34d3968c41acbb3c5e643e1448c4beb5673` |
+| 4 | Open question 3: what happens to a payment to an issuer whose account was merged away? | The issuer merged while holders still had its asset. A payment of 0.0000005 ORPH to the merged issuer **succeeded and burned the balance** (holder balance 0). A zero-balance trustline to the merged issuer and the emptied trustline were both deleted. Creating a new trustline to the merged issuer fails with `op_no_issuer`. | merge `cae2746d199681fee1574edae1f952820fc721d9cfc6e643b11d081974914cf1`, burn `cbb400ba4d715ac58447e74b3be10ef4d8ca58ce2f477d60d5bda38f05a3f0c9`, delete `be2f5ef42531f154dc69ab9b9489c7b8f0226be475519c8fcdd7da376da9a5ba`, `op_no_issuer` `571db84a8c10b79628224c72999f56f730593e85c6f39e095da33a3e41ee0f91` |
+| 5 | Sequence guard | Sequence bumped to `(4874033 + 20) << 32` = 20933898233970688. A merge with sequence ...689 in the next ledgers failed with `op_seq_num_too_far` and consumed the sequence number. Formula `unblocksAtLedger = (seqAtMerge >> 32) + 1` gave 4874054. The later merge (submitted at ledger 4874061) succeeded in ledger 4874062 and the account returned 404. The exact first valid ledger was not isolated in this run; the boundary is covered by unit tests and the E3-S4 live test. | fail `1d13837c133ce2fa2518a876c19cd6ae5b79fc54d26c9e453dfa155fbf5f8ebb`, success `a9273e95eadea1a56af9603feeaba825e7bcb7eb93fc91f668b85a8907b35560` |
+| 6 | Does Horizon strict-send find a path for dust against a seeded bid? | Yes. 0.0000007 DUST against a bid at 1 XLM per DUST: one record, `destination_amount` 0.0000007, empty path. **The first query in the ledger that created the bid returned 0 records; the next, one second later, returned the path** (the first full run queried once and got nothing). An asset with no market returns 0 records. | bid setup in ledger 4874040 |
+| 7 | Can the last `changeTrust "0"` and `accountMerge` share one transaction? | Yes. Account 404 afterwards; the destination was credited exactly the merged balance (3.0000007 XLM). | `d095ceb956bb10b91500fe4c0472296916e013042240e653bf047e3e526a0624` |
+| 10 | SEP-29 on a fee-bumped merge | Without a memo the SDK throws `AccountRequiresMemoError` (operation index 0) before submitting; the account is untouched. With a text memo the merge succeeds. | `38b2a16d74c0b5d8e98e101989d7b5fa24844f75438caff78b6dd332ece7d80f` |
+| 11 | Does Horizon keep the history of a merged account? | Yes. `GET /accounts/{id}/operations` returns 200 with the full history, `account_merge` last. | n/a |
+| 12 | Base reserve and ledger cadence | `base_reserve_in_stroops` 5,000,000, `base_fee_in_stroops` 100, protocol 28; 32 ledgers in 160 s (5.0 s per ledger). | n/a |
+| 13 | Deauthorized trustlines (`AUTH_REQUIRED` + `AUTH_REVOCABLE` + `AUTH_CLAWBACK_ENABLED` issuer) | Deauthorized line holding 0.0000005: payment to the issuer fails with `op_src_not_authorized`, `changeTrust "0"` fails with `op_invalid_limit`. Authorized-to-maintain-liabilities: payment fails with `op_src_not_authorized`. After the issuer's clawback, the deauthorized zero-balance line was deleted. | fail `a50947b27138d1cc9f0885b5ce5699d75c58f05386b30206c600b0099d26c6da`, delete `d324ca3f66dab12e14de56e2b69a9964a35452b6bd7ca0893f73a76081876edf` |
+| 14 | Path payment with destination = source | `pathPaymentStrictSend` DUST -> XLM to the sending account itself plus `changeTrust "0"` in one transaction succeeded; 7 stroops of proceeds landed in the account. | `45bcddf5b0492f2e4f6e99b71bf89ac5bfffdddcccfe251cdd8b4e3c49f25aaa` |
+| 15 | Can a fee bump be looked up by its inner hash? | Yes. `GET /transactions/{inner hash}` returns 200 with `fee_account`. | n/a |
+
+Also observed:
+
+- Horizon omits `is_clawback_enabled` when it is false and shows `true` when set (edge-cases U11 confirmed).
+- SDK trap: in `@stellar/stellar-sdk` 17.1.0 `Transaction.hash()` and `FeeBumpTransaction.hash()` return a `Uint8Array` (`lib/esm/base/transaction_base.d.ts`), so `.toString("hex")` produces comma-separated decimals. Always hex-encode with `Buffer.from(tx.hash()).toString("hex")`.
+- SDK 17.1.0 `TransactionBuilder` only rejects an undefined `fee`, and `buildFeeBumpTransaction` requires the bump base fee to be at least the inner per-operation fee and at least 100 stroops (`lib/esm/base/transaction_builder.js`), so inner fee `"0"` is valid. `changeTrust` turns a falsy numeric `0` limit into the maximum (`lib/esm/base/operations/change_trust.js`); the string `"0"` is required.
+- Not run here: experiment 8 (headless Demolisher run) belongs to E1-S2; experiment 9 (the below-1-XLM co-sign refusal) was already probed on 2026-09-25.
+
+Consequences for the ladder (to be applied in E2-S5 and E3-S2):
+
+- Rung 2 (return to issuer) needs only an authorized holder trustline; the issuer account does not have to exist. `ISSUER_ACCOUNT_MISSING` is informational, not an unclosable reason.
+- The only unclosable balances are trustlines that are not authorized or only authorized to maintain liabilities (plus pool shares, which are out of scope).
+- In the default SOW order, rung 3 (destination) is reached only if rung 2 is refused for another reason, in practice a memo-required issuer without `--memo`. With `--prefer-destination` rung 3 is tried first.
+- A strict-send quote taken in the same ledger as an offer change can be empty. The fixture builder polls until the path appears, and the plan records the ledger its quotes were taken at.

@@ -67,7 +67,7 @@ The documents were written in parallel and disagree in a few places. The followi
 
 1. Resolved: funds were received on 2026-09-22 and the final deadline is 2026-10-22. Week dates are in the calendar below; today (2026-09-25) is day 4 with no code written yet, so Epic 0 and the fixture must start immediately.
 2. Written acknowledgement of the two-fixture reading of week 3 (decision 3).
-3. Payment to an issuer that has been merged away: one analysis reads stellar-core as burning without checking the destination, another expects `op_no_destination`. Settle it with the day-1 experiment in `technical-spike.md` section 8.4 before the ladder is coded.
+3. Resolved on 2026-09-26 by the day-1 experiment (`progress-log.md`, row 4): a payment to an issuer that has been merged away succeeds and burns the balance, and trustlines to it can still be deleted. Return to issuer therefore needs only an authorized holder trustline; the `op_no_destination` expectation in `technical-spike.md` was wrong.
 4. Resolved: ladder policy is decision 8 (SOW order by default, `--prefer-destination` as an option), approved 2026-09-25.
 5. Publishing identity: the npm organisation or prefix, matching the repository's pseudonymous identity, plus 2FA.
 6. Video hosting for the 60-second demo, and whether the raw take is archived in the repository.

@@ -1,0 +1,495 @@
+{
+  "network": {
+    "horizon": "https://horizon-testnet.stellar.org",
+    "passphrase": "Test SDF Network ; September 2015",
+    "ledgerAtStart": 4874030,
+    "protocol": 28
+  },
+  "feeStats": {
+    "last_ledger_base_fee": "100",
+    "fee_charged_p80": "82746",
+    "max_fee_p50": "522871",
+    "chosenBaseFeeStroops": 82746
+  },
+  "accounts": {
+    "S_feeSponsor": "GD7Q65UF75MAHRK3F7LA6HFPZRQEOIR7LXIF2DZQAWWAPXFBM3MEEKDL",
+    "A": "GDWLZO3KOVY5VVWHSSBAP63PEF7BTEPO7I7OYZA7KQI2CZDPBF6VLHF6",
+    "C": "GBUNNCGQMNWJ2HGLVHSZPFOPIS5CQEEKHNVGME3453IM2FGAHJDUOZPW",
+    "R": "GD5K536TEEUQG6EQUDA4ELHGC3WXI6TC2SRQHED4W3GS5EXUTUYACOAT",
+    "I": "GCKAHIFSI3HVTQ5XWBK56RISNT5KFWEHBXNRZQIMKS6KEILTOJLJT7FI",
+    "M": "GCCY5WAX6XJ4RE5S2IIYASEW7Z26MEM4LEQ6LPA2JBXM4SZ3IY754SL7",
+    "J": "GAH6CKKS2KISNBDDZRYG3F3CTBWZYZ65FRUO7I7KB2HCJ5SUZIMRNXDX",
+    "H": "GD2NE6D2NYAYHYL4LWN4FTTU7RS5Y5MHC26XXBDT2IEMIDYWG7VOPFNT",
+    "K": "GCDSMT2JG4OMNFFDQT5KMK4ZE35SHLRZESROIIF4JEIIU37ILRE4WPCV",
+    "B": "GDOC4LETOBUVXYZTU2BGQUBLPZMVZ67TPRFCQ5RYNXBKVGQ6A525SOQR",
+    "E": "GB7CN5NLVPGRYF3MKTJZOYVT545AFDMPNHRX4KCBC4LZD6CN2SWWAWQQ",
+    "D": "GAK2T3DQXNPNUT5GEY3WIL6BDO6NXHKJFNQOWBVJ6U3SRTLRPASYU7HS",
+    "D2": "GBTX3AEFJEMUZHV67IEQJJTDVTSHV5J3JDOQWJQMWU4L3MAA2DETLIKR",
+    "Q": "GDMOESGNMIUMRYVB3L7YG2PXDAZPYW574NIDTX6JYAPXTCPDADHSQPDR",
+    "F": "GCUIJJ4HMFWUDPDVMZGIPVXURA3TLOLY3ND2OT4WZCS3Z2LKWUEXBJ7F",
+    "createTx": "d8d9e7ac360b6a9cf404d106fee295cf058e07fad8952ce9294fa616193941da"
+  },
+  "exp5_part1_bump_and_early_merge": {
+    "ledgerWhenBuilt": 4874033,
+    "bumpTo": "20933898233970688",
+    "bump": {
+      "ok": true,
+      "hash": "5ac68e07f812844bb55017375a5e06fad2b503e7ca697a3af442a671df81b4a5",
+      "ledger": 4874034
+    },
+    "sequenceAfterBump": "20933898233970688",
+    "earlyMerge": {
+      "seqAtMerge": "20933898233970689",
+      "ok": false,
+      "hash": "1d13837c133ce2fa2518a876c19cd6ae5b79fc54d26c9e453dfa155fbf5f8ebb",
+      "innerHash": "7d4dadfd1ff20e9302a9baf0c3a5ba95e418bc2f96e217c4c73a84fd7129c895",
+      "kind": "TransactionFailedError",
+      "status": 400,
+      "result_codes": {
+        "transaction": "tx_fee_bump_inner_failed",
+        "inner_transaction": "tx_failed",
+        "operations": [
+          "op_seq_num_too_far"
+        ]
+      },
+      "message": "Transaction submission failed. Server responded: 400 Bad Request"
+    },
+    "sequenceAfterEarlyMerge": "20933898233970689",
+    "earlyMergeConsumedSequence": true,
+    "unblocksAtLedgerFormula": "4874054"
+  },
+  "exp1_zero_spendable_fee_bump": {
+    "setup": {
+      "ok": true,
+      "hash": "4d1d1417b22e7c9176302988fa86a0a7b4795ba6371399b0a5f0f2494e8a5b59",
+      "ledger": 4874036
+    },
+    "drain": {
+      "ok": true,
+      "hash": "139e552ce4fc72d89b9356a0a588f7fd18c8bd9d8c5484f0dddce7d0307bea29",
+      "innerHash": "ad3a9a2247bef7d48e2867e2a5da99bc15d6af49b50de4b114b598cd837ec3bf",
+      "ledger": 4874037
+    },
+    "afterDrain": {
+      "balance": "3.0000000",
+      "minimum": "3.0000000",
+      "spendable": "0.0000000",
+      "sequence": "20933812334624769"
+    },
+    "unbumpedControl": {
+      "ok": false,
+      "hash": "db6e7acbbefe41de7600481571020a9f8ab803f5fa01f9c2823b2186537d262d",
+      "kind": "TransactionFailedError",
+      "status": 400,
+      "result_codes": {
+        "transaction": "tx_insufficient_balance"
+      },
+      "message": "Transaction submission failed. Server responded: 400 Bad Request",
+      "sequenceUnchanged": true
+    },
+    "innerFeeZero": {
+      "ok": true,
+      "hash": "7fb410dbc1ac43e902e156ac14757d78fa9376ec0aa1498c5690e587c18e5c56",
+      "innerHash": "39fdc965d8e07b384e5d5be09e260a1ca4654e466b41bc826a42f0b37b1fd052",
+      "ledger": 4874038,
+      "balanceAfter": "3.0000000",
+      "txRecord": {
+        "status": 200,
+        "source_account": "GDWLZO3KOVY5VVWHSSBAP63PEF7BTEPO7I7OYZA7KQI2CZDPBF6VLHF6",
+        "fee_account": "GD7Q65UF75MAHRK3F7LA6HFPZRQEOIR7LXIF2DZQAWWAPXFBM3MEEKDL",
+        "fee_charged": "200",
+        "max_fee": "165492",
+        "inner_transaction": {
+          "hash": "39fdc965d8e07b384e5d5be09e260a1ca4654e466b41bc826a42f0b37b1fd052",
+          "signatures": [
+            "dGcdAricCJ3QLJtwqVTHC8vSRznb8HgRshOCeAupz8edIPkrqYCwImyhYbYhgfdp+N4QsyGovFsZGIFnXQOqDA=="
+          ],
+          "max_fee": "0"
+        },
+        "fee_bump_transaction": {
+          "hash": "7fb410dbc1ac43e902e156ac14757d78fa9376ec0aa1498c5690e587c18e5c56",
+          "signatures": [
+            "i6j4T3VDJuP/hkAKNPom1Ld21kGyS64gwkIWGzgytoMVuFX9ep3gZR/8dzya7P7mZzBFgpssFlGFGkK17JenBg=="
+          ]
+        }
+      },
+      "innerHashLookup": {
+        "status": 200,
+        "returnedHash": "39fdc965d8e07b384e5d5be09e260a1ca4654e466b41bc826a42f0b37b1fd052",
+        "fee_account": "GD7Q65UF75MAHRK3F7LA6HFPZRQEOIR7LXIF2DZQAWWAPXFBM3MEEKDL"
+      }
+    },
+    "innerFeeHundred": {
+      "ok": true,
+      "hash": "5762428cbce2942947d3815dcfb1feae8f3d81a8aabf5a4c9066515ff1b53201",
+      "innerHash": "d7e20ee74a4e5e1e02d81d010b9b6d465df743429f090384a9e72762ca7ef72b",
+      "ledger": 4874039,
+      "balanceAfter": "3.0000000"
+    },
+    "horizonOmitsClawbackFlagWhenFalse": true,
+    "dustLineKeys": [
+      "balance",
+      "limit",
+      "buying_liabilities",
+      "selling_liabilities",
+      "last_modified_ledger",
+      "is_authorized",
+      "is_authorized_to_maintain_liabilities",
+      "asset_type",
+      "asset_code",
+      "asset_issuer"
+    ]
+  },
+  "exp6_quote_and_exp2_buy_offer_cancel": {
+    "setup": {
+      "ok": true,
+      "hash": "8cd3e0dda8a58b8d3022a409b68e8520bec1f70b407a5cccf6e7e1a4c56fb57d",
+      "ledger": 4874040
+    },
+    "offerLedger": 4874040,
+    "quotePolls": [
+      {
+        "ledger": 4874040,
+        "records": 0
+      },
+      {
+        "ledger": 4874040,
+        "records": 1
+      }
+    ],
+    "dustQuote": [
+      {
+        "source_amount": "0.0000007",
+        "destination_amount": "0.0000007",
+        "path": []
+      }
+    ],
+    "noMarketQuoteRecords": 0,
+    "buyOfferCreated": {
+      "ok": true,
+      "hash": "f76fbd8f06a6a8729797907d1073d558c20836e9ba4b83e3ffbd6cdaaa4d6119",
+      "innerHash": "93e0ff96dd8318492b4ef00873be54bcb0a3add1254ffa0244bd412918b1e521",
+      "ledger": 4874041
+    },
+    "buyOfferRecord": {
+      "id": "826676",
+      "selling": {
+        "asset_type": "native"
+      },
+      "buying": {
+        "asset_type": "credit_alphanum4",
+        "asset_code": "DUST",
+        "asset_issuer": "GCKAHIFSI3HVTQ5XWBK56RISNT5KFWEHBXNRZQIMKS6KEILTOJLJT7FI"
+      },
+      "amount": "2.5000000",
+      "price": "2.0000000",
+      "price_r": {
+        "n": 2,
+        "d": 1
+      }
+    },
+    "cancelViaManageSellOffer": {
+      "ok": true,
+      "hash": "4ab3b9b38c9521079606851b7c265379cfd7660156d93c3cbf6102be73aeef29",
+      "innerHash": "fb2919550324b70dbc90830df75f0fbddc3b40e3c39ee34db4c4f42e18f35177",
+      "ledger": 4874042
+    },
+    "offerGone": true,
+    "remainingOffers": 1
+  },
+  "exp14_path_payment_to_self_and_exp7_merge_same_tx": {
+    "quoted": "0.0000007",
+    "destMin": "0.0000007",
+    "sellToSelf": {
+      "ok": true,
+      "hash": "45bcddf5b0492f2e4f6e99b71bf89ac5bfffdddcccfe251cdd8b4e3c49f25aaa",
+      "innerHash": "b573237a3391673682761c6164a1ae4df75afa75360d23e72afc15fb21408b75",
+      "ledger": 4874043
+    },
+    "proceedsStroops": "7",
+    "spendableBeforeSell": "1.0000000",
+    "removalPlusMergeSameTx": {
+      "ok": true,
+      "hash": "d095ceb956bb10b91500fe4c0472296916e013042240e653bf047e3e526a0624",
+      "innerHash": "72fba03addab8b6f9269dc89aa7d7486ad4389f5ec158dfb921c8e5ee5b51d94",
+      "ledger": 4874044
+    },
+    "accountExistsAfter": false,
+    "horizonAccountStatus": 404,
+    "destinationCreditedStroops": "30000007",
+    "expectedMergeAmountStroops": "30000007",
+    "exp11_operationsOfMergedAccount": {
+      "status": 200,
+      "count": 10,
+      "types": [
+        "account_merge",
+        "change_trust",
+        "change_trust",
+        "path_payment_strict_send",
+        "manage_data",
+        "manage_data",
+        "payment",
+        "manage_data",
+        "manage_data",
+        "payment"
+      ]
+    }
+  },
+  "exp3_sponsored_trustline_owner_removal": {
+    "sandwich": {
+      "ok": true,
+      "hash": "ceed4c4a3609a45648be6412b4913fa970ef79f6e2edf3d93ec02c50d2544573",
+      "ledger": 4874045
+    },
+    "trustlineSponsorField": "GD5K536TEEUQG6EQUDA4ELHGC3WXI6TC2SRQHED4W3GS5EXUTUYACOAT",
+    "before": {
+      "R_num_sponsoring": 1,
+      "C_num_sponsored": 1,
+      "R_balance": "9.9999700"
+    },
+    "overSignedWithReserveSponsor": {
+      "ok": false,
+      "hash": "f78b1586509b4e81e966cc369ef7526e1b096489576ae01b9c872658d85ef214",
+      "innerHash": "90c23c92d02cf42525d70ede8a9f8611d6e54377fae105fb69170e6e8e0d3374",
+      "kind": "TransactionFailedError",
+      "status": 400,
+      "result_codes": {
+        "transaction": "tx_fee_bump_inner_failed",
+        "inner_transaction": "tx_bad_auth_extra"
+      },
+      "message": "Transaction submission failed. Server responded: 400 Bad Request"
+    },
+    "removalSignedByOwnerOnly": {
+      "ok": true,
+      "hash": "400a437f699c8f5a8b8ab2aeb05cb34d3968c41acbb3c5e643e1448c4beb5673",
+      "innerHash": "0a8cc65650e484e558c83af9b609fc7b3f7da3234eb4675652836ddc3dc5619e",
+      "ledger": 4874046
+    },
+    "after": {
+      "R_num_sponsoring": 0,
+      "C_num_sponsored": 0,
+      "R_balance": "9.9999700"
+    },
+    "effects": [
+      "trustline_removed",
+      "trustline_sponsorship_removed"
+    ]
+  },
+  "exp4_merged_issuer": {
+    "setup": {
+      "ok": true,
+      "hash": "42cb3ae87a01f24d1c4682cf0823395af0014bf33f27127986daf4410d5fee5a",
+      "ledger": 4874047
+    },
+    "issuerWithOutstandingSupplyMerge": {
+      "ok": true,
+      "hash": "cae2746d199681fee1574edae1f952820fc721d9cfc6e643b11d081974914cf1",
+      "ledger": 4874048
+    },
+    "issuerGone": true,
+    "payToMergedIssuer": {
+      "ok": true,
+      "hash": "cbb400ba4d715ac58447e74b3be10ef4d8ca58ce2f477d60d5bda38f05a3f0c9",
+      "innerHash": "232a79cb2bddd33ad3925bb851c55e30b8487ed6615f1f03862d04466b6f84b0",
+      "ledger": 4874049
+    },
+    "orphBalanceAfterPayAttempt": "0.0000000",
+    "payToDestinationHolder": {
+      "skipped": "burn succeeded"
+    },
+    "removeZeroBalanceLineIssuerGone": {
+      "ok": true,
+      "hash": "be2f5ef42531f154dc69ab9b9489c7b8f0226be475519c8fcdd7da376da9a5ba",
+      "innerHash": "49c440291f8fa1d9a65ccc294312689f089c518717358e9de7dde2a1dc7df0d1",
+      "ledger": 4874050
+    },
+    "removeEmptiedLine": {
+      "ok": true,
+      "hash": "51cb1eb03fef3a1ddc4ea64971b223827dac93a9d5b5800a8029ca12b56d880c",
+      "innerHash": "adea7323cc29c898ff74ef9f54abe56cbcb5964bd43cd6871b0e3da45484f574",
+      "ledger": 4874051
+    },
+    "createTrustlineToMergedIssuer": {
+      "ok": false,
+      "hash": "571db84a8c10b79628224c72999f56f730593e85c6f39e095da33a3e41ee0f91",
+      "innerHash": "9032d72720948fe3ba4a21598693516af6a513e30314e1629e399641d26b69a3",
+      "kind": "TransactionFailedError",
+      "status": 400,
+      "result_codes": {
+        "transaction": "tx_fee_bump_inner_failed",
+        "inner_transaction": "tx_failed",
+        "operations": [
+          "op_no_issuer"
+        ]
+      },
+      "message": "Transaction submission failed. Server responded: 400 Bad Request"
+    }
+  },
+  "exp13_deauthorized_trustline": {
+    "setup": {
+      "ok": true,
+      "hash": "aed8d44c4a9eb71902c4e6635d5e83c667b448dafbab2a4a22e1a3a3e2a6e8d9",
+      "ledger": 4874053
+    },
+    "frozenLine": {
+      "balance": "0.0000005",
+      "limit": "922337203685.4775807",
+      "buying_liabilities": "0.0000000",
+      "selling_liabilities": "0.0000000",
+      "last_modified_ledger": 4874053,
+      "is_authorized": false,
+      "is_authorized_to_maintain_liabilities": false,
+      "is_clawback_enabled": true,
+      "asset_type": "credit_alphanum4",
+      "asset_code": "FRZ",
+      "asset_issuer": "GDMOESGNMIUMRYVB3L7YG2PXDAZPYW574NIDTX6JYAPXTCPDADHSQPDR"
+    },
+    "payBackWhileDeauthorized": {
+      "ok": false,
+      "hash": "a50947b27138d1cc9f0885b5ce5699d75c58f05386b30206c600b0099d26c6da",
+      "innerHash": "05ef73fa7301b22f905bfa74680836a88fac0d6e83c53981b0b1ac0e176c2e18",
+      "kind": "TransactionFailedError",
+      "status": 400,
+      "result_codes": {
+        "transaction": "tx_fee_bump_inner_failed",
+        "inner_transaction": "tx_failed",
+        "operations": [
+          "op_src_not_authorized"
+        ]
+      },
+      "message": "Transaction submission failed. Server responded: 400 Bad Request"
+    },
+    "removeWhileBalanceRemains": {
+      "ok": false,
+      "hash": "6439bd9d2d7f107769b4ff1733062f83e7d12e468a0829c35c2e983e81baec73",
+      "innerHash": "85f6cb57607c98096a1dfc9c53f3afa385d94bbaa089346749148917f26301c4",
+      "kind": "TransactionFailedError",
+      "status": 400,
+      "result_codes": {
+        "transaction": "tx_fee_bump_inner_failed",
+        "inner_transaction": "tx_failed",
+        "operations": [
+          "op_invalid_limit"
+        ]
+      },
+      "message": "Transaction submission failed. Server responded: 400 Bad Request"
+    },
+    "toMaintainLiabilities": {
+      "ok": true,
+      "hash": "8ecd6c14bd3c05f3f24eda7faddf50832bcd60efea7bebc8f78cde5a218a1227",
+      "ledger": 4874056
+    },
+    "maintainLine": {
+      "balance": "0.0000005",
+      "limit": "922337203685.4775807",
+      "buying_liabilities": "0.0000000",
+      "selling_liabilities": "0.0000000",
+      "last_modified_ledger": 4874056,
+      "is_authorized": false,
+      "is_authorized_to_maintain_liabilities": true,
+      "is_clawback_enabled": true,
+      "asset_type": "credit_alphanum4",
+      "asset_code": "FRZ",
+      "asset_issuer": "GDMOESGNMIUMRYVB3L7YG2PXDAZPYW574NIDTX6JYAPXTCPDADHSQPDR"
+    },
+    "payBackWhileMaintainOnly": {
+      "ok": false,
+      "hash": "37b941d599eb90e55132b0b880d21277aa7a6cfb5c91c42f7f044c0702644b8b",
+      "innerHash": "880a1b089bebd3e61c93dd8af29d4c3969fb8974407dae12000fad65936a1231",
+      "kind": "TransactionFailedError",
+      "status": 400,
+      "result_codes": {
+        "transaction": "tx_fee_bump_inner_failed",
+        "inner_transaction": "tx_failed",
+        "operations": [
+          "op_src_not_authorized"
+        ]
+      },
+      "message": "Transaction submission failed. Server responded: 400 Bad Request"
+    },
+    "backToFrozenAndClawback": {
+      "ok": true,
+      "hash": "452608f9c9badc3d1d31e0adcca88e10c55420b65b03907a6a1842a527caf08e",
+      "ledger": 4874058
+    },
+    "removeDeauthorizedZeroBalanceLine": {
+      "ok": true,
+      "hash": "d324ca3f66dab12e14de56e2b69a9964a35452b6bd7ca0893f73a76081876edf",
+      "innerHash": "9732916b324d961790247cffedab6872779eba889402742016124e6fac220e0b",
+      "ledger": 4874059
+    }
+  },
+  "exp10_sep29_merge": {
+    "markMemoRequired": {
+      "ok": true,
+      "hash": "72bcdb648a35097e99a649f39ce1c897e9eabe34a47eadb425538ac541518aa6",
+      "ledger": 4874060
+    },
+    "mergeWithoutMemo": {
+      "ok": false,
+      "hash": "f2f20181fbc59bf98c591b240552ef88c4770bab3410b9ac392402814f364087",
+      "innerHash": "5d0146a5b24ac434779d7b58e4c0c78ca04c44d12b35b9eae2c6cc35ca6ba91e",
+      "kind": "AccountRequiresMemoError",
+      "accountId": "GBTX3AEFJEMUZHV67IEQJJTDVTSHV5J3JDOQWJQMWU4L3MAA2DETLIKR",
+      "operationIndex": 0
+    },
+    "accountUntouchedAfterClientRefusal": true,
+    "mergeWithMemo": {
+      "ok": true,
+      "hash": "38b2a16d74c0b5d8e98e101989d7b5fa24844f75438caff78b6dd332ece7d80f",
+      "innerHash": "03e083a7587ee372f40c60be20113486b8f2f1fbf63b7322ead2906242f7ee38",
+      "ledger": 4874061
+    },
+    "accountGoneAfterMemoMerge": true
+  },
+  "exp5_part2_merge_after_wait_and_exp12_ledger": {
+    "part1": {
+      "ledgerWhenBuilt": 4874033,
+      "bumpTo": "20933898233970688",
+      "bump": {
+        "ok": true,
+        "hash": "5ac68e07f812844bb55017375a5e06fad2b503e7ca697a3af442a671df81b4a5",
+        "ledger": 4874034
+      },
+      "sequenceAfterBump": "20933898233970688",
+      "earlyMerge": {
+        "seqAtMerge": "20933898233970689",
+        "ok": false,
+        "hash": "1d13837c133ce2fa2518a876c19cd6ae5b79fc54d26c9e453dfa155fbf5f8ebb",
+        "innerHash": "7d4dadfd1ff20e9302a9baf0c3a5ba95e418bc2f96e217c4c73a84fd7129c895",
+        "kind": "TransactionFailedError",
+        "status": 400,
+        "result_codes": {
+          "transaction": "tx_fee_bump_inner_failed",
+          "inner_transaction": "tx_failed",
+          "operations": [
+            "op_seq_num_too_far"
+          ]
+        },
+        "message": "Transaction submission failed. Server responded: 400 Bad Request"
+      },
+      "sequenceAfterEarlyMerge": "20933898233970689",
+      "earlyMergeConsumedSequence": true,
+      "unblocksAtLedgerFormula": "4874054"
+    },
+    "unblocksAtLedger": 4874054,
+    "submittedWhenLatestLedger": 4874061,
+    "plannerGuardOkForNextLedger": true,
+    "mergeAfterWait": {
+      "ok": true,
+      "hash": "a9273e95eadea1a56af9603feeaba825e7bcb7eb93fc91f668b85a8907b35560",
+      "innerHash": "23a5c93ce7b29de883446de637b92a51069fc482a7e23fa401ac3826c55df191",
+      "ledger": 4874062
+    },
+    "appliedAtOrAfterUnblock": true,
+    "accountGone": true,
+    "exp12": {
+      "baseReserveStroops": "5000000",
+      "baseFeeStroops": 100,
+      "protocol": 28,
+      "ledgersObserved": 32,
+      "secondsObserved": 160,
+      "secondsPerLedger": 5
+    }
+  }
+}
