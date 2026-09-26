@@ -1,0 +1,44 @@
+{
+  "ledgers": {
+    "before": 4880724,
+    "after": 4880728
+  },
+  "accounts": [
+    {
+      "role": "Destination",
+      "account": "GDEUJWJRTQX7B3DVETOGN6GZ2DDJ2LFHVDA6LG745JNT6T57NDSDXXUN",
+      "before": {
+        "balance": "10.0000000",
+        "numSponsoring": 0
+      },
+      "after": {
+        "balance": "14.0000007",
+        "numSponsoring": 0
+      }
+    },
+    {
+      "role": "Reserve sponsor",
+      "account": "GBQX4JSNEGV3AR3LER7MPPYW7HLR3WT2PFM542RC4MBKLJH6ZKJED6JQ",
+      "before": {
+        "balance": "10.0000000",
+        "numSponsoring": 1
+      },
+      "after": {
+        "balance": "10.0000000",
+        "numSponsoring": 0
+      }
+    },
+    {
+      "role": "Fee sponsor",
+      "account": "GBUJSYZGG5NVF2STUFLNPIEPMYJLCUK6VHUYGX6XMNPKF53QOHMWQPEZ",
+      "before": {
+        "balance": "9865.9997200",
+        "numSponsoring": 0
+      },
+      "after": {
+        "balance": "9865.9995700",
+        "numSponsoring": 0
+      }
+    }
+  ]
+}
