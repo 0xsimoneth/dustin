@@ -1,5 +1,8 @@
+import { StrKey } from "@stellar/stellar-sdk";
 import { DEFAULT_MAX_BASE_FEE, MIN_BASE_FEE } from "../../config/fees.js";
+import { verifyHorizonIsTestnet } from "../../config/network.js";
 import { DustinError } from "../../errors/dustin-error.js";
+import { assertAccountAddress, destinationBaseAccount } from "../../inspect/address.js";
 import type { ClosePlan } from "../../plan/model.js";
 import { planClose } from "../../plan/plan-close.js";
 import { horizonJson } from "../../reader/horizon-json.js";
@@ -18,22 +21,58 @@ export interface PlanCommandOptions {
   json?: boolean;
 }
 
-/** Builds the plan with GET requests only; `dustin plan` never reads a secret. */
+/**
+ * Checks the addresses without any request, so a typo is reported as a usage error (exit 2) even
+ * when Horizon is unreachable. The planner repeats these checks; this only moves them first.
+ */
+export function checkAddresses(account: string, destination: string, sponsor?: string): void {
+  assertAccountAddress(account);
+  if (!destination) {
+    throw new DustinError(
+      "INVALID_ADDRESS",
+      "A destination is required: the account merges into it.",
+      {
+        stage: "plan",
+        remedy: "Pass the destination with --to.",
+      },
+    );
+  }
+  destinationBaseAccount(destination);
+  if (sponsor !== undefined && !StrKey.isValidEd25519PublicKey(sponsor)) {
+    throw new DustinError("INVALID_ADDRESS", "The fee sponsor is not a valid G... address.", {
+      stage: "plan",
+    });
+  }
+}
+
+export function destinationOf(options: PlanCommandOptions): string {
+  return options.to ?? options.destination ?? "";
+}
+
+/**
+ * Builds the plan with GET requests only; `dustin plan` never reads a secret. Before the first
+ * read, Horizon is asked which network it serves (review R6): an unreachable Horizon exits 6, a
+ * Horizon that serves another network, or a URL that is not a Horizon server, exits 2.
+ */
 export async function buildPlan(
   account: string,
   options: PlanCommandOptions,
   ctx: CommandContext,
+  feeSponsor: string | undefined = options.sponsor,
 ): Promise<ClosePlan> {
+  const destination = destinationOf(options);
+  checkAddresses(account, destination, feeSponsor);
+  const baseFee = parseBaseFee(options.baseFee);
   const config = ctx.config();
+  await verifyHorizonIsTestnet(config.horizonUrl, ctx.fetch);
   const reader = horizonReader(
     horizonJson(config.horizonUrl, { ...(ctx.fetch ? { fetch: ctx.fetch } : {}), ...ctx.horizon }),
   );
-  const baseFee = parseBaseFee(options.baseFee);
   return planClose(
     {
       account,
-      destination: options.to ?? options.destination ?? "",
-      ...(options.sponsor ? { feeSponsor: options.sponsor } : {}),
+      destination,
+      ...(feeSponsor ? { feeSponsor } : {}),
       ...(options.memo ? { memo: options.memo } : {}),
       ...(options.preferDestination ? { preferDestination: true } : {}),
       ...(baseFee !== undefined ? { baseFeeStroops: baseFee } : {}),
