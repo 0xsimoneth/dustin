@@ -131,3 +131,30 @@ describe("review finding 6: waits follow the injected clock and the ledger's clo
     expect(clock.sleeps.filter((ms) => ms === 5000).length).toBeGreaterThanOrEqual(2);
   });
 });
+
+describe("review finding 7: an unknown outcome tells a re-run how long to wait", () => {
+  it("puts the pending envelope's hash and time bound in the stop reason", async () => {
+    let frozen: string | null = null;
+    const { ledger, deps, plan } = harness((_l, fetch) => async (url, init) => {
+      const response = await fetch(url, init);
+      if (!url.includes("/ledgers")) return response;
+      const page = (await response.json()) as {
+        _embedded: { records: { closed_at: string }[] };
+      };
+      frozen ??= page._embedded.records[0]!.closed_at;
+      page._embedded.records[0]!.closed_at = frozen;
+      return new Response(JSON.stringify(page));
+    });
+    ledger.faults.push("504-not-applied");
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    const pending = report.transactions[0]!;
+    expect(report.stop).toMatchObject({
+      code: "OUTCOME_UNKNOWN",
+      hash: pending.hash,
+      maxTime: pending.maxTime,
+    });
+    const bound = new Date(pending.maxTime * 1000).toISOString();
+    expect(report.message).toContain(`after ${bound}`);
+    expect(report.message).toMatch(/replace/);
+  });
+});

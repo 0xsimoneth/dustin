@@ -251,21 +251,25 @@ export async function submitPlannedTransaction(
     if (outcome.kind === "failed") return { kind: "failed", entry, codes: outcome.codes };
 
     if (outcome.kind === "unknown") {
+      // Review finding 7: the stop names the envelope and its time bound, so a caller can wait for
+      // a ledger past it before running again; until then a new envelope for the same sequence
+      // number could only replace it with a tenfold bid (canonical decision 7).
+      const wait = `Run the close again only after a ledger has closed after ${new Date(maxTime * 1000).toISOString()} (its time bound, ${maxTime}): until then it may still apply, and a new envelope for the same sequence number could only replace it with a tenfold bid, which Dustin never relies on. The run then continues from the ledger.`;
       if (outcome.lookupError) {
         // A lookup that failed proves nothing: the envelope may have applied (review finding 1).
         return stop(
           "OUTCOME_UNKNOWN",
           "replan",
-          `${label} (${hash}) could not be looked up by hash (${outcome.lookupError}), so whether it applied is not known; nothing was rebuilt. Run the close again once Horizon answers; it continues from the ledger.`,
-          { hash },
+          `${label} (${hash}) could not be looked up by hash (${outcome.lookupError}), so whether it applied is not known; nothing was rebuilt. ${wait}`,
+          { hash, maxTime },
         );
       }
       if (outcome.mayStillApply) {
         return stop(
           "OUTCOME_UNKNOWN",
           "replan",
-          `${label} (${hash}) was not found, and no ledger has closed past its time bound yet, so it may still apply; nothing was rebuilt. Run the close again in a minute; it continues from the ledger.`,
-          { hash },
+          `${label} (${hash}) was not found, and no ledger has closed past its time bound yet; nothing was rebuilt. ${wait}`,
+          { hash, maxTime },
         );
       }
       rebuiltBecause = `envelope ${short(hash)} was not found after its time bound passed, so it can never apply`;

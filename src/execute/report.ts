@@ -97,6 +97,13 @@ export interface StopReason {
   resultCodes?: ResultCodes;
   /** For a sequence-number stop: the first ledger the merge can land in. */
   unblocksAtLedger?: number;
+  /**
+   * For OUTCOME_UNKNOWN: the upper time bound (Unix seconds) of the envelope `hash`, which may
+   * still apply or may have applied. A re-run must wait until a ledger has closed after it: until
+   * then a new envelope for the same sequence number could only replace it with a tenfold bid,
+   * which Dustin never relies on (canonical decision 7).
+   */
+  maxTime?: number;
 }
 
 /** A re-plan made during the run (architecture section 7.2). */
