@@ -68,6 +68,17 @@ dev-story workflow (AI developer agent)
 - `test/unit/execute/submit.test.ts` (modified)
 - `docs/stories/2-2-simple-close-executor.md`, `docs/stories/sprint-status.yaml`
 
+## Review findings closed
+
+From docs/reviews/2026-09-26-e0-e2-review.md, closed in E2-S3 (docs/stories/2-3-retry-recovery-resume.md):
+
+- R1: the report is built right after the fresh plan and the whole run is wrapped. Expected outcomes return a report with a machine-readable `stop`; any exception finishes the report (`closed` if the merge applied, `failed` once something was submitted, else `aborted`), publishes it through `onReport` and is thrown as a `DustinError` carrying it (`withReport`, or `EXECUTION_INTERRUPTED` with the cause).
+- R2: a fresh plan whose bids exceed the close budget ends as an `aborted` report (stop `OVER_BUDGET`) before anything is signed, with the bid total, the budget and the remedy; the sponsor-spendable check stays.
+- R6: with the default submitter the executor calls `verifyHorizonIsTestnet(config.horizonUrl)` before signing anything; an injected submitter is the caller's responsibility.
+- R9, R10: the merge preflight (`src/execute/preflight.ts`) requires the base account of a muxed destination to exist and re-reads a G destination's SEP-29 `config.memo_required` marker, refusing a memo-less merge. Leftover subentries are checked only when the merge runs alone.
+- R12: the plan records `options` (`slippageBps`, `maxOpsPerTransaction`, `maxWaitLedgers`) and the executor's re-plan forwards every planning option, execute-option cap and budget first. A non-default slippage bound is part of `planHash`, so a changed bound is drift.
+
 ## Change Log
 
 - 2026-09-26: `executeClose()` with preflight, drift handling, sponsor check, merge preflight, verification and a progressive report; first live end-to-end close of a messy fixture. Status: review.
+- 2026-09-26: Review findings R1, R2, R6, R9, R10 and R12 closed in E2-S3.

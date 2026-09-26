@@ -78,6 +78,15 @@ dev-story workflow (AI developer agent)
 - `test/unit/tx/operations.test.ts`, `test/unit/tx/build-inner.test.ts`, `test/unit/sponsor/sponsor.test.ts`, `test/unit/execute/submit.test.ts`, `test/testnet/fee-bump-engine.test.ts` (new)
 - `docs/stories/2-1-fee-bump-submission-engine.md`, `docs/stories/sprint-status.yaml`
 
+## Review findings closed
+
+From docs/reviews/2026-09-26-e0-e2-review.md, closed in E2-S3 (docs/stories/2-3-retry-recovery-resume.md):
+
+- R11: `submitAndConfirm()` reports a POST answered 400 without result codes, 429 or any other 4xx as `rejected` at once instead of polling by hash until the time bound; a transaction found failed after a 504 carries Horizon-style result codes and the fee charged, rebuilt from its `result_xdr` (`src/execute/result-codes.ts`, checked on four real testnet failures). An unconfirmed envelope is reported gone only after a ledger closed past its `maxTime`; otherwise it is flagged `mayStillApply`.
+- R18: the plan's fee estimate clamps a base fee override to the cap exactly like `FeeSponsor.wrap()`, so estimate and bid agree.
+- Budget accounting (E2-S3, not a finding): `FeeSponsor` counts the largest bid per sequence number, since only one envelope per sequence number can ever be charged, and exposes `headroomStroops()` for bid escalation.
+
 ## Change Log
 
 - 2026-09-26: Operation mapping, inner builder, signer interface, fee sponsor with content checks and budget, Horizon submitter with 504 polling. Status: review.
+- 2026-09-26: Review findings R11 and R18 closed in E2-S3; per-sequence budget accounting.
