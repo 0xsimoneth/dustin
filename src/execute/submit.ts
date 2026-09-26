@@ -78,7 +78,19 @@ export function horizonSubmitter(
   };
 }
 
-const INCLUDED_FAILURES = new Set(["tx_failed", "tx_fee_bump_inner_failed"]);
+/**
+ * Included in the ledger but failed: sequence number and fee consumed. A fee bump reports
+ * `tx_fee_bump_inner_failed` both for an inner transaction that failed on the ledger (inner code
+ * `tx_failed`) and for one refused at validation (e.g. inner `tx_bad_auth_extra` or `tx_bad_seq`,
+ * nothing consumed; day-1 experiment 3), so the inner code decides.
+ */
+function includedFailure(codes: { transaction?: string; inner_transaction?: string }): boolean {
+  if (codes.transaction === "tx_failed") return true;
+  return (
+    codes.transaction === "tx_fee_bump_inner_failed" && codes.inner_transaction === "tx_failed"
+  );
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
@@ -123,7 +135,7 @@ export async function submitAndConfirm(
         ...(raw.inner_transaction ? { innerTransaction: raw.inner_transaction } : {}),
         ...(raw.operations ? { operations: raw.operations } : {}),
       };
-      return INCLUDED_FAILURES.has(raw.transaction ?? "")
+      return includedFailure(raw)
         ? { kind: "failed", hash: envelope.hash, status: 400, codes }
         : { kind: "rejected", hash: envelope.hash, status: 400, codes };
     }

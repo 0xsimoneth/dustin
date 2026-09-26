@@ -18,7 +18,11 @@ export type DustinErrorCode =
   | "CONTRACT_ACCOUNT"
   | "TOO_MANY_OPERATIONS"
   | "SPONSOR_REFUSED"
-  | "SPONSOR_BUDGET_EXCEEDED";
+  | "SPONSOR_BUDGET_EXCEEDED"
+  | "SPONSOR_UNDERFUNDED"
+  | "CONFIRMATION_REQUIRED"
+  | "WRONG_SIGNER"
+  | "ACCOUNT_NOT_FOUND";
 
 export type ErrorStage =
   "config" | "inspect" | "plan" | "build" | "sponsor" | "submit" | "confirm" | "merge";

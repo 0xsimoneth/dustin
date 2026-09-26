@@ -40,7 +40,7 @@ development_status:
   epic-1-retrospective: optional
   epic-2: in-progress
   2-1-fee-bump-submission-engine: review
-  2-2-simple-close-executor: backlog
+  2-2-simple-close-executor: review
   2-3-retry-recovery-resume: backlog
   2-4-verification-receipt: backlog
   2-5-disposal-route-resolution: backlog
@@ -194,7 +194,7 @@ stories:
     title: Execute a simple close
     epic: E2
     week: 2
-    status: backlog
+    status: review
     estimate_hours: 12
     deliverable: D2
   - key: 2-3-retry-recovery-resume
