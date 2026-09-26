@@ -1,10 +1,7 @@
 import { formatStroops, toStroops } from "../amounts.js";
 import { assertTestnetPassphrase, resolveConfig, type DustinConfig } from "../config/network.js";
 import { DustinError } from "../errors/dustin-error.js";
-import { destinationBaseAccount } from "../inspect/address.js";
-import type { HorizonAccount } from "../inspect/horizon-types.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
-import { sequenceGuard } from "../plan/guard.js";
 import type { ClosePlan, CloseStep, PlannedTransaction } from "../plan/model.js";
 import { planClose, type PlanCloseInput } from "../plan/plan-close.js";
 import { horizonJson } from "../reader/horizon-json.js";
@@ -19,6 +16,7 @@ import {
   type CloseStatus,
   type SubmittedTransaction,
 } from "./report.js";
+import { mergePreflight } from "./preflight.js";
 import { horizonSubmitter, submitAndConfirm, type Submitter } from "./submit.js";
 
 export type { CloseReport, CloseStatus } from "./report.js";
@@ -225,7 +223,9 @@ export async function executeClose(
   for (const tx of fresh.transactions) {
     const steps = tx.stepIds.map((id) => byId.get(id)!);
     if (tx.index > 0 && steps.some((s) => s.kind === "merge")) {
-      const preflight = await mergePreflight(reader, fresh);
+      const preflight = await mergePreflight(reader, fresh, {
+        mergeOnly: steps.every((s) => s.kind === "merge"),
+      });
       emit({ type: "preflight", index: tx.index, ...preflight });
       if (!preflight.ok)
         return verifyAndFinish(
@@ -419,57 +419,4 @@ function replanInput(plan: ClosePlan, sponsorKey: string, options: ExecuteOption
     maxBaseFeeStroops: options.maxBaseFeeStroops ?? plan.fees.maxBaseFeeStroops,
     budgetStroops: options.budgetStroops ?? plan.fees.budgetStroops,
   };
-}
-
-/** Fresh facts before a merge that runs in its own transaction (architecture rule R7). */
-async function mergePreflight(
-  reader: LedgerReader,
-  plan: ClosePlan,
-): Promise<{ ok: boolean; detail: string }> {
-  const [account, destination, ledger] = await Promise.all([
-    reader.account(plan.account),
-    reader.account(destinationBaseAccount(plan.destination)),
-    reader.latestLedger(),
-  ]);
-  if (!account) return { ok: false, detail: "the account no longer exists" };
-  const left = leftovers(account);
-  if (left.length > 0) return { ok: false, detail: `the account still holds ${left.join(", ")}` };
-  if (account.num_sponsoring > 0)
-    return { ok: false, detail: `the account sponsors ${account.num_sponsoring} reserve(s)` };
-  if (!plan.destination.startsWith("M") && !destination)
-    return { ok: false, detail: "the destination no longer exists" };
-  const guard = sequenceGuard({
-    sequence: account.sequence,
-    observedLedger: ledger.sequence,
-    mergeTxIndex: 0,
-  });
-  if (!guard.ok) {
-    return {
-      ok: false,
-      detail: `the sequence guard blocks the merge until ledger ${guard.unblocksAtLedger}`,
-    };
-  }
-  return {
-    ok: true,
-    detail: "no subentries left, nothing sponsored, destination exists, sequence guard ok",
-  };
-}
-
-function leftovers(account: HorizonAccount): string[] {
-  const lines = account.balances.filter((b) => b.asset_type !== "native");
-  const trustlines = lines.length;
-  // A pool-share trustline counts as two subentries.
-  const trustlineSubentries = lines.reduce(
-    (n, b) => n + (b.asset_type === "liquidity_pool_shares" ? 2 : 1),
-    0,
-  );
-  const data = Object.keys(account.data).length;
-  const nonSignerSubentries =
-    account.subentry_count - account.signers.filter((s) => s.key !== account.account_id).length;
-  const offers = Math.max(0, nonSignerSubentries - trustlineSubentries - data);
-  return [
-    ...(trustlines ? [`${trustlines} trustline(s)`] : []),
-    ...(offers ? [`${offers} offer(s)`] : []),
-    ...(data ? [`${data} data entr${data === 1 ? "y" : "ies"}`] : []),
-  ];
 }

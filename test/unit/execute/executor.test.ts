@@ -1,3 +1,4 @@
+import { Account, MuxedAccount } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import { horizonSubmitter } from "../../../src/execute/submit.js";
@@ -264,5 +265,44 @@ describe("the executor's re-plan reproduces the user's plan (review finding R12)
     expect(report.status).toBe("aborted");
     expect(report.message).toMatch(/changed since the plan/);
     expect(ledger.submissions).toHaveLength(0);
+  });
+});
+
+describe("merge preflight in the executor (review findings R9, R10)", () => {
+  const muxed = (g: string) => new MuxedAccount(new Account(g, "0"), "42").accountId();
+
+  it("does not submit the merge when the base account of a muxed destination is gone", async () => {
+    const { ledger, deps } = setup();
+    const plan = await planClose(
+      { account: messy.fixture, destination: muxed(messy.destination), feeSponsor: messy.sponsor },
+      { reader: deps.reader },
+    );
+    const report = await executeClose(plan, signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 1) ledger.accounts.delete(messy.destination);
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.message).toMatch(/destination no longer exists/);
+    expect(report.transactions.map((t) => t.phase)).toEqual(["cleanup", "convert"]);
+    expect(ledger.accounts.has(messy.fixture)).toBe(true);
+  });
+
+  it("does not submit a memo-less merge to a destination that became memo-required", async () => {
+    const { ledger, deps, plan } = setup();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 1) {
+          ledger.accounts.get(messy.destination)!.data["config.memo_required"] = "MQ==";
+        }
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.message).toMatch(/SEP-29/);
+    expect(report.transactions.map((t) => t.phase)).toEqual(["cleanup", "convert"]);
   });
 });
