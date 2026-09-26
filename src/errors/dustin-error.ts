@@ -13,7 +13,9 @@ export type DustinErrorCode =
   | "FRIENDBOT_FAILED"
   | "FIXTURE_STEP_FAILED"
   | "FIXTURE_INVALID"
-  | "MANIFEST_INVALID";
+  | "MANIFEST_INVALID"
+  | "INVALID_ADDRESS"
+  | "CONTRACT_ACCOUNT";
 
 export type ErrorStage =
   "config" | "inspect" | "plan" | "build" | "sponsor" | "submit" | "confirm" | "merge";

@@ -26,6 +26,7 @@ import {
   latestLedger,
   type HorizonJsonClient,
 } from "../reader/horizon-json.js";
+import { strictSendToNativePath, type CreditAssetRef } from "../reader/ledger-reader.js";
 import { hashHex, wrapInFeeBump } from "../sponsor/fee-bump.js";
 import type { FixtureKeys, FixtureManifest } from "./manifest.js";
 import {
@@ -440,10 +441,12 @@ async function recordHorizon(
     "ledger-latest": "/ledgers?order=desc&limit=1",
   };
   for (const a of assets) {
-    const type = a.code.length <= 4 ? "credit_alphanum4" : "credit_alphanum12";
-    paths[`paths-strict-send-${a.code}`] =
-      `/paths/strict-send?source_asset_type=${type}&source_asset_code=${a.code}` +
-      `&source_asset_issuer=${roles.issuer}&source_amount=${a.dust}&destination_assets=native`;
+    const asset: CreditAssetRef = {
+      type: a.code.length <= 4 ? "credit_alphanum4" : "credit_alphanum12",
+      code: a.code,
+      issuer: roles.issuer,
+    };
+    paths[`paths-strict-send-${a.code}`] = strictSendToNativePath(asset, a.dust);
   }
   const recorded: Record<string, RecordedResponse> = {};
   for (const [key, path] of Object.entries(paths)) {

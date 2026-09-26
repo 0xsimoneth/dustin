@@ -9,6 +9,10 @@ export type {
   HorizonFailure,
 } from "./errors/dustin-error.js";
 export { redact } from "./errors/redact.js";
+export { inspectAccount } from "./inspect/inspect.js";
+export type { InspectOptions } from "./inspect/inspect.js";
+export type * from "./inspect/snapshot.js";
+export type { LedgerReader } from "./reader/ledger-reader.js";
 export {
   DEFAULT_EXPLORER_BASE,
   DEFAULT_HORIZON_URL,

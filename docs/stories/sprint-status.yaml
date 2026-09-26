@@ -32,7 +32,7 @@ development_status:
   epic-1: in-progress
   1-1-messy-fixture-builder: review
   1-2-baseline-recording: in-progress
-  1-3-account-inspector: backlog
+  1-3-account-inspector: review
   1-4-plan-model-ordering-engine: backlog
   1-5-grouping-fee-estimation: backlog
   1-6-dry-run-guarantee-tests: backlog
@@ -146,7 +146,7 @@ stories:
     title: Account inspector across all subentry types
     epic: E1
     week: 1
-    status: backlog
+    status: review
     estimate_hours: 8
     deliverable: D1
   - key: 1-4-plan-model-ordering-engine

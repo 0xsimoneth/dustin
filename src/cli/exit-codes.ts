@@ -25,6 +25,8 @@ export function exitCodeFor(error: DustinError): ExitCode {
     case "CONFIG_INVALID":
     case "MAINNET_REFUSED":
     case "SECRET_IN_ARGV":
+    case "INVALID_ADDRESS":
+    case "CONTRACT_ACCOUNT":
       return ExitCode.USAGE;
     case "HORIZON_UNAVAILABLE":
       // Exit code 6 means "nothing was submitted"; once submission has started it is 5.
