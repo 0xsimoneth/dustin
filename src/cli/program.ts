@@ -119,11 +119,19 @@ export function buildProgram(
     .option("--partial", "proceed even if some items are unclosable; the account is not merged")
     .option("--prefer-destination", "try the destination transfer before the return to issuer")
     .option("--memo <memo>", "memo for destinations that require one (SEP-29)")
-    .option("--base-fee <stroops>", "fee bid per operation instead of the fee_stats estimate")
+    .option(
+      "--base-fee <stroops>",
+      "fee bid per operation instead of the fee_stats estimate; with --execute, the highest bid",
+    )
     .option("--json", "print one JSON document: the plan, or with --execute the final close report")
     .option(
       "--report <file>",
       "with --execute, keep the close report (JSON) in this file, updated as the run goes",
+    )
+    .addHelpText(
+      "after",
+      "\nWith --execute, the secrets come from DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET in the\n" +
+        "environment, else from .env in the working directory; never from the command line.\n",
     )
     .action(async (account: string, options: CloseCommandOptions) => {
       if (options.execute) {
