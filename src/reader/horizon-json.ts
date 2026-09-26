@@ -17,6 +17,7 @@ export interface HorizonJsonOptions {
   fetch?: FetchLike;
   retries?: number;
   backoffMs?: number;
+  timeoutMs?: number;
 }
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -28,6 +29,7 @@ export function horizonJson(
   const doFetch: FetchLike = options.fetch ?? ((url, init) => fetch(url, init));
   const retries = options.retries ?? 3;
   const backoffMs = options.backoffMs ?? 1000;
+  const timeoutMs = options.timeoutMs ?? 30_000;
 
   async function get<T>(path: string): Promise<T | null> {
     const url = `${horizonUrl}${path}`;
@@ -37,14 +39,25 @@ export function horizonJson(
       if (attempt > 0) await sleep(backoffMs * 2 ** (attempt - 1));
       let response: Response;
       try {
-        response = await doFetch(url, { headers: { accept: "application/json" } });
+        response = await doFetch(url, {
+          headers: { accept: "application/json" },
+          signal: AbortSignal.timeout(timeoutMs),
+        });
       } catch (cause) {
         lastProblem = "is unreachable";
         lastCause = cause;
         continue;
       }
       if (response.status === 404) return null;
-      if (response.ok) return (await response.json()) as T;
+      if (response.ok) {
+        try {
+          return (await response.json()) as T;
+        } catch (cause) {
+          lastProblem = `answered with a body that is not JSON for ${path}`;
+          lastCause = cause;
+          continue;
+        }
+      }
       lastProblem = `answered HTTP ${response.status} for ${path}`;
       if (response.status !== 429 && response.status < 500) break;
     }

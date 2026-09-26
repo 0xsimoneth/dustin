@@ -1,6 +1,6 @@
 # Story 0.3: Continuous integration with a gated testnet job
 
-Status: review
+Status: done
 
 ## Story
 
@@ -61,6 +61,19 @@ dev-story workflow (AI developer agent)
 - `README.md` (modified: CI badge)
 - `docs/stories/0-3-continuous-integration.md`, `docs/stories/sprint-status.yaml` (modified)
 
+## Senior Developer Review (AI)
+
+- Date: 2026-09-26
+- Scope: commits f18ba2f..b7ce1c4, adversarial review plus an edge-case walk by an independent review agent (read-only).
+- Outcome: changes requested, all resolved in the follow-up commit.
+
+### Action Items
+
+- [x] Low: no job timeout; `ci.yml` now has `timeout-minutes: 15`.
+- [x] Low: actions were pinned to mutable major tags; both are now pinned to commit SHAs (`actions/checkout` v7.0.1 `3d3c42e5aac5ba805825da76410c181273ba90b1`, `actions/setup-node` v7.0.0 `820762786026740c76f36085b0efc47a31fe5020`, resolved with `git ls-remote`).
+- [x] Low: push and pull_request both ran for branches in the repository; push now runs on `main` only.
+
 ## Change Log
 
-- 2026-09-26: CI workflow for the offline tier and a manual testnet workflow without secrets. Status: review (first GitHub-hosted run pending the next push).
+- 2026-09-26: CI workflow for the offline tier and a manual testnet workflow without secrets. Status: done (first GitHub-hosted run pending the next push).
+- 2026-09-26: Review findings resolved. Status: done.

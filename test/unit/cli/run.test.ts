@@ -60,3 +60,39 @@ describe("dustin CLI run()", () => {
     expect(c.err()).toContain("NOT_IMPLEMENTED");
   });
 });
+
+describe("argv secret guard (review findings)", () => {
+  it("refuses seeds glued to other characters and never lets commander echo them", async () => {
+    const seed = Keypair.random().secret();
+    for (const argv of [
+      [...node, `${seed}X`],
+      [...node, "plan", Keypair.random().publicKey(), `--frob=${seed}Q`],
+      [...node, "plan", Keypair.random().publicKey(), `--to=2${seed}`],
+    ]) {
+      const c = capture();
+      expect(await run(argv, c.io, "1.2.3")).toBe(2);
+      expect(c.err()).toContain("SECRET_IN_ARGV");
+      expect(c.out() + c.err()).not.toContain(seed);
+    }
+  });
+
+  it("redacts whatever commander prints", async () => {
+    const c = capture();
+    const fake = `S${"A".repeat(54)}`; // not a seed, but commander output still passes through redact()
+    expect(
+      await run([...node, "plan", Keypair.random().publicKey(), `--nope=${fake}`], c.io, "1.2.3"),
+    ).toBe(2);
+    expect(c.err()).toContain("unknown option");
+  });
+
+  it("accepts --memo on plan and refuses --to together with --destination", async () => {
+    const acct = Keypair.random().publicKey();
+    const dest = Keypair.random().publicKey();
+    const a = capture();
+    expect(await run([...node, "plan", acct, "--to", dest, "--memo", "m"], a.io, "1.2.3")).toBe(1); // reaches NOT_IMPLEMENTED
+    const b = capture();
+    expect(
+      await run([...node, "plan", acct, "--to", dest, "--destination", dest], b.io, "1.2.3"),
+    ).toBe(2);
+  });
+});

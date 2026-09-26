@@ -43,3 +43,33 @@ describe("redactValue", () => {
     expect(input.a).toBe(seed);
   });
 });
+
+describe("redact (review findings)", () => {
+  it("redacts a checksum-valid seed even when base32 characters touch it", () => {
+    for (const text of [
+      `${seed}X`,
+      `Q${seed}`,
+      `2${seed}`,
+      `${seed}${seed}`,
+      encodeURIComponent(`secret=${seed}`),
+      `https://h.example/?k=%22${seed}%22`,
+    ]) {
+      expect(redact(text), text).not.toContain(seed);
+    }
+  });
+
+  it("detects a checksum-valid seed inside a longer token", async () => {
+    const { containsSecretSeed } = await import("../../../src/errors/redact.js");
+    expect(containsSecretSeed(`${seed}Q`)).toBe(true);
+    expect(containsSecretSeed(`--to=2${seed}`)).toBe(true);
+    expect(containsSecretSeed(publicKey)).toBe(false);
+  });
+
+  it("survives cycles", () => {
+    const cyclic: Record<string, unknown> = { a: seed };
+    cyclic.self = cyclic;
+    const out = redactValue(cyclic);
+    expect(JSON.stringify({ a: out.a })).not.toContain(seed);
+    expect(out.self).toBe("[Circular]");
+  });
+});

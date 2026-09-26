@@ -27,7 +27,10 @@ export function exitCodeFor(error: DustinError): ExitCode {
     case "SECRET_IN_ARGV":
       return ExitCode.USAGE;
     case "HORIZON_UNAVAILABLE":
-      return ExitCode.HORIZON_UNREACHABLE;
+      // Exit code 6 means "nothing was submitted"; once submission has started it is 5.
+      return error.stage === "submit" || error.stage === "confirm" || error.stage === "merge"
+        ? ExitCode.STOPPED
+        : ExitCode.HORIZON_UNREACHABLE;
     default:
       return ExitCode.UNEXPECTED;
   }

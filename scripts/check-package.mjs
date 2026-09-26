@@ -5,6 +5,8 @@ import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { fileURLToPath } from "node:url";
+import { StrKey } from "@stellar/stellar-sdk";
 
 const require = createRequire(import.meta.url);
 const pkg = JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8"));
@@ -20,7 +22,7 @@ async function checkEntryPoints() {
 }
 
 function checkBinary() {
-  const bin = new URL(`../${pkg.bin.dustin}`, import.meta.url).pathname;
+  const bin = fileURLToPath(new URL(`../${pkg.bin.dustin}`, import.meta.url));
   const help = spawnSync(process.execPath, [bin, "--help"], { encoding: "utf8" });
   assert.equal(help.status, 0, help.stderr);
   assert.match(help.stdout, /\bplan\b/);
@@ -50,11 +52,13 @@ function checkTarball() {
   ]) {
     assert.ok(files.includes(required), `missing from the tarball: ${required}`);
   }
-  // A Stellar secret seed is "S" followed by 55 base32 characters; none may ship.
-  const seed = /\bS[A-Z2-7]{55}\b/;
+  // No secret seed may ship: any 56-character "S..." window with a valid StrKey checksum.
+  const windows = /(?=(S[A-Z2-7]{55}))/g;
   for (const file of files) {
     const text = readFileSync(new URL(`../${file}`, import.meta.url), "utf8");
-    assert.ok(!seed.test(text), `secret-looking string in ${file}`);
+    for (const match of text.matchAll(windows)) {
+      assert.ok(!StrKey.isValidEd25519SecretSeed(match[1]), `secret seed in ${file}`);
+    }
   }
   return files;
 }

@@ -51,13 +51,14 @@
     "typecheck": "tsc --noEmit",
     "check:package": "node scripts/check-package.mjs",
     "prepack": "npm run build",
-    "prepublishOnly": "npm run typecheck",
+    "prepublishOnly": "npm run lint && npm run typecheck && npm test",
     "test": "vitest run --project unit",
     "test:testnet": "vitest run --project testnet",
     "coverage": "vitest run --project unit --coverage",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "postpack": "npm run check:package"
   },
   "dependencies": {
     "@stellar/stellar-sdk": "17.1.0",

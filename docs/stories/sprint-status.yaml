@@ -23,11 +23,11 @@ epics_document: docs/epics-and-stories.md
 sow_document: SUCCESSFUL_SOW.md
 
 development_status:
-  epic-0: in-progress
-  0-1-package-scaffold: review
-  0-2-lint-format-test-runner: review
-  0-3-continuous-integration: review
-  0-4-env-testnet-guard-license: review
+  epic-0: done
+  0-1-package-scaffold: done
+  0-2-lint-format-test-runner: done
+  0-3-continuous-integration: done
+  0-4-env-testnet-guard-license: done
   epic-0-retrospective: optional
   epic-1: in-progress
   1-1-messy-fixture-builder: review
@@ -98,7 +98,7 @@ stories:
     title: TypeScript package scaffold with typed API and CLI entry point
     epic: E0
     week: 1
-    status: review
+    status: done
     estimate_hours: 4
     deliverable: D1
   - key: 0-2-lint-format-test-runner
@@ -106,7 +106,7 @@ stories:
     title: Lint, format and test runner
     epic: E0
     week: 1
-    status: review
+    status: done
     estimate_hours: 2
     deliverable: D1
   - key: 0-3-continuous-integration
@@ -114,7 +114,7 @@ stories:
     title: Continuous integration with a gated testnet job
     epic: E0
     week: 1
-    status: review
+    status: done
     estimate_hours: 2
     deliverable: D1
   - key: 0-4-env-testnet-guard-license
@@ -122,7 +122,7 @@ stories:
     title: Environment handling, testnet-only guard, MIT license and README skeleton
     epic: E0
     week: 1
-    status: review
+    status: done
     estimate_hours: 2
     deliverable: D1
   - key: 1-1-messy-fixture-builder

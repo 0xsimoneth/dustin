@@ -1,6 +1,6 @@
 # Story 0.2: Lint, format and test runner
 
-Status: review
+Status: done
 
 ## Story
 
@@ -83,6 +83,17 @@ dev-story workflow (AI developer agent)
 - `scripts/check-package.mjs`, `src/cli/program.ts` (modified: Prettier formatting only)
 - `docs/stories/0-2-lint-format-test-runner.md`, `docs/stories/sprint-status.yaml` (modified)
 
+## Senior Developer Review (AI)
+
+- Date: 2026-09-26
+- Scope: commits f18ba2f..b7ce1c4, adversarial review plus an edge-case walk by an independent review agent (read-only).
+- Outcome: changes requested, all resolved in the follow-up commit.
+
+### Action Items
+
+- [x] Medium: `vi.unstubAllGlobals()` in one test restored the real `fetch` for the rest of the file (a probe test reached the network). The no-network stub is now re-applied before every test, `network.test.ts` uses `vi.spyOn(...).mockRestore()`, and `test/unit/setup-isolation.test.ts` guards the regression.
+
 ## Change Log
 
-- 2026-09-26: ESLint, Prettier and the two vitest tiers with network isolation and a visible testnet skip reason. Status: review.
+- 2026-09-26: ESLint, Prettier and the two vitest tiers with network isolation and a visible testnet skip reason. Status: done.
+- 2026-09-26: Review findings resolved. Status: done.

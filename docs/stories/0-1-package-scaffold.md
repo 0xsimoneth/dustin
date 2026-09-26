@@ -1,6 +1,6 @@
 # Story 0.1: TypeScript package scaffold with typed API and CLI entry point
 
-Status: review
+Status: done
 
 ## Story
 
@@ -90,6 +90,19 @@ dev-story workflow (AI developer agent)
 - `docs/stories/0-1-package-scaffold.md` (new)
 - `docs/stories/sprint-status.yaml` (modified)
 
+## Senior Developer Review (AI)
+
+- Date: 2026-09-26
+- Scope: commits f18ba2f..b7ce1c4, adversarial review plus an edge-case walk by an independent review agent (read-only).
+- Outcome: changes requested, all resolved in the follow-up commit.
+
+### Action Items
+
+- [x] Low: `scripts/check-package.mjs` resolved the binary with `URL.pathname`, which breaks on paths with spaces or non-ASCII characters; now `fileURLToPath`.
+- [x] Low: the tarball secret scan used `\bS...\b`; it now flags any 56-character window with a valid StrKey seed checksum.
+- [x] Low: `prepublishOnly` ran only the typecheck; it now runs lint, typecheck and tests, and `postpack` runs the package check.
+
 ## Change Log
 
-- 2026-09-26: Package scaffold, public API stubs, CLI entry point, LICENSE (moved forward from E0-S4) and package check. Status: review.
+- 2026-09-26: Package scaffold, public API stubs, CLI entry point, LICENSE (moved forward from E0-S4) and package check. Status: done.
+- 2026-09-26: Review findings resolved. Status: done.

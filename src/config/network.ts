@@ -46,10 +46,23 @@ function normaliseHttpUrl(value: string, field: string): string {
       stage: "config",
     });
   }
+  // Credentials would be echoed in messages and fetch rejects them; a query or fragment would
+  // break every path appended to the base URL.
+  if (url.username || url.password || url.search || url.hash) {
+    throw new DustinError(
+      "CONFIG_INVALID",
+      `${field} must not contain credentials, a query string or a fragment.`,
+      { stage: "config" },
+    );
+  }
   return url.toString().replace(/\/+$/, "");
 }
 
-/** Applies defaults and refuses anything but testnet. Makes no network call. */
+/**
+ * Applies defaults, refuses any network passphrase but testnet and validates the URLs. Makes no
+ * network call: whether a Horizon URL really serves the testnet is checked by
+ * `verifyHorizonIsTestnet()`, which every command runs before it reads or writes.
+ */
 export function resolveConfig(config: DustinConfig = {}): ResolvedConfig {
   const networkPassphrase = config.networkPassphrase ?? TESTNET_PASSPHRASE;
   assertTestnetPassphrase(networkPassphrase);
@@ -77,7 +90,9 @@ export function configFromEnv(env: Record<string, string | undefined>): DustinCo
  */
 export async function verifyHorizonIsTestnet(
   horizonUrl: string,
-  fetchImpl: (url: string) => Promise<Response> = fetch,
+  fetchImpl: (url: string, init?: RequestInit) => Promise<Response> = (url, init) =>
+    fetch(url, init),
+  timeoutMs = 15_000,
 ): Promise<void> {
   const unavailable = (detail: string, cause?: unknown) =>
     new DustinError("HORIZON_UNAVAILABLE", `Horizon at ${horizonUrl} ${detail}.`, {
@@ -87,15 +102,33 @@ export async function verifyHorizonIsTestnet(
       remedy: "Check the network connection or the Horizon URL, then try again.",
       cause,
     });
+  const notHorizon = (detail: string) =>
+    new DustinError(
+      "CONFIG_INVALID",
+      `${horizonUrl} does not look like a Horizon server: ${detail}.`,
+      {
+        stage: "config",
+        remedy: "Check DUSTIN_HORIZON_URL; the default is https://horizon-testnet.stellar.org.",
+      },
+    );
   let response: Response;
   try {
-    response = await fetchImpl(`${horizonUrl}/`);
+    response = await fetchImpl(`${horizonUrl}/`, { signal: AbortSignal.timeout(timeoutMs) });
   } catch (cause) {
     throw unavailable("is unreachable", cause);
   }
-  if (!response.ok) throw unavailable(`answered HTTP ${response.status}`);
-  const root = (await response.json()) as { network_passphrase?: unknown };
-  if (root.network_passphrase !== TESTNET_PASSPHRASE) {
+  if (response.status === 429 || response.status >= 500) {
+    throw unavailable(`answered HTTP ${response.status}`);
+  }
+  if (!response.ok) throw notHorizon(`HTTP ${response.status}`);
+  let root: unknown;
+  try {
+    root = await response.json();
+  } catch {
+    throw notHorizon("the response is not JSON");
+  }
+  if (root === null || typeof root !== "object") throw notHorizon("unexpected response");
+  if ((root as { network_passphrase?: unknown }).network_passphrase !== TESTNET_PASSPHRASE) {
     throw new DustinError(
       "MAINNET_REFUSED",
       `Horizon at ${horizonUrl} does not serve the testnet; Dustin is testnet-only in this release.`,

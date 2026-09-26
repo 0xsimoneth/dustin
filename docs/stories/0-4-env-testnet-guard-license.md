@@ -1,6 +1,6 @@
 # Story 0.4: Environment handling, testnet-only guard, redaction and README skeleton
 
-Status: review
+Status: done
 
 ## Story
 
@@ -92,6 +92,25 @@ dev-story workflow (AI developer agent)
 - `README.md` (modified)
 - `docs/stories/0-4-env-testnet-guard-license.md`, `docs/stories/sprint-status.yaml` (modified)
 
+## Senior Developer Review (AI)
+
+- Date: 2026-09-26
+- Scope: commits f18ba2f..b7ce1c4, adversarial review plus an edge-case walk by an independent review agent (read-only).
+- Outcome: changes requested, all resolved in the follow-up commit.
+
+### Action Items
+
+- [x] Medium: a seed glued to a base32 character bypassed the argv guard and commander then echoed it. Detection now also flags any window with a valid StrKey seed checksum, and commander output passes through `redact()`.
+- [x] Medium: `redact()` missed seeds in URL-encoded or adjacent contexts; fixed by the same checksum window rule.
+- [x] Medium: object and array causes were kept unredacted, cyclic details threw, and a DustinError cause lost its code. Causes now go through `redactValue()` with a cycle guard, and a DustinError cause is kept as is.
+- [x] Medium: `verifyHorizonIsTestnet` threw raw errors on a non-JSON or null body, had no timeout and treated 4xx as retryable. It now uses a 15 s timeout, maps 4xx and non-Horizon answers to a non-retryable `CONFIG_INVALID`, and keeps `HORIZON_UNAVAILABLE` for network errors, 429 and 5xx. The Horizon JSON client got a 30 s timeout and non-JSON handling too.
+- [x] Low: URLs with credentials, a query or a fragment are now refused; `resolveConfig` documents that the Horizon network itself is checked by `verifyHorizonIsTestnet`, which `fixture verify` now also runs.
+- [x] Low: an unreadable `.env` crashed the CLI; it now exits 2 with `CONFIG_INVALID`.
+- [x] Low: `HORIZON_UNAVAILABLE` now maps to exit 6 only before submission (stages config, inspect, plan, build) and to 5 afterwards.
+- [x] Low: `plan` gained `--memo` (SEP-29 detection needs it while planning) and `--destination` now conflicts with `--to`.
+- [x] Low: the static no-mainnet test now rejects any `PUBLIC` identifier in `src/`.
+
 ## Change Log
 
-- 2026-09-26: Error taxonomy base, redaction, testnet guard, argv secret guard, exit codes, `.env.example` and README skeleton. LICENSE was delivered in E0-S1. Status: review.
+- 2026-09-26: Error taxonomy base, redaction, testnet guard, argv secret guard, exit codes, `.env.example` and README skeleton. LICENSE was delivered in E0-S1. Status: done.
+- 2026-09-26: Review findings resolved. Status: done.

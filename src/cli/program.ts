@@ -1,6 +1,7 @@
 import { Command, Option } from "commander";
 import { configFromEnv, resolveConfig } from "../config/network.js";
 import { DustinError, notImplemented } from "../errors/dustin-error.js";
+import { redact } from "../errors/redact.js";
 import type { FetchLike } from "../reader/horizon-json.js";
 import { fixtureCreate, fixtureVerify, type CommandContext } from "./commands/fixture.js";
 import type { ExitCode } from "./exit-codes.js";
@@ -42,7 +43,11 @@ export function buildProgram(
     )
     .version(version)
     .exitOverride()
-    .configureOutput({ writeOut: io.stdout, writeErr: io.stderr })
+    .configureOutput({
+      // Commander echoes arguments in its errors; never let it print a secret.
+      writeOut: (text) => io.stdout(redact(text)),
+      writeErr: (text) => io.stderr(redact(text)),
+    })
     .showHelpAfterError()
     .option("--network <name>", "network to use; only testnet is supported", "testnet");
 
@@ -64,9 +69,12 @@ export function buildProgram(
     )
     .argument("<account>", "G... address of the account to close")
     .option("--to <destination>", "G... address that receives the XLM through the merge")
-    .addOption(new Option("--destination <destination>", "alias of --to").hideHelp())
+    .addOption(
+      new Option("--destination <destination>", "alias of --to").hideHelp().conflicts("to"),
+    )
     .option("--sponsor <sponsor>", "G... address of the fee sponsor, used for the fee attribution")
     .option("--prefer-destination", "try the destination transfer before the return to issuer")
+    .option("--memo <memo>", "memo for destinations that require one (SEP-29)")
     .option("--json", "print the plan as one JSON document")
     .action(() => {
       throw notImplemented("dustin plan", "plan");
@@ -79,7 +87,9 @@ export function buildProgram(
     )
     .argument("<account>", "G... address of the account to close")
     .option("--to <destination>", "G... address that receives the XLM through the merge")
-    .addOption(new Option("--destination <destination>", "alias of --to").hideHelp())
+    .addOption(
+      new Option("--destination <destination>", "alias of --to").hideHelp().conflicts("to"),
+    )
     .option("--execute", "sign and submit the plan after confirmation")
     .option("--yes", "skip the typed confirmation (only honoured with --execute)")
     .option("--partial", "proceed even if some items are unclosable; the account is not merged")

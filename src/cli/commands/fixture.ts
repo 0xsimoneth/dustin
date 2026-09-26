@@ -1,6 +1,10 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { assertTestnetPassphrase, type ResolvedConfig } from "../../config/network.js";
+import {
+  assertTestnetPassphrase,
+  verifyHorizonIsTestnet,
+  type ResolvedConfig,
+} from "../../config/network.js";
 import { DustinError } from "../../errors/dustin-error.js";
 import { buildMessyFixture } from "../../fixture/builder.js";
 import { readManifest } from "../../fixture/manifest.js";
@@ -79,6 +83,7 @@ export async function fixtureVerify(
   const manifest = readManifest(manifestPath);
   assertTestnetPassphrase(manifest.network.passphrase);
   const config = ctx.config();
+  await verifyHorizonIsTestnet(config.horizonUrl, ctx.fetch);
   const client = horizonJson(config.horizonUrl, ctx.fetch ? { fetch: ctx.fetch } : {});
   const input = await loadVerifyInput(
     client,

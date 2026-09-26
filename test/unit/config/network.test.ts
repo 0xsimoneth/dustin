@@ -20,8 +20,7 @@ describe("resolveConfig", () => {
   });
 
   it("refuses any other network passphrase before touching the network", () => {
-    const fetchSpy = vi.fn();
-    vi.stubGlobal("fetch", fetchSpy);
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
     try {
       for (const passphrase of [Networks.PUBLIC, Networks.FUTURENET, "anything"]) {
         expect(() => resolveConfig({ networkPassphrase: passphrase })).toThrow(
@@ -30,7 +29,7 @@ describe("resolveConfig", () => {
       }
       expect(fetchSpy).not.toHaveBeenCalled();
     } finally {
-      vi.unstubAllGlobals();
+      fetchSpy.mockRestore();
     }
   });
 
@@ -44,6 +43,20 @@ describe("resolveConfig", () => {
     expect(() => resolveConfig({ horizonUrl: "ftp://example.com" })).toThrow(
       expect.objectContaining({ code: "CONFIG_INVALID" }),
     );
+    for (const url of [
+      "https://user:key@h.example",
+      "https://h.example/?apikey=x",
+      "https://h.example/#x",
+    ]) {
+      let message = "";
+      try {
+        resolveConfig({ horizonUrl: url });
+      } catch (e) {
+        message = (e as Error).message;
+        expect(e).toMatchObject({ code: "CONFIG_INVALID" });
+      }
+      expect(message).not.toContain("key");
+    }
   });
 });
 
@@ -64,18 +77,38 @@ describe("configFromEnv", () => {
 
 describe("verifyHorizonIsTestnet", () => {
   const respond = (body: unknown, status = 200) =>
-    vi.fn(() => Promise.resolve(new Response(JSON.stringify(body), { status })));
+    vi.fn((_url: string, _init?: RequestInit) =>
+      Promise.resolve(new Response(JSON.stringify(body), { status })),
+    );
 
   it("passes when Horizon reports the testnet passphrase", async () => {
     const fetchImpl = respond({ network_passphrase: TESTNET_PASSPHRASE });
     await expect(verifyHorizonIsTestnet(DEFAULT_HORIZON_URL, fetchImpl)).resolves.toBeUndefined();
-    expect(fetchImpl).toHaveBeenCalledWith(`${DEFAULT_HORIZON_URL}/`);
+    const [url, init] = fetchImpl.mock.calls[0] ?? [];
+    expect(url).toBe(`${DEFAULT_HORIZON_URL}/`);
+    expect(init?.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("refuses a Horizon that serves another network", async () => {
     const fetchImpl = respond({ network_passphrase: Networks.PUBLIC });
     await expect(verifyHorizonIsTestnet("https://h.example", fetchImpl)).rejects.toMatchObject({
       code: "MAINNET_REFUSED",
+    });
+  });
+
+  it("treats a non-Horizon answer as a configuration error, not a retry", async () => {
+    const html = vi.fn(() => Promise.resolve(new Response("<html>portal</html>", { status: 200 })));
+    await expect(verifyHorizonIsTestnet("https://h.example", html)).rejects.toMatchObject({
+      code: "CONFIG_INVALID",
+      retryable: false,
+    });
+    await expect(verifyHorizonIsTestnet("https://h.example", respond(null))).rejects.toMatchObject({
+      code: "CONFIG_INVALID",
+    });
+    await expect(
+      verifyHorizonIsTestnet("https://h.example", respond({}, 404)),
+    ).rejects.toMatchObject({
+      code: "CONFIG_INVALID",
     });
   });
 

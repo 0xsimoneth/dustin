@@ -85,3 +85,16 @@ describe("latestLedger", () => {
     );
   });
 });
+
+describe("horizonJson robustness", () => {
+  it("passes a timeout signal and survives a non-JSON body", async () => {
+    const fetch = vi.fn((_url: string, init?: RequestInit) => {
+      expect(init?.signal).toBeInstanceOf(AbortSignal);
+      return Promise.resolve(new Response("<html>", { status: 200 }));
+    });
+    await expect(
+      horizonJson("https://h.example", { fetch, retries: 1, backoffMs: 0 }).get("/x"),
+    ).rejects.toMatchObject({ code: "HORIZON_UNAVAILABLE" });
+    expect(fetch).toHaveBeenCalledTimes(2);
+  });
+});

@@ -46,3 +46,25 @@ describe("DustinError", () => {
     });
   });
 });
+
+describe("DustinError causes (review findings)", () => {
+  it("redacts object and array causes and survives cyclic details", async () => {
+    const { inspect } = await import("node:util");
+    const seed = Keypair.random().secret();
+    const cyclic: Record<string, unknown> = { v: seed };
+    cyclic.self = cyclic;
+    for (const cause of [{ secret: seed }, [seed], seed]) {
+      const e = new DustinError("CONFIG_INVALID", "x", { stage: "config", cause });
+      expect(inspect(e, { depth: 5 })).not.toContain(seed);
+    }
+    expect(
+      () => new DustinError("CONFIG_INVALID", "x", { stage: "config", details: cyclic as never }),
+    ).not.toThrow();
+  });
+
+  it("keeps a DustinError cause with its code", () => {
+    const inner = new DustinError("HORIZON_UNAVAILABLE", "down", { stage: "inspect" });
+    const outer = new DustinError("CONFIG_INVALID", "wrapped", { stage: "config", cause: inner });
+    expect((outer.cause as DustinError).code).toBe("HORIZON_UNAVAILABLE");
+  });
+});

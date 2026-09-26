@@ -10,10 +10,10 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe("testnet-only source", () => {
-  it("never references the public network", () => {
+  it("never references the public network (constant, passphrase or Horizon host)", () => {
     const offenders = sourceFiles("src").filter((file) => {
       const text = readFileSync(file, "utf8");
-      return /Networks\.PUBLIC|Public Global Stellar Network|horizon\.stellar\.org/.test(text);
+      return /\bPUBLIC\b|Public Global Stellar Network|horizon\.stellar\.org/.test(text);
     });
     expect(offenders).toEqual([]);
   });

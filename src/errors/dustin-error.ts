@@ -82,12 +82,14 @@ export class DustinError extends Error {
 }
 
 function redactCause(cause: unknown): unknown {
+  // A DustinError redacted itself on construction; keep it so its code survives.
+  if (cause instanceof DustinError) return cause;
   if (cause instanceof Error) {
     const copy = new Error(redact(cause.message));
     copy.name = cause.name;
     return copy;
   }
-  return typeof cause === "string" ? redact(cause) : cause;
+  return redactValue(cause);
 }
 
 export function notImplemented(what: string, stage: ErrorStage): DustinError {

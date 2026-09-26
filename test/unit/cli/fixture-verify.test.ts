@@ -19,6 +19,11 @@ for (const file of readdirSync(DIR).filter((f) => f !== "manifest.json")) {
 function fakeHorizon(mutate?: (path: string, body: unknown) => unknown) {
   return (url: string) => {
     const path = url.replace("https://horizon-testnet.stellar.org", "");
+    if (path === "/") {
+      return Promise.resolve(
+        new Response(JSON.stringify({ network_passphrase: "Test SDF Network ; September 2015" })),
+      );
+    }
     const hit = recorded.get(path);
     const body = hit && mutate ? mutate(path, structuredClone(hit.body)) : hit?.body;
     return Promise.resolve(
