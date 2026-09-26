@@ -1,8 +1,11 @@
 import {
+  Asset,
   FeeBumpTransaction,
+  LiquidityPoolAsset,
+  LiquidityPoolFeeV18,
   StrKey,
   TransactionBuilder,
-  type Asset,
+  getLiquidityPoolId,
   type Transaction,
 } from "@stellar/stellar-sdk";
 import type { OperationRecord } from "@stellar/stellar-sdk";
@@ -30,6 +33,16 @@ interface TxRecord {
   source_account: string;
 }
 
+/** A liquidity pool as Horizon's `GET /liquidity_pools/{id}` returns it (the fields tests use). */
+export interface FakeLiquidityPool {
+  id: string;
+  fee_bp: number;
+  type: "constant_product";
+  total_trustlines: string;
+  total_shares: string;
+  reserves: Array<{ asset: string; amount: string }>;
+}
+
 class OpFailure extends Error {
   constructor(readonly code: string) {
     super(code);
@@ -37,8 +50,26 @@ class OpFailure extends Error {
 }
 
 const assetKeyOf = (a: Asset) => (a.isNative() ? "native" : `${a.getCode()}:${a.getIssuer()}`);
-const horizonKey = (b: { asset_type: string; asset_code?: string; asset_issuer?: string }) =>
-  b.asset_type === "native" ? "native" : `${b.asset_code}:${b.asset_issuer}`;
+const horizonKey = (b: {
+  asset_type: string;
+  asset_code?: string;
+  asset_issuer?: string;
+  liquidity_pool_id?: string;
+}) =>
+  b.asset_type === "native"
+    ? "native"
+    : b.asset_type === "liquidity_pool_shares"
+      ? `pool:${b.liquidity_pool_id}`
+      : `${b.asset_code}:${b.asset_issuer}`;
+const sdkAsset = (key: string) => {
+  if (key === "native") return Asset.native();
+  const [code, issuer] = key.split(":");
+  return new Asset(code ?? "", issuer);
+};
+const poolIdOf = (lp: LiquidityPoolAsset) =>
+  Buffer.from(getLiquidityPoolId("constant_product", lp.getLiquidityPoolParameters())).toString(
+    "hex",
+  );
 const baseOf = (address: string) =>
   StrKey.isValidMed25519PublicKey(address)
     ? StrKey.encodeEd25519PublicKey(
@@ -62,9 +93,131 @@ export class FakeLedger {
   transactions = new Map<string, TxRecord>();
   submissions: string[] = [];
   faults: Fault[] = [];
+  /**
+   * Liquidity pools by pool id (hex). A pool is created with its first pool-share trustline and
+   * erased with its last (CAP-38, https://github.com/stellar/stellar-protocol/blob/master/core/cap-0038.md).
+   */
+  liquidityPools = new Map<string, FakeLiquidityPool>();
+  /** Pools that exist on the ledger but that Horizon answers 404 for (review finding R13). */
+  unlistedPools = new Set<string>();
 
   constructor(ledgerSeq: number) {
     this.ledgerSeq = ledgerSeq;
+  }
+
+  /** The id (hex) of the constant-product pool of two assets ("native" or "CODE:ISSUER"). */
+  static poolId(x: string, y: string): string {
+    return poolIdOf(FakeLedger.poolAsset(x, y));
+  }
+
+  /** The SDK pool-share asset of two assets in either order: sorted, fee 30 bps (CAP-38). */
+  static poolAsset(x: string, y: string): LiquidityPoolAsset {
+    const [a, b] = [sdkAsset(x), sdkAsset(y)].sort((p, q) => Asset.compare(p, q)) as [Asset, Asset];
+    return new LiquidityPoolAsset(a, b, LiquidityPoolFeeV18);
+  }
+
+  /**
+   * Gives `accountId` a credit trustline ("CODE:ISSUER") as ChangeTrust would: the issuer must
+   * exist and differ from the account; the line is one subentry and, when sponsored, one
+   * sponsored reserve. Authorized by default; reserves are not checked.
+   */
+  addTrustline(
+    accountId: string,
+    asset: string,
+    options: { balance?: string; authorized?: boolean; sponsor?: string } = {},
+  ): void {
+    const account = this.accounts.get(accountId);
+    if (!account) throw new Error(`fake ledger: no account ${accountId}`);
+    const [code, issuer] = asset.split(":") as [string, string];
+    if (issuer === accountId) throw new Error(`CHANGE_TRUST_SELF_NOT_ALLOWED: ${asset}`);
+    if (!this.accounts.has(issuer)) throw new Error(`CHANGE_TRUST_NO_ISSUER: ${asset}`);
+    if (account.balances.some((b) => horizonKey(b) === asset)) {
+      throw new Error(`fake ledger: ${accountId} already trusts ${asset}`);
+    }
+    const authorized = options.authorized ?? true;
+    account.balances.push({
+      asset_type: code.length <= 4 ? "credit_alphanum4" : "credit_alphanum12",
+      asset_code: code,
+      asset_issuer: issuer,
+      balance: formatStroops(toStroops(options.balance ?? "0")),
+      limit: "922337203685.4775807",
+      buying_liabilities: "0.0000000",
+      selling_liabilities: "0.0000000",
+      is_authorized: authorized,
+      is_authorized_to_maintain_liabilities: authorized,
+      last_modified_ledger: this.ledgerSeq,
+      ...(options.sponsor ? { sponsor: options.sponsor } : {}),
+    });
+    account.subentry_count += 1;
+    if (options.sponsor) {
+      const sponsor = this.accounts.get(options.sponsor);
+      if (!sponsor) throw new Error(`fake ledger: no sponsor account ${options.sponsor}`);
+      account.num_sponsored += 1;
+      sponsor.num_sponsoring += 1;
+    }
+  }
+
+  /**
+   * Gives `accountId` a pool-share trustline, as ChangeTrust on a LiquidityPoolAsset does (CAP-38;
+   * stellar-core ChangeTrustOpFrame): the account needs a trustline, authorized at least to
+   * maintain liabilities, for each asset of the pool except XLM and assets it issues itself
+   * (CHANGE_TRUST_TRUST_LINE_MISSING, CHANGE_TRUST_NOT_AUTH_MAINTAIN_LIABILITIES); the line counts
+   * as two subentries and, when sponsored, two sponsored reserves (computeMultiplier); the pool is
+   * created with its first share trustline. `balance` stands in for shares from a deposit.
+   * Reserves are not checked. Returns the pool id.
+   */
+  addPoolShareTrustline(
+    accountId: string,
+    assets: [string, string],
+    options: { balance?: string; sponsor?: string } = {},
+  ): string {
+    const account = this.accounts.get(accountId);
+    if (!account) throw new Error(`fake ledger: no account ${accountId}`);
+    const lp = FakeLedger.poolAsset(...assets);
+    const id = poolIdOf(lp);
+    if (account.balances.some((b) => horizonKey(b) === `pool:${id}`)) {
+      throw new Error(`fake ledger: ${accountId} already holds a share trustline of pool ${id}`);
+    }
+    const keys = [assetKeyOf(lp.assetA), assetKeyOf(lp.assetB)];
+    for (const key of keys) {
+      if (key === "native" || key.endsWith(`:${accountId}`)) continue;
+      const line = account.balances.find((b) => horizonKey(b) === key);
+      if (!line)
+        throw new Error(`CHANGE_TRUST_TRUST_LINE_MISSING: ${accountId} has no ${key} trustline`);
+      if (!line.is_authorized && !line.is_authorized_to_maintain_liabilities) {
+        throw new Error(`CHANGE_TRUST_NOT_AUTH_MAINTAIN_LIABILITIES: ${key} on ${accountId}`);
+      }
+    }
+    const balance = formatStroops(toStroops(options.balance ?? "0"));
+    account.balances.push({
+      asset_type: "liquidity_pool_shares",
+      liquidity_pool_id: id,
+      balance,
+      limit: "922337203685.4775807",
+      is_authorized: false,
+      is_authorized_to_maintain_liabilities: false,
+      last_modified_ledger: this.ledgerSeq,
+      ...(options.sponsor ? { sponsor: options.sponsor } : {}),
+    });
+    account.subentry_count += 2;
+    if (options.sponsor) {
+      const sponsor = this.accounts.get(options.sponsor);
+      if (!sponsor) throw new Error(`fake ledger: no sponsor account ${options.sponsor}`);
+      account.num_sponsored += 2;
+      sponsor.num_sponsoring += 2;
+    }
+    const pool = this.liquidityPools.get(id) ?? {
+      id,
+      fee_bp: LiquidityPoolFeeV18,
+      type: "constant_product" as const,
+      total_trustlines: "0",
+      total_shares: "0.0000000",
+      reserves: keys.map((asset) => ({ asset, amount: "0.0000000" })),
+    };
+    pool.total_trustlines = String(Number(pool.total_trustlines) + 1);
+    pool.total_shares = formatStroops(toStroops(pool.total_shares) + toStroops(balance));
+    this.liquidityPools.set(id, pool);
+    return id;
   }
 
   /** The recorded live messy fixture plus a funded fee sponsor. */
@@ -172,6 +325,10 @@ export class FakeLedger {
       return json({ _embedded: { records } });
     }
     if (path.startsWith("/claimable_balances")) return json({ _embedded: { records: [] } });
+    const pool = /^\/liquidity_pools\/([0-9a-f]{64})$/.exec(path);
+    if (pool && !this.unlistedPools.has(pool[1]!) && this.liquidityPools.has(pool[1]!)) {
+      return json(this.liquidityPools.get(pool[1]!));
+    }
     return notFound();
   };
 
@@ -240,6 +397,7 @@ export class FakeLedger {
     const sponsor = this.accounts.get(bump.feeSource)!;
     const draftAccounts = structuredClone(Object.fromEntries(this.accounts));
     const draftOffers = structuredClone(Object.fromEntries(this.offers));
+    const draftPools = structuredClone(Object.fromEntries(this.liquidityPools));
     const codes: string[] = [];
     let failed = false;
     // Sequence number consumed whatever the outcome (CAP-15).
@@ -247,7 +405,7 @@ export class FakeLedger {
     draftAccounts[inner.source]!.sequence = source.sequence;
     for (const op of inner.operations) {
       try {
-        this.applyOp(op, inner, draftAccounts, draftOffers);
+        this.applyOp(op, inner, draftAccounts, draftOffers, draftPools);
         codes.push("op_success");
       } catch (e) {
         if (!(e instanceof OpFailure)) throw e;
@@ -285,6 +443,7 @@ export class FakeLedger {
       ),
     );
     this.offers = new Map(Object.entries(draftOffers));
+    this.liquidityPools = new Map(Object.entries(draftPools));
     this.debit(this.accounts.get(bump.feeSource)!, BigInt(fee));
     return this.reply(200, record);
   }
@@ -299,12 +458,15 @@ export class FakeLedger {
     inner: Transaction,
     accounts: Record<string, HorizonAccount | null>,
     offers: Record<string, HorizonOffer[]>,
+    pools: Record<string, FakeLiquidityPool>,
   ): void {
     const me = accounts[inner.source]!;
     const line = (key: string) =>
       me.balances.find((b) => b.asset_type !== "native" && horizonKey(b) === key);
     const recomputeLiabilities = () => {
       for (const b of me.balances) {
+        // Pool shares cannot be offered, so Horizon shows no liabilities on them.
+        if (b.asset_type === "liquidity_pool_shares") continue;
         b.selling_liabilities = "0.0000000";
         b.buying_liabilities = "0.0000000";
       }
@@ -366,11 +528,24 @@ export class FakeLedger {
         return;
       }
       case "changeTrust": {
-        const asset = op.line as Asset;
+        if (op.line instanceof LiquidityPoolAsset) {
+          this.removePoolShareLine(me, op.line, op.limit, accounts, pools);
+          return;
+        }
+        const asset = op.line;
         const l = line(assetKeyOf(asset));
         if (!l) throw new OpFailure("op_invalid_limit");
         if (toStroops(l.balance) + toStroops(l.buying_liabilities ?? "0") > 0n)
           throw new OpFailure("op_invalid_limit");
+        // After the limit check, as in stellar-core ChangeTrustOpFrame::doApply: an asset trustline
+        // that one of the account's pool-share trustlines uses cannot be deleted (CAP-38).
+        const key = assetKeyOf(asset);
+        const inUse = me.balances.some(
+          (b) =>
+            b.asset_type === "liquidity_pool_shares" &&
+            (pools[b.liquidity_pool_id ?? ""]?.reserves ?? []).some((r) => r.asset === key),
+        );
+        if (inUse) throw new OpFailure("op_cannot_delete");
         me.balances = me.balances.filter((b) => b !== l);
         me.subentry_count -= 1;
         if (l.sponsor) {
@@ -406,6 +581,37 @@ export class FakeLedger {
       default:
         throw new OpFailure(`op_unsupported_in_fake_${op.type}`);
     }
+  }
+
+  /**
+   * ChangeTrust with limit 0 on a pool-share trustline, following stellar-core
+   * ChangeTrustOpFrame::doApply and CAP-38: a missing line is a new line with limit 0 and a line
+   * that holds shares is below its minimum limit, both CHANGE_TRUST_INVALID_LIMIT; otherwise the
+   * line goes with its two subentries (two sponsored reserves on both sides when sponsored), the
+   * pool loses a share trustline and is erased with its last. Only deletion is modelled.
+   */
+  private removePoolShareLine(
+    me: HorizonAccount,
+    lp: LiquidityPoolAsset,
+    limit: string,
+    accounts: Record<string, HorizonAccount | null>,
+    pools: Record<string, FakeLiquidityPool>,
+  ): void {
+    if (toStroops(limit) !== 0n) throw new OpFailure("op_unsupported_in_fake_pool_share_limit");
+    const id = poolIdOf(lp);
+    const l = me.balances.find((b) => horizonKey(b) === `pool:${id}`);
+    if (!l || toStroops(l.balance) > 0n) throw new OpFailure("op_invalid_limit");
+    const pool = pools[id];
+    if (!pool) throw new OpFailure("op_inconsistent_in_fake_pool_missing");
+    me.balances = me.balances.filter((b) => b !== l);
+    me.subentry_count -= 2;
+    if (l.sponsor) {
+      me.num_sponsored -= 2;
+      const s = accounts[l.sponsor];
+      if (s) s.num_sponsoring -= 2;
+    }
+    pool.total_trustlines = String(Number(pool.total_trustlines) - 1);
+    if (pool.total_trustlines === "0") delete pools[id];
   }
 
   private nativeOf(a: HorizonAccount): bigint {

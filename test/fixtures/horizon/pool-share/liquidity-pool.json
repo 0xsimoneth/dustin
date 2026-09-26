@@ -1,0 +1,37 @@
+{
+  "path": "/liquidity_pools/bc92083cfe3812cffa5df4fba50347e191c7957608306ba8cf6c76f2c005740f",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/liquidity_pools/bc92083cfe3812cffa5df4fba50347e191c7957608306ba8cf6c76f2c005740f"
+      },
+      "transactions": {
+        "href": "https://horizon-testnet.stellar.org/liquidity_pools/bc92083cfe3812cffa5df4fba50347e191c7957608306ba8cf6c76f2c005740f/transactions{?cursor,limit,order}",
+        "templated": true
+      },
+      "operations": {
+        "href": "https://horizon-testnet.stellar.org/liquidity_pools/bc92083cfe3812cffa5df4fba50347e191c7957608306ba8cf6c76f2c005740f/operations{?cursor,limit,order}",
+        "templated": true
+      }
+    },
+    "id": "bc92083cfe3812cffa5df4fba50347e191c7957608306ba8cf6c76f2c005740f",
+    "paging_token": "bc92083cfe3812cffa5df4fba50347e191c7957608306ba8cf6c76f2c005740f",
+    "fee_bp": 30,
+    "type": "constant_product",
+    "total_trustlines": "1",
+    "total_shares": "0.0000000",
+    "reserves": [
+      {
+        "asset": "LPA:GANU7L54P4EBYO5BHK5KPZ63PRIY3B3XNBANAXAJKEGLO2LH4OA4Q6JX",
+        "amount": "0.0000000"
+      },
+      {
+        "asset": "LPB:GANU7L54P4EBYO5BHK5KPZ63PRIY3B3XNBANAXAJKEGLO2LH4OA4Q6JX",
+        "amount": "0.0000000"
+      }
+    ],
+    "last_modified_ledger": 4879704,
+    "last_modified_time": "2026-09-26T11:28:27Z"
+  }
+}

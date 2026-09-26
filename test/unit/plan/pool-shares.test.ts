@@ -77,15 +77,28 @@ describe("pool-share trustlines", () => {
     expect(plan.steps.some((st) => st.subject.type === "pool_share")).toBe(false);
   });
 
-  it("reports an empty pool-share line whose pool Horizon did not return", () => {
+  // Review finding R13: POOL is not the id of any pair of this account's assets, so the pool
+  // cannot be resolved and any trustline may be one of its assets (test/unit/plan/pool-resolution.test.ts).
+  it("reports an empty pool-share line whose pool cannot be resolved and keeps every trustline", () => {
     const plan = planFromSnapshot(withPool("0.0000000", null), opts());
     expect(plan.status).toBe("partial");
     expect(plan.blockers).toEqual([]);
-    expect(plan.unclosable).toEqual([
-      expect.objectContaining({
-        code: "LIQUIDITY_POOL_SHARES",
-        subject: { type: "pool_share", poolId: POOL, balance: "0.0000000", sponsor: null },
-      }),
+    expect(plan.unclosable[0]).toMatchObject({
+      code: "LIQUIDITY_POOL_SHARES",
+      subject: { type: "pool_share", poolId: POOL, balance: "0.0000000", sponsor: null },
+    });
+    expect(
+      plan.unclosable.map((u) => [
+        u.code,
+        u.subject.type === "trustline" ? u.subject.asset.code : u.subject.type,
+      ]),
+    ).toEqual([
+      ["LIQUIDITY_POOL_SHARES", "pool_share"],
+      ["POOL_ASSET_TRUSTLINE", "DUSTA"],
+      ["POOL_ASSET_TRUSTLINE", "DUSTB"],
+      ["POOL_ASSET_TRUSTLINE", "DUSTC"],
+      ["POOL_ASSET_TRUSTLINE", "SPTA"],
     ]);
+    expect(plan.steps.some((st) => st.kind === "remove_trustline")).toBe(false);
   });
 });

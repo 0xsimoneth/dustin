@@ -1,0 +1,110 @@
+{
+  "path": "/accounts/GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5"
+      },
+      "transactions": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5/transactions{?cursor,limit,order}",
+        "templated": true
+      },
+      "operations": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5/operations{?cursor,limit,order}",
+        "templated": true
+      },
+      "payments": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5/payments{?cursor,limit,order}",
+        "templated": true
+      },
+      "effects": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5/effects{?cursor,limit,order}",
+        "templated": true
+      },
+      "offers": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5/offers{?cursor,limit,order}",
+        "templated": true
+      },
+      "trades": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5/trades{?cursor,limit,order}",
+        "templated": true
+      },
+      "data": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5/data/{key}",
+        "templated": true
+      }
+    },
+    "id": "GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5",
+    "account_id": "GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5",
+    "sequence": "20958169094160385",
+    "sequence_ledger": 4879705,
+    "sequence_time": "1790422112",
+    "subentry_count": 4,
+    "last_modified_ledger": 4879705,
+    "last_modified_time": "2026-09-26T11:28:32Z",
+    "thresholds": {
+      "low_threshold": 0,
+      "med_threshold": 0,
+      "high_threshold": 0
+    },
+    "flags": {
+      "auth_required": false,
+      "auth_revocable": false,
+      "auth_immutable": false,
+      "auth_clawback_enabled": false
+    },
+    "balances": [
+      {
+        "balance": "0.0000000",
+        "liquidity_pool_id": "bc92083cfe3812cffa5df4fba50347e191c7957608306ba8cf6c76f2c005740f",
+        "limit": "922337203685.4775807",
+        "last_modified_ledger": 4879704,
+        "is_authorized": false,
+        "is_authorized_to_maintain_liabilities": false,
+        "asset_type": "liquidity_pool_shares"
+      },
+      {
+        "balance": "0.0000000",
+        "limit": "922337203685.4775807",
+        "buying_liabilities": "0.0000000",
+        "selling_liabilities": "0.0000000",
+        "last_modified_ledger": 4879704,
+        "is_authorized": true,
+        "is_authorized_to_maintain_liabilities": true,
+        "asset_type": "credit_alphanum4",
+        "asset_code": "LPA",
+        "asset_issuer": "GANU7L54P4EBYO5BHK5KPZ63PRIY3B3XNBANAXAJKEGLO2LH4OA4Q6JX"
+      },
+      {
+        "balance": "0.0000000",
+        "limit": "922337203685.4775807",
+        "buying_liabilities": "0.0000000",
+        "selling_liabilities": "0.0000000",
+        "last_modified_ledger": 4879704,
+        "is_authorized": true,
+        "is_authorized_to_maintain_liabilities": true,
+        "asset_type": "credit_alphanum4",
+        "asset_code": "LPB",
+        "asset_issuer": "GANU7L54P4EBYO5BHK5KPZ63PRIY3B3XNBANAXAJKEGLO2LH4OA4Q6JX"
+      },
+      {
+        "balance": "5.0000000",
+        "buying_liabilities": "0.0000000",
+        "selling_liabilities": "0.0000000",
+        "asset_type": "native"
+      }
+    ],
+    "signers": [
+      {
+        "weight": 1,
+        "key": "GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5",
+        "type": "ed25519_public_key"
+      }
+    ],
+    "data": {},
+    "num_sponsoring": 0,
+    "num_sponsored": 0,
+    "paging_token": "GBWN5G5DEDG7QTUYNF7XJHV2K3O5QUOIPSXMFXKAGPW47DWYPDTBONY5"
+  }
+}

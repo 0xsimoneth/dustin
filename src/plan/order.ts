@@ -1,3 +1,4 @@
+import { Asset, LiquidityPoolFeeV18, getLiquidityPoolId } from "@stellar/stellar-sdk";
 import { formatStroops, toStroops } from "../amounts.js";
 import type {
   AssetRef,
@@ -44,8 +45,9 @@ type Draft = Omit<CloseStep, "id" | "dependsOn"> & { ref: number; deps: number[]
  * The ordering engine (architecture section 5.1; PRD section 8). Pure: it reads only the snapshot.
  * R1 offers first; R2 dispose before removing; R3 sponsored trustlines are removed by the owner
  * like any other; R4 data entries any time before the merge; R5 signers are left to the merge;
- * R6 pool shares are reported, never touched; R7 the merge last; R9 market-dependent steps
- * isolated. Units come out in execution order: cleanup, then conversions, then the merge.
+ * R6 held pool shares are reported, never touched, and an empty pool-share trustline is removed
+ * before its pool's asset trustlines; R7 the merge last; R9 market-dependent steps isolated.
+ * Units come out in execution order: cleanup, then conversions, then the merge.
  */
 export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): OrderResult {
   const ladderOrder: LadderOrder = options.preferDestination ? "prefer-destination" : "sow";
@@ -99,18 +101,13 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
   // A pool's asset trustlines cannot be deleted while a share trustline references the pool
   // (CHANGE_TRUST_CANNOT_DELETE). Held shares stay (withdrawal is out of scope), so their assets'
   // trustlines stay too; an empty share trustline is removed first and unblocks them.
-  const held = s.poolShares.filter((p) => toStroops(p.balance) > 0n);
+  const pools = resolvePools(s, warnings);
+  const unresolved = pools.filter((p) => p.assets === null).map((p) => p.poolId);
+  const held = pools.filter((p) => toStroops(p.balance) > 0n);
   const poolAssets = new Set(held.flatMap((p) => p.assets ?? []));
-  for (const pool of s.poolShares) {
-    if (pool.assets === null) {
-      warnings.push(
-        `Liquidity pool ${pool.poolId} was not found on Horizon; its asset trustlines may not be removable.`,
-      );
-    }
-  }
   const poolUnits: Draft[][] = [];
   const poolRemovalsFor = new Map<string, number[]>();
-  for (const pool of s.poolShares.filter((p) => toStroops(p.balance) === 0n)) {
+  for (const pool of pools.filter((p) => toStroops(p.balance) === 0n)) {
     const subject = {
       type: "pool_share" as const,
       poolId: pool.poolId,
@@ -122,7 +119,7 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
       unclosable.push({
         code: "LIQUIDITY_POOL_SHARES",
         subject,
-        reason: `The empty share trustline of liquidity pool ${pool.poolId} cannot be removed: Horizon did not return the pool, so its two assets, which the removal must name, are unknown.`,
+        reason: `The empty share trustline of liquidity pool ${pool.poolId} cannot be removed: Horizon did not return the pool and no pair of this account's assets hashes to its id, so its two assets, which the removal must name, are unknown.`,
         remedy:
           "Check the pool on Horizon (/liquidity_pools/{id}) and run the plan again, or remove the pool-share trustline outside Dustin.",
         blocksMerge: true,
@@ -153,6 +150,24 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
         reason: `The ${line.asset.code} trustline cannot be removed while the account holds shares of a liquidity pool that uses ${line.asset.code} (CHANGE_TRUST_CANNOT_DELETE).`,
         remedy:
           "Withdraw from the pool and remove the pool-share trustline first, then run the plan again.",
+        blocksMerge: true,
+      });
+      continue;
+    }
+    // A pool that cannot be resolved may use any of the account's assets, and removing one of them
+    // would fail the whole transaction on CHANGE_TRUST_CANNOT_DELETE, fee included (review
+    // finding R13), so every credit trustline stays until the pool is known.
+    if (unresolved.length > 0) {
+      const which =
+        unresolved.length === 1
+          ? `liquidity pool ${unresolved[0]}, whose share trustline this account holds: Horizon did not return the pool and no pair of this account's assets hashes to its id`
+          : `one of the liquidity pools ${unresolved.join(", ")}, whose share trustlines this account holds: Horizon did not return them and no pair of this account's assets hashes to their ids`;
+      unclosable.push({
+        code: "POOL_ASSET_TRUSTLINE",
+        subject,
+        reason: `The ${line.asset.code} trustline is kept because it may belong to ${which}. A pool's asset trustline cannot be removed while the account holds the pool's share trustline (CHANGE_TRUST_CANNOT_DELETE).`,
+        remedy:
+          "Check the pool on Horizon (/liquidity_pools/{id}) and run the plan again, or remove the pool-share trustline outside Dustin first.",
         blocksMerge: true,
       });
       continue;
@@ -259,6 +274,74 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
   const status: PlanStatus =
     blockers.length > 0 ? "blocked" : unclosable.length > 0 ? "partial" : "closable";
   return { units, unclosable, blockers, warnings, status, ladderOrder };
+}
+
+/**
+ * The account's pool shares with each pool's assets as Horizon returned them or, when Horizon did
+ * not return the pool, derived from its id (review finding R13). A derived pool is planned exactly
+ * as if Horizon had returned it; a pool that cannot be derived keeps `assets: null`.
+ */
+function resolvePools(s: ExistingAccountSnapshot, warnings: string[]): PoolShareInfo[] {
+  const missing = s.poolShares.filter((p) => p.assets === null).map((p) => p.poolId);
+  if (missing.length === 0) return s.poolShares;
+  const derived = derivePoolAssets(missing, s.trustlines);
+  return s.poolShares.map((pool) => {
+    if (pool.assets !== null) return pool;
+    const assets = derived.get(pool.poolId) ?? null;
+    warnings.push(
+      assets
+        ? `Liquidity pool ${pool.poolId} was not found on Horizon; its assets ${assets.join(" / ")} were derived from the pool id.`
+        : `Liquidity pool ${pool.poolId} was not found on Horizon and no pair of this account's assets hashes to its id; every asset trustline stays, because any of them may belong to the pool.`,
+    );
+    return { ...pool, assets };
+  });
+}
+
+/**
+ * Finds the two assets of liquidity pools from their ids alone ("native" or "CODE:ISSUER", in the
+ * pool's own order). A pool id is the SHA-256 of the pool's LiquidityPoolParameters: constant
+ * product, both assets in lexicographic order and the fee, which can only be 30 bps
+ * (CAP-38, https://github.com/stellar/stellar-protocol/blob/master/core/cap-0038.md). The SDK's
+ * `getLiquidityPoolId` (lib/esm/base/get_liquidity_pool_id.js) hashes exactly that; the transaction
+ * builder checks pool assets with the same function. While an account holds a pool-share
+ * trustline it also holds trustlines for the pool's assets (CHANGE_TRUST_TRUST_LINE_MISSING on
+ * creation, CHANGE_TRUST_CANNOT_DELETE on their removal), except XLM and assets it issues itself
+ * (stellar-core `ChangeTrustOpFrame::tryIncrementPoolUseCount`), so every pair of XLM and the
+ * account's trustline assets is a candidate. A pool with an asset the account issues is not found,
+ * and the caller then treats every trustline as a possible pool asset. Pure and deterministic; at
+ * most n(n+1)/2 hashes for n trustlines, only for pools Horizon did not return.
+ */
+export function derivePoolAssets(
+  poolIds: readonly string[],
+  trustlines: readonly TrustlineInfo[],
+): Map<string, [string, string]> {
+  const wanted = new Set(poolIds.map((id) => id.toLowerCase()));
+  const candidates = new Map<string, Asset>([["native", Asset.native()]]);
+  for (const t of trustlines) {
+    try {
+      candidates.set(assetKey(t.asset), new Asset(t.asset.code, t.asset.issuer));
+    } catch {
+      // Not a valid asset (Horizon never returns one), so no pool can hold it either.
+    }
+  }
+  const sorted = [...candidates].sort(([, a], [, b]) => Asset.compare(a, b));
+  const found = new Map<string, [string, string]>();
+  for (let i = 0; i < sorted.length && found.size < wanted.size; i++) {
+    for (let j = i + 1; j < sorted.length && found.size < wanted.size; j++) {
+      const [keyA, assetA] = sorted[i]!;
+      const [keyB, assetB] = sorted[j]!;
+      const id = Buffer.from(
+        getLiquidityPoolId("constant_product", { assetA, assetB, fee: LiquidityPoolFeeV18 }),
+      ).toString("hex");
+      if (wanted.has(id)) found.set(id, [keyA, keyB]);
+    }
+  }
+  const result = new Map<string, [string, string]>();
+  for (const id of poolIds) {
+    const assets = found.get(id.toLowerCase());
+    if (assets) result.set(id, assets);
+  }
+  return result;
 }
 
 /** An empty pool-share trustline: ChangeTrustOp with the pool asset and limit 0. */

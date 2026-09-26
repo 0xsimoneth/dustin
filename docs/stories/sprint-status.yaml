@@ -30,13 +30,13 @@ development_status:
   0-4-env-testnet-guard-license: done
   epic-0-retrospective: optional
   epic-1: in-progress
-  1-1-messy-fixture-builder: review
+  1-1-messy-fixture-builder: done
   1-2-baseline-recording: in-progress
-  1-3-account-inspector: review
-  1-4-plan-model-ordering-engine: review
-  1-5-grouping-fee-estimation: review
-  1-6-dry-run-guarantee-tests: review
-  1-7-cli-plan-command: review
+  1-3-account-inspector: done
+  1-4-plan-model-ordering-engine: done
+  1-5-grouping-fee-estimation: done
+  1-6-dry-run-guarantee-tests: done
+  1-7-cli-plan-command: done
   epic-1-retrospective: optional
   epic-2: in-progress
   2-1-fee-bump-submission-engine: review
