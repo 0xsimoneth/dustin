@@ -1,4 +1,6 @@
 import { canonicalJson, sha256Hex } from "../canonical-json.js";
+import { MIN_BASE_FEE } from "../config/fees.js";
+import { DustinError } from "../errors/dustin-error.js";
 import { TESTNET_PASSPHRASE } from "../config/network.js";
 import type { AccountSnapshot } from "../inspect/snapshot.js";
 import { assetKey } from "../inspect/snapshot.js";
@@ -27,6 +29,7 @@ export const DEFAULT_MAX_WAIT_LEDGERS = 120;
  * same inputs give the same plan and the same `planHash` (PRD FR-07, FR-10, NFR-05).
  */
 export function planFromSnapshot(s: AccountSnapshot, options: PlanOptions): ClosePlan {
+  validatePlanOptions(options);
   const feeSponsor = options.feeSponsor ?? null;
   const common = {
     schemaVersion: 1 as const,
@@ -172,6 +175,7 @@ function transactionReason(
     if (guard && !guard.ok) {
       return `The merge runs alone after the cleanup because it must wait until ledger ${guard.unblocksAtLedger} for the sequence guard.`;
     }
+    if (all.length === 1) return "Nothing to clean up: the merge is the only operation.";
     if (all.some((x) => x.phase === "convert")) {
       return "The merge runs alone after a fresh preflight, because the path payments before it depend on the market and could change the plan.";
     }
@@ -205,8 +209,8 @@ function subjectKey(subject: StepSubject): string {
 
 function structuralOperation(op: OperationDescriptor): unknown {
   if (op.type === "pathPaymentStrictSend") {
-    // destMin comes from the market quote, not from the structure of the plan.
-    const { destMin: _destMin, ...rest } = op;
+    // destMin and the path come from the market quote, not from the structure of the plan.
+    const { destMin: _destMin, path: _path, ...rest } = op;
     return rest;
   }
   return op;
@@ -236,4 +240,50 @@ function structuralHash(plan: Omit<ClosePlan, "planHash">): string {
       blockers: plan.blockers.map((b) => b.code),
     }),
   );
+}
+
+/** Memo text is at most 28 bytes (https://developers.stellar.org/docs/learn/fundamentals/transactions/operations-and-transactions#memo). */
+export const MAX_MEMO_BYTES = 28;
+
+function invalid(detail: string): DustinError {
+  return new DustinError("CONFIG_INVALID", `Invalid plan option: ${detail}.`, { stage: "plan" });
+}
+
+/** Rejects option values that would silently produce a wrong plan. */
+export function validatePlanOptions(o: PlanOptions): void {
+  const isInt = (n: number) => Number.isSafeInteger(n);
+  if (
+    o.slippageBps !== undefined &&
+    (!isInt(o.slippageBps) || o.slippageBps < 0 || o.slippageBps > 10_000)
+  ) {
+    throw invalid("slippageBps must be a whole number of basis points from 0 to 10000");
+  }
+  if (
+    o.baseFeeStroops !== undefined &&
+    (!isInt(o.baseFeeStroops) || o.baseFeeStroops < MIN_BASE_FEE)
+  ) {
+    throw invalid(`baseFeeStroops must be a whole number of at least ${MIN_BASE_FEE}`);
+  }
+  if (
+    o.maxBaseFeeStroops !== undefined &&
+    (!isInt(o.maxBaseFeeStroops) || o.maxBaseFeeStroops < MIN_BASE_FEE)
+  ) {
+    throw invalid(`maxBaseFeeStroops must be a whole number of at least ${MIN_BASE_FEE}`);
+  }
+  if (o.budgetStroops !== undefined && (!isInt(o.budgetStroops) || o.budgetStroops <= 0)) {
+    throw invalid("budgetStroops must be a positive whole number");
+  }
+  // A disposal and its trustline removal travel together, so a transaction needs room for two.
+  if (
+    o.maxOpsPerTransaction !== undefined &&
+    (!isInt(o.maxOpsPerTransaction) || o.maxOpsPerTransaction < 2)
+  ) {
+    throw invalid("maxOpsPerTransaction must be a whole number of at least 2");
+  }
+  if (o.maxWaitLedgers !== undefined && (!isInt(o.maxWaitLedgers) || o.maxWaitLedgers < 0)) {
+    throw invalid("maxWaitLedgers must be a whole number of at least 0");
+  }
+  if (o.memo !== undefined && Buffer.byteLength(o.memo, "utf8") > MAX_MEMO_BYTES) {
+    throw invalid(`memo must be at most ${MAX_MEMO_BYTES} bytes`);
+  }
 }

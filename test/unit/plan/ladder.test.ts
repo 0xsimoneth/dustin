@@ -21,7 +21,7 @@ describe("chooseRung on the recorded fixture", () => {
       amount: "0.0000007",
       to: messy.fixture,
       quotedXlm: "0.0000007",
-      destMinXlm: "0.0000007",
+      destMinXlm: "0.0000006",
       fallbackRungs: ["return_to_issuer", "send_to_destination"].filter(
         (x) => x === "return_to_issuer",
       ),

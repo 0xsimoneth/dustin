@@ -51,10 +51,12 @@ function memoRequired(account: HorizonAccount | null): boolean {
   return value !== undefined && Buffer.from(value, "base64").toString("utf8") === "1";
 }
 
+/** Code-point order, the same in every locale, so step ids and plan hashes are stable. */
+const byCodePoint = (a: string, b: string) => (a < b ? -1 : a > b ? 1 : 0);
 const byAsset = (a: { asset: CreditAssetRef }, b: { asset: CreditAssetRef }) =>
   a.asset.code === b.asset.code
-    ? a.asset.issuer.localeCompare(b.asset.issuer)
-    : a.asset.code.localeCompare(b.asset.code);
+    ? byCodePoint(a.asset.issuer, b.asset.issuer)
+    : byCodePoint(a.asset.code, b.asset.code);
 
 /**
  * Reads everything on an account that affects closing it. GET requests only; no secret, no
@@ -83,7 +85,9 @@ export async function inspectAccount(
           account: options.destination,
           baseAccount: destinationBase,
           exists: destinationRaw !== null,
-          memoRequired: memoRequired(destinationRaw),
+          // SEP-29 does not apply to muxed destinations: the muxed id identifies the recipient.
+          memoRequired:
+            options.destination === destinationBase ? memoRequired(destinationRaw) : false,
           trustlines: (destinationRaw?.balances ?? [])
             .filter(isCredit)
             .map((b) => ({
@@ -166,7 +170,7 @@ export async function inspectAccount(
     masterWeight: raw.signers.find((s) => s.key === account)?.weight ?? 0,
     signers: raw.signers
       .map((s) => ({ key: s.key, weight: s.weight, type: s.type, sponsor: s.sponsor ?? null }))
-      .sort((a, b) => a.key.localeCompare(b.key)),
+      .sort((a, b) => byCodePoint(a.key, b.key)),
     flags: {
       authRequired: raw.flags.auth_required,
       authRevocable: raw.flags.auth_revocable,
@@ -191,7 +195,7 @@ export async function inspectAccount(
         sponsor: b.sponsor ?? null,
         assets: poolAssets[i] ?? null,
       }))
-      .sort((a, b) => a.poolId.localeCompare(b.poolId)),
+      .sort((a, b) => byCodePoint(a.poolId, b.poolId)),
     offers: offers
       .map((o) => ({
         id: String(o.id),

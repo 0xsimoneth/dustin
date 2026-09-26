@@ -174,7 +174,7 @@ describe("orderClose blockers and unclosable items", () => {
     expect(codes(orderClose(self, opts))).toContain("DESTINATION_IS_SELF");
   });
 
-  it("reports pool shares and the pool's asset trustlines as unclosable", () => {
+  it("blocks the merge on pool shares and reports the pool's asset trustlines as unclosable", () => {
     const s = copy(base);
     const dustc = s.trustlines.find((t) => t.asset.code === "DUSTC")!;
     s.poolShares.push({
@@ -184,7 +184,7 @@ describe("orderClose blockers and unclosable items", () => {
       assets: ["native", `DUSTC:${dustc.asset.issuer}`],
     });
     const r = orderClose(s, opts);
-    expect(r.status).toBe("partial");
+    expect(r.status).toBe("blocked");
     expect(codes(r)).toEqual(
       expect.arrayContaining(["LIQUIDITY_POOL_SHARES", "POOL_ASSET_TRUSTLINE"]),
     );

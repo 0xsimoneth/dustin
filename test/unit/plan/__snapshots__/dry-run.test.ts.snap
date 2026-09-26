@@ -31,7 +31,7 @@ exports[`dry-run guarantee > produces the committed plan for the recorded fixtur
     "closedAt": "2026-09-26T04:00:22Z",
     "ledger": 4874327,
   },
-  "planHash": "9e332e6cd2e9e9524eb0f69b17891e51c3c7573cba9c898c19ca5dbbbe6f40e6",
+  "planHash": "25be835c88e84af36e96e17fa00fcbf465f6f39a7c6075deab940106eff38c85",
   "recovery": {
     "feesPaidByAccount": "0",
     "nativeBalance": "4.0000000",
@@ -415,7 +415,7 @@ exports[`dry-run guarantee > produces the committed plan for the recorded fixtur
       ],
       "disposal": {
         "amount": "0.0000007",
-        "destMinXlm": "0.0000007",
+        "destMinXlm": "0.0000006",
         "fallbackRungs": [
           "return_to_issuer",
         ],
@@ -436,7 +436,7 @@ exports[`dry-run guarantee > produces the committed plan for the recorded fixtur
         "destAsset": {
           "type": "native",
         },
-        "destMin": "0.0000007",
+        "destMin": "0.0000006",
         "destination": "GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK",
         "path": [],
         "sendAmount": "0.0000007",
@@ -447,7 +447,7 @@ exports[`dry-run guarantee > produces the committed plan for the recorded fixtur
         },
         "type": "pathPaymentStrictSend",
       },
-      "reason": "Sell the full 0.0000007 DUSTA for about 0.0000007 XLM (at least 0.0000007) with a strict-send path payment to this account; the XLM leaves with the merge. It runs in its own transaction so a moved market cannot roll back the rest.",
+      "reason": "Sell the full 0.0000007 DUSTA for about 0.0000007 XLM (at least 0.0000006) with a strict-send path payment to this account; the XLM leaves with the merge. It runs in its own transaction so a moved market cannot roll back the rest.",
       "subject": {
         "asset": {
           "code": "DUSTA",

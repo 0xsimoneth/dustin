@@ -8,10 +8,15 @@ export interface SigningCapability {
   merge: boolean;
 }
 
-/** Only the master key is assumed; raised thresholds are detected, never solved (SOW). */
+/**
+ * Only the master key is assumed; raised thresholds are detected, never solved (SOW). Besides each
+ * operation's threshold, the transaction source must meet the low threshold
+ * (https://developers.stellar.org/docs/learn/fundamentals/transactions/signatures-multisig).
+ */
 export function signingCapability(s: ExistingAccountSnapshot): SigningCapability {
   const w = s.masterWeight;
-  return { cleanup: w > 0 && w >= s.thresholds.medium, merge: w > 0 && w >= s.thresholds.high };
+  const { low, medium, high } = s.thresholds;
+  return { cleanup: w > 0 && w >= Math.max(low, medium), merge: w > 0 && w >= Math.max(low, high) };
 }
 
 /**
@@ -30,12 +35,13 @@ export function mergeBlockers(s: ExistingAccountSnapshot, memo: string | null): 
         "Collect signatures from the account's other signers outside Dustin; multisig closing is out of scope.",
       permanent: true,
     });
-  } else if (!signing.merge) {
+  } else if (!signing.merge || !signing.cleanup) {
+    // A raised medium threshold alone still stops everything: no cleanup, so no merge either.
     blockers.push({
       code: "THRESHOLD_UNMET",
       reason: signing.cleanup
-        ? `The merge needs signature weight ${s.thresholds.high} (high threshold); the master key has weight ${s.masterWeight}.`
-        : `The cleanup needs weight ${s.thresholds.medium} (medium threshold) and the merge ${s.thresholds.high} (high threshold); the master key has weight ${s.masterWeight}.`,
+        ? `The merge needs signature weight ${Math.max(s.thresholds.low, s.thresholds.high)} (high threshold, and low for the transaction); the master key has weight ${s.masterWeight}.`
+        : `The cleanup needs weight ${Math.max(s.thresholds.low, s.thresholds.medium)} and the merge ${Math.max(s.thresholds.low, s.thresholds.high)} (thresholds low ${s.thresholds.low}, medium ${s.thresholds.medium}, high ${s.thresholds.high}); the master key has weight ${s.masterWeight}.`,
       remedy: "Collect the extra signatures outside Dustin; multisig closing is out of scope.",
       permanent: true,
     });
@@ -47,6 +53,15 @@ export function mergeBlockers(s: ExistingAccountSnapshot, memo: string | null): 
         "The account has the AUTH_IMMUTABLE flag, so it can never be merged (ACCOUNT_MERGE_IMMUTABLE_SET).",
       remedy: "None: the flag cannot be cleared. The account can only be emptied with --partial.",
       permanent: true,
+    });
+  }
+  if (s.poolShares.length > 0) {
+    blockers.push({
+      code: "LIQUIDITY_POOL_SHARES",
+      reason: `The account holds ${s.poolShares.length} liquidity pool share trustline(s) (${s.poolShares.map((p) => `${p.balance} shares of pool ${p.poolId}`).join("; ")}); each is a subentry of two base reserves that blocks the merge, and withdrawing from pools is out of scope.`,
+      remedy:
+        "Withdraw from the pool (LiquidityPoolWithdraw) and remove the pool-share trustline outside Dustin, then run the plan again.",
+      permanent: false,
     });
   }
   if (s.numSponsoring > 0) {

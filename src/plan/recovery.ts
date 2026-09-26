@@ -30,7 +30,11 @@ export function recoverySummary(s: ExistingAccountSnapshot, steps: CloseStep[]):
       add(step.subject.sponsor, 1n, `trustline ${assetKey(step.subject.asset)}`);
     }
   }
-  for (const offer of s.offers) add(offer.sponsor, 1n, `offer ${offer.id}`);
+  for (const step of steps) {
+    if (step.kind !== "cancel_offer" || step.subject.type !== "offer") continue;
+    const id = step.subject.offerId;
+    add(s.offers.find((o) => o.id === id)?.sponsor ?? null, 1n, `offer ${id}`);
+  }
   if (merges) {
     // Signers and the account entry itself are removed by the merge.
     for (const signer of s.signers) add(signer.sponsor, 1n, `signer ${signer.key}`);
@@ -42,7 +46,7 @@ export function recoverySummary(s: ExistingAccountSnapshot, steps: CloseStep[]):
     nativeBalance: formatStroops(native),
     quotedProceedsXlm: formatStroops(proceeds),
     reservesReturnedToSponsors: [...bySponsor.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([sponsor, v]) => ({
         sponsor,
         xlm: formatStroops(v.units * reserve),

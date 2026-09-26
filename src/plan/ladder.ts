@@ -125,7 +125,8 @@ function evaluatePathPayment(
     }
   }
   const quoted = toStroops(quote.destinationAmount);
-  const slipped = quoted - (quoted * BigInt(slippageBps)) / 10_000n;
+  // Round the slippage up: for dust a rounded-down 1% is 0 and destMin would equal the quote.
+  const slipped = quoted - (quoted * BigInt(slippageBps) + 9_999n) / 10_000n;
   const destMin = slipped >= 1n ? slipped : 1n;
   return {
     viable: true,
@@ -163,6 +164,8 @@ function evaluateDestination(
 ): Evaluation {
   const d = snapshot.destination;
   if (!d || !d.exists) return { viable: false, reason: "the destination account does not exist" };
+  if (d.baseAccount === snapshot.account)
+    return { viable: false, reason: "the destination is the account itself" };
   if (d.baseAccount === line.asset.issuer) {
     return {
       viable: false,

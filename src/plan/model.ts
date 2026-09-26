@@ -27,7 +27,8 @@ export type BlockerCode =
   | "DESTINATION_MISSING"
   | "DESTINATION_IS_SELF"
   | "DESTINATION_REQUIRES_MEMO"
-  | "SEQNUM_TOO_FAR";
+  | "SEQNUM_TOO_FAR"
+  | "LIQUIDITY_POOL_SHARES";
 
 /** Serialisable operation descriptors; the executor turns them into SDK operations. */
 export type OperationDescriptor =

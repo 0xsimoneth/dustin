@@ -97,14 +97,6 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
 
   const poolAssets = new Set(s.poolShares.flatMap((p) => p.assets ?? []));
   for (const pool of s.poolShares) {
-    unclosable.push({
-      code: "LIQUIDITY_POOL_SHARES",
-      subject: { type: "pool_share", poolId: pool.poolId, balance: pool.balance },
-      reason: `The account holds ${pool.balance} shares of liquidity pool ${pool.poolId}; the pool-share trustline is a subentry (two base reserves) that blocks the merge. Withdrawing from pools is out of scope.`,
-      remedy:
-        "Withdraw from the pool (LiquidityPoolWithdraw) and remove the pool-share trustline outside Dustin, then run the plan again.",
-      blocksMerge: true,
-    });
     if (pool.assets === null) {
       warnings.push(
         `Liquidity pool ${pool.poolId} was not found on Horizon; its asset trustlines may not be removable.`,

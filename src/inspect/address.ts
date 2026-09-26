@@ -8,7 +8,7 @@ export function assertAccountAddress(address: string): void {
     throw new DustinError(
       "CONTRACT_ACCOUNT",
       "Contract (C...) accounts are out of scope; Dustin closes classic G... accounts only.",
-      { stage: "inspect" },
+      { stage: "inspect", remedy: "Pass the G... address of a classic account." },
     );
   }
   if (StrKey.isValidMed25519PublicKey(address)) {
@@ -19,6 +19,7 @@ export function assertAccountAddress(address: string): void {
   }
   throw new DustinError("INVALID_ADDRESS", "The account to close is not a valid G... address.", {
     stage: "inspect",
+    remedy: "Check the address: a classic account is 56 characters starting with G.",
   });
 }
 
@@ -36,9 +37,12 @@ export function destinationBaseAccount(address: string): string {
   if (StrKey.isValidContract(address)) {
     throw new DustinError("CONTRACT_ACCOUNT", "A contract (C...) destination is out of scope.", {
       stage: "inspect",
+      remedy: "Choose a G... or M... destination with --to.",
     });
   }
   throw new DustinError("INVALID_ADDRESS", "The destination is not a valid G... or M... address.", {
     stage: "inspect",
+    remedy:
+      "Check the destination passed with --to: 56 characters starting with G, or a muxed M... address.",
   });
 }
