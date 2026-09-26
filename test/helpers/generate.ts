@@ -114,16 +114,19 @@ export function randomSnapshot(
   const destinationAccount = destinationKind === "self" ? account : destination;
   const destinationExists = destinationKind !== "missing";
 
-  const poolShares = chance(0.1)
-    ? [
-        {
-          poolId: "ab".repeat(32),
-          balance: r() > 0.5 ? "1.0000000" : "0.0000000",
-          sponsor: null,
-          assets: r() > 0.2 ? ["native", ...(credit.length ? [assetKey(pick(credit))] : [])] : null,
-        },
-      ]
-    : [];
+  // A pool-share trustline needs trustlines for the pool's non-native assets, so a pool is drawn
+  // only when the account holds one: XLM paired with one of its assets.
+  const poolShares =
+    credit.length > 0 && chance(0.1)
+      ? [
+          {
+            poolId: "ab".repeat(32),
+            balance: r() > 0.5 ? "1.0000000" : "0.0000000",
+            sponsor: r() > 0.7 ? keys[5]! : null,
+            assets: r() > 0.2 ? ["native", assetKey(pick(credit))] : null,
+          },
+        ]
+      : [];
   const numSponsoring = chance(0.05) ? 1 + Math.floor(r() * 3) : 0;
   const subentryCount = trustlines.length + offers.length + data.length + 2 * poolShares.length;
 

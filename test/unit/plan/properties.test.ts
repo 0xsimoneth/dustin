@@ -39,7 +39,8 @@ function expectedBlockers(s: ExistingAccountSnapshot, memo: string | undefined):
   if (s.masterWeight === 0) codes.push("MASTER_KEY_DISABLED");
   else if (s.masterWeight < Math.max(low, medium, high)) codes.push("THRESHOLD_UNMET");
   if (s.flags.authImmutable) codes.push("AUTH_IMMUTABLE_SET");
-  if (s.poolShares.length > 0) codes.push("LIQUIDITY_POOL_SHARES");
+  // Only held shares block; an empty share trustline is removed (architecture section 4.4).
+  if (s.poolShares.some((p) => toStroops(p.balance) > 0n)) codes.push("LIQUIDITY_POOL_SHARES");
   if (s.numSponsoring > 0) codes.push("IS_SPONSOR");
   const d = s.destination!;
   if (!d.exists) codes.push("DESTINATION_MISSING");
@@ -162,6 +163,28 @@ function checkPlan(s: ExistingAccountSnapshot, plan: ClosePlan, options: PlanOpt
     expect(steps.filter((st) => st.kind === "remove_data")).toHaveLength(s.data.length);
   }
 
+  if (cleanupSignable) {
+    // An empty pool-share trustline with a known pool is removed before its pools' asset
+    // trustlines (CHANGE_TRUST_CANNOT_DELETE); one whose pool is unknown is reported.
+    for (const pool of s.poolShares.filter((p) => toStroops(p.balance) === 0n)) {
+      const removal = steps.find(
+        (st) => st.subject.type === "pool_share" && st.subject.poolId === pool.poolId,
+      );
+      expect(removal !== undefined).toBe(pool.assets !== null);
+      if (!removal) continue;
+      expect(removal.operation).toEqual({
+        type: "changeTrust",
+        asset: { type: "liquidity_pool_shares", poolId: pool.poolId, assets: pool.assets },
+        limit: "0",
+      });
+      for (const st of steps) {
+        if (st.kind === "remove_trustline" && pool.assets!.includes(subjectKey(st) ?? "")) {
+          expect(st.dependsOn).toContain(removal.id);
+        }
+      }
+    }
+  }
+
   if (merge) {
     // The merge is the last operation of the last transaction and depends on everything.
     expect(steps.at(-1)).toBe(merge);
@@ -216,6 +239,7 @@ describe("planner invariants over generated snapshots", () => {
       if (ruledOut.some((r) => r.includes("own offer"))) seen.add("B-24");
       if (ruledOut.some((r) => r.includes("has no room"))) seen.add("rung 3 without room");
       if (plan.sequenceGuard && !plan.sequenceGuard.ok) seen.add("guard wait");
+      if (plan.steps.some((st) => st.subject.type === "pool_share")) seen.add("pool-share removal");
       if (plan.transactions.filter((t) => t.phase === "cleanup").length > 1) {
         seen.add("split cleanup");
       }
@@ -234,6 +258,7 @@ describe("planner invariants over generated snapshots", () => {
         "blocker:SEQNUM_TOO_FAR",
         "blocker:THRESHOLD_UNMET",
         "guard wait",
+        "pool-share removal",
         "rung 3 without room",
         "rung:path_payment",
         "rung:return_to_issuer",
@@ -242,6 +267,7 @@ describe("planner invariants over generated snapshots", () => {
         "status:blocked",
         "status:closable",
         "status:partial",
+        "unclosable:LIQUIDITY_POOL_SHARES",
         "unclosable:MAINTAIN_LIABILITIES_ONLY",
         "unclosable:NO_DISPOSAL_ROUTE",
         "unclosable:POOL_ASSET_TRUSTLINE",

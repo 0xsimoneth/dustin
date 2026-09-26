@@ -30,6 +30,17 @@ export type BlockerCode =
   | "SEQNUM_TOO_FAR"
   | "LIQUIDITY_POOL_SHARES";
 
+/**
+ * A liquidity pool share as ChangeTrustOp needs it: the pool id and its two assets as Horizon
+ * lists them ("native" or "CODE:ISSUER"). The fee is the protocol's only one, 30 bps
+ * (https://developers.stellar.org/docs/learn/fundamentals/liquidity-on-stellar-sdex-liquidity-pools#liquidity-pool-participation).
+ */
+export interface PoolShareAssetRef {
+  type: "liquidity_pool_shares";
+  poolId: string;
+  assets: [string, string];
+}
+
 /** Serialisable operation descriptors; the executor turns them into SDK operations. */
 export type OperationDescriptor =
   | {
@@ -50,7 +61,7 @@ export type OperationDescriptor =
       path: AssetRef[];
     }
   | { type: "payment"; destination: string; asset: CreditAssetRef; amount: string }
-  | { type: "changeTrust"; asset: CreditAssetRef; limit: "0" }
+  | { type: "changeTrust"; asset: CreditAssetRef | PoolShareAssetRef; limit: "0" }
   | { type: "manageData"; name: string; value: null }
   | { type: "accountMerge"; destination: string };
 
@@ -61,7 +72,7 @@ export type StepSubject =
   | { type: "offer"; offerId: string; selling: AssetRef; buying: AssetRef; amount: string }
   | { type: "trustline"; asset: CreditAssetRef; balance: string; sponsor: string | null }
   | { type: "data"; name: string }
-  | { type: "pool_share"; poolId: string; balance: string }
+  | { type: "pool_share"; poolId: string; balance: string; sponsor: string | null }
   | { type: "account"; destination: string };
 
 export interface DisposalDecision {

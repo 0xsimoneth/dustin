@@ -1,3 +1,4 @@
+import { toStroops } from "../amounts.js";
 import type { ExistingAccountSnapshot } from "../inspect/snapshot.js";
 import type { Blocker } from "./model.js";
 
@@ -55,10 +56,12 @@ export function mergeBlockers(s: ExistingAccountSnapshot, memo: string | null): 
       permanent: true,
     });
   }
-  if (s.poolShares.length > 0) {
+  // An empty pool-share trustline is removed like any other (architecture section 4.4).
+  const held = s.poolShares.filter((p) => toStroops(p.balance) > 0n);
+  if (held.length > 0) {
     blockers.push({
       code: "LIQUIDITY_POOL_SHARES",
-      reason: `The account holds ${s.poolShares.length} liquidity pool share trustline(s) (${s.poolShares.map((p) => `${p.balance} shares of pool ${p.poolId}`).join("; ")}); each is a subentry of two base reserves that blocks the merge, and withdrawing from pools is out of scope.`,
+      reason: `The account holds shares of ${held.length} liquidity pool(s) (${held.map((p) => `${p.balance} shares of pool ${p.poolId}`).join("; ")}); each share trustline is a subentry of two base reserves that blocks the merge, and withdrawing from pools is out of scope.`,
       remedy:
         "Withdraw from the pool (LiquidityPoolWithdraw) and remove the pool-share trustline outside Dustin, then run the plan again.",
       permanent: false,

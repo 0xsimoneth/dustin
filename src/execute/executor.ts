@@ -363,18 +363,27 @@ export async function executeClose(
           s.kind === "remove_trustline" &&
           s.reserveReleasedTo?.to === "sponsor",
       );
-      const bySponsor = new Map<string, string[]>();
+      const bySponsor = new Map<string, { units: bigint; entries: string[] }>();
       for (const s of removed) {
-        if (s.reserveReleasedTo?.to !== "sponsor" || s.subject.type !== "trustline") continue;
-        bySponsor.set(s.reserveReleasedTo.sponsor, [
-          ...(bySponsor.get(s.reserveReleasedTo.sponsor) ?? []),
-          `trustline ${s.subject.asset.code}:${s.subject.asset.issuer}`,
-        ]);
+        if (s.reserveReleasedTo?.to !== "sponsor") continue;
+        // A pool-share trustline holds two base reserves, any other trustline one.
+        const [units, entry] =
+          s.subject.type === "pool_share"
+            ? [2n, `pool share ${s.subject.poolId}`]
+            : s.subject.type === "trustline"
+              ? [1n, `trustline ${s.subject.asset.code}:${s.subject.asset.issuer}`]
+              : [0n, ""];
+        if (units === 0n) continue;
+        const current = bySponsor.get(s.reserveReleasedTo.sponsor) ?? { units: 0n, entries: [] };
+        bySponsor.set(s.reserveReleasedTo.sponsor, {
+          units: current.units + units,
+          entries: [...current.entries, entry],
+        });
       }
       report.recovery.reservesReturnedToSponsors = [...bySponsor.entries()].map(
-        ([sponsor, entries]) => ({
+        ([sponsor, { units, entries }]) => ({
           sponsor,
-          xlm: formatStroops(BigInt(entries.length) * toStroops(fresh.reserve.baseReserve)),
+          xlm: formatStroops(units * toStroops(fresh.reserve.baseReserve)),
           entries,
         }),
       );

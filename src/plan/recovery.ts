@@ -29,6 +29,10 @@ export function recoverySummary(s: ExistingAccountSnapshot, steps: CloseStep[]):
     if (step.kind === "remove_trustline" && step.subject.type === "trustline") {
       add(step.subject.sponsor, 1n, `trustline ${assetKey(step.subject.asset)}`);
     }
+    // A pool-share trustline holds two base reserves.
+    if (step.kind === "remove_trustline" && step.subject.type === "pool_share") {
+      add(step.subject.sponsor, 2n, `pool share ${step.subject.poolId}`);
+    }
   }
   for (const step of steps) {
     if (step.kind !== "cancel_offer" || step.subject.type !== "offer") continue;

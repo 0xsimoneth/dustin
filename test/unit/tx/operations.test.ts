@@ -1,4 +1,13 @@
-import { Keypair, Operation, StrKey, xdr } from "@stellar/stellar-sdk";
+import {
+  Asset,
+  Keypair,
+  LiquidityPoolAsset,
+  LiquidityPoolFeeV18,
+  Operation,
+  StrKey,
+  getLiquidityPoolId,
+  xdr,
+} from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
 import type { OperationDescriptor } from "../../../src/plan/model.js";
 import { toOperation } from "../../../src/tx/operations.js";
@@ -51,6 +60,47 @@ describe("toOperation", () => {
   it("removes a trustline with limit 0, never the maximum", () => {
     const op = decode({ type: "changeTrust", asset: DUST, limit: "0" });
     expect(op).toMatchObject({ type: "changeTrust", limit: "0.0000000" });
+  });
+
+  it("removes an empty pool-share trustline with the pool's full asset, whatever the order", () => {
+    const dust = new Asset("DUSTA", issuer);
+    const poolId = Buffer.from(
+      getLiquidityPoolId("constant_product", {
+        assetA: Asset.native(),
+        assetB: dust,
+        fee: LiquidityPoolFeeV18,
+      }),
+    ).toString("hex");
+    for (const assets of [
+      ["native", `DUSTA:${issuer}`],
+      [`DUSTA:${issuer}`, "native"],
+    ] as [string, string][]) {
+      const op = decode({
+        type: "changeTrust",
+        asset: { type: "liquidity_pool_shares", poolId, assets },
+        limit: "0",
+      });
+      expect(op).toMatchObject({ type: "changeTrust", limit: "0.0000000" });
+      const line = op.line as LiquidityPoolAsset;
+      expect(line).toBeInstanceOf(LiquidityPoolAsset);
+      expect(line.assetA.isNative()).toBe(true);
+      expect(line.assetB.getCode()).toBe("DUSTA");
+      expect(line.fee).toBe(30);
+    }
+  });
+
+  it("refuses pool assets that do not hash to the pool id", () => {
+    expect(() =>
+      toOperation({
+        type: "changeTrust",
+        asset: {
+          type: "liquidity_pool_shares",
+          poolId: "ab".repeat(32),
+          assets: ["native", `DUSTA:${issuer}`],
+        },
+        limit: "0",
+      }),
+    ).toThrow(/do not match liquidity pool/);
   });
 
   it("deletes data with a null value and pays the issuer", () => {

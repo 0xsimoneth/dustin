@@ -53,6 +53,9 @@ export function stepAction(step: CloseStep): string {
       return `send ${amount} ${subjectCode(s)} to destination ${short(d?.to ?? "")}`;
     }
     case "remove_trustline":
+      if (s.type === "pool_share") {
+        return `remove pool-share trustline ${short(s.poolId)}${s.sponsor ? ` (reserves sponsored by ${short(s.sponsor)})` : ""}`;
+      }
       return s.type === "trustline" && s.sponsor
         ? `remove trustline ${s.asset.code} (reserve sponsored by ${short(s.sponsor)})`
         : `remove trustline ${subjectCode(s)}`;

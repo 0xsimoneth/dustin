@@ -154,7 +154,7 @@ stories:
     title: Close plan model and ordering engine
     epic: E1
     week: 1
-    status: review
+    status: done
     estimate_hours: 10
     deliverable: D1
   - key: 1-5-grouping-fee-estimation

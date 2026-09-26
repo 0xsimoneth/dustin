@@ -1,9 +1,43 @@
-import { Asset, Operation, type xdr } from "@stellar/stellar-sdk";
+import {
+  Asset,
+  LiquidityPoolAsset,
+  LiquidityPoolFeeV18,
+  Operation,
+  getLiquidityPoolId,
+  type xdr,
+} from "@stellar/stellar-sdk";
 import type { AssetRef } from "../inspect/snapshot.js";
-import type { OperationDescriptor } from "../plan/model.js";
+import type { OperationDescriptor, PoolShareAssetRef } from "../plan/model.js";
 
 export function toSdkAsset(asset: AssetRef): Asset {
   return asset.type === "native" ? Asset.native() : new Asset(asset.code, asset.issuer);
+}
+
+function horizonAsset(label: string): Asset {
+  if (label === "native") return Asset.native();
+  const [code, issuer] = label.split(":");
+  return new Asset(code ?? "", issuer);
+}
+
+/**
+ * ChangeTrustOp takes a pool share's full representation: both assets in lexicographic order and
+ * the fee, 30 bps (https://developers.stellar.org/docs/learn/fundamentals/liquidity-on-stellar-sdex-liquidity-pools#liquidity-pool-participation).
+ * The assets come from Horizon, so they must hash to the pool id the account holds.
+ */
+function poolShareAsset(ref: PoolShareAssetRef): LiquidityPoolAsset {
+  const [assetA, assetB] = ref.assets.map(horizonAsset).sort((a, b) => Asset.compare(a, b)) as [
+    Asset,
+    Asset,
+  ];
+  const id = Buffer.from(
+    getLiquidityPoolId("constant_product", { assetA, assetB, fee: LiquidityPoolFeeV18 }),
+  ).toString("hex");
+  if (id !== ref.poolId) {
+    throw new Error(
+      `The assets ${ref.assets.join(" / ")} do not match liquidity pool ${ref.poolId}.`,
+    );
+  }
+  return new LiquidityPoolAsset(assetA, assetB, LiquidityPoolFeeV18);
 }
 
 /**
@@ -38,7 +72,11 @@ export function toOperation(d: OperationDescriptor): xdr.Operation {
         amount: d.amount,
       });
     case "changeTrust":
-      return Operation.changeTrust({ asset: toSdkAsset(d.asset), limit: "0" });
+      return Operation.changeTrust({
+        asset:
+          d.asset.type === "liquidity_pool_shares" ? poolShareAsset(d.asset) : toSdkAsset(d.asset),
+        limit: "0",
+      });
     case "manageData":
       return Operation.manageData({ name: d.name, value: null });
     case "accountMerge":

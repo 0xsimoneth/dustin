@@ -1,8 +1,9 @@
-import { toStroops } from "../amounts.js";
+import { formatStroops, toStroops } from "../amounts.js";
 import type {
   AssetRef,
   ExistingAccountSnapshot,
   OfferInfo,
+  PoolShareInfo,
   TrustlineInfo,
 } from "../inspect/snapshot.js";
 import { assetKey } from "../inspect/snapshot.js";
@@ -95,12 +96,43 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
       })
       .map((c) => c.ref);
 
-  const poolAssets = new Set(s.poolShares.flatMap((p) => p.assets ?? []));
+  // A pool's asset trustlines cannot be deleted while a share trustline references the pool
+  // (CHANGE_TRUST_CANNOT_DELETE). Held shares stay (withdrawal is out of scope), so their assets'
+  // trustlines stay too; an empty share trustline is removed first and unblocks them.
+  const held = s.poolShares.filter((p) => toStroops(p.balance) > 0n);
+  const poolAssets = new Set(held.flatMap((p) => p.assets ?? []));
   for (const pool of s.poolShares) {
     if (pool.assets === null) {
       warnings.push(
         `Liquidity pool ${pool.poolId} was not found on Horizon; its asset trustlines may not be removable.`,
       );
+    }
+  }
+  const poolUnits: Draft[][] = [];
+  const poolRemovalsFor = new Map<string, number[]>();
+  for (const pool of s.poolShares.filter((p) => toStroops(p.balance) === 0n)) {
+    const subject = {
+      type: "pool_share" as const,
+      poolId: pool.poolId,
+      balance: pool.balance,
+      sponsor: pool.sponsor,
+    };
+    const [a, b] = pool.assets ?? [];
+    if (a === undefined || b === undefined) {
+      unclosable.push({
+        code: "LIQUIDITY_POOL_SHARES",
+        subject,
+        reason: `The empty share trustline of liquidity pool ${pool.poolId} cannot be removed: Horizon did not return the pool, so its two assets, which the removal must name, are unknown.`,
+        remedy:
+          "Check the pool on Horizon (/liquidity_pools/{id}) and run the plan again, or remove the pool-share trustline outside Dustin.",
+        blocksMerge: true,
+      });
+      continue;
+    }
+    const remove = poolShareRemoval(draft, pool, [a, b], s.reserve.baseReserve);
+    poolUnits.push([remove]);
+    for (const asset of [a, b]) {
+      poolRemovalsFor.set(asset, [...(poolRemovalsFor.get(asset) ?? []), remove.ref]);
     }
   }
 
@@ -130,7 +162,7 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
         `Trustline ${key} is clawback-enabled: the issuer can change this balance before execution; the executor re-plans if that happens.`,
       );
     }
-    const touching = cancelRefsTouching(key);
+    const touching = [...cancelRefsTouching(key), ...(poolRemovalsFor.get(key) ?? [])];
     if (toStroops(line.balance) === 0n) {
       cleanupUnits.push([removal(draft, line, touching, "")]);
       continue;
@@ -183,6 +215,7 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
 
   const ordered: Array<{ phase: TransactionPhase; drafts: Draft[] }> = [
     ...cancels.map((c) => ({ phase: "cleanup" as const, drafts: [c] })),
+    ...poolUnits.map((u) => ({ phase: "cleanup" as const, drafts: u })),
     ...cleanupUnits.map((u) => ({ phase: "cleanup" as const, drafts: u })),
     ...dataUnits.map((u) => ({ phase: "cleanup" as const, drafts: u })),
     ...convertUnits.map((u) => ({ phase: "convert" as const, drafts: u })),
@@ -226,6 +259,40 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
   const status: PlanStatus =
     blockers.length > 0 ? "blocked" : unclosable.length > 0 ? "partial" : "closable";
   return { units, unclosable, blockers, warnings, status, ladderOrder };
+}
+
+/** An empty pool-share trustline: ChangeTrustOp with the pool asset and limit 0. */
+function poolShareRemoval(
+  draft: (step: Omit<Draft, "ref">) => Draft,
+  pool: PoolShareInfo,
+  assets: [string, string],
+  baseReserve: string,
+): Draft {
+  const reserve = formatStroops(2n * toStroops(baseReserve));
+  return draft({
+    kind: "remove_trustline",
+    txIndex: -1,
+    subject: {
+      type: "pool_share",
+      poolId: pool.poolId,
+      balance: pool.balance,
+      sponsor: pool.sponsor,
+    },
+    reason:
+      `The share trustline of liquidity pool ${pool.poolId} (${assets.join(" / ")}) is empty; it is a subentry that blocks the merge and keeps the pool's asset trustlines from being removed. ` +
+      (pool.sponsor
+        ? `Removing it (limit 0) returns its two base reserves (${reserve} XLM) to the reserve sponsor ${pool.sponsor}, not to this account.`
+        : `Removing it (limit 0) releases its two base reserves (${reserve} XLM) to this account.`),
+    deps: [],
+    threshold: "medium",
+    operation: {
+      type: "changeTrust",
+      asset: { type: "liquidity_pool_shares", poolId: pool.poolId, assets },
+      limit: "0",
+    },
+    reserveReleasedTo: pool.sponsor ? { to: "sponsor", sponsor: pool.sponsor } : { to: "account" },
+    feeEstimateStroops: 0,
+  });
 }
 
 function removal(

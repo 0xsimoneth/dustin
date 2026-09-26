@@ -1,6 +1,6 @@
 # Story 1.4: Close plan model, ordering engine and disposal ladder
 
-Status: review
+Status: done
 
 ## Story
 
@@ -31,7 +31,7 @@ so that the plan can be executed top to bottom without any step being blocked by
 
 ### Review Follow-ups (AI)
 
-- [ ] [AI-Review][Low] Plan the removal of a zero-balance pool-share trustline (`changeTrust` with the pool asset, limit 0) before its pool's asset trustlines, and block only non-zero shares (architecture section 4.4).
+- [x] [AI-Review][Low] Plan the removal of a zero-balance pool-share trustline (`changeTrust` with the pool asset, limit 0) before its pool's asset trustlines, and block only non-zero shares (architecture section 4.4).
 
 ## Dev Notes
 
@@ -90,7 +90,7 @@ dev-story workflow (AI developer agent)
 - Date: 2026-09-26
 - Scope: commits a7048e9..c8ea0b1 (Epic 1), adversarial review plus an edge-case walk by an independent review agent (read-only), 18 findings across the epic.
 - Fixes: commits 6806927 (planner and inspector), 2358130 (property test), 9475995 (fixture builder and plan output), 1c9868e (evidence).
-- Outcome: changes requested; one item open.
+- Outcome: changes requested, all resolved.
 
 ### Action Items
 
@@ -98,10 +98,11 @@ dev-story workflow (AI developer agent)
 - [x] Low: slippage was rounded down, so `destMin` equalled the quote for dust; it is rounded up and clamped to at least 1 stroop.
 - [x] Low: the signing check ignored the low threshold; cleanup needs max(low, medium) and the merge max(low, high). The widened property test then found that a raised medium threshold alone gave a blocked plan with no blocker; it now reports `THRESHOLD_UNMET`.
 - [x] Low: rung 3 could pay the account itself; a destination equal to the account is ruled out.
-- [ ] Low: a pool-share trustline with a zero balance must be removed like any other trustline (architecture section 4.4); today it still counts as a blocker and keeps its pool's asset trustlines.
+- [x] Low: a pool-share trustline with a zero balance must be removed like any other trustline (architecture section 4.4). It is now removed with `changeTrust` on the pool asset (limit 0, the pool id checked against its two assets) before its pool's asset trustlines, which depend on it; only held shares are a blocker, and an empty line whose pool Horizon did not return is reported.
 - [x] Low: sponsored offers were credited to their sponsor even without a cancel step; attribution now follows the cancel steps, sorted by code point.
 
 ## Change Log
 
 - 2026-09-26: Plan model, disposal ladder, blockers, guard, recovery and the ordering engine. Status: review.
 - 2026-09-26: Review findings resolved except the zero-balance pool-share item. Status: review.
+- 2026-09-26: Empty pool-share trustlines are removed; review complete. Status: done.
