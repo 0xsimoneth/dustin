@@ -203,3 +203,66 @@ describe("executeClose on the fake ledger", () => {
     expect(ledger.accounts.has(messy.fixture)).toBe(true);
   });
 });
+
+describe("the executor's re-plan reproduces the user's plan (review finding R12)", () => {
+  it("forwards every plan option, so a plan made with custom options runs without drift", async () => {
+    const { deps } = setup();
+    const plan = await planClose(
+      {
+        account: messy.fixture,
+        destination: messy.destination,
+        feeSponsor: messy.sponsor,
+        slippageBps: 500,
+        maxOpsPerTransaction: 4,
+        maxWaitLedgers: 7,
+        baseFeeStroops: 200,
+        maxBaseFeeStroops: 5000,
+        budgetStroops: 40_000_000,
+      },
+      { reader: deps.reader },
+    );
+    let fresh: ClosePlan | undefined;
+    const report = await executeClose(plan, signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "plan") fresh ??= e.plan;
+      },
+    });
+    expect(report.status).toBe("closed");
+    expect(fresh!.planHash).toBe(plan.planHash);
+    expect(fresh!.options).toEqual(plan.options);
+    expect(fresh!.fees).toMatchObject({
+      baseFeeStroops: 200,
+      basis: "override",
+      maxBaseFeeStroops: 5000,
+      budgetStroops: 40_000_000,
+    });
+    expect(report.transactions.map((t) => t.stepIds.length)).toEqual([4, 4, 1, 2, 1]);
+  });
+
+  it("lets the execute options override the plan's fee cap and budget", async () => {
+    const { deps, plan } = setup();
+    let fresh: ClosePlan | undefined;
+    await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      budgetStroops: 30_000_000,
+      maxBaseFeeStroops: 3000,
+      onEvent: (e) => {
+        if (e.type === "plan") fresh ??= e.plan;
+      },
+    });
+    expect(fresh!.fees).toMatchObject({ budgetStroops: 30_000_000, maxBaseFeeStroops: 3000 });
+  });
+
+  it("treats a slippage bound changed after planning as drift", async () => {
+    const { ledger, deps, plan } = setup();
+    const p = await plan();
+    const tampered: ClosePlan = { ...p, options: { ...p.options!, slippageBps: 5000 } };
+    const report = await executeClose(tampered, signers(), { confirm: true, ...deps });
+    expect(report.status).toBe("aborted");
+    expect(report.message).toMatch(/changed since the plan/);
+    expect(ledger.submissions).toHaveLength(0);
+  });
+});

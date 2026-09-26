@@ -166,6 +166,21 @@ export interface FeeSummary {
   payer: string;
 }
 
+/**
+ * The planning options that shape a plan without appearing in its steps, as the planner applied
+ * them (defaults filled in). The executor re-plans with them, so its fresh plan reproduces the
+ * user's (review finding R12). Fee options are in `fees`, the memo in `memo` and the ladder order
+ * in `ladderOrder`.
+ */
+export interface RecordedPlanOptions {
+  /** Path-payment slippage bound in basis points; it sets each `destMin`. */
+  slippageBps: number;
+  /** Operations per transaction, at most the protocol's 100; it shapes the grouping. */
+  maxOpsPerTransaction: number;
+  /** Longest sequence-guard wait absorbed by a separate merge instead of a blocker. */
+  maxWaitLedgers: number;
+}
+
 export interface ClosePlan {
   schemaVersion: 1;
   kind: "dustin-close-plan";
@@ -174,6 +189,8 @@ export interface ClosePlan {
   destination: string;
   feeSponsor: string | null;
   memo: string | null;
+  /** Absent only in plans serialised before the options were recorded; defaults apply then. */
+  options?: RecordedPlanOptions;
   observed: { ledger: number; closedAt: string };
   /** The account's XLM position when observed; "0.0000000" everywhere for a missing account. */
   reserve: { balance: string; minimum: string; spendable: string; baseReserve: string };

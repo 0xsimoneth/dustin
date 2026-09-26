@@ -6,7 +6,7 @@ import type { HorizonAccount } from "../inspect/horizon-types.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
 import { sequenceGuard } from "../plan/guard.js";
 import type { ClosePlan, CloseStep, PlannedTransaction } from "../plan/model.js";
-import { planClose } from "../plan/plan-close.js";
+import { planClose, type PlanCloseInput } from "../plan/plan-close.js";
 import { horizonJson } from "../reader/horizon-json.js";
 import { horizonReader, type LedgerReader } from "../reader/ledger-reader.js";
 import { hashHex } from "../sponsor/fee-bump.js";
@@ -127,20 +127,7 @@ export async function executeClose(
   const submitter = options.submitter ?? horizonSubmitter(config.horizonUrl);
   const emit = (event: CloseEvent) => options.onEvent?.(event);
 
-  const fresh = await planClose(
-    {
-      account: plan.account,
-      destination: plan.destination,
-      feeSponsor: sponsorKey,
-      ...(plan.memo ? { memo: plan.memo } : {}),
-      ...(plan.ladderOrder === "prefer-destination" ? { preferDestination: true } : {}),
-      ...(options.maxBaseFeeStroops !== undefined
-        ? { maxBaseFeeStroops: options.maxBaseFeeStroops }
-        : {}),
-      ...(options.budgetStroops !== undefined ? { budgetStroops: options.budgetStroops } : {}),
-    },
-    { reader },
-  );
+  const fresh = await planClose(replanInput(plan, sponsorKey, options), { reader });
   emit({ type: "plan", plan: fresh });
 
   const report: CloseReport = {
@@ -406,6 +393,32 @@ export async function executeClose(
     }
     return finish(status, message);
   }
+}
+
+/**
+ * The planner input that reproduces `plan` from live state (review finding R12): every option the
+ * user planned with, read back from the plan (`options`, `fees`, `memo`, `ladderOrder`), with the
+ * execute options' fee cap and budget taking precedence. A plan serialised before `options` was
+ * recorded gets the defaults, which is what it was made with.
+ */
+function replanInput(plan: ClosePlan, sponsorKey: string, options: ExecuteOptions): PlanCloseInput {
+  return {
+    account: plan.account,
+    destination: plan.destination,
+    feeSponsor: sponsorKey,
+    ...(plan.memo ? { memo: plan.memo } : {}),
+    ...(plan.ladderOrder === "prefer-destination" ? { preferDestination: true } : {}),
+    ...(plan.options
+      ? {
+          slippageBps: plan.options.slippageBps,
+          maxOpsPerTransaction: plan.options.maxOpsPerTransaction,
+          maxWaitLedgers: plan.options.maxWaitLedgers,
+        }
+      : {}),
+    ...(plan.fees.basis === "override" ? { baseFeeStroops: plan.fees.baseFeeStroops } : {}),
+    maxBaseFeeStroops: options.maxBaseFeeStroops ?? plan.fees.maxBaseFeeStroops,
+    budgetStroops: options.budgetStroops ?? plan.fees.budgetStroops,
+  };
 }
 
 /** Fresh facts before a merge that runs in its own transaction (architecture rule R7). */

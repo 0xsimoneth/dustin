@@ -31,6 +31,11 @@ exports[`dry-run guarantee > produces the committed plan for the recorded fixtur
     "closedAt": "2026-09-26T04:00:22Z",
     "ledger": 4874327,
   },
+  "options": {
+    "maxOpsPerTransaction": 100,
+    "maxWaitLedgers": 120,
+    "slippageBps": 100,
+  },
   "planHash": "25be835c88e84af36e96e17fa00fcbf465f6f39a7c6075deab940106eff38c85",
   "recovery": {
     "feesPaidByAccount": "0",
