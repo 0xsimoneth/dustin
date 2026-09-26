@@ -13,7 +13,13 @@ export interface CliIo {
 }
 
 export interface CliDeps {
+  /** The process environment: the network settings, and the secrets for `close --execute`. */
   env: Record<string, string | undefined>;
+  /**
+   * The working directory whose `.env` supplies the two secrets to `close --execute`, and only to
+   * it (review R7). Without it no `.env` is read.
+   */
+  cwd?: string;
   fetch?: FetchLike;
   horizon?: { retries?: number; backoffMs?: number };
 }

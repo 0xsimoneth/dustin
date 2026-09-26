@@ -25,13 +25,18 @@ export function exitCodeFor(error: DustinError): ExitCode {
     case "CONFIG_INVALID":
     case "MAINNET_REFUSED":
     case "SECRET_IN_ARGV":
+    case "MISSING_ACCOUNT_SECRET":
+    case "MISSING_SPONSOR_SECRET":
     case "INVALID_ADDRESS":
     case "CONTRACT_ACCOUNT":
     case "WRONG_SIGNER":
     case "SPONSOR_UNDERFUNDED":
       return ExitCode.USAGE;
     case "CONFIRMATION_REQUIRED":
+    case "CONFIRMATION_DECLINED":
       return ExitCode.NOTHING_EXECUTED;
+    case "EXECUTION_INTERRUPTED":
+      return ExitCode.STOPPED;
     case "HORIZON_UNAVAILABLE":
       // Exit code 6 means "nothing was submitted"; once submission has started it is 5.
       return error.stage === "submit" || error.stage === "confirm" || error.stage === "merge"
