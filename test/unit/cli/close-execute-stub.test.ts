@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { DustinError } from "../../../src/errors/dustin-error.js";
 import type { executeClose } from "../../../src/execute/executor.js";
@@ -5,6 +7,7 @@ import type { CloseReport, SubmittedTransaction } from "../../../src/execute/rep
 import type { ClosePlan } from "../../../src/plan/model.js";
 import {
   closeCli,
+  emptyDir,
   executeArgs,
   secretForms,
   zeroSpendableWorld,
@@ -125,6 +128,27 @@ describe("close --execute exit codes, whatever the executor does inside", () => 
       expect(r.code, code).toBe(exit);
       expect(r.err).toContain(code);
       expect((JSON.parse(r.out) as CloseReport).transactions).toEqual([]);
+    }
+  });
+
+  it("marks a report the executor refused before any submission as aborted, with the reason", async () => {
+    const world = zeroSpendableWorld();
+    const path = join(emptyDir(), "close.json");
+    const stub: Execute = (plan, _signers, options) => {
+      options.onReport?.(report(plan, {}));
+      return Promise.reject(
+        new DustinError("SPONSOR_UNDERFUNDED", "The fee sponsor cannot pay.", { stage: "sponsor" }),
+      );
+    };
+    const r = await withStub(world, stub, "--json", "--report", path);
+    expect(r.code).toBe(2);
+    const printed = JSON.parse(r.out) as CloseReport;
+    const saved = JSON.parse(readFileSync(path, "utf8")) as CloseReport;
+    for (const x of [printed, saved]) {
+      expect(x.status).toBe("aborted");
+      expect(x.message).toContain("SPONSOR_UNDERFUNDED");
+      expect(x.finishedAt).not.toBeNull();
+      expect(x.transactions).toEqual([]);
     }
   });
 

@@ -71,7 +71,6 @@ export async function closeExecute(
   const destination = destinationOf(options);
   checkAddresses(account, destination);
   const baseFee = parseBaseFee(options.baseFee);
-  const receipt = options.report ? receiptFile(options.report, ctx) : null;
 
   const signers = loadCloseSigners(account, ctx.secrets);
   const sponsor = signers.feeSponsor.publicKey();
@@ -128,6 +127,8 @@ export async function closeExecute(
     );
   }
 
+  // The report file is checked (and its directory created) before the confirmation.
+  const receipt = options.report ? receiptFile(options.report, ctx) : null;
   say(summary(plan, spendable));
   if (options.yes) {
     say(
@@ -179,7 +180,11 @@ export async function closeExecute(
     const known = attached ?? latest;
     if (!submitted && (known?.transactions.length ?? 0) === 0) {
       // Nothing reached the network: the error's code decides (6 for an unreachable Horizon).
-      if (options.json && attached) ctx.io.stdout(`${json(attached)}\n`);
+      if (known) {
+        const refused = refusedReport(known, error);
+        receipt?.write(refused);
+        if (options.json) ctx.io.stdout(`${json(refused)}\n`);
+      }
       throw error;
     }
     // Something was submitted: never lose a hash (PRD NFR-03). The run stopped: exit 5.
@@ -287,7 +292,7 @@ async function confirm(destination: string, prompt: Prompt | undefined): Promise
   if (prompt) {
     try {
       answer = await prompt(
-        `\nType the last 4 characters of the destination address ${destination} to continue: `,
+        `\nType the last 4 characters of the destination ${destination} to confirm: `,
       );
     } catch {
       answer = null;
@@ -426,6 +431,20 @@ function failureCodes(detail: string): string {
   } catch {
     return detail;
   }
+}
+
+/** The report of a run the executor refused before submitting anything, marked as such. */
+function refusedReport(known: CloseReport, error: unknown): CloseReport {
+  const report = structuredClone(known);
+  if (report.finishedAt === null) {
+    report.status = "aborted";
+    report.message =
+      error instanceof DustinError
+        ? `${error.code}: ${error.message}`
+        : `unexpected error: ${redact(String(error))}`;
+    report.finishedAt = new Date().toISOString();
+  }
+  return report;
 }
 
 /**

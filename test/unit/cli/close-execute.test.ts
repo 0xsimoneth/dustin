@@ -78,6 +78,8 @@ describe("dustin close --execute: the happy path", () => {
     expect(r.prompts).toHaveLength(1);
     expect(r.prompts[0]).toContain(world.destination);
     expect(r.prompts[0]).toMatch(/last 4 characters of the destination/);
+    for (const line of r.prompts[0]!.split("\n"))
+      expect(line.length, line).toBeLessThanOrEqual(120);
     expect(r.out).not.toContain("CONFIRMATION SKIPPED");
     expect(world.ledger.submissions).toHaveLength(1);
   });
