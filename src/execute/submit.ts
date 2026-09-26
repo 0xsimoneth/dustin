@@ -27,7 +27,7 @@ export type SubmitOutcome =
   | { kind: "rejected"; hash: string; status: number; codes: ResultCodes }
   | { kind: "unknown"; hash: string; mayStillApply?: boolean };
 
-interface TransactionRecord {
+export interface TransactionRecord {
   hash: string;
   ledger: number;
   successful: boolean;
@@ -111,7 +111,8 @@ interface HorizonSubmitBody {
   };
 }
 
-function fromRecord(hash: string, record: TransactionRecord): SubmitOutcome {
+/** What a record found by `GET /transactions/{hash}` proves: it was included, applied or failed. */
+export function outcomeFromRecord(hash: string, record: TransactionRecord): SubmitOutcome {
   if (record.successful) {
     return {
       kind: "applied",
@@ -150,7 +151,7 @@ function fromResponse(hash: string, status: number, raw: unknown): SubmitOutcome
     };
   }
   if (status === 200 && body?.successful === false) {
-    return fromRecord(hash, {
+    return outcomeFromRecord(hash, {
       hash,
       ledger: body.ledger ?? 0,
       successful: false,
@@ -229,7 +230,7 @@ export async function submitAndConfirm(
   const deadline = envelope.maxTime + (options.graceSeconds ?? 10);
   for (;;) {
     const record = await submitter.transaction(envelope.hash);
-    if (record) return fromRecord(envelope.hash, record);
+    if (record) return outcomeFromRecord(envelope.hash, record);
     if (now() > deadline) break;
     await sleep(pollMs);
   }
@@ -240,7 +241,9 @@ export async function submitAndConfirm(
     // the envelope; every earlier ledger is already ingested, so a last lookup is conclusive.
     if ((await options.ledgerCloseTime()) > envelope.maxTime) {
       const record = await submitter.transaction(envelope.hash);
-      return record ? fromRecord(envelope.hash, record) : { kind: "unknown", hash: envelope.hash };
+      return record
+        ? outcomeFromRecord(envelope.hash, record)
+        : { kind: "unknown", hash: envelope.hash };
     }
     if (now() > waitUntil) return { kind: "unknown", hash: envelope.hash, mayStillApply: true };
     await sleep(pollMs);

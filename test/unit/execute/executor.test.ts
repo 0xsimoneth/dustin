@@ -165,7 +165,7 @@ describe("executeClose on the fake ledger", () => {
     expect(ledger.submissions).toHaveLength(0);
   });
 
-  it("stops with the result codes when a transaction fails on the ledger", async () => {
+  it("falls down the ladder when the market vanishes, keeping the failed sale's codes", async () => {
     const { ledger, deps, plan } = setup();
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
@@ -175,13 +175,68 @@ describe("executeClose on the fake ledger", () => {
         if (e.type === "tx:confirmed" && e.index === 0) ledger.quotes.clear();
       },
     });
-    expect(report.status).toBe("failed");
-    expect(report.transactions.map((t) => t.result)).toEqual(["applied", "failed"]);
+    // PRD FR-12: the failed strict-send sale is rebuilt with DUSTA returned to its issuer.
+    expect(report.status).toBe("closed");
+    expect(report.transactions.map((t) => [t.round, t.phase, t.result])).toEqual([
+      [0, "cleanup", "applied"],
+      [0, "convert", "failed"],
+      [1, "cleanup", "applied"],
+    ]);
     expect(report.transactions[1]!.resultCodes).toMatchObject({
       innerTransaction: "tx_failed",
       operations: ["op_too_few_offers"],
     });
-    expect(report.message).toMatch(/op_too_few_offers/);
+    expect(report.replans).toHaveLength(1);
+    expect(report.replans[0]!.trigger).toMatchObject({
+      stepId: "S10",
+      resultCodes: { operations: ["op_too_few_offers"] },
+    });
+    const sale = report.steps.find((s) => s.stepId === "S10")!;
+    expect(sale).toMatchObject({
+      status: "applied",
+      rung: "return_to_issuer",
+      failures: 1,
+      round: 1,
+    });
+    expect(ledger.accounts.has(messy.fixture)).toBe(false);
+  });
+
+  it("stops with the result codes and an explanation when an operation fails for good", async () => {
+    const { ledger, deps, plan } = setup();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        // Something makes the account a sponsor before the merge: op_is_sponsor is a stop code.
+        if (e.type === "tx:confirmed" && e.index === 1) {
+          ledger.faults.push({
+            status: 400,
+            body: {
+              extras: {
+                result_codes: {
+                  transaction: "tx_fee_bump_inner_failed",
+                  inner_transaction: "tx_failed",
+                  operations: ["op_is_sponsor"],
+                },
+              },
+            },
+          });
+        }
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.transactions.map((t) => t.result)).toEqual(["applied", "applied", "failed"]);
+    expect(report.stop).toMatchObject({
+      code: "OPERATION_FAILED",
+      verdict: "stop",
+      stepId: "S12",
+      resultCodes: { operations: ["op_is_sponsor"] },
+    });
+    expect(report.message).toMatch(/op_is_sponsor: The account sponsors reserves/);
+    expect(report.steps.find((s) => s.stepId === "S12")).toMatchObject({
+      status: "failed",
+      failures: 1,
+    });
     expect(ledger.accounts.has(messy.fixture)).toBe(true);
   });
 
