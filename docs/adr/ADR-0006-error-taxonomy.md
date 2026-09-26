@@ -61,7 +61,7 @@ Plans and reports never throw for expected conditions; they carry `blockers[]` a
 
 | Horizon code(s) | Stellar result | Sub-code | Verdict |
 |---|---|---|---|
-| `op_not_found` (manage offer) | `MANAGE_SELL_OFFER_NOT_FOUND` | `OFFER_GONE` (filled or cancelled meanwhile) | replan |
+| `op_offer_not_found` (manage offer) | `MANAGE_SELL_OFFER_NOT_FOUND` | `OFFER_GONE` (filled or cancelled meanwhile) | replan |
 | `op_underfunded` | `PAYMENT_UNDERFUNDED`, `PATH_PAYMENT_STRICT_SEND_UNDERFUNDED` | `BALANCE_CHANGED` (clawback, fill) | replan |
 | `op_src_not_authorized` | `*_SRC_NOT_AUTHORIZED` | `ISSUER_DEAUTHORIZED` | replan (asset moves to a later rung or rung 4) |
 | `op_no_destination` | `PAYMENT_NO_DESTINATION` | `ISSUER_MISSING` / `DEST_MISSING` | replan |
@@ -70,7 +70,7 @@ Plans and reports never throw for expected conditions; they carry `blockers[]` a
 | `op_cross_self` | `PATH_PAYMENT_STRICT_SEND_OFFER_CROSS_SELF` | `OWN_OFFER_PRESENT` (ordering violated by external change) | replan |
 | `op_invalid_limit` | `CHANGE_TRUST_INVALID_LIMIT` | `BALANCE_OR_LIABILITIES_REMAIN` | replan |
 | `op_cannot_delete` | `CHANGE_TRUST_CANNOT_DELETE` | `LP_REFERENCE` | stop (blocker) |
-| `op_not_auth_maintain_liabilities` | `CHANGE_TRUST_NOT_AUTH_MAINTAIN_LIABILITIES` | `TRUSTLINE_DEAUTHORIZED` | replan |
+| `op_not_aut_maintain_liabilities` (Horizon's own spelling) | `CHANGE_TRUST_NOT_AUTH_MAINTAIN_LIABILITIES` | `TRUSTLINE_DEAUTHORIZED` | replan |
 | `op_has_sub_entries` | `ACCOUNT_MERGE_HAS_SUB_ENTRIES` | `SUBENTRIES_REMAIN` | replan |
 | `op_seq_num_too_far` | `ACCOUNT_MERGE_SEQNUM_TOO_FAR` | `SEQNUM_TOO_FAR` | wait then retry merge, or stop with ETA |
 | `op_is_sponsor` | `ACCOUNT_MERGE_IS_SPONSOR` | `IS_SPONSOR` | stop |
@@ -79,7 +79,7 @@ Plans and reports never throw for expected conditions; they carry `blockers[]` a
 | `op_low_reserve` | any `*_LOW_RESERVE` | `LOW_RESERVE` (should not occur: closing only removes entries) | stop, report as bug |
 | `op_bad_auth` | operation-level signature problem | `OP_BAD_AUTH` | stop |
 
-Codes are copied from the Horizon result-code pages and the list of operations (https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/account-merge, https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/change-trust, https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations). Any unmapped code becomes `INNER_OP_FAILED` with verdict `stop` and the raw strings attached; the test suite fails if a code appears in a recorded fixture without a mapping.
+The Horizon strings follow stellar-horizon's code mapping (https://github.com/stellar/stellar-horizon/blob/main/internal/codes/main.go), which `src/execute/classify.ts` matches; corrected on 2026-09-26 (`op_offer_not_found`, `op_not_aut_maintain_liabilities`) after the executor decoded real testnet failures. Codes are copied from the Horizon result-code pages and the list of operations (https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/account-merge, https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/change-trust, https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations). Any unmapped code becomes `INNER_OP_FAILED` with verdict `stop` and the raw strings attached; the test suite fails if a code appears in a recorded fixture without a mapping.
 
 ### Unclosable reasons (per balance, rung 4)
 
