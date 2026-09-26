@@ -14,10 +14,11 @@ const TESTNET = "Test SDF Network ; September 2015";
 const sponsorKp = Keypair.random();
 const accountKp = Keypair.random();
 
-function inner(ops = 2, source = accountKp.publicKey()): Transaction {
+/** An inner transaction; `sequence` is the account sequence it builds on (the next one is used). */
+function inner(ops = 2, source = accountKp.publicKey(), sequence = "100"): Transaction {
   const tx = buildInnerTransaction({
     account: source,
-    sequence: "100",
+    sequence,
     operations: Array.from({ length: ops }, (_, i) => ({
       type: "manageData" as const,
       name: `k${i}`,
@@ -56,8 +57,30 @@ describe("FeeSponsor.wrap", () => {
 
   it("stops at the per-close budget", async () => {
     const s = sponsor({ budgetStroops: 5000 });
-    await s.wrap(inner(1), 2000); // 4000
-    await expect(s.wrap(inner(1), 2000)).rejects.toMatchObject({ code: "SPONSOR_BUDGET_EXCEEDED" });
+    await s.wrap(inner(1, accountKp.publicKey(), "100"), 2000); // 4000
+    await expect(s.wrap(inner(1, accountKp.publicKey(), "101"), 2000)).rejects.toMatchObject({
+      code: "SPONSOR_BUDGET_EXCEEDED",
+    });
+  });
+
+  it("counts only the largest bid signed for one sequence number, since only one can be charged", async () => {
+    const s = sponsor({ budgetStroops: 10_000 });
+    const account = accountKp.publicKey();
+    await s.wrap(inner(1, account, "100"), 1000); // 2000 for sequence 101
+    expect(s.spentBidStroops).toBe(2000);
+    // A rebuild of the same sequence with a doubled bid needs only the difference.
+    await s.wrap(inner(1, account, "100"), 2000);
+    expect(s.spentBidStroops).toBe(4000);
+    // A lower bid for the same sequence adds nothing.
+    await s.wrap(inner(1, account, "100"), 500);
+    expect(s.spentBidStroops).toBe(4000);
+    expect(s.headroomStroops(account, "101")).toBe(10_000);
+    expect(s.headroomStroops(account, "102")).toBe(6000);
+    await s.wrap(inner(1, account, "101"), 3000); // 6000 for sequence 102
+    expect(s.spentBidStroops).toBe(10_000);
+    await expect(s.wrap(inner(1, account, "101"), 3001)).rejects.toMatchObject({
+      code: "SPONSOR_BUDGET_EXCEEDED",
+    });
   });
 
   it("refuses an inner transaction sourced by the sponsor or with a foreign operation source", async () => {

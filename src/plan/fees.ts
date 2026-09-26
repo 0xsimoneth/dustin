@@ -17,9 +17,14 @@ export function feeSummary(
 ): FeeSummary {
   const maxBaseFeeStroops = options.maxBaseFeeStroops ?? DEFAULT_MAX_BASE_FEE;
   const override = options.baseFeeStroops;
+  // An override is clamped to [network minimum, cap] exactly like FeeSponsor.wrap clamps the bid it
+  // signs, so the estimate never differs from what the sponsor pays at most (review finding R18).
   const baseFeeStroops =
     override !== undefined
-      ? Math.max(MIN_BASE_FEE, Math.floor(override))
+      ? Math.min(
+          Math.max(MIN_BASE_FEE, Math.floor(override)),
+          Math.max(maxBaseFeeStroops, MIN_BASE_FEE),
+        )
       : baseFeeFromFeeStats(
           {
             last_ledger_base_fee: String(feeStats.lastLedgerBaseFee),

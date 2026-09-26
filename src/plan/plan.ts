@@ -24,6 +24,9 @@ import { recoverySummary } from "./recovery.js";
 /** Default longest sequence-guard wait the executor absorbs: 120 ledgers, about 10 minutes. */
 export const DEFAULT_MAX_WAIT_LEDGERS = 120;
 
+/** Default path-payment slippage: 100 bps (1%), the value the ladder applies when none is given. */
+export const DEFAULT_SLIPPAGE_BPS = 100;
+
 /**
  * The planner: a pure function of the snapshot and the options. No I/O, no clock, no key; the
  * same inputs give the same plan and the same `planHash` (PRD FR-07, FR-10, NFR-05).
@@ -39,6 +42,14 @@ export function planFromSnapshot(s: AccountSnapshot, options: PlanOptions): Clos
     destination: s.destination?.account ?? options.destination,
     feeSponsor,
     memo: options.memo ?? null,
+    options: {
+      slippageBps: options.slippageBps ?? DEFAULT_SLIPPAGE_BPS,
+      maxOpsPerTransaction: Math.min(
+        options.maxOpsPerTransaction ?? MAX_OPERATIONS,
+        MAX_OPERATIONS,
+      ),
+      maxWaitLedgers: options.maxWaitLedgers ?? DEFAULT_MAX_WAIT_LEDGERS,
+    },
     observed: { ledger: s.observed.ledger, closedAt: s.observed.closedAt },
     reserve: s.exists
       ? { balance: s.native.balance, ...s.reserve }
@@ -216,13 +227,22 @@ function structuralOperation(op: OperationDescriptor): unknown {
   return op;
 }
 
-/** sha256 of the plan's structure: steps, order, grouping, rungs and blockers; no fees, quotes or prose. */
+/**
+ * sha256 of the plan's structure: steps, order, grouping, rungs and blockers; no fees, quotes or
+ * prose. Of the recorded options only the slippage bound is hashed (review finding R12): it sets
+ * every `destMin`, which is left out above because it moves with the market, so without it a
+ * changed bound would pass silently. `maxOpsPerTransaction` and `maxWaitLedgers` need no entry:
+ * they act only through the grouping and the blockers, which are hashed. The default slippage is
+ * left out so that plans made before the options were recorded keep their hash.
+ */
 function structuralHash(plan: Omit<ClosePlan, "planHash">): string {
+  const slippageBps = plan.options?.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
   return sha256Hex(
     canonicalJson({
       account: plan.account,
       destination: plan.destination,
       memo: plan.memo,
+      ...(slippageBps !== DEFAULT_SLIPPAGE_BPS ? { slippageBps } : {}),
       status: plan.status,
       ladderOrder: plan.ladderOrder,
       steps: plan.steps.map((step) => ({

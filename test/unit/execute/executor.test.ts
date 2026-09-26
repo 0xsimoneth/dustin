@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { Account, MuxedAccount } from "@stellar/stellar-sdk";
+import { describe, expect, it, vi } from "vitest";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import { horizonSubmitter } from "../../../src/execute/submit.js";
 import { planClose } from "../../../src/plan/plan-close.js";
@@ -164,23 +165,82 @@ describe("executeClose on the fake ledger", () => {
     expect(ledger.submissions).toHaveLength(0);
   });
 
-  it("stops with the result codes when a transaction fails on the ledger", async () => {
+  it("falls down the ladder when the market vanishes, keeping the failed sale's codes", async () => {
+    const { ledger, deps, plan } = setup();
+    const events: string[] = [];
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "preflight" || e.type === "tx:submitted") events.push(e.type);
+        // The market disappears after the cleanup lands.
+        if (e.type === "tx:confirmed" && e.index === 0) ledger.quotes.clear();
+      },
+    });
+    // The re-planned merge shares transaction 0 of round 1, and still follows a fresh preflight.
+    expect(events).toEqual(["tx:submitted", "tx:submitted", "preflight", "tx:submitted"]);
+    // PRD FR-12: the failed strict-send sale is rebuilt with DUSTA returned to its issuer.
+    expect(report.status).toBe("closed");
+    expect(report.transactions.map((t) => [t.round, t.phase, t.result])).toEqual([
+      [0, "cleanup", "applied"],
+      [0, "convert", "failed"],
+      [1, "cleanup", "applied"],
+    ]);
+    expect(report.transactions[1]!.resultCodes).toMatchObject({
+      innerTransaction: "tx_failed",
+      operations: ["op_too_few_offers"],
+    });
+    expect(report.replans).toHaveLength(1);
+    expect(report.replans[0]!.trigger).toMatchObject({
+      stepId: "S10",
+      resultCodes: { operations: ["op_too_few_offers"] },
+    });
+    const sale = report.steps.find((s) => s.stepId === "S10")!;
+    expect(sale).toMatchObject({
+      status: "applied",
+      rung: "return_to_issuer",
+      failures: 1,
+      round: 1,
+    });
+    expect(ledger.accounts.has(messy.fixture)).toBe(false);
+  });
+
+  it("stops with the result codes and an explanation when an operation fails for good", async () => {
     const { ledger, deps, plan } = setup();
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
       onEvent: (e) => {
-        // The market disappears after the cleanup lands.
-        if (e.type === "tx:confirmed" && e.index === 0) ledger.quotes.clear();
+        // Something makes the account a sponsor before the merge: op_is_sponsor is a stop code.
+        if (e.type === "tx:confirmed" && e.index === 1) {
+          ledger.faults.push({
+            status: 400,
+            body: {
+              extras: {
+                result_codes: {
+                  transaction: "tx_fee_bump_inner_failed",
+                  inner_transaction: "tx_failed",
+                  operations: ["op_is_sponsor"],
+                },
+              },
+            },
+          });
+        }
       },
     });
     expect(report.status).toBe("failed");
-    expect(report.transactions.map((t) => t.result)).toEqual(["applied", "failed"]);
-    expect(report.transactions[1]!.resultCodes).toMatchObject({
-      innerTransaction: "tx_failed",
-      operations: ["op_too_few_offers"],
+    expect(report.transactions.map((t) => t.result)).toEqual(["applied", "applied", "failed"]);
+    expect(report.stop).toMatchObject({
+      code: "OPERATION_FAILED",
+      verdict: "stop",
+      stepId: "S12",
+      resultCodes: { operations: ["op_is_sponsor"] },
     });
-    expect(report.message).toMatch(/op_too_few_offers/);
+    expect(report.message).toMatch(/op_is_sponsor: The account sponsors reserves/);
+    expect(report.steps.find((s) => s.stepId === "S12")).toMatchObject({
+      status: "failed",
+      failures: 1,
+    });
     expect(ledger.accounts.has(messy.fixture)).toBe(true);
   });
 
@@ -201,5 +261,177 @@ describe("executeClose on the fake ledger", () => {
     expect(report.transactions.map((t) => t.phase)).toEqual(["cleanup", "convert"]);
     expect(report.message).toMatch(/merge preflight/i);
     expect(ledger.accounts.has(messy.fixture)).toBe(true);
+  });
+});
+
+describe("the executor's re-plan reproduces the user's plan (review finding R12)", () => {
+  it("forwards every plan option, so a plan made with custom options runs without drift", async () => {
+    const { deps } = setup();
+    const plan = await planClose(
+      {
+        account: messy.fixture,
+        destination: messy.destination,
+        feeSponsor: messy.sponsor,
+        slippageBps: 500,
+        maxOpsPerTransaction: 4,
+        maxWaitLedgers: 7,
+        baseFeeStroops: 200,
+        maxBaseFeeStroops: 5000,
+        budgetStroops: 40_000_000,
+      },
+      { reader: deps.reader },
+    );
+    let fresh: ClosePlan | undefined;
+    const report = await executeClose(plan, signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "plan") fresh ??= e.plan;
+      },
+    });
+    expect(report.status).toBe("closed");
+    expect(fresh!.planHash).toBe(plan.planHash);
+    expect(fresh!.options).toEqual(plan.options);
+    expect(fresh!.fees).toMatchObject({
+      baseFeeStroops: 200,
+      basis: "override",
+      maxBaseFeeStroops: 5000,
+      budgetStroops: 40_000_000,
+    });
+    expect(report.transactions.map((t) => t.stepIds.length)).toEqual([4, 4, 1, 2, 1]);
+  });
+
+  it("lets the execute options override the plan's fee cap and budget", async () => {
+    const { deps, plan } = setup();
+    let fresh: ClosePlan | undefined;
+    await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      budgetStroops: 30_000_000,
+      maxBaseFeeStroops: 3000,
+      onEvent: (e) => {
+        if (e.type === "plan") fresh ??= e.plan;
+      },
+    });
+    expect(fresh!.fees).toMatchObject({ budgetStroops: 30_000_000, maxBaseFeeStroops: 3000 });
+  });
+
+  it("treats a slippage bound changed after planning as drift", async () => {
+    const { ledger, deps, plan } = setup();
+    const p = await plan();
+    const tampered: ClosePlan = { ...p, options: { ...p.options!, slippageBps: 5000 } };
+    const report = await executeClose(tampered, signers(), { confirm: true, ...deps });
+    expect(report.status).toBe("aborted");
+    expect(report.message).toMatch(/changed since the plan/);
+    expect(ledger.submissions).toHaveLength(0);
+  });
+});
+
+describe("merge preflight in the executor (review findings R9, R10)", () => {
+  const muxed = (g: string) => new MuxedAccount(new Account(g, "0"), "42").accountId();
+
+  it("does not submit the merge when the base account of a muxed destination is gone", async () => {
+    const { ledger, deps } = setup();
+    const plan = await planClose(
+      { account: messy.fixture, destination: muxed(messy.destination), feeSponsor: messy.sponsor },
+      { reader: deps.reader },
+    );
+    const report = await executeClose(plan, signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 1) ledger.accounts.delete(messy.destination);
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.message).toMatch(/destination no longer exists/);
+    expect(report.transactions.map((t) => t.phase)).toEqual(["cleanup", "convert"]);
+    expect(ledger.accounts.has(messy.fixture)).toBe(true);
+  });
+
+  it("does not submit a memo-less merge to a destination that became memo-required", async () => {
+    const { ledger, deps, plan } = setup();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 1) {
+          ledger.accounts.get(messy.destination)!.data["config.memo_required"] = "MQ==";
+        }
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.message).toMatch(/SEP-29/);
+    expect(report.transactions.map((t) => t.phase)).toEqual(["cleanup", "convert"]);
+  });
+});
+
+describe("checks before anything is signed (review findings R2, R6)", () => {
+  const countingSigners = () => {
+    const calls = { account: 0, sponsor: 0 };
+    return {
+      calls,
+      signers: {
+        account: { publicKey: () => messy.fixture, sign: () => void calls.account++ },
+        feeSponsor: { publicKey: () => messy.sponsor, sign: () => void calls.sponsor++ },
+      },
+    };
+  };
+
+  it("refuses a plan whose fee bids exceed the close budget, with the numbers and a remedy", async () => {
+    const { ledger, deps } = setup();
+    const plan = await planClose(
+      {
+        account: messy.fixture,
+        destination: messy.destination,
+        feeSponsor: messy.sponsor,
+        budgetStroops: 1000,
+      },
+      { reader: deps.reader },
+    );
+    expect(plan.fees).toMatchObject({ totalStroops: 1500, withinBudget: false });
+    const { calls, signers: counting } = countingSigners();
+    const report = await executeClose(plan, counting, { confirm: true, ...deps });
+    expect(report.status).toBe("aborted");
+    expect(report.message).toMatch(/1500 stroops/);
+    expect(report.message).toMatch(/budget of 1000 stroops/);
+    expect(report.message).toMatch(/raise the close budget/i);
+    expect(calls).toEqual({ account: 0, sponsor: 0 });
+    expect(ledger.submissions).toHaveLength(0);
+  });
+
+  it("checks that the default submitter's Horizon serves the testnet before signing", async () => {
+    const { ledger, deps, plan } = setup();
+    const p = await plan();
+    const mainnetRoot = (url: string, init?: RequestInit) =>
+      url === `${TESTNET_HORIZON}/`
+        ? Promise.resolve(
+            new Response(
+              JSON.stringify({
+                network_passphrase: "Public Global Stellar Network ; September 2015",
+              }),
+            ),
+          )
+        : ledger.fetch(url, init);
+    vi.stubGlobal("fetch", mainnetRoot);
+    const { calls, signers: counting } = countingSigners();
+    await expect(
+      executeClose(p, counting, { confirm: true, reader: deps.reader, pollIntervalMs: 0 }),
+    ).rejects.toMatchObject({ code: "MAINNET_REFUSED" });
+    expect(calls).toEqual({ account: 0, sponsor: 0 });
+    expect(ledger.submissions).toHaveLength(0);
+  });
+
+  it("closes through the default submitter once its Horizon is shown to be testnet", async () => {
+    const { ledger, deps, plan } = setup();
+    const p = await plan();
+    vi.stubGlobal("fetch", ledger.fetch);
+    const report = await executeClose(p, signers(), {
+      confirm: true,
+      reader: deps.reader,
+      pollIntervalMs: 0,
+    });
+    expect(report.status).toBe("closed");
+    expect(ledger.submissions).toHaveLength(3);
   });
 });

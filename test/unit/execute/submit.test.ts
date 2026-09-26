@@ -12,12 +12,14 @@ const applied = {
   envelope_xdr: "BBBB",
 };
 
+/** `record` is what `GET /transactions/{hash}` finds: a fixed record, null (404) or a function. */
 function fake(responses: Array<Response | Error>, record: unknown = null) {
   const calls: { method: string; url: string }[] = [];
   const fetch = vi.fn((url: string, init?: RequestInit) => {
     calls.push({ method: init?.method ?? "GET", url });
     if ((init?.method ?? "GET") === "GET") {
-      return Promise.resolve(record === null ? json({ status: 404 }, 404) : json(record));
+      const found: unknown = typeof record === "function" ? (record as () => unknown)() : record;
+      return Promise.resolve(found === null ? json({ status: 404 }, 404) : json(found));
     }
     const next = responses.shift();
     return next instanceof Error ? Promise.reject(next) : Promise.resolve(next!);
@@ -102,5 +104,128 @@ describe("submitAndConfirm", () => {
     );
     expect(r).toEqual({ kind: "unknown", hash: HASH });
     expect(calls.filter((c) => c.method === "GET").length).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// Review finding R11 and E2-S3: what was never accepted is not polled, and a polled failure carries
+// its result codes.
+describe("submitAndConfirm classification", () => {
+  // Day-1 testnet failure 1d13837c... (ledger 4874035): a merge refused with op_seq_num_too_far.
+  const FAILED_XDR =
+    "AAAAAAAAAMj////zfU2t/R/yDpMCqbrww6W6leQYvC+W4hfExzqE/XEpyJUAAAAAAAAAAP////8AAAABAAAAAAAAAAj////7AAAAAAAAAAA=";
+  const clock = () => {
+    let t = 1_000_000;
+    return {
+      now: () => t,
+      sleep: (ms: number) => {
+        t += ms / 1000;
+        return Promise.resolve();
+      },
+    };
+  };
+  const envelope = { xdr: "ENV", hash: HASH, maxTime: 1_000_100 };
+
+  it("treats a 400 without result codes as refused and does not poll", async () => {
+    const { submitter, calls } = fake([json({ status: 400, title: "Transaction Malformed" }, 400)]);
+    const r = await submitAndConfirm(submitter, envelope, { ...clock(), pollIntervalMs: 1000 });
+    expect(r).toEqual({ kind: "rejected", hash: HASH, status: 400, codes: {} });
+    expect(calls.map((c) => c.method)).toEqual(["POST"]);
+  });
+
+  it("treats a 429 and any other 4xx as refused and does not poll", async () => {
+    for (const status of [429, 403, 413]) {
+      const { submitter, calls } = fake([json({ status }, status)]);
+      const r = await submitAndConfirm(submitter, envelope, { ...clock(), pollIntervalMs: 1000 });
+      expect(r).toEqual({ kind: "rejected", hash: HASH, status, codes: {} });
+      expect(calls.map((c) => c.method)).toEqual(["POST"]);
+    }
+  });
+
+  it("decodes the result of a transaction found failed on the ledger after a 504", async () => {
+    const record = {
+      hash: HASH,
+      ledger: 4874035,
+      successful: false,
+      fee_charged: "200",
+      result_xdr: FAILED_XDR,
+    };
+    const { submitter } = fake([json({ status: 504 }, 504)], record);
+    const r = await submitAndConfirm(submitter, envelope, { ...clock(), pollIntervalMs: 1000 });
+    expect(r).toEqual({
+      kind: "failed",
+      hash: HASH,
+      status: 200,
+      ledger: 4874035,
+      feeChargedStroops: 200,
+      resultXdr: FAILED_XDR,
+      codes: {
+        transaction: "tx_fee_bump_inner_failed",
+        innerTransaction: "tx_failed",
+        operations: ["op_seq_num_too_far"],
+      },
+    });
+  });
+
+  it("reads the fee charged from extras.result_xdr of a failure", async () => {
+    const body = {
+      status: 400,
+      extras: {
+        result_xdr: FAILED_XDR,
+        result_codes: {
+          transaction: "tx_fee_bump_inner_failed",
+          inner_transaction: "tx_failed",
+          operations: ["op_seq_num_too_far"],
+        },
+      },
+    };
+    const { submitter } = fake([json(body, 400)]);
+    const r = await submitAndConfirm(submitter, envelope, { ...clock(), pollIntervalMs: 1000 });
+    expect(r).toMatchObject({ kind: "failed", status: 400, feeChargedStroops: 200 });
+  });
+
+  it("gives up on an unconfirmed envelope only after a ledger closed past its time bound", async () => {
+    const c = clock();
+    let lookups = 0;
+    const { submitter } = fake([json({ status: 504 }, 504)], () => {
+      lookups++;
+      return null;
+    });
+    const closeTimes = [envelope.maxTime - 5, envelope.maxTime, envelope.maxTime + 5];
+    const ledgerCloseTime = vi.fn(() => Promise.resolve(closeTimes.shift()!));
+    const r = await submitAndConfirm(submitter, envelope, {
+      ...c,
+      pollIntervalMs: 5000,
+      ledgerCloseTime,
+    });
+    expect(r).toEqual({ kind: "unknown", hash: HASH });
+    expect(ledgerCloseTime).toHaveBeenCalledTimes(3);
+    // Polled until the local deadline, then one last lookup once the ledger had passed maxTime.
+    expect(c.now()).toBeGreaterThan(envelope.maxTime + 10);
+    expect(lookups).toBeGreaterThan(2);
+  });
+
+  it("finds a transaction that was included just before the time bound on the last lookup", async () => {
+    let ledgerPassed = false;
+    const { submitter } = fake([json({ status: 504 }, 504)], () => (ledgerPassed ? applied : null));
+    const r = await submitAndConfirm(submitter, envelope, {
+      ...clock(),
+      pollIntervalMs: 5000,
+      ledgerCloseTime: () => {
+        ledgerPassed = true;
+        return Promise.resolve(envelope.maxTime + 1);
+      },
+    });
+    expect(r.kind).toBe("applied");
+  });
+
+  it("says an envelope may still apply while no ledger has closed past its time bound", async () => {
+    const { submitter } = fake([new Error("ECONNRESET")]);
+    const r = await submitAndConfirm(submitter, envelope, {
+      ...clock(),
+      pollIntervalMs: 5000,
+      ledgerWaitSeconds: 30,
+      ledgerCloseTime: () => Promise.resolve(envelope.maxTime - 100),
+    });
+    expect(r).toEqual({ kind: "unknown", hash: HASH, mayStillApply: true });
   });
 });

@@ -1,0 +1,60 @@
+import { assertTestnetPassphrase, resolveConfig, type DustinConfig } from "../config/network.js";
+import { assertAccountAddress } from "../inspect/address.js";
+import { horizonJson } from "../reader/horizon-json.js";
+import { horizonReader, type LedgerReader } from "../reader/ledger-reader.js";
+
+export interface VerifyClosedOptions {
+  config?: DustinConfig;
+  /** Custom ledger reader; defaults to Horizon from `config`, checked to serve the testnet. */
+  reader?: LedgerReader;
+  /** Keep looking until Horizon answers 404 for at most this long; default 30 s, 0 checks once. */
+  timeoutMs?: number;
+  /** Pause between looks; default 2 s. */
+  intervalMs?: number;
+  /** Clock in milliseconds and the wait between looks, for tests and custom schedulers. */
+  now?: () => number;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+export interface ClosedVerification {
+  accountExists: boolean;
+  horizonStatus: 200 | 404;
+  checkedAt: string;
+  /** Horizon had ingested at least this ledger when it answered. */
+  ledger: number;
+  accountUrl: string;
+}
+
+const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+
+/**
+ * The final proof of a close (PRD FR-18, AC-E2-S4-1): `GET /accounts/{id}` answers 404 once the
+ * merge has applied. Horizon can lag the ledger by a moment, so it looks again every `intervalMs`
+ * until it sees a 404 or `timeoutMs` has passed, and records the latest ledger Horizon reported
+ * before each look. Read-only: it signs and submits nothing.
+ */
+export async function verifyClosed(
+  account: string,
+  options: VerifyClosedOptions = {},
+): Promise<ClosedVerification> {
+  assertAccountAddress(account);
+  const config = resolveConfig(options.config);
+  const reader = options.reader ?? horizonReader(horizonJson(config.horizonUrl));
+  if (!options.reader) assertTestnetPassphrase(await reader.networkPassphrase());
+  const now = options.now ?? (() => Date.now());
+  const sleep = options.sleep ?? defaultSleep;
+  const deadline = now() + (options.timeoutMs ?? 30_000);
+  for (;;) {
+    const ledger = await reader.latestLedger();
+    const record = await reader.account(account);
+    const result: ClosedVerification = {
+      accountExists: record !== null,
+      horizonStatus: record === null ? 404 : 200,
+      checkedAt: new Date().toISOString(),
+      ledger: ledger.sequence,
+      accountUrl: `${config.explorerBaseUrl}/account/${account}`,
+    };
+    if (!result.accountExists || now() >= deadline) return result;
+    await sleep(options.intervalMs ?? 2_000);
+  }
+}
