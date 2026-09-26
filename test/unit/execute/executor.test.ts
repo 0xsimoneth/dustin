@@ -167,14 +167,18 @@ describe("executeClose on the fake ledger", () => {
 
   it("falls down the ladder when the market vanishes, keeping the failed sale's codes", async () => {
     const { ledger, deps, plan } = setup();
+    const events: string[] = [];
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
       onEvent: (e) => {
+        if (e.type === "preflight" || e.type === "tx:submitted") events.push(e.type);
         // The market disappears after the cleanup lands.
         if (e.type === "tx:confirmed" && e.index === 0) ledger.quotes.clear();
       },
     });
+    // The re-planned merge shares transaction 0 of round 1, and still follows a fresh preflight.
+    expect(events).toEqual(["tx:submitted", "tx:submitted", "preflight", "tx:submitted"]);
     // PRD FR-12: the failed strict-send sale is rebuilt with DUSTA returned to its issuer.
     expect(report.status).toBe("closed");
     expect(report.transactions.map((t) => [t.round, t.phase, t.result])).toEqual([

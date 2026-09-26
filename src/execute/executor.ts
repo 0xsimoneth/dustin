@@ -412,7 +412,10 @@ class CloseRun {
       const byId = new Map(current.steps.map((s) => [s.id, s]));
       for (const tx of current.transactions) {
         const steps = tx.stepIds.map((id) => byId.get(id)!);
-        if (tx.index > 0 && steps.some((s) => s.kind === "merge")) {
+        // A merge that follows anything already submitted in this run (a later transaction, or the
+        // first one of a re-plan) runs only after fresh facts (architecture rule R7).
+        const mergeFollowsWork = tx.index > 0 || this.report.transactions.length > 0;
+        if (mergeFollowsWork && steps.some((s) => s.kind === "merge")) {
           this.stage = "merge";
           const preflight = await mergePreflight(this.input.reader, current, {
             mergeOnly: steps.every((s) => s.kind === "merge"),
