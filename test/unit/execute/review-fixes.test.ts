@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
 import { messy } from "../../helpers/snapshots.js";
-import { harness, reply, signers } from "./harness.js";
+import { failedOps, harness, reply, signers } from "./harness.js";
 
 // Findings of the independent review of the E2-S3 executor (2026-09-26). Every test here runs on
 // an injected clock: no fake global Date, no real waiting.
@@ -284,5 +284,65 @@ describe("review finding 3: a throwing observer cannot lose the merge", () => {
     expect(pending.every((n) => n === 0)).toBe(true);
     expect(report.transactions.every((t) => t.attempts === 1)).toBe(true);
     expect(ledger.submissions).toHaveLength(3);
+  });
+});
+
+describe("review finding 4: a failed final check keeps the real outcome", () => {
+  /** Horizon answers 503 for the account once `down` is set. */
+  function flakyAccount() {
+    const state = { down: false };
+    const h = harness(
+      (_l, fetch) => (url, init) =>
+        state.down && url.endsWith(`/accounts/${messy.fixture}`) ? reply(503) : fetch(url, init),
+    );
+    return { ...h, state };
+  }
+
+  it("keeps STEP_FAILED_TWICE when the account check after the stop fails", async () => {
+    const { ledger, deps, plan, state } = flakyAccount();
+    const underfunded = failedOps(
+      "op_success",
+      "op_success",
+      "op_underfunded",
+      ...Array.from({ length: 6 }, () => "op_success"),
+    );
+    ledger.faults.push(underfunded, underfunded);
+    let failures = 0;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:failed" && ++failures === 2) state.down = true;
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.stop).toMatchObject({ code: "STEP_FAILED_TWICE", stepId: "S03" });
+    expect(report.verification).toBeNull();
+    expect(report.warnings.join(" ")).toMatch(/final check of the account failed/);
+  });
+
+  it("keeps a partial run partial when its final check fails", async () => {
+    const { ledger, deps, plan, state } = flakyAccount();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      allowPartial: true,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 0 && !state.down) {
+          const dusta = ledger.accounts
+            .get(messy.fixture)!
+            .balances.find((b) => b.asset_code === "DUSTA")!;
+          Object.assign(dusta, {
+            is_authorized: false,
+            is_authorized_to_maintain_liabilities: false,
+          });
+        }
+        if (e.type === "plan" && e.round === 1) state.down = true;
+      },
+    });
+    expect(report.status).toBe("partial");
+    expect(report.stop).toBeNull();
+    expect(report.verification).toBeNull();
+    expect(report.warnings.join(" ")).toMatch(/final check of the account failed/);
   });
 });

@@ -752,7 +752,8 @@ class CloseRun {
   /** A stop during the run: `failed` once something was submitted, `aborted` if not. */
   private async stopped(stop: StopReason): Promise<CloseReport> {
     if (!this.report.transactions.some((t) => t.attempts > 0)) return this.abort(stop);
-    const closed = await this.closedUnseen(await this.verify());
+    const verification = await this.verifyOrWarn();
+    const closed = verification ? await this.closedUnseen(verification) : null;
     if (closed) return closed;
     this.recoverReserves();
     return this.finish(
@@ -764,12 +765,12 @@ class CloseRun {
 
   /** Every planned transaction ran. */
   private async complete(): Promise<CloseReport> {
-    const verification = await this.verify();
-    const closed = await this.closedUnseen(verification);
+    const verification = await this.verifyOrWarn();
+    const closed = verification ? await this.closedUnseen(verification) : null;
     if (closed) return closed;
     this.recoverReserves();
     if (this.merge) {
-      if (verification.accountExists) {
+      if (verification?.accountExists) {
         return this.finish(
           "failed",
           "The merge was reported applied but the account still exists; check it on the explorer.",
@@ -829,6 +830,31 @@ class CloseRun {
       `The account is gone (Horizon answered 404) after this run posted its merge (${merges.map((t) => t.hash).join(", ")}), but the merge was not confirmed by hash, so the merged amount is not known; check the destination on the explorer.`,
       null,
     );
+  }
+
+  /**
+   * The final check, when a failure of it must not change the run's outcome (review finding 4):
+   * without a merge the account's state is only informative, so a check that throws leaves
+   * `verification` null, keeps the real stop (or the partial result) and adds a warning. After a
+   * merge an unverified close must not pass for a verified one, so the error is thrown as before
+   * (review finding R1).
+   */
+  private async verifyOrWarn(): Promise<NonNullable<CloseReport["verification"]> | null> {
+    if (this.merge) return this.verify();
+    try {
+      return await this.verify();
+    } catch (error) {
+      const why =
+        error instanceof DustinError
+          ? `${error.code}: ${error.message}`
+          : error instanceof Error
+            ? error.message
+            : String(error);
+      this.report.warnings.push(
+        `The final check of the account failed (${why}); its state after the run was not verified.`,
+      );
+      return null;
+    }
   }
 
   /** The final check; it waits for the 404 only when a merge applied. */
