@@ -179,6 +179,7 @@ export type Rejection =
   | { action: "rebuild"; reason: string }
   | { action: "raise-fee"; reason: string }
   | { action: "resequence"; reason: string }
+  | { action: "source-missing"; reason: string }
   | { action: "backoff"; reason: string }
   | { action: "stop"; reason: string };
 
@@ -186,8 +187,11 @@ export type Rejection =
  * What to do with an envelope that was refused before inclusion (nothing consumed), following
  * architecture section 7.1 and ADR-0006: a 429 is retried as is after a pause; `tx_too_late` is
  * rebuilt for the same sequence number with fresh time bounds; `tx_insufficient_fee` is rebuilt
- * with a higher bid; `tx_bad_seq` re-reads the account's sequence number; anything else stops. A fee
- * bump reports the inner transaction's refusal as `tx_fee_bump_inner_failed` plus the inner code.
+ * with a higher bid; `tx_bad_seq` re-reads the account's sequence number; an inner
+ * `tx_no_source_account` (the closing account is gone, perhaps merged by an earlier envelope of the
+ * same transaction) looks for that envelope; anything else stops. A fee bump reports the inner
+ * transaction's refusal as `tx_fee_bump_inner_failed` plus the inner code; at the outer level
+ * `tx_no_source_account` names the fee sponsor, which stops.
  */
 export function rejectionAction(outcome: { status: number; codes: ResultCodes }): Rejection {
   const { codes } = outcome;
@@ -197,6 +201,8 @@ export function rejectionAction(outcome: { status: number; codes: ResultCodes })
   if (has("tx_too_late")) return { action: "rebuild", reason };
   if (has("tx_insufficient_fee")) return { action: "raise-fee", reason };
   if (has("tx_bad_seq")) return { action: "resequence", reason };
+  if (codes.innerTransaction === "tx_no_source_account")
+    return { action: "source-missing", reason };
   return { action: "stop", reason };
 }
 

@@ -3,7 +3,24 @@ import type { DustinErrorCode, ErrorStage, ErrorVerdict } from "../errors/dustin
 import type { Blocker, DisposalRung, TransactionPhase, UnclosableItem } from "../plan/model.js";
 import type { ResultCodes, SubmitOutcome } from "./submit.js";
 
-export type CloseStatus = "closed" | "partial" | "aborted" | "failed";
+/**
+ * How a close ended. A returned report, and the one a thrown DustinError carries, always has one
+ * of the four final statuses. `running` appears only in the copies published through `onReport`
+ * (and so in the CLI's `--report` file) while the run is in progress, so a copy left behind by a
+ * run that was killed says it never finished instead of claiming an outcome (blind review BH1).
+ *
+ * - `closed`: a merge of this run applied, seen by hash or proven by the account being gone after
+ *   this run posted it. It does not by itself say the account was verified gone: a verified close
+ *   is `closed` with `verification.accountExists === false`, while `closed` with `verification`
+ *   null means the run was interrupted after the merge and before the final check (edge case
+ *   E10). The CLI exits 0 only for a verified close.
+ * - `partial`: everything that could run ran; the account still exists because of the unclosable
+ *   items and blockers.
+ * - `aborted`: the run stopped before submitting anything.
+ * - `failed`: the run stopped part-way, after something was submitted; running the close again
+ *   continues from the ledger.
+ */
+export type CloseStatus = "running" | "closed" | "partial" | "aborted" | "failed";
 
 /**
  * One submitted envelope. A planned transaction can have several: a rebuild after an expiry, a
@@ -33,6 +50,13 @@ export interface SubmittedTransaction {
   hash: string;
   innerHash: string;
   result: SubmitOutcome["kind"] | "pending";
+  /**
+   * Set only while `result` is `unknown` (blind review BH3): true when no ledger had closed past
+   * the time bound, so the envelope may still apply; false when it cannot apply any more (not
+   * found after its bound, its sequence number used, or its bound passed while lookups failed, in
+   * which case it may have applied already; `explanation` says which).
+   */
+  mayStillApply?: boolean;
   ledger: number | null;
   feeChargedStroops: number | null;
   feeAccount: string;
@@ -58,6 +82,22 @@ export interface StepOutcome {
   failures?: number;
   resultCodes?: ResultCodes;
   explanation?: string;
+}
+
+/**
+ * A blocker found while the run executed rather than in the plan: a step that failed on the
+ * ledger twice (AC-E2-S3-4). It sits next to the plan's blockers in `CloseReport.blockers`, with
+ * the step, its last result codes and a remedy.
+ */
+export interface RunBlocker {
+  code: "STEP_FAILED_TWICE";
+  reason: string;
+  remedy: string;
+  /** Fixing what makes the step fail, or allowing a partial close, unblocks it. */
+  permanent: false;
+  /** The step of the plan the run started with. */
+  stepId: string;
+  resultCodes: ResultCodes;
 }
 
 /** Machine-readable reasons a run stopped early or did not start. */
@@ -97,6 +137,13 @@ export interface StopReason {
   resultCodes?: ResultCodes;
   /** For a sequence-number stop: the first ledger the merge can land in. */
   unblocksAtLedger?: number;
+  /**
+   * For OUTCOME_UNKNOWN: the upper time bound (Unix seconds) of the envelope `hash`, which may
+   * still apply or may have applied. A re-run must wait until a ledger has closed after it: until
+   * then a new envelope for the same sequence number could only replace it with a tenfold bid,
+   * which Dustin never relies on (canonical decision 7).
+   */
+  maxTime?: number;
 }
 
 /** A re-plan made during the run (architecture section 7.2). */
@@ -146,7 +193,8 @@ export interface CloseReport {
   steps: StepOutcome[];
   replans: ReplanRecord[];
   unclosable: UnclosableItem[];
-  blockers: Blocker[];
+  /** The plan's blockers, and any the run found (a step that failed twice). */
+  blockers: Array<Blocker | RunBlocker>;
   warnings: string[];
   recovery: {
     /** The merged balance read from the merge result; null if no merge applied. */

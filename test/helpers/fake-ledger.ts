@@ -365,7 +365,8 @@ export class FakeLedger {
         extras: {
           result_codes: {
             transaction: "tx_fee_bump_inner_failed",
-            inner_transaction: "tx_no_account",
+            // Horizon's string for TxNoAccount (stellar-horizon internal/codes/main.go).
+            inner_transaction: "tx_no_source_account",
           },
         },
       });

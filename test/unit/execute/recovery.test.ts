@@ -10,6 +10,7 @@ import type { Signer } from "../../../src/sponsor/signer.js";
 import { FakeLedger } from "../../helpers/fake-ledger.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
+import { recordIncludedFaults, staleAccountOnce } from "./harness.js";
 
 // The fake ledger does not verify signatures, so signers only need the right public keys.
 const signerFor = (publicKey: string): Signer => ({
@@ -34,8 +35,15 @@ const BAD_SEQ = answer({
 });
 const LOW_FEE = answer({ transaction: "tx_insufficient_fee" });
 const RATE_LIMITED = { status: 429, body: { status: 429, title: "Rate Limit Exceeded" } };
-const failedOps = (...operations: string[]) =>
-  answer({ transaction: "tx_fee_bump_inner_failed", inner_transaction: "tx_failed", operations });
+// An included failure: recorded on the fake ledger by recordIncludedFaults (edge case E6).
+const failedOps = (...operations: string[]) => ({
+  ...answer({
+    transaction: "tx_fee_bump_inner_failed",
+    inner_transaction: "tx_failed",
+    operations,
+  }),
+  included: true,
+});
 
 /**
  * The fake ledger behind a Horizon client. `wrap` can intercept requests. Time is the fake Date:
@@ -43,7 +51,7 @@ const failedOps = (...operations: string[]) =>
  */
 function setup(wrap?: (ledger: FakeLedger) => FetchLike) {
   const ledger = FakeLedger.messy();
-  const fetch = wrap ? wrap(ledger) : ledger.fetch;
+  const fetch = recordIncludedFaults(ledger, wrap ? wrap(ledger) : ledger.fetch);
   const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 }));
   const submitter = horizonSubmitter(TESTNET_HORIZON, { fetch });
   const sleeps: number[] = [];
@@ -327,24 +335,31 @@ describe("E2-S3: envelopes refused before inclusion", () => {
 
   it("after tx_bad_seq, finds an earlier envelope that applied after all instead of rebuilding", async () => {
     let hidden: string | null = null;
-    const { ledger, deps, plan } = setup((l) => (url, init) => {
-      // Horizon lags: the first envelope's record shows up only after the second was posted.
-      if (hidden && url.endsWith(`/transactions/${hidden}`)) {
-        return Promise.resolve(new Response(JSON.stringify({ status: 404 }), { status: 404 }));
-      }
-      if ((init?.method ?? "GET") === "POST" && l.submissions.length === 1) {
-        const settle = l.fetch(url, init);
-        hidden = null;
-        return settle;
-      }
-      return l.fetch(url, init);
-    });
+    // The account read that checks the 404 lags too, so the 404 is trusted (edge case E5).
+    const stale = staleAccountOnce(messy.fixture);
+    const { ledger, deps, plan } = setup((l) =>
+      stale.wrap((url, init) => {
+        // Horizon lags: the first envelope's record shows up only after the second was posted.
+        if (hidden && url.endsWith(`/transactions/${hidden}`)) {
+          return Promise.resolve(new Response(JSON.stringify({ status: 404 }), { status: 404 }));
+        }
+        if ((init?.method ?? "GET") === "POST" && l.submissions.length === 1) {
+          const settle = l.fetch(url, init);
+          hidden = null;
+          return settle;
+        }
+        return l.fetch(url, init);
+      }),
+    );
     ledger.faults.push("504-applied");
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
       onEvent: (e) => {
-        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 1) hidden = e.hash;
+        if (e.type === "tx:submitted" && e.round === 0 && e.index === 0 && e.attempt === 1) {
+          hidden = e.hash;
+          stale.arm(ledger);
+        }
       },
     });
     expect(report.status).toBe("closed");

@@ -35,6 +35,7 @@ export type {
   CloseReport,
   CloseStatus,
   ReplanRecord,
+  RunBlocker,
   StepOutcome,
   StopCode,
   StopReason,

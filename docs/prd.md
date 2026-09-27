@@ -67,7 +67,7 @@ The builder acts as operator of the fixture builder and the baseline recording. 
 - **Blocker** — a condition that makes the merge itself impossible (for example the Account sponsors reserves), reported with a code and a remedy.
 - **Plan Status** — `closable` (ends in a merge), `partial` (some steps possible, merge not possible), `blocked` (nothing useful can be done).
 - **Close Report** — the output of `executeClose()`: submitted transactions with hashes, per-step outcomes, unclosable items, verification, actual recovery.
-- **Close Status** — the outcome recorded in a Close Report: `closed` (merged and verified gone), `partial` (some steps applied, merge not possible), `aborted` (nothing submitted, for example on Drift), `failed` (retries exhausted).
+- **Close Status** — the outcome recorded in a Close Report: `closed` (merged and verified gone), `partial` (some steps applied, merge not possible), `aborted` (nothing submitted, for example on Drift), `failed` (retries exhausted). Copies of a report published while the run is still going carry `running`, which never appears in a returned report (added 2026-09-27; `closed` means the merge applied, and a verified close is `closed` with `verification.accountExists === false`).
 - **Snapshot** — the serializable Horizon-derived view of the Account that a Close Plan was computed from, identified by `snapshotHash`.
 - **Dry Run** — a `planClose()` call: HTTP reads only, no signing, no submission.
 - **Drift** — the Account's on-ledger state differing from the snapshot a Close Plan was computed from.
@@ -538,7 +538,7 @@ export interface ExecuteOptions {
   onEvent?: (event: CloseEvent) => void;
 }
 
-export type CloseStatus = "closed" | "partial" | "aborted" | "failed";
+export type CloseStatus = "closed" | "partial" | "aborted" | "failed" | "running"; // "running" only on copies published while a run is in progress (2026-09-27)
 
 export interface SubmittedTransaction {
   index: number; hash: string; ledger?: number;

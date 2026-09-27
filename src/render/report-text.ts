@@ -74,6 +74,9 @@ function headline(report: CloseReport): string {
       return submitted === 0
         ? "ABORTED: nothing was submitted"
         : `ABORTED: the run stopped after ${submitted} submitted transaction${submitted === 1 ? "" : "s"}`;
+    case "running":
+      // Only a copy saved while the run was going (--report, onReport) carries this status.
+      return "RUNNING: this copy was saved while the run was in progress; it is not the final report";
     case "failed":
       return report.recovery.mergedXlm !== null || report.stop?.code === "ACCOUNT_STILL_EXISTS"
         ? "FAILED: the merge applied, but the account was not verified gone"
@@ -114,7 +117,9 @@ function transactionLines(
     // Round n is the n-th re-plan; its transactions are numbered from 1 again (E2-S3).
     tx.round > 0 ? `round ${tx.round}` : "",
     tx.attempt > 1 ? `attempt ${tx.attempt}` : "",
-    OUTCOME[tx.result] ?? String(tx.result),
+    tx.result === "unknown" && tx.mayStillApply
+      ? "unknown: not found yet, and it may still apply until its time bound passes"
+      : (OUTCOME[tx.result] ?? String(tx.result)),
     tx.ledger !== null ? `ledger ${grouped(tx.ledger)}` : "",
     tx.feeChargedStroops !== null
       ? `fee ${xlm(tx.feeChargedStroops)} (${grouped(tx.feeChargedStroops)} stroops) charged to ${payer}`

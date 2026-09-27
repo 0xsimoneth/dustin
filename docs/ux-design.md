@@ -477,7 +477,7 @@ interface CloseStep {
 interface CloseReport {
   schemaVersion: 1;
   kind: "report";
-  status: "closed" | "partial" | "aborted" | "failed";
+  status: "closed" | "partial" | "aborted" | "failed"; // plus "running" on copies saved while a run is in progress (2026-09-27)
   exitCode: 0 | 4 | 5;
   plan: ClosePlan;                   // the plan as executed (after any re-plans)
   replans: number;

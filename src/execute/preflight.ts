@@ -34,10 +34,14 @@ function memoRequired(account: HorizonAccount): boolean {
 export async function mergePreflight(
   reader: LedgerReader,
   plan: ClosePlan,
-  options: { mergeOnly: boolean },
+  options: {
+    mergeOnly: boolean;
+    /** Reads the account; the executor waits out a Horizon behind its own transactions (E4). */
+    readAccount?: () => Promise<HorizonAccount | null>;
+  },
 ): Promise<PreflightResult> {
   const [account, destination, ledger] = await Promise.all([
-    reader.account(plan.account),
+    options.readAccount ? options.readAccount() : reader.account(plan.account),
     reader.account(destinationBaseAccount(plan.destination)),
     reader.latestLedger(),
   ]);
@@ -62,12 +66,16 @@ export async function mergePreflight(
     observedLedger: ledger.sequence,
     mergeTxIndex: 0,
   });
-  if (!guard.ok && guard.unblocksAtLedger !== null) {
-    return {
-      ok: false,
-      detail: `the sequence guard blocks the merge until ledger ${guard.unblocksAtLedger}`,
-      unblocksAtLedger: guard.unblocksAtLedger,
-    };
+  // Blind review BH11: any guard that is not ok blocks the merge, whether or not it names the
+  // ledger that unblocks it.
+  if (!guard.ok) {
+    return guard.unblocksAtLedger === null
+      ? { ok: false, detail: "the sequence guard blocks the merge" }
+      : {
+          ok: false,
+          detail: `the sequence guard blocks the merge until ledger ${guard.unblocksAtLedger}`,
+          unblocksAtLedger: guard.unblocksAtLedger,
+        };
   }
   return {
     ok: true,

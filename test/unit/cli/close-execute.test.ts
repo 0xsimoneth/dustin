@@ -4,6 +4,7 @@ import { Keypair, Networks, TransactionBuilder } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
 import type { CloseReport } from "../../../src/execute/report.js";
 import { hashHex } from "../../../src/sponsor/fee-bump.js";
+import { failedOps, recordIncludedFaults } from "../execute/harness.js";
 import {
   closeCli,
   emptyDir,
@@ -20,18 +21,7 @@ import {
 const hashes = (world: World) => [...world.ledger.transactions.keys()];
 
 /** A fee bump whose inner transaction failed on the ledger with a stop code (ADR-0006). */
-const CANNOT_DELETE = {
-  status: 400,
-  body: {
-    extras: {
-      result_codes: {
-        transaction: "tx_fee_bump_inner_failed",
-        inner_transaction: "tx_failed",
-        operations: ["op_success", "op_cannot_delete"],
-      },
-    },
-  },
-};
+const CANNOT_DELETE = failedOps("op_success", "op_cannot_delete");
 
 /** Records every request, and lets a test change the answers after a given number of POSTs. */
 function tap(world: World, after?: { posts: number; then: Fetch }) {
@@ -347,27 +337,21 @@ describe("dustin close --execute: drift found after a submission", () => {
     const world = zeroSpendableWorld({ market: true });
     // After the first transaction, the next one fails with a re-plan code, and meanwhile a new
     // data entry appeared on the account: the re-plan sees drift and stops (onDrift: abort).
+    // The failure is recorded on the fake ledger as included (sequence used, record found by
+    // hash); an unrecorded tx_failed would read as a refusal at validation (edge case E6).
+    const recording = recordIncludedFaults(world.ledger, world.ledger.fetch);
+    let injected = false;
     const t = tap(world, {
       posts: 1,
       then: (url, init) => {
-        if ((init?.method ?? "GET") === "POST") {
+        if ((init?.method ?? "GET") === "POST" && !injected) {
+          injected = true;
           const account = world.ledger.accounts.get(world.id)!;
           account.data["dustin.late"] = "MQ==";
           account.subentry_count += 1;
-          world.ledger.faults.push({
-            status: 400,
-            body: {
-              extras: {
-                result_codes: {
-                  transaction: "tx_fee_bump_inner_failed",
-                  inner_transaction: "tx_failed",
-                  operations: ["op_underfunded", "op_success"],
-                },
-              },
-            },
-          });
+          world.ledger.faults.push(failedOps("op_underfunded", "op_success"));
         }
-        return world.ledger.fetch(url, init);
+        return recording(url, init);
       },
     });
     const r = await closeCli(world, executeArgs(world, "--yes"), { fetch: t.fetch });
@@ -384,11 +368,12 @@ describe("dustin close --execute: failures after a submission", () => {
     // The second transaction fails on the ledger with a code no re-plan can fix (ADR-0006:
     // op_cannot_delete stops the run). A vanished market is no longer enough: since E2-S3 the
     // executor falls down the ladder and completes the close.
+    const recording = recordIncludedFaults(world.ledger, world.ledger.fetch);
     const t = tap(world, {
       posts: 1,
       then: (url, init) => {
         if ((init?.method ?? "GET") === "POST") world.ledger.faults.push(CANNOT_DELETE);
-        return world.ledger.fetch(url, init);
+        return recording(url, init);
       },
     });
     const r = await closeCli(world, executeArgs(world, "--yes"), { fetch: t.fetch });

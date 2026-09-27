@@ -11,6 +11,7 @@ import type { Signer } from "../../../src/sponsor/signer.js";
 import { FakeLedger } from "../../helpers/fake-ledger.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
+import { failedOps, recordIncludedFaults } from "../execute/harness.js";
 
 // The fake ledger does not verify signatures, so signers only need the right public keys.
 const signerFor = (publicKey: string): Signer => ({
@@ -24,9 +25,9 @@ async function run(
 ): Promise<{ report: CloseReport; plans: ClosePlan[] }> {
   const ledger = FakeLedger.messy();
   mutate(ledger);
-  const reader = horizonReader(
-    horizonJson(TESTNET_HORIZON, { fetch: ledger.fetch, retries: 0, backoffMs: 0 }),
-  );
+  // Faults marked included are recorded on the fake ledger, as Horizon would (edge case E6).
+  const fetch = recordIncludedFaults(ledger, ledger.fetch);
+  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 }));
   const plan = await planClose(
     { account: messy.fixture, destination: messy.destination, feeSponsor: messy.sponsor },
     { reader },
@@ -38,7 +39,7 @@ async function run(
     {
       confirm: true,
       reader,
-      submitter: horizonSubmitter(TESTNET_HORIZON, { fetch: ledger.fetch }),
+      submitter: horizonSubmitter(TESTNET_HORIZON, { fetch }),
       pollIntervalMs: 0,
       ...(options.allowPartial ? { allowPartial: true } : {}),
       onEvent: (e) => {
@@ -107,18 +108,7 @@ describe("renderReport", () => {
         // A failure no re-plan can fix (ADR-0006: op_cannot_delete stops the run); a vanished
         // market is no longer enough, because the executor falls down the ladder (E2-S3).
         if (e.type === "tx:confirmed" && e.index === 0) {
-          ledger.faults.push({
-            status: 400,
-            body: {
-              extras: {
-                result_codes: {
-                  transaction: "tx_fee_bump_inner_failed",
-                  inner_transaction: "tx_failed",
-                  operations: ["op_success", "op_cannot_delete"],
-                },
-              },
-            },
-          });
+          ledger.faults.push(failedOps("op_success", "op_cannot_delete"));
         }
       },
     });
@@ -215,6 +205,20 @@ describe("renderReport", () => {
     expect(text).toMatch(/pending/);
     expect(text).not.toContain("somethingNew");
     within120(text);
+  });
+
+  it("says an unknown envelope may still apply, and names a copy saved while running", async () => {
+    const { report, plans } = await run();
+    const copy = structuredClone(report);
+    copy.status = "running";
+    copy.finishedAt = null;
+    Object.assign(copy.transactions[0]!, { result: "unknown", mayStillApply: true, ledger: null });
+    const text = renderReport(copy, { plans });
+    expect(text.split("\n")[0]).toContain(
+      "RUNNING: this copy was saved while the run was in progress",
+    );
+    expect(text).toContain("it may still apply until its time bound passes");
+    expect(text).not.toContain("so it can never apply");
   });
 
   it("works without the plan, naming the steps by id", async () => {
