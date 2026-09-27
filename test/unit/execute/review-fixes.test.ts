@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { executeClose } from "../../../src/execute/executor.js";
+import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
+import type { FakeLedger } from "../../helpers/fake-ledger.js";
 import { messy } from "../../helpers/snapshots.js";
 import { harness, reply, signers } from "./harness.js";
 
@@ -156,5 +157,76 @@ describe("review finding 7: an unknown outcome tells a re-run how long to wait",
     const bound = new Date(pending.maxTime * 1000).toISOString();
     expect(report.message).toContain(`after ${bound}`);
     expect(report.message).toMatch(/replace/);
+  });
+});
+
+describe("review finding 2: a merge that applied unseen is still a close", () => {
+  /**
+   * The merge's first envelope applies but Horizon answers 504 and then 404 for its hash (it lost
+   * the record); `reveal` decides when the record shows up again.
+   */
+  function lostMerge(reveal: (ledger: FakeLedger) => boolean) {
+    let merge: string | null = null;
+    const h = harness(
+      (l, fetch) => (url, init) =>
+        merge && url.endsWith(`/transactions/${merge}`) && !reveal(l)
+          ? reply(404)
+          : fetch(url, init),
+    );
+    const onEvent = (e: CloseEvent) => {
+      if (e.type === "tx:submitted" && e.index === 2 && e.attempt === 1) {
+        merge = e.hash;
+        h.ledger.faults.push("504-applied");
+      }
+    };
+    return { ...h, onEvent };
+  }
+
+  it("looks the earlier envelope up when the rebuilt merge meets tx_no_source_account", async () => {
+    // Horizon finds the first envelope again once the second was posted.
+    const { ledger, deps, plan, onEvent } = lostMerge((l) => l.submissions.length >= 4);
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps, onEvent });
+    expect(report.status).toBe("closed");
+    expect(report.stop).toBeNull();
+    const merges = report.transactions.filter((t) => t.phase === "merge");
+    expect(merges.map((t) => [t.attempt, t.result])).toEqual([
+      [1, "applied"],
+      [2, "rejected"],
+    ]);
+    expect(merges[1]!.resultCodes).toMatchObject({ innerTransaction: "tx_no_source_account" });
+    expect(report.steps.find((s) => s.stepId === "S12")).toMatchObject({
+      status: "applied",
+      txHash: merges[0]!.hash,
+    });
+    expect(ledger.accounts.has(messy.fixture)).toBe(false);
+  });
+
+  it("looks the merge envelopes up once more when the final check finds the account gone", async () => {
+    // Horizon finds the first envelope again only after the account check.
+    let checked = false;
+    const { deps, plan, onEvent } = lostMerge(() => checked);
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        onEvent(e);
+        if (e.type === "verified") checked = true;
+      },
+    });
+    expect(report.status).toBe("closed");
+    expect(report.stop).toBeNull();
+    expect(report.verification).toMatchObject({ accountExists: false, horizonStatus: 404 });
+    expect(report.transactions.find((t) => t.phase === "merge" && t.attempt === 1)).toMatchObject({
+      result: "applied",
+    });
+  });
+
+  it("does not report failed when the account is gone but no merge envelope was confirmed", async () => {
+    const { deps, plan, onEvent } = lostMerge(() => false);
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps, onEvent });
+    expect(report.status).toBe("closed");
+    expect(report.verification).toMatchObject({ accountExists: false, horizonStatus: 404 });
+    expect(report.message).toMatch(/not confirmed/);
+    expect(report.recovery.mergedXlm).toBeNull();
   });
 });

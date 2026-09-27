@@ -16,6 +16,7 @@ import { horizonReader, type LedgerReader } from "../reader/ledger-reader.js";
 import type { Signer } from "../sponsor/signer.js";
 import { FeeSponsor } from "../sponsor/sponsor.js";
 import {
+  recordOutcome,
   submitPlannedTransaction,
   type AttemptContext,
   type AttemptSettings,
@@ -33,7 +34,12 @@ import {
   type StopReason,
 } from "./report.js";
 import type { ResultCodes } from "./result-codes.js";
-import { horizonSubmitter, type Submitter } from "./submit.js";
+import {
+  horizonSubmitter,
+  lookupTransaction,
+  outcomeFromRecord,
+  type Submitter,
+} from "./submit.js";
 import { verifyClosed } from "./verify.js";
 
 export type { CloseReport, CloseStatus } from "./report.js";
@@ -216,6 +222,8 @@ class CloseRun {
   /** Step outcomes of the plan the run started with, by step identity (stable across re-plans). */
   private readonly outcomes = new Map<string, StepOutcome>();
   private readonly appliedSteps: CloseStep[] = [];
+  /** The steps each envelope carried, by hash: tells which envelopes carried the merge. */
+  private readonly envelopeSteps = new Map<string, CloseStep[]>();
   /** Assets whose strict-send sale failed on the market during this run. */
   private readonly demoted = new Set<string>();
   private sponsor: FeeSponsor | null = null;
@@ -399,7 +407,7 @@ class CloseRun {
     }
   }
 
-  private attemptContext(plan: ClosePlan): AttemptContext {
+  private attemptContext(plan: ClosePlan, steps: CloseStep[]): AttemptContext {
     return {
       plan,
       round: this.round,
@@ -411,6 +419,7 @@ class CloseRun {
       explorerBaseUrl: this.input.config.explorerBaseUrl,
       settings: this.settings,
       record: (entry) => {
+        this.envelopeSteps.set(entry.hash, steps);
         this.report.transactions.push(entry);
         this.publish();
       },
@@ -457,7 +466,11 @@ class CloseRun {
             });
           }
         }
-        const outcome = await submitPlannedTransaction(this.attemptContext(current), tx, steps);
+        const outcome = await submitPlannedTransaction(
+          this.attemptContext(current, steps),
+          tx,
+          steps,
+        );
         if (outcome.kind === "stopped") return this.stopped(outcome.stop);
         if (outcome.kind === "applied") {
           this.applied(steps, outcome);
@@ -696,7 +709,8 @@ class CloseRun {
   /** A stop during the run: `failed` once something was submitted, `aborted` if not. */
   private async stopped(stop: StopReason): Promise<CloseReport> {
     if (this.report.transactions.length === 0) return this.abort(stop);
-    await this.verify();
+    const closed = await this.closedUnseen(await this.verify());
+    if (closed) return closed;
     this.recoverReserves();
     return this.finish(
       "failed",
@@ -708,6 +722,8 @@ class CloseRun {
   /** Every planned transaction ran. */
   private async complete(): Promise<CloseReport> {
     const verification = await this.verify();
+    const closed = await this.closedUnseen(verification);
+    if (closed) return closed;
     this.recoverReserves();
     if (this.merge) {
       if (verification.accountExists) {
@@ -729,6 +745,52 @@ class CloseRun {
     return this.finish(
       "partial",
       `Everything that could run has run; the account still exists because ${left} item(s) block the merge (see unclosable and blockers).`,
+      null,
+    );
+  }
+
+  /**
+   * Review finding 2: the account is gone although the run never saw its merge apply (a lost
+   * lookup, or a rebuilt merge refused with tx_no_source_account). The merge envelopes the run
+   * posted are looked up once more: one found applied makes the run a close like any other. If
+   * none is confirmed the account is still verified gone, so the run is reported closed with a
+   * message saying the merge was not confirmed, never failed. Null when the account exists or the
+   * run posted no merge at all (then someone else removed it, and the stop stands).
+   */
+  private async closedUnseen(
+    verification: NonNullable<CloseReport["verification"]>,
+  ): Promise<CloseReport | null> {
+    if (this.merge || verification.accountExists) return null;
+    const merges = this.report.transactions.filter((t) =>
+      (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
+    );
+    if (merges.length === 0) return null;
+    for (const entry of merges) {
+      if (entry.result !== "unknown" && entry.result !== "pending") continue;
+      const lookup = await lookupTransaction(this.input.submitter, entry.hash);
+      if (lookup.kind !== "found") continue;
+      const found = outcomeFromRecord(entry.hash, lookup.record);
+      if (found.kind !== "applied") continue;
+      recordOutcome(entry, found);
+      this.applied(this.envelopeSteps.get(entry.hash)!, {
+        kind: "applied",
+        entry,
+        resultXdr: found.resultXdr,
+      });
+      this.input.emit({
+        type: "tx:confirmed",
+        index: entry.index,
+        hash: entry.hash,
+        ledger: found.ledger,
+        feeChargedStroops: found.feeChargedStroops,
+      });
+      this.recoverReserves();
+      return this.finish("closed", null, null);
+    }
+    this.recoverReserves();
+    return this.finish(
+      "closed",
+      `The account is gone (Horizon answered 404) after this run posted its merge (${merges.map((t) => t.hash).join(", ")}), but the merge was not confirmed by hash, so the merged amount is not known; check the destination on the explorer.`,
       null,
     );
   }

@@ -69,7 +69,7 @@ export type TransactionOutcome =
 
 const short = (hash: string) => `${hash.slice(0, 8)}...`;
 
-function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcome): void {
+export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcome): void {
   entry.result = outcome.kind;
   switch (outcome.kind) {
     case "applied":
@@ -318,28 +318,9 @@ export async function submitPlannedTransaction(
             { hash, resultCodes: outcome.codes },
           );
         }
-        // An earlier envelope of this transaction that was never seen on the ledger may have
-        // applied after all; refused ones cannot have.
         const unseen = envelopes.slice(0, -1).filter((e) => e.result === "unknown");
-        for (const earlier of unseen) {
-          const lookup = await lookupTransaction(ctx.submitter, earlier.hash);
-          if (lookup.kind !== "found") continue;
-          const found = outcomeFromRecord(earlier.hash, lookup.record);
-          recordOutcome(earlier, found);
-          ctx.changed();
-          if (found.kind === "applied") {
-            ctx.emit({
-              type: "tx:confirmed",
-              index: tx.index,
-              hash: earlier.hash,
-              ledger: found.ledger,
-              feeChargedStroops: found.feeChargedStroops,
-            });
-            return { kind: "applied", entry: earlier, resultXdr: found.resultXdr };
-          }
-          if (found.kind === "failed")
-            return { kind: "failed", entry: earlier, codes: found.codes };
-        }
+        const earlier = await findEarlier(ctx, tx, unseen);
+        if (earlier) return earlier;
         if (unseen.length > 0) {
           // Still not seen: the operations may have applied with it, so sending them again at the
           // account's new sequence number could apply them twice. Plan the rest from the ledger.
@@ -358,6 +339,19 @@ export async function submitPlannedTransaction(
         sequence = fresh.sequence;
         continue;
       }
+      case "source-missing": {
+        // The closing account is gone: an earlier envelope of this transaction may have merged it
+        // without the run seeing it (review finding 2). Nothing can be rebuilt for a missing account.
+        const unseen = envelopes.slice(0, -1).filter((e) => e.result === "unknown");
+        const earlier = await findEarlier(ctx, tx, unseen);
+        if (earlier) return earlier;
+        return stop(
+          "ACCOUNT_MISSING",
+          "stop",
+          `${label} was refused because the account ${plan.account} no longer exists (tx_no_source_account).`,
+          { hash, resultCodes: outcome.codes },
+        );
+      }
       case "stop":
         return stop("TRANSACTION_REJECTED", "stop", `${label} was refused: ${rejection.reason}`, {
           hash,
@@ -365,6 +359,37 @@ export async function submitPlannedTransaction(
         });
     }
   }
+}
+
+/**
+ * Looks up the earlier envelopes of a transaction that were never seen on the ledger (they ended
+ * `unknown`; refused ones cannot have applied). One found on the ledger is the transaction's
+ * outcome after all; null means none was found.
+ */
+async function findEarlier(
+  ctx: AttemptContext,
+  tx: PlannedTransaction,
+  unseen: SubmittedTransaction[],
+): Promise<TransactionOutcome | null> {
+  for (const earlier of unseen) {
+    const lookup = await lookupTransaction(ctx.submitter, earlier.hash);
+    if (lookup.kind !== "found") continue;
+    const found = outcomeFromRecord(earlier.hash, lookup.record);
+    recordOutcome(earlier, found);
+    ctx.changed();
+    if (found.kind === "applied") {
+      ctx.emit({
+        type: "tx:confirmed",
+        index: tx.index,
+        hash: earlier.hash,
+        ledger: found.ledger,
+        feeChargedStroops: found.feeChargedStroops,
+      });
+      return { kind: "applied", entry: earlier, resultXdr: found.resultXdr };
+    }
+    if (found.kind === "failed") return { kind: "failed", entry: earlier, codes: found.codes };
+  }
+  return null;
 }
 
 /**

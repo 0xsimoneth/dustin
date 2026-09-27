@@ -83,6 +83,17 @@ describe("rejectionAction (architecture section 7.1)", () => {
     ).toBe("resequence");
   });
 
+  it("looks for an earlier envelope when the inner source (the closing account) is gone", () => {
+    expect(
+      rejected({
+        transaction: "tx_fee_bump_inner_failed",
+        innerTransaction: "tx_no_source_account",
+      }).action,
+    ).toBe("source-missing");
+    // At the outer level the missing source is the fee sponsor: nothing to look for, stop.
+    expect(rejected({ transaction: "tx_no_source_account" }).action).toBe("stop");
+  });
+
   it("backs off after a 429", () => {
     expect(rejected({}, 429).action).toBe("backoff");
   });
