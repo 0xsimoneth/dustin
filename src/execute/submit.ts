@@ -11,9 +11,11 @@ export type { ResultCodes } from "./result-codes.js";
  *   a 400 without result codes or a 429 (status tells which);
  * - unknown: not found by hash (Horizon answered 404) after its upper time bound passed, so it
  *   never applied and never can; only then may a replacement for the same sequence number be
- *   built. Two flags mark the exceptions, when the envelope must not be replaced:
- *   `mayStillApply` (no ledger has closed past the time bound yet) and `lookupError` (the last
- *   lookups by hash failed, so whether it applied is not known; review finding 1).
+ *   built. Three flags mark the exceptions, when the envelope must not be replaced:
+ *   `mayStillApply` (no ledger has closed past the time bound yet), `lookupError` (the last
+ *   lookups by hash failed, so whether it applied is not known; review finding 1) and
+ *   `sequenceUsed` (the account shows its sequence number used, so the 404 came from a Horizon
+ *   behind, or another transaction took the number; edge case E5).
  */
 export type SubmitOutcome =
   | { kind: "applied"; hash: string; ledger: number; feeChargedStroops: number; resultXdr: string }
@@ -256,8 +258,14 @@ export interface ConfirmOptions {
   ledgerWaitSeconds?: number;
   /**
    * Whether the envelope's sequence number has been used, read from the account. A 404 is trusted
-   * only when it has not: Horizon instances behind one address can lag each other, and a 404 carries
-   * no ledger to tell (edge case E5).
+   * only when it has not (edge case E5): Horizon instances behind one address may lag each other,
+   * and a 404 carries no ledger to tell (testnet Horizon sent no Latest-Ledger header on
+   * GET /transactions/{hash}, observed 2026-09-27). Horizon's own check covers only a read replica
+   * behind its primary database, answering 503 stale history
+   * (https://github.com/stellar/stellar-horizon/blob/main/internal/httpx/middleware.go,
+   * ReplicaSyncCheckMiddleware, commit 5519313; installed by internal/httpx/router.go only with a
+   * primary database, commit f043341). Whether the testnet address serves instances that lag each
+   * other is not verified; the check costs one account read.
    */
   sequenceUsed?: () => Promise<boolean>;
 }

@@ -132,12 +132,19 @@ function unknownMeaning(outcome: Extract<SubmitOutcome, { kind: "unknown" }>): s
  *   expiry the bid is raised too. Nothing is rebuilt while the old envelope can still apply, so
  *   Dustin never relies on the 10x replace-by-fee rule
  *   (https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions#replace-by-fee);
+ *   one that may still apply, or could not be looked up, stops the run with OUTCOME_UNKNOWN
+ *   (review findings 1, 7), and one whose sequence number the account shows used re-plans
+ *   (edge case E5);
  * - `tx_insufficient_fee` is rebuilt with the bid doubled, up to the cap and within the budget;
  *   an envelope refused for its fee was never queued, and any envelopes for one sequence number
  *   can apply at most once between them;
- * - `tx_bad_seq` first looks the earlier envelopes of this transaction up by hash (one may have
- *   applied after all), then re-reads the account's sequence number and rebuilds once; a second
- *   `tx_bad_seq` stops;
+ * - `tx_bad_seq` first looks the earlier envelopes of this transaction up by hash, every time (one
+ *   may have applied after all; edge case E1). If one stays unseen the rest is re-planned (review
+ *   finding 1); otherwise the account's sequence number is re-read, the bids for the old number
+ *   are released (edge case E7) and the transaction is rebuilt once; a second `tx_bad_seq` stops;
+ * - an inner `tx_no_source_account` (the account is gone) looks the earlier envelopes up too,
+ *   since one may have been the merge, and otherwise stops (review finding 2);
+ * - a rebuilt merge-carrying transaction first passes a fresh merge preflight (edge case E2);
  * - a 429 posts the same envelope again after an exponential pause, a bounded number of times;
  * - anything else refused stops, with the codes and what they mean.
  */
