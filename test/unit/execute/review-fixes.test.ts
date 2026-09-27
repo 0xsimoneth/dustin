@@ -661,3 +661,25 @@ describe("edge case E5: a 404 contradicted by the account's sequence number is n
     expect(ledger.submissions).toHaveLength(3);
   });
 });
+
+describe("edge case E8: a re-plan that finds the account gone stops with ACCOUNT_MISSING", () => {
+  it("lets the final check decide instead of reporting a partial run on a missing account", async () => {
+    const { ledger, deps, plan } = harness();
+    const dusta = [...ledger.quotes.keys()][0]!;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      allowPartial: true,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 0) ledger.quotes.set(dusta, "0.0000001");
+        // Merged away by another party between the failed sale and the re-plan.
+        if (e.type === "tx:failed" && e.index === 1) ledger.accounts.delete(messy.fixture);
+      },
+    });
+    expect(report.stop).toMatchObject({ code: "ACCOUNT_MISSING", verdict: "stop" });
+    // No merge of this run removed it, so the stop stands.
+    expect(report.status).toBe("failed");
+    expect(report.verification).toMatchObject({ accountExists: false });
+    expect(report.message).not.toMatch(/still exists/);
+  });
+});

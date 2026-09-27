@@ -732,6 +732,16 @@ class CloseRun {
     this.publish();
     this.emit({ type: "plan", plan: next, round: this.round });
 
+    // Edge case E8: the account is gone, so nothing is left to plan and the run is not partial.
+    // Stop, and let the final check decide: a 404 after a merge of this run is a close.
+    if (next.blockers.some((b) => b.code === "ACCOUNT_MISSING")) {
+      return stopWith({
+        code: "ACCOUNT_MISSING",
+        stage: "inspect",
+        verdict: "stop",
+        detail: `${where} The re-plan found the account ${plan.account} gone (Horizon answered 404).`,
+      });
+    }
     if (drift.length > 0) {
       const action = options.onDrift ?? "abort";
       this.emit({
