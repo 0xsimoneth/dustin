@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
 import { messy } from "../../helpers/snapshots.js";
-import { failedOps, harness, reply, signers } from "./harness.js";
+import { answer, failedOps, harness, reply, signers } from "./harness.js";
 
 // Findings of the independent review of the E2-S3 executor (2026-09-26). Every test here runs on
 // an injected clock: no fake global Date, no real waiting.
@@ -369,5 +369,56 @@ describe("review finding 5: a re-plan must fit what is left of the budget", () =
     expect(report.stop).toMatchObject({ code: "OVER_BUDGET", stage: "sponsor", verdict: "stop" });
     expect(report.message).toMatch(/500 stroops/);
     expect(report.message).toMatch(/300 stroops left/);
+  });
+});
+
+describe("branches the review found untested", () => {
+  it("after tx_bad_seq, takes an earlier envelope found failed on the ledger as the outcome", async () => {
+    let hidden: string | null = null;
+    const { ledger, deps, plan } = harness((l, fetch) => (url, init) => {
+      if (hidden && url.endsWith(`/transactions/${hidden}`) && l.submissions.length < 2) {
+        return reply(404);
+      }
+      return fetch(url, init);
+    });
+    ledger.faults.push("504-applied");
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 1) {
+          hidden = e.hash;
+          // The offers are gone, so the first envelope fails on the ledger (and uses the sequence).
+          ledger.offers.set(messy.fixture, []);
+        }
+      },
+    });
+    const [first, second] = report.transactions;
+    expect(first).toMatchObject({ attempt: 1, result: "failed" });
+    expect(second).toMatchObject({
+      attempt: 2,
+      result: "rejected",
+      resultCodes: { innerTransaction: "tx_bad_seq" },
+    });
+    // The fake ledger's records carry no result XDR, so there is no operation code to classify.
+    expect(report.stop).toMatchObject({ code: "OPERATION_FAILED", hash: first!.hash });
+  });
+
+  it("stops with ACCOUNT_MISSING when the account is gone as the sequence is re-read", async () => {
+    const { ledger, deps, plan } = harness();
+    ledger.faults.push(
+      answer({ transaction: "tx_fee_bump_inner_failed", inner_transaction: "tx_bad_seq" }),
+    );
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:failed" && e.index === 0) ledger.accounts.delete(messy.fixture);
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.stop).toMatchObject({ code: "ACCOUNT_MISSING", verdict: "stop" });
+    expect(report.verification).toMatchObject({ accountExists: false });
+    expect(ledger.submissions).toHaveLength(1);
   });
 });
