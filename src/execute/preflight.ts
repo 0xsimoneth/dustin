@@ -66,12 +66,16 @@ export async function mergePreflight(
     observedLedger: ledger.sequence,
     mergeTxIndex: 0,
   });
-  if (!guard.ok && guard.unblocksAtLedger !== null) {
-    return {
-      ok: false,
-      detail: `the sequence guard blocks the merge until ledger ${guard.unblocksAtLedger}`,
-      unblocksAtLedger: guard.unblocksAtLedger,
-    };
+  // Blind review BH11: any guard that is not ok blocks the merge, whether or not it names the
+  // ledger that unblocks it.
+  if (!guard.ok) {
+    return guard.unblocksAtLedger === null
+      ? { ok: false, detail: "the sequence guard blocks the merge" }
+      : {
+          ok: false,
+          detail: `the sequence guard blocks the merge until ledger ${guard.unblocksAtLedger}`,
+          unblocksAtLedger: guard.unblocksAtLedger,
+        };
   }
   return {
     ok: true,
