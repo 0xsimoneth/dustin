@@ -183,23 +183,55 @@ describe("review finding 2: a merge that applied unseen is still a close", () =>
     return { ...h, onEvent };
   }
 
-  it("looks the earlier envelope up when the rebuilt merge meets tx_no_source_account", async () => {
-    // Horizon finds the first envelope again once the second was posted.
-    const { ledger, deps, plan, onEvent } = lostMerge((l) => l.submissions.length >= 4);
-    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps, onEvent });
+  it("looks the earlier envelope up when the rebuilt merge finds the account gone", async () => {
+    // Horizon finds the first envelope again once the rebuild's preflight has found the account
+    // gone (edge case E2 runs the preflight before any rebuild of the merge).
+    let blocked = false;
+    const { ledger, deps, plan, onEvent } = lostMerge(() => blocked);
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        onEvent(e);
+        if (e.type === "preflight" && !e.ok) blocked = true;
+      },
+    });
     expect(report.status).toBe("closed");
     expect(report.stop).toBeNull();
     const merges = report.transactions.filter((t) => t.phase === "merge");
-    expect(merges.map((t) => [t.attempt, t.result])).toEqual([
-      [1, "applied"],
-      [2, "rejected"],
-    ]);
-    expect(merges[1]!.resultCodes).toMatchObject({ innerTransaction: "tx_no_source_account" });
+    // Never rebuilt: the first envelope is found instead.
+    expect(merges.map((t) => [t.attempt, t.result])).toEqual([[1, "applied"]]);
     expect(report.steps.find((s) => s.stepId === "S12")).toMatchObject({
       status: "applied",
       txHash: merges[0]!.hash,
     });
     expect(ledger.accounts.has(messy.fixture)).toBe(false);
+  });
+
+  it("looks for an earlier envelope when a rebuilt transaction meets tx_no_source_account", async () => {
+    let lost: string | null = null;
+    const { ledger, deps, plan } = harness(
+      (_l, fetch) => (url, init) =>
+        lost && url.endsWith(`/transactions/${lost}`) ? reply(404) : fetch(url, init),
+    );
+    ledger.faults.push("504-not-applied");
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 1) lost = e.hash;
+        // Another party merges the account away just before the rebuilt envelope is posted.
+        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 2) {
+          ledger.accounts.delete(messy.fixture);
+        }
+      },
+    });
+    const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
+    expect(tx0.map((t) => t.result)).toEqual(["unknown", "rejected"]);
+    expect(tx0[1]!.resultCodes).toMatchObject({ innerTransaction: "tx_no_source_account" });
+    // Nothing of this run removed the account, so the stop stands.
+    expect(report.status).toBe("failed");
+    expect(report.stop).toMatchObject({ code: "ACCOUNT_MISSING", verdict: "stop" });
   });
 
   it("looks the merge envelopes up once more when the final check finds the account gone", async () => {
@@ -507,5 +539,31 @@ describe("edge case E7: a refused envelope's bid does not stay counted after a r
     expect(report.status).toBe("closed");
     const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
     expect(tx0.map((t) => t.result)).toEqual(["rejected", "applied"]);
+  });
+});
+
+describe("edge case E2: a rebuilt merge follows a fresh preflight", () => {
+  it("stops at the sequence guard instead of rebuilding the merge after tx_bad_seq", async () => {
+    const { ledger, deps, plan } = harness();
+    let bumped = false;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.index === 2 && e.attempt === 1 && !bumped) {
+          bumped = true;
+          // Another client bumps the sequence far ahead (BumpSequence) while the merge is in flight.
+          const account = ledger.accounts.get(messy.fixture)!;
+          account.sequence = (BigInt(ledger.ledgerSeq + 50) << 32n).toString();
+        }
+      },
+    });
+    const merges = report.transactions.filter((t) => t.phase === "merge");
+    expect(merges.map((t) => t.result)).toEqual(["rejected"]);
+    expect(report.stop).toMatchObject({
+      code: "MERGE_PREFLIGHT_FAILED",
+      unblocksAtLedger: ledger.ledgerSeq + 51,
+    });
+    expect(ledger.accounts.has(messy.fixture)).toBe(true);
   });
 });

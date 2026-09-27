@@ -471,37 +471,15 @@ class CloseRun {
         const steps = tx.stepIds.map((id) => byId.get(id)!);
         // A merge that follows anything already submitted in this run (a later transaction, or the
         // first one of a re-plan) runs only after fresh facts (architecture rule R7).
+        const carriesMerge = steps.some((s) => s.kind === "merge");
         const mergeFollowsWork = tx.index > 0 || this.report.transactions.length > 0;
-        if (mergeFollowsWork && steps.some((s) => s.kind === "merge")) {
-          this.stage = "merge";
-          const preflight = await mergePreflight(this.input.reader, current, {
-            mergeOnly: steps.every((s) => s.kind === "merge"),
-          });
-          this.emit({
-            type: "preflight",
-            index: tx.index,
-            ok: preflight.ok,
-            detail: preflight.detail,
-          });
-          if (!preflight.ok) {
-            return this.stopped({
-              code: "MERGE_PREFLIGHT_FAILED",
-              stage: "merge",
-              verdict: "replan",
-              detail: `Merge preflight failed: ${preflight.detail}. The merge was not submitted.`,
-              round: this.round,
-              txIndex: tx.index,
-              ...(preflight.unblocksAtLedger !== undefined
-                ? { unblocksAtLedger: preflight.unblocksAtLedger }
-                : {}),
-            });
-          }
+        if (mergeFollowsWork && carriesMerge) {
+          const blocked = await this.mergePreflightStop(current, tx, steps);
+          if (blocked) return this.stopped(blocked);
         }
-        const outcome = await submitPlannedTransaction(
-          this.attemptContext(current, steps),
-          tx,
-          steps,
-        );
+        const ctx = this.attemptContext(current, steps);
+        if (carriesMerge) ctx.preflight = () => this.mergePreflightStop(current, tx, steps);
+        const outcome = await submitPlannedTransaction(ctx, tx, steps);
         if (outcome.kind === "stopped") return this.stopped(outcome.stop);
         if (outcome.kind === "applied") {
           this.applied(steps, outcome);
@@ -523,6 +501,35 @@ class CloseRun {
       }
       return this.complete();
     }
+  }
+
+  /**
+   * Fresh facts before a merge that follows work already submitted in this run, and before every
+   * rebuild of a merge-carrying transaction (architecture rule R7; edge case E2). Null when the
+   * merge may go; otherwise the MERGE_PREFLIGHT_FAILED stop.
+   */
+  private async mergePreflightStop(
+    current: ClosePlan,
+    tx: PlannedTransaction,
+    steps: CloseStep[],
+  ): Promise<StopReason | null> {
+    this.stage = "merge";
+    const preflight = await mergePreflight(this.input.reader, current, {
+      mergeOnly: steps.every((s) => s.kind === "merge"),
+    });
+    this.emit({ type: "preflight", index: tx.index, ok: preflight.ok, detail: preflight.detail });
+    if (preflight.ok) return null;
+    return {
+      code: "MERGE_PREFLIGHT_FAILED",
+      stage: "merge",
+      verdict: "replan",
+      detail: `Merge preflight failed: ${preflight.detail}. The merge was not submitted.`,
+      round: this.round,
+      txIndex: tx.index,
+      ...(preflight.unblocksAtLedger !== undefined
+        ? { unblocksAtLedger: preflight.unblocksAtLedger }
+        : {}),
+    };
   }
 
   private outcomeFor(step: CloseStep): StepOutcome {

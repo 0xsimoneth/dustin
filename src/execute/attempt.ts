@@ -54,6 +54,11 @@ export interface AttemptContext {
   emit(event: CloseEvent): void;
   /** Tells the run which stage it is in, for the report of an interrupted run. */
   enter(stage: ErrorStage): void;
+  /**
+   * For a transaction that carries the merge: the merge preflight, run again before every rebuild
+   * (edge case E2). A stop means the rebuilt merge would fail; null means it may go.
+   */
+  preflight?: () => Promise<StopReason | null>;
 }
 
 export type TransactionOutcome =
@@ -163,6 +168,16 @@ export async function submitPlannedTransaction(
         "replan",
         `${label} was built ${settings.maxAttempts} times without landing (last: ${rebuiltBecause ?? "unknown"}). Run the close again later; it continues from the ledger.`,
       );
+    }
+    if (attempt > 1 && ctx.preflight) {
+      // A rebuilt merge gets fresh facts first: the account may have moved on (edge case E2),
+      // perhaps because an earlier envelope of this merge applied after all, so look for it
+      // before stopping.
+      const blocked = await ctx.preflight();
+      if (blocked) {
+        const unseen = envelopes.filter((e) => e.result === "unknown");
+        return (await findEarlier(ctx, unseen)) ?? { kind: "stopped", stop: blocked };
+      }
     }
     if (ceiling() < bid) {
       return stop(
