@@ -1,6 +1,7 @@
 import {
   accessSync,
   constants,
+  existsSync,
   mkdirSync,
   renameSync,
   rmSync,
@@ -129,7 +130,7 @@ export async function closeExecute(
 
   // The report file is checked (and its directory created) before the confirmation.
   const receipt = options.report ? receiptFile(options.report, ctx) : null;
-  say(summary(plan, spendable));
+  say(summary(plan, spendable, baseFee ?? plan.fees.maxBaseFeeStroops));
   if (options.yes) {
     say(
       "\nCONFIRMATION SKIPPED: --yes was given, so the typed confirmation was not asked. Executing now.\n",
@@ -265,11 +266,18 @@ function notClosable(plan: ClosePlan): string {
 }
 
 /** The four facts to check before typing the confirmation (ux-design section 2.2). */
-function summary(plan: ClosePlan, sponsorSpendableStroops: bigint): string {
+function summary(plan: ClosePlan, sponsorSpendableStroops: bigint, maxBidPerOp: number): string {
   const merge = plan.transactions.findIndex((t) =>
     t.stepIds.some((id) => plan.steps.find((s) => s.id === id)?.kind === "merge"),
   );
   const ops = plan.transactions.reduce((n, t) => n + t.opCount, 0);
+  // A retry after a fee surge may raise the bid (E2-S3): per operation up to the cap, and never
+  // beyond the per-close budget, so that is what the sponsor may pay at most.
+  const ceiling = Math.min(plan.fees.budgetStroops, maxBidPerOp * (ops + plan.transactions.length));
+  const pays =
+    ceiling > plan.fees.totalStroops
+      ? `every fee: the plan bids ${xlm(plan.fees.totalStroops)}; a retry after a fee surge may bid up to ${xlm(ceiling)}`
+      : `every fee, at most ${xlm(plan.fees.totalStroops)}`;
   const lines = [
     "",
     merge >= 0
@@ -280,7 +288,8 @@ function summary(plan: ClosePlan, sponsorSpendableStroops: bigint): string {
       ? `  receives     ${plan.recovery.xlmToDestination} XLM through the merge in tx ${merge + 1}, which cannot be undone`
       : "  receives     nothing through a merge: the account is not merged and stays open",
     `  sponsor      ${plan.feeSponsor ?? ""}`,
-    `  pays         every fee, up to ${xlm(plan.fees.totalStroops)}; it can spend ${xlm(sponsorSpendableStroops)}`,
+    `  pays         ${pays}`,
+    `  can spend    ${xlm(sponsorSpendableStroops)}`,
     `  signs        ${plural(plan.transactions.length, "fee-bumped transaction", "fee-bumped transactions")}, ${plural(ops, "operation", "operations")}, signed by the account`,
     `  unclosable   ${plural(plan.unclosable.length, "item", "items")}${plan.unclosable.length > 0 ? ", staying on the account" : ""}`,
   ];
@@ -496,13 +505,37 @@ function receiptFile(path: string, ctx: CloseContext) {
   }
   let warned = false;
   let writes = 0;
+  // A re-run with the same --report path must not erase the hashes of the earlier run (PRD
+  // NFR-03, ux-design section 2.7): before the first write, an existing file is renamed aside;
+  // if that fails, this run's report goes beside it instead, so the earlier file is never touched.
+  let target: string | null = null;
+  const settle = (): string => {
+    if (target !== null) return target;
+    if (!existsSync(path)) return (target = path);
+    const stamp = new Date().toISOString().replace(/[-:.]/g, "");
+    let aside = `${path}.${stamp}`;
+    for (let n = 1; existsSync(aside); n += 1) aside = `${path}.${stamp}-${n}`;
+    try {
+      renameSync(path, aside);
+      ctx.io.stderr(`dustin: the earlier report ${path} was kept as ${aside}.\n`);
+      return (target = path);
+    } catch {
+      ctx.io.stderr(
+        `dustin: warning: the earlier report ${path} could not be moved aside; this run's report is written to ${aside}.\n`,
+      );
+      return (target = aside);
+    }
+  };
   return {
-    path,
+    get path(): string {
+      return target ?? path;
+    },
     write(report: CloseReport): void {
-      const temporary = `${path}.${process.pid}.${writes++}.tmp`;
+      const file = settle();
+      const temporary = `${file}.${process.pid}.${writes++}.tmp`;
       try {
         writeFileSync(temporary, `${json(report)}\n`, { mode: 0o644 });
-        renameSync(temporary, path);
+        renameSync(temporary, file);
       } catch (error) {
         try {
           rmSync(temporary, { force: true });
@@ -513,7 +546,7 @@ function receiptFile(path: string, ctx: CloseContext) {
           warned = true;
           const code = (error as NodeJS.ErrnoException).code ?? "unknown error";
           ctx.io.stderr(
-            `dustin: warning: cannot write the report file ${path} (${code}); the run goes on and the report is printed at the end.\n`,
+            `dustin: warning: cannot write the report file ${file} (${code}); the run goes on and the report is printed at the end.\n`,
           );
         }
       }

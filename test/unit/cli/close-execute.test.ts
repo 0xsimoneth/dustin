@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Keypair, Networks, TransactionBuilder } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
@@ -372,6 +372,25 @@ describe("dustin close --execute: failures after a submission", () => {
   });
 });
 
+describe("dustin close --execute: the confirmation summary", () => {
+  it("names the most the sponsor may pay when a retry can raise the bid", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(world, executeArgs(world, "--yes"));
+    expect(r.code).toBe(0);
+    expect(r.out).toMatch(
+      /pays {9}every fee: the plan bids 0\.0000600 XLM; a retry after a fee surge may bid up to \d+\.\d{7} XLM/,
+    );
+    expect(r.out).toMatch(/can spend {4}\d+\.\d{7} XLM/);
+  });
+
+  it("says the bid is the ceiling when --base-fee caps it", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(world, executeArgs(world, "--yes", "--base-fee", "100"));
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("pays         every fee, at most 0.0000600 XLM");
+  });
+});
+
 describe("dustin close --execute: --json and --report", () => {
   it("prints only the final CloseReport JSON on standard output with --json", async () => {
     const world = zeroSpendableWorld();
@@ -406,6 +425,32 @@ describe("dustin close --execute: --json and --report", () => {
     expect(saved.status).toBe("closed");
     expect(r.err).toContain(`Report written to ${path}`);
     expectNoSecret(world, text);
+  });
+
+  it("never overwrites an earlier report: a re-run keeps it under a new name", async () => {
+    const world = zeroSpendableWorld({ market: true });
+    const dir = emptyDir();
+    const path = join(dir, "close.json");
+    // The first run stops after one submission; its report holds that hash.
+    const t = tap(world, { posts: 1, then: () => Promise.reject(new Error("ECONNRESET")) });
+    const first = await closeCli(world, executeArgs(world, "--yes", "--report", path), {
+      fetch: t.fetch,
+    });
+    expect(first.code).toBe(5);
+    const earlier = readFileSync(path, "utf8");
+    const earlierHash = (JSON.parse(earlier) as CloseReport).transactions[0]!.hash;
+    // The re-run continues from the ledger and writes its own report to the same path.
+    const second = await closeCli(world, executeArgs(world, "--yes", "--report", path));
+    expect(second.code).toBe(0);
+    const aside = readdirSync(dir).filter(
+      (f) => f.startsWith("close.json.") && !f.endsWith(".tmp"),
+    );
+    expect(aside).toHaveLength(1);
+    expect(readFileSync(join(dir, aside[0]!), "utf8")).toBe(earlier);
+    expect(second.err).toContain(`was kept as ${join(dir, aside[0]!)}`);
+    const latest = JSON.parse(readFileSync(path, "utf8")) as CloseReport;
+    expect(latest.status).toBe("closed");
+    expect(latest.transactions.map((x) => x.hash)).not.toContain(earlierHash);
   });
 
   it("keeps the submitted hashes in the report file when the run fails", async () => {

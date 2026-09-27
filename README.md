@@ -6,7 +6,7 @@ Dustin closes messy Stellar testnet accounts: it cancels offers, disposes of lef
 
 The existing StellarExpert Account Demolisher builds every transaction with the account being closed as both source and fee payer, and has no fee-bump or sponsored-reserve handling ([client source](https://github.com/stellar-expert/stellar-expert-explorer/blob/master/business-logic/demolisher/demolisher-tx-builder.js)). An account sitting at its minimum reserve therefore cannot even start. That is the gap Dustin fills.
 
-> **Status: pre-release.** Dustin is being built during a 30-day Stellar Instaward sprint (2026-09-22 to 2026-10-22). `planClose()`, `executeClose()`, `dustin plan` and `dustin close --execute` are implemented and covered by the offline test tier; the npm release, the demo and the evidence package follow. See [Status](#status).
+> **Status: pre-release.** Dustin is being built during a 30-day Stellar Instaward sprint (2026-09-22 to 2026-10-22). `planClose()`, `executeClose()`, `dustin plan` and `dustin close --execute` are implemented and covered by the offline test tier, and a zero-spendable messy account was closed on testnet with sponsored fees ([evidence](evidence/runs/20260926T125350Z/summary.md)); the npm release, the demo and the evidence package follow. See [Status](#status).
 
 ## Demo
 
@@ -50,7 +50,7 @@ Options of `dustin close`:
 | `--partial` | Run everything that can run even when an item cannot be disposed of; the account is not merged (exit 4). |
 | `--memo <text>` | Memo for a destination that requires one (SEP-29), at most 28 bytes. |
 | `--prefer-destination` | Try the transfer to the destination before the return to the issuer. |
-| `--base-fee <stroops>` | Fee bid per operation for the plan. With `--execute`, the executor re-reads `fee_stats` before signing and never bids more than this per operation. |
+| `--base-fee <stroops>` | Fee bid per operation instead of the `fee_stats` estimate. With `--execute` it is both the bid and the ceiling: every re-plan keeps it, and a retry after `tx_insufficient_fee` cannot bid above it, so the run stops instead. Without it, a retry after a fee surge may raise the bid up to the per-operation cap, never beyond the 5 XLM per-close budget. |
 | `--json` | Print one JSON document on standard output: the plan, or with `--execute` the final close report. The plan, the question, the progress and the receipt then go to standard error. |
 | `--report <file>` | With `--execute`, keep the close report in this file (JSON with public keys, hashes and envelopes; never a secret), rewritten after every change so that a stopped run still has every hash. |
 
@@ -144,7 +144,13 @@ Limits set by the protocol:
 
 ## Evidence
 
-The evidence package (committed plan output, transaction chain with explorer links, test results, baseline recording and demo) is assembled in `docs/evidence/` as each deliverable is produced.
+Evidence is committed under `evidence/` as each deliverable is produced (the package template is `docs/evidence/evidence-package-template.md`):
+
+- `evidence/plan/`: the dry-run plan of the messy fixture, as text and JSON (Deliverable 1).
+- `evidence/runs/20260926T125350Z/`: the first live close of a zero-spendable messy account on testnet, with the close report, both envelopes of every transaction, Horizon's records showing the sponsor as fee account, and Horizon's 404 for the closed account afterwards (Deliverable 2). `evidence/runs/README.md` explains the layout and how to reproduce a run.
+- `evidence/baseline/`: the recording protocol for the StellarExpert Demolisher baseline (Deliverable 3); the recording itself is pending.
+
+Explorer links stop resolving at the next testnet reset (scheduled for 2026-12-16); the JSON and XDR files are the durable record.
 
 ## Development
 
@@ -161,9 +167,9 @@ DUSTIN_TESTNET=1 npm run test:testnet   # live tests against the public testnet
 
 | Sprint week | Dates | Expected output | State |
 |---|---|---|---|
-| Week 1 | 2026-09-22 to 2026-09-28 | Fixture built, Demolisher baseline recorded, `planClose()` dry run printed | in progress |
-| Week 2 | 2026-09-29 to 2026-10-05 | Zero-XLM account closed end to end with sponsored fees | not started |
-| Week 3 | 2026-10-06 to 2026-10-12 | Disposal ladder, sponsored unwind, sequence guard, test matrix, messy fixture closed | not started |
+| Week 1 | 2026-09-22 to 2026-09-28 | Fixture built, Demolisher baseline recorded, `planClose()` dry run printed | fixture built and dry run committed (`evidence/plan/`); the Demolisher baseline recording is pending |
+| Week 2 | 2026-09-29 to 2026-10-05 | Zero-XLM account closed end to end with sponsored fees | met early on 2026-09-26: [transaction chain and 404](evidence/runs/20260926T125350Z/summary.md) |
+| Week 3 | 2026-10-06 to 2026-10-12 | Disposal ladder, sponsored unwind, sequence guard, test matrix, messy fixture closed | in progress: the ladder and the sponsored unwind ran in the live close; the sequence-guard wait, the test matrix and the metric close of the baseline fixture remain |
 | Week 4 | 2026-10-13 to 2026-10-19 | npm publish, 60-second demo, evidence package, write-up | not started |
 
 ## License
