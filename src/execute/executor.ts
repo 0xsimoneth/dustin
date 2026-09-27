@@ -24,6 +24,7 @@ import {
 } from "./attempt.js";
 import { operationFailure } from "./classify.js";
 import type { CloseEvent } from "./events.js";
+import { validateExecuteOptions } from "./options.js";
 import { mergePreflight } from "./preflight.js";
 import {
   describeSubject,
@@ -145,6 +146,7 @@ export async function executeClose(
       },
     );
   }
+  validateExecuteOptions(options);
   assertTestnetPassphrase(plan.network.passphrase);
   const accountKey = signers.account.publicKey();
   const sponsorKey = signers.feeSponsor.publicKey();

@@ -683,3 +683,59 @@ describe("edge case E8: a re-plan that finds the account gone stops with ACCOUNT
     expect(report.message).not.toMatch(/still exists/);
   });
 });
+
+describe("edge case E11: numeric execute options are checked before anything is read or signed", () => {
+  const invalid: Array<[string, number]> = [
+    ["maxAttemptsPerTransaction", Number.NaN],
+    ["maxAttemptsPerTransaction", 0],
+    ["maxAttemptsPerTransaction", 1.5],
+    ["maxReplans", -1],
+    ["maxReplans", Number.NaN],
+    ["maxRateLimitRetries", -1],
+    ["pollIntervalMs", Number.NaN],
+    ["pollIntervalMs", -5],
+    ["backoffMs", Number.POSITIVE_INFINITY],
+    ["verifyTimeoutMs", -1],
+    ["graceSeconds", Number.NaN],
+    ["ledgerWaitSeconds", -1],
+    ["timeoutSeconds", 0],
+    ["budgetStroops", 0],
+    ["maxBaseFeeStroops", 50],
+  ];
+
+  it.each(invalid)("refuses %s = %s with CONFIG_INVALID", async (name, value) => {
+    let requests = 0;
+    const { ledger, deps, plan } = harness((_l, fetch) => (url, init) => {
+      requests += 1;
+      return fetch(url, init);
+    });
+    const p = await plan();
+    const before = requests;
+    let signed = 0;
+    const counting = {
+      account: { publicKey: () => messy.fixture, sign: () => void signed++ },
+      feeSponsor: { publicKey: () => messy.sponsor, sign: () => void signed++ },
+    };
+    await expect(
+      executeClose(p, counting, { confirm: true, ...deps, [name]: value }),
+    ).rejects.toMatchObject({ code: "CONFIG_INVALID", stage: "config" });
+    expect(requests).toBe(before);
+    expect(signed).toBe(0);
+    expect(ledger.submissions).toHaveLength(0);
+  });
+
+  it("keeps the zero pauses that tests and callers use", async () => {
+    const { deps, plan } = harness();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      pollIntervalMs: 0,
+      backoffMs: 0,
+      graceSeconds: 0,
+      verifyTimeoutMs: 0,
+      maxReplans: 0,
+      maxRateLimitRetries: 0,
+    });
+    expect(report.status).toBe("closed");
+  });
+});
