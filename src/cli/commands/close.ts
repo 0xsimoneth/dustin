@@ -75,6 +75,17 @@ export async function closeExecute(
 
   const signers = loadCloseSigners(account, ctx.secrets);
   const sponsor = signers.feeSponsor.publicKey();
+  if (options.sponsor !== undefined && options.sponsor !== sponsor) {
+    throw new DustinError(
+      "WRONG_SIGNER",
+      `--sponsor names ${options.sponsor}, but DUSTIN_SPONSOR_SECRET belongs to ${sponsor}.`,
+      {
+        stage: "config",
+        remedy:
+          "Leave --sponsor out (the sponsor is the owner of DUSTIN_SPONSOR_SECRET) or fix it.",
+      },
+    );
+  }
 
   const config = ctx.config();
   await verifyHorizonIsTestnet(config.horizonUrl, ctx.fetch);
@@ -129,7 +140,7 @@ export async function closeExecute(
   }
 
   // The report file is checked (and its directory created) before the confirmation.
-  const receipt = options.report ? receiptFile(options.report, ctx) : null;
+  const receipt = options.report !== undefined ? receiptFile(options.report, ctx) : null;
   say(summary(plan, spendable, baseFee ?? plan.fees.maxBaseFeeStroops));
   if (options.yes) {
     say(
@@ -199,7 +210,7 @@ export async function closeExecute(
     );
     if (options.json) ctx.io.stdout(`${json(stopped)}\n`);
     say(`\n${renderReport(stopped, { plans, explorerBaseUrl: config.explorerBaseUrl })}`);
-    if (receipt) say(`Report written to ${receipt.path}\n`);
+    if (receipt) say(receiptLine(receipt));
     return ExitCode.STOPPED;
   }
 
@@ -207,7 +218,7 @@ export async function closeExecute(
   const code = exitCodeForReport(report);
   if (options.json) ctx.io.stdout(`${json(report)}\n`);
   say(`\n${renderReport(report, { plans, explorerBaseUrl: config.explorerBaseUrl })}`);
-  if (receipt) say(`Report written to ${receipt.path}\n`);
+  if (receipt) say(receiptLine(receipt));
   if (report.status === "closed" && code !== ExitCode.OK) {
     ctx.io.stderr(
       "dustin: the merge was reported applied, but the account was not verified gone on Horizon; check it on the explorer and run the same command again.\n",
@@ -216,12 +227,19 @@ export async function closeExecute(
   return code;
 }
 
+/** The last line about the --report file: written, or not, in which case the receipt is all there is. */
+function receiptLine(receipt: { path: string; ok: boolean }): string {
+  return receipt.ok
+    ? `Report written to ${receipt.path}\n`
+    : `Report NOT written to ${receipt.path} (see the warning above); the receipt printed here is the only record of this run's hashes.\n`;
+}
+
 /** The note printed by `close` without `--execute` when flags that need it were given. */
 export function ignoredFlagsNote(options: CloseCommandOptions): string | null {
   const flags = [
     ...(options.yes ? ["--yes"] : []),
     ...(options.partial ? ["--partial"] : []),
-    ...(options.report ? ["--report"] : []),
+    ...(options.report !== undefined ? ["--report"] : []),
   ];
   if (flags.length === 0) return null;
   const list =
@@ -288,6 +306,9 @@ function summary(plan: ClosePlan, sponsorSpendableStroops: bigint, maxBidPerOp: 
       ? `  receives     ${plan.recovery.xlmToDestination} XLM through the merge in tx ${merge + 1}, which cannot be undone`
       : "  receives     nothing through a merge: the account is not merged and stays open",
     `  sponsor      ${plan.feeSponsor ?? ""}`,
+    ...(plan.memo !== null
+      ? [`  memo         ${JSON.stringify(plan.memo)} (on every transaction, the merge included)`]
+      : []),
     `  pays         ${pays}`,
     `  can spend    ${xlm(sponsorSpendableStroops)}`,
     `  signs        ${plural(plan.transactions.length, "fee-bumped transaction", "fee-bumped transactions")}, ${plural(ops, "operation", "operations")}, signed by the account`,
@@ -496,6 +517,7 @@ function receiptFile(path: string, ctx: CloseContext) {
       remedy: "Choose a writable file path for --report.",
     });
   try {
+    if (path.trim() === "") throw refuse("the path is empty");
     if (statSync(path, { throwIfNoEntry: false })?.isDirectory()) throw refuse("it is a directory");
     mkdirSync(dirname(path), { recursive: true });
     accessSync(dirname(path), constants.W_OK);
@@ -505,6 +527,7 @@ function receiptFile(path: string, ctx: CloseContext) {
   }
   let warned = false;
   let writes = 0;
+  let lastWriteOk = false;
   // A re-run with the same --report path must not erase the hashes of the earlier run (PRD
   // NFR-03, ux-design section 2.7): before the first write, an existing file is renamed aside;
   // if that fails, this run's report goes beside it instead, so the earlier file is never touched.
@@ -530,13 +553,19 @@ function receiptFile(path: string, ctx: CloseContext) {
     get path(): string {
       return target ?? path;
     },
+    /** True when the latest write reached the file. */
+    get ok(): boolean {
+      return lastWriteOk;
+    },
     write(report: CloseReport): void {
       const file = settle();
       const temporary = `${file}.${process.pid}.${writes++}.tmp`;
       try {
         writeFileSync(temporary, `${json(report)}\n`, { mode: 0o644 });
         renameSync(temporary, file);
+        lastWriteOk = true;
       } catch (error) {
+        lastWriteOk = false;
         try {
           rmSync(temporary, { force: true });
         } catch {

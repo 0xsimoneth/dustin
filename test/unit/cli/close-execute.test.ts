@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { join } from "node:path";
 import { Keypair, Networks, TransactionBuilder } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
@@ -391,6 +391,36 @@ describe("dustin close --execute: the confirmation summary", () => {
   });
 });
 
+describe("dustin close --execute: memo and --sponsor", () => {
+  it("shows the memo in the plan and in the facts confirmed before execution", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(world, executeArgs(world, "--yes", "--memo", "HELLOMEMO42"));
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('Memo         "HELLOMEMO42" (on every transaction)');
+    expect(r.out).toContain(
+      '  memo         "HELLOMEMO42" (on every transaction, the merge included)',
+    );
+  });
+
+  it("refuses --sponsor naming another account than the sponsor secret's owner (exit 2)", async () => {
+    const world = zeroSpendableWorld();
+    const other = Keypair.random().publicKey();
+    const r = await closeCli(world, executeArgs(world, "--yes", "--sponsor", other));
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("WRONG_SIGNER");
+    expect(world.ledger.submissions).toHaveLength(0);
+  });
+
+  it("accepts --sponsor when it names the sponsor secret's owner", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(
+      world,
+      executeArgs(world, "--yes", "--sponsor", world.sponsor.publicKey()),
+    );
+    expect(r.code).toBe(0);
+  });
+});
+
 describe("dustin close --execute: --json and --report", () => {
   it("prints only the final CloseReport JSON on standard output with --json", async () => {
     const world = zeroSpendableWorld();
@@ -451,6 +481,31 @@ describe("dustin close --execute: --json and --report", () => {
     const latest = JSON.parse(readFileSync(path, "utf8")) as CloseReport;
     expect(latest.status).toBe("closed");
     expect(latest.transactions.map((x) => x.hash)).not.toContain(earlierHash);
+  });
+
+  it("refuses an empty --report path before anything is signed (exit 2)", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(world, executeArgs(world, "--yes", "--report", ""));
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("the path is empty");
+    expect(world.ledger.submissions).toHaveLength(0);
+  });
+
+  it("says the report was NOT written when every write failed", async () => {
+    const world = zeroSpendableWorld();
+    const dir = emptyDir();
+    const path = join(dir, "close.json");
+    // The directory passes the check before the confirmation, then disappears before the run.
+    const r = await closeCli(world, executeArgs(world, "--report", path), {
+      answer: () => {
+        rmSync(dir, { recursive: true, force: true });
+        return world.destination.slice(-4);
+      },
+    });
+    expect(r.code).toBe(0);
+    expect(existsSync(path)).toBe(false);
+    expect(r.out).toContain(`Report NOT written to ${path}`);
+    expect(r.out).not.toContain(`Report written to ${path}`);
   });
 
   it("keeps the submitted hashes in the report file when the run fails", async () => {

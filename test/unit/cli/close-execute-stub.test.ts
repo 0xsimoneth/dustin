@@ -125,7 +125,8 @@ describe("close --execute exit codes, whatever the executor does inside", () => 
       ["HORIZON_UNAVAILABLE", "inspect", 6],
       ["SPONSOR_UNDERFUNDED", "sponsor", 2],
       ["SPONSOR_BUDGET_EXCEEDED", "sponsor", 2],
-      ["EXECUTION_INTERRUPTED", "submit", 5],
+      // Nothing reached the network, so an interruption is an unexpected error, not a stopped run.
+      ["EXECUTION_INTERRUPTED", "submit", 1],
       ["TOO_MANY_OPERATIONS", "build", 1],
     ];
     for (const [code, stage, exit] of cases) {

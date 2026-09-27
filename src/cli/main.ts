@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { createRequire } from "node:module";
+import { guardedWriter } from "./output.js";
 import { terminalPrompt } from "./prompt.js";
 import { run } from "./run.js";
 
@@ -10,7 +11,7 @@ const { version } = require("../../package.json") as { version: string };
 // and it takes nothing from it but DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET.
 process.exitCode = await run(
   process.argv,
-  { stdout: (text) => process.stdout.write(text), stderr: (text) => process.stderr.write(text) },
+  { stdout: guardedWriter(process.stdout), stderr: guardedWriter(process.stderr) },
   version,
   {
     env: process.env,

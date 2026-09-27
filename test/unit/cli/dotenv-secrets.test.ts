@@ -52,6 +52,12 @@ describe("readDotEnvSecrets", () => {
     });
   });
 
+  it("reads a secret on the first line of a .env that starts with a byte-order mark", () => {
+    const secret = accountKeys.secret();
+    const dir = tempDir(`\uFEFFDUSTIN_ACCOUNT_SECRET=${secret}\n`);
+    expect(readDotEnvSecrets(dir)).toEqual({ DUSTIN_ACCOUNT_SECRET: secret });
+  });
+
   it("never touches process.env and never calls process.loadEnvFile", () => {
     const before = { ...process.env };
     const load = vi.spyOn(process, "loadEnvFile");

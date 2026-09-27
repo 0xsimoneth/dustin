@@ -32,7 +32,8 @@ export function readDotEnvSecrets(dir: string): Partial<Record<SecretName, strin
   }
   let parsed: NodeJS.Dict<string>;
   try {
-    parsed = parseEnv(text);
+    // A byte-order mark (some editors on Windows add one) would become part of the first key.
+    parsed = parseEnv(text.replace(/^\uFEFF/, ""));
   } catch {
     // The parser's message could quote the file; it is not passed on.
     throw new DustinError("CONFIG_INVALID", "Cannot parse .env in the working directory.", {

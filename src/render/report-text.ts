@@ -75,7 +75,9 @@ function headline(report: CloseReport): string {
         ? "ABORTED: nothing was submitted"
         : `ABORTED: the run stopped after ${submitted} submitted transaction${submitted === 1 ? "" : "s"}`;
     case "failed":
-      return "FAILED: the run stopped before the account was closed";
+      return report.recovery.mergedXlm !== null || report.stop?.code === "ACCOUNT_STILL_EXISTS"
+        ? "FAILED: the merge applied, but the account was not verified gone"
+        : "FAILED: the run stopped before the account was closed";
     default:
       return String(report.status).toUpperCase();
   }

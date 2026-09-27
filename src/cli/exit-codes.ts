@@ -41,7 +41,9 @@ export function exitCodeFor(error: DustinError): ExitCode {
     case "CONFIRMATION_DECLINED":
       return ExitCode.NOTHING_EXECUTED;
     case "EXECUTION_INTERRUPTED":
-      return ExitCode.STOPPED;
+      // The rule above already returned 5 when something was submitted; an interruption before
+      // the first submission changed nothing on the ledger, so it is an unexpected error.
+      return error.report ? ExitCode.UNEXPECTED : ExitCode.STOPPED;
     case "HORIZON_UNAVAILABLE":
       // Exit code 6 means "nothing was submitted"; once submission has started it is 5.
       return error.stage === "submit" || error.stage === "confirm" || error.stage === "merge"
@@ -59,7 +61,8 @@ export function exitCodeFor(error: DustinError): ExitCode {
  * was reported applied but the account was not verified gone.
  */
 export function exitCodeForReport(
-  report: Pick<CloseReport, "status" | "verification" | "transactions">,
+  report: Pick<CloseReport, "status" | "verification" | "transactions"> &
+    Partial<Pick<CloseReport, "stop">>,
 ): ExitCode {
   switch (report.status) {
     case "closed":
@@ -67,7 +70,10 @@ export function exitCodeForReport(
     case "partial":
       return ExitCode.PARTIAL;
     case "aborted":
-      return report.transactions.length === 0 ? ExitCode.NOTHING_EXECUTED : ExitCode.STOPPED;
+      if (report.transactions.length > 0) return ExitCode.STOPPED;
+      // Fees that rose past the budget after the confirmation: the same refusal as the CLI's own
+      // budget check before the question, so the same exit code.
+      return report.stop?.code === "OVER_BUDGET" ? ExitCode.USAGE : ExitCode.NOTHING_EXECUTED;
     default:
       return ExitCode.STOPPED;
   }

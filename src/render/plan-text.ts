@@ -103,6 +103,8 @@ export function renderPlan(plan: ClosePlan, options: RenderPlanOptions = {}): st
   );
   out.push(`Destination  ${plan.destination}`);
   out.push(`Sponsor      ${sponsor}`);
+  if (plan.memo !== null)
+    out.push(`Memo         ${JSON.stringify(plan.memo)} (on every transaction)`);
   out.push(
     `Fees         bid up to ${xlm(plan.fees.totalStroops)} (${grouped(plan.fees.baseFeeStroops)} stroops per operation), ` +
       "paid by the sponsor; the account pays 0",

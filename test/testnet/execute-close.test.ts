@@ -62,48 +62,34 @@ describeTestnet("executeClose (live testnet)", () => {
       },
       { confirm: true },
     );
-    expect(report.message).toBeNull();
-    expect(report.status).toBe("closed");
-    expect(report.verification).toMatchObject({ accountExists: false, horizonStatus: 404 });
+    // Everything is collected first and written as evidence before any assertion, so a failed
+    // check can never lose the record of a close that already consumed the fixture.
     const gone = await fetch(`${DEFAULT_HORIZON_URL}/accounts/${a.fixture}`, {
       headers: { accept: "application/json" },
     });
     const body: unknown = await gone.json();
     const accountAfter = { status: gone.status, body };
-    expect(accountAfter.status).toBe(404);
-
-    // Every transaction on the ledger is a fee bump paid by the sponsor, sourced by the closed
-    // account. The report keeps every submitted envelope (E2-S3): one refused before inclusion or
-    // rebuilt after its time bound passed is not on the ledger, so it has no Horizon record.
-    const records: Array<{ hash: string; record: unknown }> = [];
+    const records: Array<{
+      hash: string;
+      record: { fee_account: string; source_account: string; successful: boolean } | null;
+    }> = [];
     for (const t of report.transactions) {
-      const record = await client.get<{
-        fee_account: string;
-        source_account: string;
-        successful: boolean;
-      }>(`/transactions/${t.hash}`);
-      if (t.result === "applied" || t.result === "failed") {
-        expect(record).toMatchObject({
-          fee_account: a.sponsor,
-          source_account: a.fixture,
-          successful: t.result === "applied",
-        });
-      } else {
-        expect(record).toBeNull();
-      }
-      records.push({ hash: t.hash, record });
+      records.push({
+        hash: t.hash,
+        record: await client.get<{
+          fee_account: string;
+          source_account: string;
+          successful: boolean;
+        }>(`/transactions/${t.hash}`),
+      });
     }
-    expect(report.transactions.filter((t) => t.result === "applied").length).toBeGreaterThan(0);
-    // The destination received exactly the merged amount; the reserve sponsor got its reserve back.
     const after = await Promise.all(roles.map(([, id]) => state(id)));
-    expect(report.recovery.mergedXlm).not.toBeNull();
-    expect(toStroops(after[0]!.balance) - toStroops(before[0]!.balance)).toBe(
-      toStroops(report.recovery.mergedXlm!),
-    );
-    expect(after[1]!.numSponsoring).toBe(0);
-    expect(JSON.stringify(report)).not.toContain(keys.secrets.fixture);
-    expect(JSON.stringify(report)).not.toContain(keys.secrets.sponsor);
-
+    // Secrets in every form a leak could take: StrKey, and the raw 32-byte seed as hex and base64.
+    const forbidden = Object.values(keys.secrets).flatMap((secret) => {
+      // SDK 17.1.0 returns a Uint8Array here, like hash() and sign() (docs/progress-log.md).
+      const raw = Buffer.from(Keypair.fromSecret(secret).rawSecretKey());
+      return [secret, raw.toString("hex"), raw.toString("base64")];
+    });
     if (writeEvidence) {
       const dir = writeCloseEvidence(
         {
@@ -121,9 +107,37 @@ describeTestnet("executeClose (live testnet)", () => {
           })),
           ledgers: { before: ledgerBefore, after: (await latestLedger(client)).sequence },
         },
-        { root: "evidence/runs", forbidden: Object.values(keys.secrets) },
+        { root: "evidence/runs", forbidden },
       );
       console.log(`Close evidence written to ${dir}`);
     }
+
+    expect(report.message).toBeNull();
+    expect(report.status).toBe("closed");
+    expect(report.verification).toMatchObject({ accountExists: false, horizonStatus: 404 });
+    expect(accountAfter.status).toBe(404);
+    // Every transaction on the ledger is a fee bump paid by the sponsor, sourced by the closed
+    // account. The report keeps every submitted envelope (E2-S3): one refused before inclusion or
+    // rebuilt after its time bound passed is not on the ledger, so it has no Horizon record.
+    report.transactions.forEach((t, i) => {
+      const record = records[i]!.record;
+      if (t.result === "applied" || t.result === "failed") {
+        expect(record).toMatchObject({
+          fee_account: a.sponsor,
+          source_account: a.fixture,
+          successful: t.result === "applied",
+        });
+      } else {
+        expect(record).toBeNull();
+      }
+    });
+    expect(report.transactions.filter((t) => t.result === "applied").length).toBeGreaterThan(0);
+    // The destination received exactly the merged amount; the reserve sponsor got its reserve back.
+    expect(report.recovery.mergedXlm).not.toBeNull();
+    expect(toStroops(after[0]!.balance) - toStroops(before[0]!.balance)).toBe(
+      toStroops(report.recovery.mergedXlm!),
+    );
+    expect(after[1]!.numSponsoring).toBe(0);
+    for (const secret of forbidden) expect(JSON.stringify(report)).not.toContain(secret);
   }, 600_000);
 });

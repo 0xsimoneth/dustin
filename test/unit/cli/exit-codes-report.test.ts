@@ -45,6 +45,21 @@ describe("exitCodeForReport (canonical decision 5)", () => {
     expect(code("EXECUTION_INTERRUPTED")).toBe(5);
   });
 
+  it("maps an interruption before any submission to 1, and an over-budget refusal to 2", () => {
+    const interrupted = new DustinError("EXECUTION_INTERRUPTED", "signer threw", {
+      stage: "build",
+    }).withReport({ transactions: [] } as unknown as CloseReport);
+    expect(exitCodeFor(interrupted)).toBe(ExitCode.UNEXPECTED);
+    const overBudget: Parameters<typeof exitCodeForReport>[0] = {
+      status: "aborted",
+      verification: null,
+      transactions: [],
+      stop: { code: "OVER_BUDGET", stage: "sponsor", verdict: "stop", detail: "fees rose" },
+    };
+    expect(exitCodeForReport(overBudget)).toBe(ExitCode.USAGE);
+    expect(exitCodeForReport({ ...overBudget, stop: null })).toBe(ExitCode.NOTHING_EXECUTED);
+  });
+
   it("maps any error whose report holds a submitted transaction to 5, whatever its stage", () => {
     // A reader failing mid-run keeps stage "inspect"; without the report it would read as 6.
     const bare = new DustinError("HORIZON_UNAVAILABLE", "down", { stage: "inspect" });

@@ -154,6 +154,19 @@ describe("renderReport", () => {
     within120(text);
   });
 
+  it("does not say the run stopped before the close when the merge applied but was not verified", async () => {
+    const { report, plans } = await run();
+    const unverified = structuredClone(report);
+    unverified.status = "failed";
+    unverified.recovery.mergedXlm = "4.0000007";
+    unverified.verification = null;
+    const text = renderReport(unverified, { plans });
+    expect(text.split("\n")[0]).toContain(
+      "FAILED: the merge applied, but the account was not verified gone",
+    );
+    expect(text).not.toContain("stopped before the account was closed");
+  });
+
   it("prints a partial run with the unclosable items and their remedies", async () => {
     const { report, plans } = await run(
       (ledger) => {

@@ -2,9 +2,9 @@ import { PassThrough } from "node:stream";
 import { describe, expect, it } from "vitest";
 import { terminalPrompt } from "../../../src/cli/prompt.js";
 
-function terminal(isTTY = true) {
+function terminal(isTTY = true, outputIsTTY = true) {
   const input = Object.assign(new PassThrough(), { isTTY });
-  const output = new PassThrough();
+  const output = Object.assign(new PassThrough(), { isTTY: outputIsTTY });
   const written: string[] = [];
   output.on("data", (chunk: Buffer) => written.push(chunk.toString("utf8")));
   return { input, output, written };
@@ -34,6 +34,12 @@ describe("terminalPrompt", () => {
 
   it("does not ask at all when the input is not a terminal", async () => {
     const t = terminal(false);
+    await expect(terminalPrompt(t)("? ")).resolves.toBeNull();
+    expect(t.written).toEqual([]);
+  });
+
+  it("does not ask when the output is redirected, so no answer lands in a log", async () => {
+    const t = terminal(true, false);
     await expect(terminalPrompt(t)("? ")).resolves.toBeNull();
     expect(t.written).toEqual([]);
   });

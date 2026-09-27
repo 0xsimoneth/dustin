@@ -117,6 +117,10 @@ export function buildProgram(
     .option("--execute", "sign and submit the plan after confirmation")
     .option("--yes", "skip the typed confirmation (only honoured with --execute)")
     .option("--partial", "proceed even if some items are unclosable; the account is not merged")
+    .option(
+      "--sponsor <sponsor>",
+      "G... address of the fee sponsor for the fee attribution; with --execute, it must own DUSTIN_SPONSOR_SECRET",
+    )
     .option("--prefer-destination", "try the destination transfer before the return to issuer")
     .option("--memo <memo>", "memo for destinations that require one (SEP-29)")
     .option(
