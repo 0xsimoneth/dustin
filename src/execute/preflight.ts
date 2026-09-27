@@ -34,10 +34,14 @@ function memoRequired(account: HorizonAccount): boolean {
 export async function mergePreflight(
   reader: LedgerReader,
   plan: ClosePlan,
-  options: { mergeOnly: boolean },
+  options: {
+    mergeOnly: boolean;
+    /** Reads the account; the executor waits out a Horizon behind its own transactions (E4). */
+    readAccount?: () => Promise<HorizonAccount | null>;
+  },
 ): Promise<PreflightResult> {
   const [account, destination, ledger] = await Promise.all([
-    reader.account(plan.account),
+    options.readAccount ? options.readAccount() : reader.account(plan.account),
     reader.account(destinationBaseAccount(plan.destination)),
     reader.latestLedger(),
   ]);

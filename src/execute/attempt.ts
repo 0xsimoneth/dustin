@@ -1,4 +1,5 @@
 import type { ErrorStage } from "../errors/dustin-error.js";
+import type { HorizonAccount } from "../inspect/horizon-types.js";
 import type { ClosePlan, CloseStep, PlannedTransaction } from "../plan/model.js";
 import type { LedgerReader } from "../reader/ledger-reader.js";
 import { hashHex } from "../sponsor/fee-bump.js";
@@ -40,6 +41,11 @@ export interface AttemptContext {
   plan: ClosePlan;
   round: number;
   reader: LedgerReader;
+  /**
+   * Reads the closing account, read again after a short wait when it lags the transactions this
+   * run saw included (edge case E3).
+   */
+  account(): Promise<HorizonAccount | null>;
   submitter: Submitter;
   accountSigner: Signer;
   sponsor: FeeSponsor;
@@ -137,7 +143,7 @@ export async function submitPlannedTransaction(
   const label = `Transaction ${tx.index + 1} (${tx.phase})`;
 
   ctx.enter("build");
-  const account = await ctx.reader.account(plan.account);
+  const account = await ctx.account();
   if (!account) {
     return stop(
       "ACCOUNT_MISSING",
@@ -353,7 +359,7 @@ export async function submitPlannedTransaction(
             reason: `${label} was refused with tx_bad_seq while an earlier envelope of it (${short(unseen.at(-1)!.hash)}) was never seen on the ledger, so the rest is planned again from the ledger instead of sending the same operations at a new sequence number.`,
           };
         }
-        const fresh = await ctx.reader.account(plan.account);
+        const fresh = await ctx.account();
         if (!fresh) {
           return stop("ACCOUNT_MISSING", "stop", `The account ${plan.account} no longer exists.`);
         }

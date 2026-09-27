@@ -7,6 +7,7 @@ import {
   type ResolvedConfig,
 } from "../config/network.js";
 import { DustinError, type ErrorStage } from "../errors/dustin-error.js";
+import type { HorizonAccount } from "../inspect/horizon-types.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
 import { assetKey } from "../inspect/snapshot.js";
 import type { ClosePlan, CloseStep, PlannedTransaction } from "../plan/model.js";
@@ -445,6 +446,7 @@ class CloseRun {
       plan,
       round: this.round,
       reader: this.input.reader,
+      account: () => this.freshAccount(),
       submitter: this.input.submitter,
       accountSigner: this.input.signers.account,
       sponsor: this.sponsor!,
@@ -518,6 +520,7 @@ class CloseRun {
     this.stage = "merge";
     const preflight = await mergePreflight(this.input.reader, current, {
       mergeOnly: steps.every((s) => s.kind === "merge"),
+      readAccount: () => this.freshAccount(),
     });
     this.emit({ type: "preflight", index: tx.index, ok: preflight.ok, detail: preflight.detail });
     if (preflight.ok) return null;
@@ -532,6 +535,28 @@ class CloseRun {
         ? { unblocksAtLedger: preflight.unblocksAtLedger }
         : {}),
     };
+  }
+
+  /**
+   * The closing account as Horizon has it. Instances behind one address can lag each other: a read
+   * whose sequence number is below one this run saw used by its own included transactions comes
+   * from a Horizon behind the one that took them, so it is read again after a short wait, at most
+   * five times, and the last read is used as it is (edge cases E3, E4). Waiting costs a few
+   * seconds; acting on the stale read would build at a used sequence number or refuse a clean merge.
+   */
+  private async freshAccount(): Promise<HorizonAccount | null> {
+    const used = this.report.transactions.reduce(
+      (most, t) =>
+        (t.result === "applied" || t.result === "failed") && BigInt(t.sequence) > most
+          ? BigInt(t.sequence)
+          : most,
+      0n,
+    );
+    for (let read = 1; ; read++) {
+      const account = await this.input.reader.account(this.input.plan.account);
+      if (!account || BigInt(account.sequence) >= used || read >= 5) return account;
+      await this.settings.sleep(this.settings.pollIntervalMs);
+    }
   }
 
   private outcomeFor(step: CloseStep): StepOutcome {

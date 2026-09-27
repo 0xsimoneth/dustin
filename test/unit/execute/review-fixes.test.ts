@@ -739,3 +739,42 @@ describe("edge case E11: numeric execute options are checked before anything is 
     expect(report.status).toBe("closed");
   });
 });
+
+describe("edge cases E3, E4: an account read behind the run's own transactions is read again", () => {
+  /** A Horizon behind the one that took transaction `index` serves the account as it was before it. */
+  function lagAfter(index: number, reads: number) {
+    let copy: unknown = null;
+    let left = 0;
+    const h = harness((_l, fetch) => (url, init) => {
+      const reading = (init?.method ?? "GET") === "GET";
+      if (reading && left > 0 && url.endsWith(`/accounts/${messy.fixture}`)) {
+        left -= 1;
+        return Promise.resolve(new Response(JSON.stringify(copy)));
+      }
+      return fetch(url, init);
+    });
+    const onEvent = (e: CloseEvent) => {
+      if (e.type === "tx:building" && e.index === index && copy === null) {
+        copy = structuredClone(h.ledger.accounts.get(messy.fixture));
+      }
+      if (e.type === "tx:confirmed" && e.index === index) left = reads;
+    };
+    return { ...h, onEvent };
+  }
+
+  it("E3: does not build the next transaction at a sequence number the run already used", async () => {
+    const { ledger, deps, plan, onEvent } = lagAfter(0, 2);
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps, onEvent });
+    expect(report.status).toBe("closed");
+    // Transaction 2 was built once, at the right sequence number.
+    expect(report.transactions.filter((t) => t.index === 1)).toHaveLength(1);
+    expect(ledger.submissions).toHaveLength(3);
+  });
+
+  it("E4: does not refuse the merge for leftovers a lagging read still shows", async () => {
+    const { deps, plan, onEvent } = lagAfter(1, 1);
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps, onEvent });
+    expect(report.stop).toBeNull();
+    expect(report.status).toBe("closed");
+  });
+});
