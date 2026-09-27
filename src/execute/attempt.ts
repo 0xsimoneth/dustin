@@ -302,6 +302,12 @@ export async function submitPlannedTransaction(
         continue;
       }
       case "resequence": {
+        // First, an earlier envelope of this transaction that was never seen on the ledger may be
+        // what used the sequence number: look it up before anything else, the second time too
+        // (edge case E1), so an applied envelope is never reported as a conflict.
+        const unseen = envelopes.slice(0, -1).filter((e) => e.result === "unknown");
+        const earlier = await findEarlier(ctx, unseen);
+        if (earlier) return earlier;
         badSeq += 1;
         if (badSeq >= 2) {
           return stop(
@@ -311,9 +317,6 @@ export async function submitPlannedTransaction(
             { hash, resultCodes: outcome.codes },
           );
         }
-        const unseen = envelopes.slice(0, -1).filter((e) => e.result === "unknown");
-        const earlier = await findEarlier(ctx, unseen);
-        if (earlier) return earlier;
         if (unseen.length > 0) {
           // Still not seen: the operations may have applied with it, so sending them again at the
           // account's new sequence number could apply them twice. Plan the rest from the ledger.

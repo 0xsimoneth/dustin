@@ -449,3 +449,40 @@ describe("AC-E2-S3-4: a step that fails twice is reported as a blocker", () => {
     expect(text).toMatch(/Not closed[\s\S]*STEP_FAILED_TWICE/);
   });
 });
+
+// Edge-case review of the executor (E1-E11), reproduced from its probes on the injected clock.
+const BAD_SEQ = answer({
+  transaction: "tx_fee_bump_inner_failed",
+  inner_transaction: "tx_bad_seq",
+});
+
+describe("edge case E1: a second tx_bad_seq looks the envelopes up before stopping", () => {
+  it("finds the envelope that applied at the re-read sequence instead of reporting a conflict", async () => {
+    let hidden: string | null = null;
+    const { ledger, deps, plan } = harness(
+      (l, fetch) => (url, init) =>
+        // The lookup source lags: attempt 2's record is invisible until attempt 3 has been posted.
+        hidden && l.submissions.length < 3 && url.endsWith(`/transactions/${hidden}`)
+          ? reply(404)
+          : fetch(url, init),
+    );
+    ledger.faults.push(BAD_SEQ, "504-applied");
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 2) hidden = e.hash;
+      },
+    });
+    const attempt2 = report.transactions.find(
+      (t) => t.round === 0 && t.index === 0 && t.attempt === 2,
+    )!;
+    expect(attempt2.result).toBe("applied");
+    expect(report.steps.find((s) => s.stepId === "S01")).toMatchObject({
+      status: "applied",
+      txHash: attempt2.hash,
+    });
+    expect(report.stop).toBeNull();
+    expect(report.status).toBe("closed");
+  });
+});
