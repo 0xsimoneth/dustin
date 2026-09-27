@@ -199,7 +199,7 @@ export async function submitPlannedTransaction(
       index: tx.index,
       phase: tx.phase,
       stepIds: tx.stepIds,
-      attempts: 1,
+      attempts: 0,
       attempt,
       round: ctx.round,
       sequence: inner.sequence,
@@ -230,17 +230,10 @@ export async function submitPlannedTransaction(
     ctx.enter("submit");
     const outcome = await postWithBackoff(ctx, entry, maxTime);
     recordOutcome(entry, outcome);
+    // An applied transaction is published by the orchestrator once it has recorded the steps
+    // (and the merge), so no observer ever sees it half recorded (review finding 3).
+    if (outcome.kind === "applied") return { kind: "applied", entry, resultXdr: outcome.resultXdr };
     ctx.changed();
-    if (outcome.kind === "applied") {
-      ctx.emit({
-        type: "tx:confirmed",
-        index: tx.index,
-        hash,
-        ledger: outcome.ledger,
-        feeChargedStroops: outcome.feeChargedStroops,
-      });
-      return { kind: "applied", entry, resultXdr: outcome.resultXdr };
-    }
     ctx.emit({
       type: "tx:failed",
       index: tx.index,
@@ -319,7 +312,7 @@ export async function submitPlannedTransaction(
           );
         }
         const unseen = envelopes.slice(0, -1).filter((e) => e.result === "unknown");
-        const earlier = await findEarlier(ctx, tx, unseen);
+        const earlier = await findEarlier(ctx, unseen);
         if (earlier) return earlier;
         if (unseen.length > 0) {
           // Still not seen: the operations may have applied with it, so sending them again at the
@@ -343,7 +336,7 @@ export async function submitPlannedTransaction(
         // The closing account is gone: an earlier envelope of this transaction may have merged it
         // without the run seeing it (review finding 2). Nothing can be rebuilt for a missing account.
         const unseen = envelopes.slice(0, -1).filter((e) => e.result === "unknown");
-        const earlier = await findEarlier(ctx, tx, unseen);
+        const earlier = await findEarlier(ctx, unseen);
         if (earlier) return earlier;
         return stop(
           "ACCOUNT_MISSING",
@@ -368,7 +361,6 @@ export async function submitPlannedTransaction(
  */
 async function findEarlier(
   ctx: AttemptContext,
-  tx: PlannedTransaction,
   unseen: SubmittedTransaction[],
 ): Promise<TransactionOutcome | null> {
   for (const earlier of unseen) {
@@ -376,17 +368,10 @@ async function findEarlier(
     if (lookup.kind !== "found") continue;
     const found = outcomeFromRecord(earlier.hash, lookup.record);
     recordOutcome(earlier, found);
-    ctx.changed();
     if (found.kind === "applied") {
-      ctx.emit({
-        type: "tx:confirmed",
-        index: tx.index,
-        hash: earlier.hash,
-        ledger: found.ledger,
-        feeChargedStroops: found.feeChargedStroops,
-      });
       return { kind: "applied", entry: earlier, resultXdr: found.resultXdr };
     }
+    ctx.changed();
     if (found.kind === "failed") return { kind: "failed", entry: earlier, codes: found.codes };
   }
   return null;
@@ -405,6 +390,7 @@ async function postWithBackoff(
 ): Promise<SubmitOutcome> {
   const { settings } = ctx;
   for (let retry = 0; ; retry++) {
+    entry.attempts += 1;
     const outcome = await submitAndConfirm(
       ctx.submitter,
       { xdr: entry.feeBumpEnvelopeXdr, hash: entry.hash, maxTime },
@@ -419,8 +405,8 @@ async function postWithBackoff(
     );
     const limited = outcome.kind === "rejected" && outcome.status === 429;
     if (!limited || retry >= settings.maxRateLimitRetries) return outcome;
-    await settings.sleep(settings.backoffMs * 2 ** retry);
-    entry.attempts += 1;
+    // Published as it happens (AC-E2-S3-6): posted `attempts` times, still pending.
     ctx.changed();
+    await settings.sleep(settings.backoffMs * 2 ** retry);
   }
 }

@@ -181,11 +181,9 @@ export async function executeClose(
   // submitter is the caller's responsibility.
   if (!options.submitter) await verifyHorizonIsTestnet(config.horizonUrl);
   const submitter = options.submitter ?? horizonSubmitter(config.horizonUrl);
-  const emit = (event: CloseEvent) => options.onEvent?.(event);
 
   // Nothing has happened yet, so a failure to plan is thrown as it is.
   const fresh = await planClose(replanInput(plan, sponsorKey, options), { reader });
-  emit({ type: "plan", plan: fresh, round: 0 });
   return new CloseRun({
     plan,
     fresh,
@@ -195,7 +193,6 @@ export async function executeClose(
     config,
     reader,
     submitter,
-    emit,
   }).execute();
 }
 
@@ -210,7 +207,6 @@ interface RunInput {
   config: ResolvedConfig;
   reader: LedgerReader;
   submitter: Submitter;
-  emit: (event: CloseEvent) => void;
 }
 
 type AfterFailure = { kind: "replan"; plan: ClosePlan } | { kind: "stop"; stop: StopReason };
@@ -224,6 +220,7 @@ class CloseRun {
   private readonly appliedSteps: CloseStep[] = [];
   /** The steps each envelope carried, by hash: tells which envelopes carried the merge. */
   private readonly envelopeSteps = new Map<string, CloseStep[]>();
+  private readonly failedObservers = new Set<string>();
   /** Assets whose strict-send sale failed on the market during this run. */
   private readonly demoted = new Set<string>();
   private sponsor: FeeSponsor | null = null;
@@ -277,6 +274,7 @@ class CloseRun {
   async execute(): Promise<CloseReport> {
     try {
       this.publish();
+      this.emit({ type: "plan", plan: this.input.fresh, round: 0 });
       return await this.start();
     } catch (error) {
       throw this.interrupted(error);
@@ -293,7 +291,29 @@ class CloseRun {
         t.result === "applied" || t.result === "failed" ? sum + (t.feeChargedStroops ?? 0) : sum,
       0,
     );
-    this.input.options.onReport?.(structuredClone(this.report));
+    const { onReport } = this.input.options;
+    if (onReport) this.observe("onReport", () => onReport(structuredClone(this.report)));
+  }
+
+  private emit(event: CloseEvent): void {
+    const { onEvent } = this.input.options;
+    if (onEvent) this.observe("onEvent", () => onEvent(event));
+  }
+
+  /**
+   * Calls one of the caller's observers. An observer that throws must not stop a run that has
+   * already signed and submitted (review finding 3): its error becomes a warning, once per callback.
+   */
+  private observe(name: "onReport" | "onEvent", call: () => void): void {
+    try {
+      call();
+    } catch (error) {
+      if (this.failedObservers.has(name)) return;
+      this.failedObservers.add(name);
+      this.report.warnings.push(
+        `The caller's ${name} callback threw (${error instanceof Error ? error.message : String(error)}); the run went on without it.`,
+      );
+    }
   }
 
   private finish(status: CloseStatus, message: string | null, stop: StopReason | null) {
@@ -302,7 +322,7 @@ class CloseRun {
     this.report.stop = stop;
     this.report.finishedAt = this.timestamp();
     this.publish();
-    this.input.emit({ type: "done", status });
+    this.emit({ type: "done", status });
     return this.report;
   }
 
@@ -312,7 +332,7 @@ class CloseRun {
   }
 
   private async start(): Promise<CloseReport> {
-    const { plan, fresh, options, emit, sponsorKey } = this.input;
+    const { plan, fresh, options, sponsorKey } = this.input;
     if (fresh.blockers.some((b) => b.code === "ACCOUNT_MISSING")) {
       // A re-run after a completed close lands here (PRD FR-17): nothing to do, and the 404 is
       // the proof the account is gone.
@@ -332,7 +352,12 @@ class CloseRun {
     }
     if (fresh.planHash !== plan.planHash) {
       const action = options.onDrift ?? "abort";
-      emit({ type: "drift", action, previousPlanHash: plan.planHash, planHash: fresh.planHash });
+      this.emit({
+        type: "drift",
+        action,
+        previousPlanHash: plan.planHash,
+        planHash: fresh.planHash,
+      });
       if (action === "abort") {
         return this.abort({
           code: "PLAN_CHANGED",
@@ -424,7 +449,7 @@ class CloseRun {
         this.publish();
       },
       changed: () => this.publish(),
-      emit: this.input.emit,
+      emit: (event) => this.emit(event),
       enter: (stage) => {
         this.stage = stage;
       },
@@ -446,7 +471,7 @@ class CloseRun {
           const preflight = await mergePreflight(this.input.reader, current, {
             mergeOnly: steps.every((s) => s.kind === "merge"),
           });
-          this.input.emit({
+          this.emit({
             type: "preflight",
             index: tx.index,
             ok: preflight.ok,
@@ -523,7 +548,15 @@ class CloseRun {
       const merged = mergeAmountFromResultXdr(outcome.resultXdr);
       this.report.recovery.mergedXlm = merged === null ? null : formatStroops(merged);
     }
+    // Observers hear of it only now, with the steps and the merge recorded (review finding 3).
     this.publish();
+    this.emit({
+      type: "tx:confirmed",
+      index: outcome.entry.index,
+      hash: outcome.entry.hash,
+      ledger: outcome.entry.ledger ?? 0,
+      feeChargedStroops: outcome.entry.feeChargedStroops ?? 0,
+    });
   }
 
   /**
@@ -674,11 +707,11 @@ class CloseRun {
       if (!this.report.warnings.includes(warning)) this.report.warnings.push(warning);
     }
     this.publish();
-    this.input.emit({ type: "plan", plan: next, round: this.round });
+    this.emit({ type: "plan", plan: next, round: this.round });
 
     if (drift.length > 0) {
       const action = options.onDrift ?? "abort";
-      this.input.emit({
+      this.emit({
         type: "drift",
         action,
         previousPlanHash: fresh.planHash,
@@ -706,9 +739,19 @@ class CloseRun {
     return { kind: "replan", plan: next };
   }
 
+  /** An applied envelope that carried the merge, in case the run stopped before recording it. */
+  private mergeInReport(): { hash: string; ledger: number } | null {
+    const entry = this.report.transactions.find(
+      (t) =>
+        t.result === "applied" &&
+        (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
+    );
+    return entry ? { hash: entry.hash, ledger: entry.ledger ?? 0 } : null;
+  }
+
   /** A stop during the run: `failed` once something was submitted, `aborted` if not. */
   private async stopped(stop: StopReason): Promise<CloseReport> {
-    if (this.report.transactions.length === 0) return this.abort(stop);
+    if (!this.report.transactions.some((t) => t.attempts > 0)) return this.abort(stop);
     const closed = await this.closedUnseen(await this.verify());
     if (closed) return closed;
     this.recoverReserves();
@@ -777,13 +820,6 @@ class CloseRun {
         entry,
         resultXdr: found.resultXdr,
       });
-      this.input.emit({
-        type: "tx:confirmed",
-        index: entry.index,
-        hash: entry.hash,
-        ledger: found.ledger,
-        feeChargedStroops: found.feeChargedStroops,
-      });
       this.recoverReserves();
       return this.finish("closed", null, null);
     }
@@ -807,7 +843,7 @@ class CloseRun {
       now: this.settings.now,
     });
     this.report.verification = v;
-    this.input.emit({ type: "verified", accountExists: v.accountExists });
+    this.emit({ type: "verified", accountExists: v.accountExists });
     return v;
   }
 
@@ -859,7 +895,9 @@ class CloseRun {
             `The close stopped on an unexpected error: ${error instanceof Error ? error.message : String(error)}.`,
             { stage: this.stage, cause: error },
           );
-    const submitted = this.report.transactions.length;
+    // An envelope counts only once its POST started; one recorded but never posted does not.
+    const submitted = this.report.transactions.filter((t) => t.attempts > 0).length;
+    this.merge ??= this.mergeInReport();
     // `stage` says where the run was; the thrown error keeps the stage it was raised with (a read
     // that fails while transaction 2 is built reports "inspect" on the error, "build" here).
     const stop: StopReason = {

@@ -230,3 +230,59 @@ describe("review finding 2: a merge that applied unseen is still a close", () =>
     expect(report.recovery.mergedXlm).toBeNull();
   });
 });
+
+describe("review finding 3: a throwing observer cannot lose the merge", () => {
+  it("keeps the close when onReport throws once the merge's outcome is published", async () => {
+    const { deps, plan } = harness();
+    let thrown = 0;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onReport: (r) => {
+        const merged = r.transactions.some((t) => t.phase === "merge" && t.result === "applied");
+        if (merged && thrown++ === 0) throw new Error("disk full");
+      },
+    });
+    expect(report.status).toBe("closed");
+    expect(report.steps.find((s) => s.stepId === "S12")).toMatchObject({ status: "applied" });
+    expect(report.warnings.join(" ")).toMatch(/onReport callback threw \(disk full\)/);
+  });
+
+  it("keeps the close when onEvent throws on the merge's confirmation", async () => {
+    const { deps, plan } = harness();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 2) throw new Error("terminal gone");
+      },
+    });
+    expect(report.status).toBe("closed");
+    expect(report.steps.find((s) => s.stepId === "S12")).toMatchObject({ status: "applied" });
+    expect(report.warnings.join(" ")).toMatch(/onEvent callback threw \(terminal gone\)/);
+  });
+
+  it("does not count an envelope that was never posted as submitted", async () => {
+    const { ledger, deps, plan } = harness();
+    const pending: number[] = [];
+    let thrown = false;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onReport: (r) => {
+        const last = r.transactions.at(-1);
+        if (last?.result !== "pending") return;
+        pending.push(last.attempts);
+        if (!thrown) {
+          thrown = true;
+          throw new Error("disk full");
+        }
+      },
+    });
+    expect(report.status).toBe("closed");
+    // Published before its POST, an envelope has been posted 0 times.
+    expect(pending.every((n) => n === 0)).toBe(true);
+    expect(report.transactions.every((t) => t.attempts === 1)).toBe(true);
+    expect(ledger.submissions).toHaveLength(3);
+  });
+});
