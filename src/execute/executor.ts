@@ -75,7 +75,8 @@ export interface ExecuteOptions {
   /**
    * Called with a copy of the report whenever it changes (created, each submission attempt, each
    * outcome, each re-plan, finished, and right before an error is thrown), so a caller can persist
-   * it while the run progresses (PRD FR-17, AC-E2-S3-6).
+   * it while the run progresses (PRD FR-17, AC-E2-S3-6). Copies carry the status `running` until
+   * the run finishes; the last copy carries the final status (blind review BH1).
    */
   onReport?: (report: CloseReport) => void;
   config?: DustinConfig;
@@ -221,6 +222,9 @@ interface RunInput {
 
 type AfterFailure = { kind: "replan"; plan: ClosePlan } | { kind: "stop"; stop: StopReason };
 
+/** The statuses a finished run can have: `running` is for copies published before the end. */
+type FinalStatus = Exclude<CloseStatus, "running">;
+
 /** One execution: the report, the plan rounds and what applied so far. */
 class CloseRun {
   private readonly report: CloseReport;
@@ -251,7 +255,8 @@ class CloseRun {
       destination: plan.destination,
       feeSponsor: sponsorKey,
       planHash: fresh.planHash,
-      status: "aborted",
+      // Until finish() sets the outcome, every published copy says the run is in progress.
+      status: "running",
       message: null,
       stop: null,
       startedAt: new Date((options.now ?? Date.now)()).toISOString(),
@@ -330,7 +335,7 @@ class CloseRun {
     }
   }
 
-  private finish(status: CloseStatus, message: string | null, stop: StopReason | null) {
+  private finish(status: FinalStatus, message: string | null, stop: StopReason | null) {
     this.report.status = status;
     this.report.message = message;
     this.report.stop = stop;
@@ -1076,7 +1081,7 @@ class CloseRun {
       round: this.round,
     };
     const accountUrl = `${this.input.config.explorerBaseUrl}/account/${this.input.plan.account}`;
-    const [status, message]: [CloseStatus, string] = this.merge
+    const [status, message]: [FinalStatus, string] = this.merge
       ? [
           "closed",
           `The merge applied in ledger ${this.merge.ledger} (${this.merge.hash}), but the run was interrupted before the account was verified gone (${err.code}): ${err.message} Check ${accountUrl}.`,

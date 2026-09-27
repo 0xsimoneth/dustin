@@ -837,3 +837,29 @@ describe("edge case E9: reserves returned to sponsors come from the removals tha
     expect(report.recovery.reservesReturnedToSponsors).toContainEqual(accountEntry);
   });
 });
+
+// Items of the blind adversarial review of the executor (2026-09-27).
+
+describe("blind review BH1: a copy of a run in progress says it is running", () => {
+  it("publishes status running until the run finishes; the returned report never has it", async () => {
+    const { deps, plan } = harness();
+    const copies: Array<{ status: string; finished: boolean; merged: boolean }> = [];
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onReport: (r) =>
+        copies.push({
+          status: r.status,
+          finished: r.finishedAt !== null,
+          merged: r.steps.some((s) => s.stepId === "S12" && s.status === "applied"),
+        }),
+    });
+    const inProgress = copies.filter((c) => !c.finished);
+    expect(inProgress.length).toBeGreaterThan(3);
+    expect(new Set(inProgress.map((c) => c.status))).toEqual(new Set(["running"]));
+    // A copy saved after the merge applied and before the final check does not say "aborted".
+    expect(inProgress.some((c) => c.merged)).toBe(true);
+    expect(copies.at(-1)).toEqual({ status: "closed", finished: true, merged: true });
+    expect(report.status).toBe("closed");
+  });
+});

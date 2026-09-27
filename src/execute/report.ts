@@ -3,7 +3,24 @@ import type { DustinErrorCode, ErrorStage, ErrorVerdict } from "../errors/dustin
 import type { Blocker, DisposalRung, TransactionPhase, UnclosableItem } from "../plan/model.js";
 import type { ResultCodes, SubmitOutcome } from "./submit.js";
 
-export type CloseStatus = "closed" | "partial" | "aborted" | "failed";
+/**
+ * How a close ended. A returned report, and the one a thrown DustinError carries, always has one
+ * of the four final statuses. `running` appears only in the copies published through `onReport`
+ * (and so in the CLI's `--report` file) while the run is in progress, so a copy left behind by a
+ * run that was killed says it never finished instead of claiming an outcome (blind review BH1).
+ *
+ * - `closed`: a merge of this run applied, seen by hash or proven by the account being gone after
+ *   this run posted it. It does not by itself say the account was verified gone: a verified close
+ *   is `closed` with `verification.accountExists === false`, while `closed` with `verification`
+ *   null means the run was interrupted after the merge and before the final check (edge case
+ *   E10). The CLI exits 0 only for a verified close.
+ * - `partial`: everything that could run ran; the account still exists because of the unclosable
+ *   items and blockers.
+ * - `aborted`: the run stopped before submitting anything.
+ * - `failed`: the run stopped part-way, after something was submitted; running the close again
+ *   continues from the ledger.
+ */
+export type CloseStatus = "running" | "closed" | "partial" | "aborted" | "failed";
 
 /**
  * One submitted envelope. A planned transaction can have several: a rebuild after an expiry, a

@@ -48,7 +48,7 @@ describe("executeClose on the fake ledger", () => {
           finished: r.finishedAt !== null,
         }),
     });
-    expect(copies[0]).toEqual({ status: "aborted", transactions: 0, finished: false });
+    expect(copies[0]).toEqual({ status: "running", transactions: 0, finished: false });
     expect(copies.at(-1)).toEqual({ status: "closed", transactions: 3, finished: true });
     // Each submission is published before its outcome is known.
     expect(copies.some((c) => c.transactions === 1 && !c.finished)).toBe(true);
