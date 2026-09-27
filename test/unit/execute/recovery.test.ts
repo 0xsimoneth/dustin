@@ -10,7 +10,7 @@ import type { Signer } from "../../../src/sponsor/signer.js";
 import { FakeLedger } from "../../helpers/fake-ledger.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
-import { recordIncludedFaults } from "./harness.js";
+import { recordIncludedFaults, staleAccountOnce } from "./harness.js";
 
 // The fake ledger does not verify signatures, so signers only need the right public keys.
 const signerFor = (publicKey: string): Signer => ({
@@ -335,24 +335,31 @@ describe("E2-S3: envelopes refused before inclusion", () => {
 
   it("after tx_bad_seq, finds an earlier envelope that applied after all instead of rebuilding", async () => {
     let hidden: string | null = null;
-    const { ledger, deps, plan } = setup((l) => (url, init) => {
-      // Horizon lags: the first envelope's record shows up only after the second was posted.
-      if (hidden && url.endsWith(`/transactions/${hidden}`)) {
-        return Promise.resolve(new Response(JSON.stringify({ status: 404 }), { status: 404 }));
-      }
-      if ((init?.method ?? "GET") === "POST" && l.submissions.length === 1) {
-        const settle = l.fetch(url, init);
-        hidden = null;
-        return settle;
-      }
-      return l.fetch(url, init);
-    });
+    // The account read that checks the 404 lags too, so the 404 is trusted (edge case E5).
+    const stale = staleAccountOnce(messy.fixture);
+    const { ledger, deps, plan } = setup((l) =>
+      stale.wrap((url, init) => {
+        // Horizon lags: the first envelope's record shows up only after the second was posted.
+        if (hidden && url.endsWith(`/transactions/${hidden}`)) {
+          return Promise.resolve(new Response(JSON.stringify({ status: 404 }), { status: 404 }));
+        }
+        if ((init?.method ?? "GET") === "POST" && l.submissions.length === 1) {
+          const settle = l.fetch(url, init);
+          hidden = null;
+          return settle;
+        }
+        return l.fetch(url, init);
+      }),
+    );
     ledger.faults.push("504-applied");
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
       onEvent: (e) => {
-        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 1) hidden = e.hash;
+        if (e.type === "tx:submitted" && e.round === 0 && e.index === 0 && e.attempt === 1) {
+          hidden = e.hash;
+          stale.arm(ledger);
+        }
       },
     });
     expect(report.status).toBe("closed");

@@ -27,7 +27,14 @@ export type SubmitOutcome =
       resultXdr?: string;
     }
   | { kind: "rejected"; hash: string; status: number; codes: ResultCodes }
-  | { kind: "unknown"; hash: string; mayStillApply?: boolean; lookupError?: string };
+  | {
+      kind: "unknown";
+      hash: string;
+      mayStillApply?: boolean;
+      lookupError?: string;
+      /** Horizon answered 404, but the account shows the envelope's sequence number used. */
+      sequenceUsed?: boolean;
+    };
 
 export interface TransactionRecord {
   hash: string;
@@ -247,6 +254,12 @@ export interface ConfirmOptions {
   ledgerCloseTime?: () => Promise<number>;
   /** How long to wait, beyond the time bound and the grace, for such a ledger; default 60 s. */
   ledgerWaitSeconds?: number;
+  /**
+   * Whether the envelope's sequence number has been used, read from the account. A 404 is trusted
+   * only when it has not: Horizon instances behind one address can lag each other, and a 404 carries
+   * no ledger to tell (edge case E5).
+   */
+  sequenceUsed?: () => Promise<boolean>;
 }
 
 /**
@@ -364,7 +377,13 @@ async function confirmByLedgerClock(
   for (;;) {
     const found = await lookupTransaction(submitter, envelope.hash);
     if (found.kind === "found") return outcomeFromRecord(envelope.hash, found.record);
-    if (pastBound && found.kind === "missing") return { kind: "unknown", hash: envelope.hash };
+    if (pastBound && found.kind === "missing") {
+      // A 404 the account contradicts comes from a Horizon behind the one that read the account.
+      if (options.sequenceUsed && (await options.sequenceUsed())) {
+        return { kind: "unknown", hash: envelope.hash, sequenceUsed: true };
+      }
+      return { kind: "unknown", hash: envelope.hash };
+    }
     firstClose ??= await ledgerCloseTime();
     const waited = now() - started;
     if (

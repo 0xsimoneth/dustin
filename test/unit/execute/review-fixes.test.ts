@@ -3,7 +3,15 @@ import { executeClose, type CloseEvent } from "../../../src/execute/executor.js"
 import { renderReport } from "../../../src/render/report-text.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
 import { messy } from "../../helpers/snapshots.js";
-import { answer, failedOps, harness, included, reply, signers } from "./harness.js";
+import {
+  answer,
+  failedOps,
+  harness,
+  included,
+  reply,
+  signers,
+  staleAccountOnce,
+} from "./harness.js";
 
 // Findings of the independent review of the E2-S3 executor (2026-09-26). Every test here runs on
 // an injected clock: no fake global Date, no real waiting.
@@ -43,17 +51,23 @@ describe("review finding 1: a failed lookup by hash proves nothing", () => {
 
   it("re-plans instead of sending the same operations at a new sequence after tx_bad_seq", async () => {
     let lost: string | null = null;
-    const { ledger, deps, plan } = harness(
-      (_l, fetch) => (url, init) =>
+    // The account read that checks the 404 lags too, so the 404 is trusted (edge case E5).
+    const stale = staleAccountOnce(messy.fixture);
+    const { ledger, deps, plan } = harness((_l, fetch) =>
+      stale.wrap((url, init) =>
         // Horizon loses the first envelope's record: its lookups keep answering 404.
         lost && url.endsWith(`/transactions/${lost}`) ? reply(404) : fetch(url, init),
+      ),
     );
     ledger.faults.push("504-applied");
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
       onEvent: (e) => {
-        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 1) lost = e.hash;
+        if (e.type === "tx:submitted" && e.round === 0 && e.index === 0 && e.attempt === 1) {
+          lost = e.hash;
+          stale.arm(ledger);
+        }
       },
     });
     const round0tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
@@ -166,18 +180,24 @@ describe("review finding 2: a merge that applied unseen is still a close", () =>
    * The merge's first envelope applies but Horizon answers 504 and then 404 for its hash (it lost
    * the record); `reveal` decides when the record shows up again.
    */
-  function lostMerge(reveal: (ledger: FakeLedger) => boolean) {
+  function lostMerge(reveal: (ledger: FakeLedger) => boolean, lagging = false) {
     let merge: string | null = null;
-    const h = harness(
-      (l, fetch) => (url, init) =>
+    // With `lagging`, the account read that checks the 404 still shows the account, so the 404
+    // is trusted and the merge rebuilt (edge case E5); otherwise the missing account says the
+    // merge's sequence number was used, and the run re-plans.
+    const stale = staleAccountOnce(messy.fixture);
+    const h = harness((l, fetch) =>
+      stale.wrap((url, init) =>
         merge && url.endsWith(`/transactions/${merge}`) && !reveal(l)
           ? reply(404)
           : fetch(url, init),
+      ),
     );
     const onEvent = (e: CloseEvent) => {
       if (e.type === "tx:submitted" && e.index === 2 && e.attempt === 1) {
         merge = e.hash;
         h.ledger.faults.push("504-applied");
+        if (lagging) stale.arm(h.ledger);
       }
     };
     return { ...h, onEvent };
@@ -187,7 +207,7 @@ describe("review finding 2: a merge that applied unseen is still a close", () =>
     // Horizon finds the first envelope again once the rebuild's preflight has found the account
     // gone (edge case E2 runs the preflight before any rebuild of the merge).
     let blocked = false;
-    const { ledger, deps, plan, onEvent } = lostMerge(() => blocked);
+    const { ledger, deps, plan, onEvent } = lostMerge(() => blocked, true);
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
@@ -408,19 +428,23 @@ describe("review finding 5: a re-plan must fit what is left of the budget", () =
 describe("branches the review found untested", () => {
   it("after tx_bad_seq, takes an earlier envelope found failed on the ledger as the outcome", async () => {
     let hidden: string | null = null;
-    const { ledger, deps, plan } = harness((l, fetch) => (url, init) => {
-      if (hidden && url.endsWith(`/transactions/${hidden}`) && l.submissions.length < 2) {
-        return reply(404);
-      }
-      return fetch(url, init);
-    });
+    const stale = staleAccountOnce(messy.fixture);
+    const { ledger, deps, plan } = harness((l, fetch) =>
+      stale.wrap((url, init) => {
+        if (hidden && url.endsWith(`/transactions/${hidden}`) && l.submissions.length < 2) {
+          return reply(404);
+        }
+        return fetch(url, init);
+      }),
+    );
     ledger.faults.push("504-applied");
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
       onEvent: (e) => {
-        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 1) {
+        if (e.type === "tx:submitted" && e.round === 0 && e.index === 0 && e.attempt === 1) {
           hidden = e.hash;
+          stale.arm(ledger);
           // The offers are gone, so the first envelope fails on the ledger (and uses the sequence).
           ledger.offers.set(messy.fixture, []);
         }
@@ -529,7 +553,7 @@ describe("edge case E7: a refused envelope's bid does not stay counted after a r
       ...deps,
       onEvent: (e) => {
         // Another client uses the account's next sequence number while the envelope is in flight.
-        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 1) {
+        if (e.type === "tx:submitted" && e.round === 0 && e.index === 0 && e.attempt === 1) {
           const account = ledger.accounts.get(messy.fixture)!;
           account.sequence = (BigInt(account.sequence) + 1n).toString();
         }
@@ -602,5 +626,38 @@ describe("edge case E6: included or refused is decided by the ledger, not by the
     expect(tx0).toHaveLength(1);
     expect(tx0[0]).toMatchObject({ result: "failed", feeChargedStroops: 1000 });
     expect(ledger.submissions).toHaveLength(1);
+  });
+});
+
+describe("edge case E5: a 404 contradicted by the account's sequence number is not trusted", () => {
+  it("re-plans instead of rebuilding, and records the envelope once Horizon finds it", async () => {
+    let hidden: string | null = null;
+    const { ledger, deps, plan } = harness(
+      (l, fetch) => (url, init) =>
+        // Lookups by hash lag behind the ledger and account reads until the third POST.
+        hidden && l.submissions.length < 3 && url.endsWith(`/transactions/${hidden}`)
+          ? reply(404)
+          : fetch(url, init),
+    );
+    ledger.faults.push("504-applied");
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 1) hidden = e.hash;
+      },
+    });
+    const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
+    // Never rebuilt: the account showed the sequence number used, so the rest was re-planned.
+    expect(tx0).toHaveLength(1);
+    expect(report.replans).toHaveLength(1);
+    // Looked up again at the end, the envelope is found applied and its steps recorded.
+    expect(tx0[0]).toMatchObject({ result: "applied" });
+    expect(report.steps.find((s) => s.stepId === "S01")).toMatchObject({
+      status: "applied",
+      txHash: tx0[0]!.hash,
+    });
+    expect(report.status).toBe("closed");
+    expect(ledger.submissions).toHaveLength(3);
   });
 });

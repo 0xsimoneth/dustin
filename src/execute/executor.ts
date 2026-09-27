@@ -552,7 +552,7 @@ class CloseRun {
       const o = this.outcomeFor(step);
       o.status = "applied";
       o.txHash = outcome.entry.hash;
-      if (this.round > 0) o.round = this.round;
+      if (outcome.entry.round > 0) o.round = outcome.entry.round;
       if (step.disposal) o.rung = step.disposal.rung;
     }
     this.appliedSteps.push(...steps);
@@ -786,7 +786,13 @@ class CloseRun {
   /** A stop during the run: `failed` once something was submitted, `aborted` if not. */
   private async stopped(stop: StopReason): Promise<CloseReport> {
     if (!this.report.transactions.some((t) => t.attempts > 0)) return this.abort(stop);
+    await this.settleUnknown();
     const verification = await this.verifyOrWarn();
+    if (this.merge && verification?.accountExists === false) {
+      // The merge was found applied after all (a lagging lookup settled): a close like any other.
+      this.recoverReserves();
+      return this.finish("closed", null, null);
+    }
     const closed = verification ? await this.closedUnseen(verification) : null;
     if (closed) return closed;
     this.recoverReserves();
@@ -799,6 +805,7 @@ class CloseRun {
 
   /** Every planned transaction ran. */
   private async complete(): Promise<CloseReport> {
+    await this.settleUnknown();
     const verification = await this.verifyOrWarn();
     const closed = verification ? await this.closedUnseen(verification) : null;
     if (closed) return closed;
@@ -888,6 +895,30 @@ class CloseRun {
         `The final check of the account failed (${why}); its state after the run was not verified.`,
       );
       return null;
+    }
+  }
+
+  /**
+   * Before the final check, every envelope still `unknown` is looked up once more (edge case E5): a
+   * Horizon that lagged may have caught up. One found applied has its steps recorded (and, if it
+   * carried the merge, makes the run a close); one found failed is recorded as failed.
+   */
+  private async settleUnknown(): Promise<void> {
+    for (const entry of this.report.transactions) {
+      if (entry.result !== "unknown") continue;
+      const lookup = await lookupTransaction(this.input.submitter, entry.hash);
+      if (lookup.kind !== "found") continue;
+      const found = outcomeFromRecord(entry.hash, lookup.record);
+      recordOutcome(entry, found);
+      if (found.kind === "applied") {
+        this.applied(this.envelopeSteps.get(entry.hash) ?? [], {
+          kind: "applied",
+          entry,
+          resultXdr: found.resultXdr,
+        });
+      } else {
+        this.publish();
+      }
     }
   }
 

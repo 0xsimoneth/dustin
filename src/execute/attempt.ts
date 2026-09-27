@@ -263,6 +263,17 @@ export async function submitPlannedTransaction(
       // a ledger past it before running again; until then a new envelope for the same sequence
       // number could only replace it with a tenfold bid (canonical decision 7).
       const wait = `Run the close again only after a ledger has closed after ${new Date(maxTime * 1000).toISOString()} (its time bound, ${maxTime}): until then it may still apply, and a new envelope for the same sequence number could only replace it with a tenfold bid, which Dustin never relies on. The run then continues from the ledger.`;
+      if (outcome.sequenceUsed) {
+        // Its sequence number is used: by this envelope (a Horizon behind the one read), or by
+        // another transaction. Either way no rebuild can apply, and sending the operations again
+        // at a new number could apply them twice: plan the rest from the ledger (edge case E5).
+        return {
+          kind: "replan",
+          entry,
+          codes: {},
+          reason: `${label} (${hash}) was not found by hash, but the account shows its sequence number used, so the rest is planned again from the ledger instead of rebuilding it.`,
+        };
+      }
       if (outcome.lookupError) {
         // A lookup that failed proves nothing: the envelope may have applied (review finding 1).
         return stop(
@@ -424,6 +435,12 @@ async function postWithBackoff(
         ledgerWaitSeconds: settings.ledgerWaitSeconds,
         now: () => settings.now() / 1000,
         sleep: settings.sleep,
+        // A 404 is trusted only while the account has not used the envelope's sequence number;
+        // a missing account counts as used, since this envelope may be the merge (edge case E5).
+        sequenceUsed: async () => {
+          const account = await ctx.reader.account(ctx.plan.account);
+          return account === null || BigInt(account.sequence) >= BigInt(entry.sequence);
+        },
         ledgerCloseTime: async () => Date.parse((await ctx.reader.latestLedger()).closed_at) / 1000,
       },
     );

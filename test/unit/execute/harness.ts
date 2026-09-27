@@ -93,6 +93,32 @@ export function harness(wrap?: (ledger: FakeLedger, fetch: FetchLike) => FetchLi
   return { ledger, clock, deps, plan };
 }
 
+/**
+ * A Horizon behind the one that took a transaction, for one account read: `arm()` (call it before
+ * the envelope is posted) keeps the account as it is, and the next read of it after that gets the
+ * copy. Used to reach the paths behind a 404 that the account does not contradict (edge case E5).
+ */
+export function staleAccountOnce(account: string) {
+  let copy: unknown = null;
+  let pending = false;
+  return {
+    arm(ledger: FakeLedger) {
+      copy = structuredClone(ledger.accounts.get(account));
+      pending = true;
+    },
+    wrap(fetch: FetchLike): FetchLike {
+      return (url, init) => {
+        const reading = (init?.method ?? "GET") === "GET";
+        if (pending && reading && url.endsWith(`/accounts/${account}`)) {
+          pending = false;
+          return Promise.resolve(new Response(JSON.stringify(copy)));
+        }
+        return fetch(url, init);
+      };
+    },
+  };
+}
+
 /** Horizon's JSON answer with a status. */
 export const reply = (status: number, body: unknown = { status }) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
