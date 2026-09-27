@@ -346,3 +346,28 @@ describe("review finding 4: a failed final check keeps the real outcome", () => 
     expect(report.warnings.join(" ")).toMatch(/final check of the account failed/);
   });
 });
+
+describe("review finding 5: a re-plan must fit what is left of the budget", () => {
+  it("stops before signing a re-plan whose bids exceed the remaining budget", async () => {
+    const { ledger, deps, plan } = harness();
+    // Two operations per transaction: five cleanup transactions, the sale, then the merge alone,
+    // 1900 stroops of bids at 100 per operation, within the 2000-stroop budget.
+    const p = await plan({ maxOpsPerTransaction: 2, budgetStroops: 2000 });
+    expect(p.fees).toMatchObject({ totalStroops: 1900, withinBudget: true });
+    const report = await executeClose(p, signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        // The market vanishes after the cleanup, so the sale fails and the rest is re-planned:
+        // return DUSTA (300) and the merge (200), with only 300 stroops of the budget left.
+        if (e.type === "tx:confirmed" && e.index === 4) ledger.quotes.clear();
+      },
+    });
+    expect(report.replans).toHaveLength(1);
+    expect(report.transactions.filter((t) => t.round === 1)).toEqual([]);
+    expect(report.status).toBe("failed");
+    expect(report.stop).toMatchObject({ code: "OVER_BUDGET", stage: "sponsor", verdict: "stop" });
+    expect(report.message).toMatch(/500 stroops/);
+    expect(report.message).toMatch(/300 stroops left/);
+  });
+});

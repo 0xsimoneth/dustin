@@ -61,6 +61,11 @@ export class FeeSponsor {
     return this.spent;
   }
 
+  /** What is left of the close budget for sequence numbers not signed for yet. */
+  get remainingStroops(): number {
+    return this.budgetStroops - this.spent;
+  }
+
   /** The largest total bid (base fee x (operations + 1)) the budget still allows for a sequence number. */
   headroomStroops(source: string, sequence: string): number {
     return this.budgetStroops - this.spent + (this.largestBid.get(`${source}:${sequence}`) ?? 0);

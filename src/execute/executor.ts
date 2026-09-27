@@ -657,7 +657,7 @@ class CloseRun {
     const { options, reader, fresh, plan, sponsorKey } = this.input;
     const { tx, where, stepId } = trigger;
     const stopWith = (
-      stop: Omit<StopReason, "stage" | "round" | "txIndex" | "hash">,
+      stop: Omit<StopReason, "stage" | "round" | "txIndex" | "hash"> & { stage?: ErrorStage },
     ): AfterFailure => ({
       kind: "stop",
       stop: {
@@ -734,6 +734,17 @@ class CloseRun {
         code: "PLAN_NOT_CLOSABLE",
         verdict: "stop",
         detail: `${where} After it the account can no longer be merged: ${reasons.join(" ")} Allow a partial close (--partial) to run everything else.`,
+      });
+    }
+    // Review finding 5: the R2 check for the re-plan, against what is left of the budget, so a
+    // re-plan never runs its first transactions and then stops before the merge for lack of it.
+    const left = this.sponsor!.remainingStroops;
+    if (next.fees.totalStroops > left) {
+      return stopWith({
+        code: "OVER_BUDGET",
+        stage: "sponsor",
+        verdict: "stop",
+        detail: `${where} The re-plan's fee bids total ${next.fees.totalStroops} stroops, more than the ${left} stroops left of the close budget of ${next.fees.budgetStroops} stroops; nothing more was signed. Raise the close budget or wait for network fees to fall, then run the close again.`,
       });
     }
     return { kind: "replan", plan: next };

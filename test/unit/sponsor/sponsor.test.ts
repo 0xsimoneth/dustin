@@ -76,6 +76,7 @@ describe("FeeSponsor.wrap", () => {
     expect(s.spentBidStroops).toBe(4000);
     expect(s.headroomStroops(account, "101")).toBe(10_000);
     expect(s.headroomStroops(account, "102")).toBe(6000);
+    expect(s.remainingStroops).toBe(6000);
     await s.wrap(inner(1, account, "101"), 3000); // 6000 for sequence 102
     expect(s.spentBidStroops).toBe(10_000);
     await expect(s.wrap(inner(1, account, "101"), 3001)).rejects.toMatchObject({
