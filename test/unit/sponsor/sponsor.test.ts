@@ -155,3 +155,61 @@ describe("FeeSponsor.release (edge case E7)", () => {
     expect(s.spentBidStroops).toBe(2000);
   });
 });
+
+describe("FeeSponsor.wrap with overlapping calls (blind review BH16)", () => {
+  /** A signer that answers only once `open()` is called, so wraps started before it overlap. */
+  function gatedSigner(failCall?: number) {
+    let open!: () => void;
+    const gate = new Promise<void>((resolve) => (open = resolve));
+    let calls = 0;
+    const signer: Signer = {
+      publicKey: () => sponsorKp.publicKey(),
+      sign: async (tx) => {
+        const call = ++calls;
+        await gate;
+        if (call === failCall) throw new Error("declined on the device");
+        tx.sign(sponsorKp);
+      },
+    };
+    return { signer, open };
+  }
+  const account = accountKp.publicKey();
+
+  it("counts a bid before the signer answers, so two overlapping wraps cannot both fit", async () => {
+    const { signer, open } = gatedSigner();
+    const s = new FeeSponsor(signer, { networkPassphrase: TESTNET, budgetStroops: 5000 });
+    const first = s.wrap(inner(1, account, "100"), 2000); // 4000 for sequence 101
+    const second = s.wrap(inner(1, account, "101"), 2000); // 4000 more for 102: over budget
+    open();
+    const [a, b] = await Promise.allSettled([first, second]);
+    expect(a.status).toBe("fulfilled");
+    expect(b).toMatchObject({
+      status: "rejected",
+      reason: { code: "SPONSOR_BUDGET_EXCEEDED" },
+    });
+    expect(s.spentBidStroops).toBe(4000);
+  });
+
+  it("takes the bid back when the signer throws", async () => {
+    const { signer, open } = gatedSigner(1);
+    const s = new FeeSponsor(signer, { networkPassphrase: TESTNET, budgetStroops: 5000 });
+    const pending = s.wrap(inner(1, account, "100"), 2000);
+    expect(s.spentBidStroops).toBe(4000);
+    open();
+    await expect(pending).rejects.toThrow("declined on the device");
+    expect(s.spentBidStroops).toBe(0);
+    expect(s.remainingStroops).toBe(5000);
+  });
+
+  it("takes back only its own bid when another wrap for the same sequence number signed", async () => {
+    const { signer, open } = gatedSigner(1);
+    const s = new FeeSponsor(signer, { networkPassphrase: TESTNET, budgetStroops: 5000 });
+    const larger = s.wrap(inner(1, account, "100"), 2000); // 4000 for sequence 101; declined
+    const smaller = s.wrap(inner(1, account, "100"), 1000); // 2000 for the same sequence
+    open();
+    const [a, b] = await Promise.allSettled([larger, smaller]);
+    expect([a.status, b.status]).toEqual(["rejected", "fulfilled"]);
+    expect(s.spentBidStroops).toBe(2000);
+    expect(s.headroomStroops(account, "101")).toBe(5000);
+  });
+});

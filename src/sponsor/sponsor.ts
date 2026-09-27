@@ -29,8 +29,12 @@ export class FeeSponsor {
   private readonly networkPassphrase: string;
   private readonly maxBaseFeeStroops: number;
   private readonly budgetStroops: number;
-  /** The largest total bid signed for each inner source and sequence number. */
-  private readonly largestBid = new Map<string, number>();
+  /**
+   * Every total bid signed, or being signed, for each inner source and sequence number. A bid is
+   * an object so that the one a failed signature takes back is exactly the one it added.
+   */
+  private readonly bids = new Map<string, Set<{ total: number }>>();
+  /** The sum, over sequence numbers, of the largest bid in `bids`. */
   private spent = 0;
 
   constructor(signer: Signer, options: FeeSponsorOptions) {
@@ -52,7 +56,7 @@ export class FeeSponsor {
 
   /**
    * The most this close can cost the sponsor so far: for every sequence number, the largest bid
-   * signed for it. An inner sequence number is consumed once, at apply time, whatever envelope
+   * signed for it, or being signed. An inner sequence number is consumed once, at apply time, whatever envelope
    * carries it (https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions#application),
    * so of all the envelopes signed for one sequence number at most one is ever charged; a rebuild
    * for the same sequence number with a higher bid (E2-S3) needs only the difference.
@@ -69,8 +73,8 @@ export class FeeSponsor {
    */
   release(source: string, sequence: string): void {
     const key = `${source}:${sequence}`;
-    this.spent -= this.largestBid.get(key) ?? 0;
-    this.largestBid.delete(key);
+    this.spent -= this.largest(key);
+    this.bids.delete(key);
   }
 
   /** What is left of the close budget for sequence numbers not signed for yet. */
@@ -80,7 +84,32 @@ export class FeeSponsor {
 
   /** The largest total bid (base fee x (operations + 1)) the budget still allows for a sequence number. */
   headroomStroops(source: string, sequence: string): number {
-    return this.budgetStroops - this.spent + (this.largestBid.get(`${source}:${sequence}`) ?? 0);
+    return this.budgetStroops - this.spent + this.largest(`${source}:${sequence}`);
+  }
+
+  private largest(key: string): number {
+    let most = 0;
+    for (const bid of this.bids.get(key) ?? []) most = Math.max(most, bid.total);
+    return most;
+  }
+
+  /** Counts `bid` for `key`: only by how much it raises the largest bid for that sequence number. */
+  private reserve(key: string, bid: { total: number }): void {
+    const before = this.largest(key);
+    const bids = this.bids.get(key) ?? new Set();
+    bids.add(bid);
+    this.bids.set(key, bids);
+    this.spent += this.largest(key) - before;
+  }
+
+  /** Takes back `bid`, if it is still counted (a `release` may have dropped it already). */
+  private takeBack(key: string, bid: { total: number }): void {
+    const bids = this.bids.get(key);
+    if (!bids?.has(bid)) return;
+    const before = this.largest(key);
+    bids.delete(bid);
+    if (bids.size === 0) this.bids.delete(key);
+    this.spent -= before - this.largest(key);
   }
 
   async wrap(inner: Transaction, baseFeeStroops: number): Promise<FeeBumpTransaction> {
@@ -98,9 +127,8 @@ export class FeeSponsor {
     );
     const total = bid * (inner.operations.length + 1);
     const key = `${inner.source}:${inner.sequence}`;
-    const previous = this.largestBid.get(key) ?? 0;
-    const spentAfter = this.spent - previous + Math.max(previous, total);
-    if (spentAfter > this.budgetStroops) {
+    const previous = this.largest(key);
+    if (this.spent - previous + Math.max(previous, total) > this.budgetStroops) {
       throw new DustinError(
         "SPONSOR_BUDGET_EXCEEDED",
         `Signing this fee bump (bid ${total} stroops) would exceed the close budget of ${this.budgetStroops} stroops.`,
@@ -116,9 +144,16 @@ export class FeeSponsor {
       inner,
       this.networkPassphrase,
     );
-    await this.signer.sign(feeBump);
-    this.largestBid.set(key, Math.max(previous, total));
-    this.spent = spentAfter;
+    // Blind review BH16: the bid is counted before the signer is awaited, so a wrap that starts
+    // meanwhile sees it in the budget, and it is taken back if the signer throws.
+    const reserved = { total };
+    this.reserve(key, reserved);
+    try {
+      await this.signer.sign(feeBump);
+    } catch (error) {
+      this.takeBack(key, reserved);
+      throw error;
+    }
     return feeBump;
   }
 }
