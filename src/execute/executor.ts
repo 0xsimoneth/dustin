@@ -40,6 +40,7 @@ import {
   type CloseStatus,
   type StepOutcome,
   type StopReason,
+  type SubmittedTransaction,
 } from "./report.js";
 import type { ResultCodes } from "./result-codes.js";
 import {
@@ -226,7 +227,10 @@ class CloseRun {
   private readonly settings: AttemptSettings;
   /** Step outcomes of the plan the run started with, by step identity (stable across re-plans). */
   private readonly outcomes = new Map<string, StepOutcome>();
-  private readonly appliedSteps: CloseStep[] = [];
+  /** Every step that applied, with the plan round it applied in (edge case E9). */
+  private readonly appliedSteps: Array<{ step: CloseStep; round: number }> = [];
+  /** The plan of each round: 0 is `fresh`, n the n-th re-plan. */
+  private readonly roundPlans: ClosePlan[];
   /** The steps each envelope carried, by hash: tells which envelopes carried the merge. */
   private readonly envelopeSteps = new Map<string, CloseStep[]>();
   private readonly failedObservers = new Set<string>();
@@ -267,6 +271,7 @@ class CloseRun {
       verification: null,
     };
     fresh.steps.forEach((step, i) => this.outcomes.set(stepIdentity(step), this.report.steps[i]!));
+    this.roundPlans = [fresh];
     this.settings = {
       timeoutSeconds: options.timeoutSeconds ?? 120,
       pollIntervalMs: options.pollIntervalMs ?? 2000,
@@ -582,7 +587,7 @@ class CloseRun {
       if (outcome.entry.round > 0) o.round = outcome.entry.round;
       if (step.disposal) o.rung = step.disposal.rung;
     }
-    this.appliedSteps.push(...steps);
+    this.appliedSteps.push(...steps.map((step) => ({ step, round: outcome.entry.round })));
     if (steps.some((s) => s.kind === "merge")) {
       this.merge = { hash: outcome.entry.hash, ledger: outcome.entry.ledger ?? 0 };
       const merged = mergeAmountFromResultXdr(outcome.resultXdr);
@@ -735,6 +740,7 @@ class CloseRun {
     const drift = replanDrift(fresh, next);
     const triggerRound = this.round;
     this.round += 1;
+    this.roundPlans[this.round] = next;
     this.report.replans.push({
       round: this.round,
       at: this.timestamp(),
@@ -975,38 +981,72 @@ class CloseRun {
     return v;
   }
 
-  /** Reserves that went back to reserve sponsors, from what actually ran. */
+  /**
+   * Reserves that went back to reserve sponsors, from the removals that applied, in whichever
+   * round they applied (edge case E9): each removed trustline, pool share and offer is credited to
+   * the sponsor that its round's plan named. When the account is verified gone after this run's
+   * merge, the sponsored signers and account entry the merge removed are credited too, as the plan
+   * that carried the merge listed them; an unconfirmed merge counts as applied then, with the rest
+   * of its transaction, because the account being gone proves every entry of it is gone.
+   * Units follow the planner (src/plan/recovery.ts): one base reserve per trustline, offer and
+   * signer, two per pool share and for the account entry (CAP-33).
+   */
   private recoverReserves(): void {
-    const { fresh } = this.input;
-    if (this.merge && this.report.verification?.accountExists === false) {
-      this.report.recovery.reservesReturnedToSponsors = fresh.recovery.reservesReturnedToSponsors;
-      return;
+    const gone = this.report.verification?.accountExists === false;
+    const released = [...this.appliedSteps];
+    const unconfirmed = gone && !this.merge ? this.postedMerge() : null;
+    if (unconfirmed) {
+      const steps = this.envelopeSteps.get(unconfirmed.hash) ?? [];
+      released.push(...steps.map((step) => ({ step, round: unconfirmed.round })));
     }
-    // Without a merge only the sponsored trustlines removed so far returned their reserve.
-    const bySponsor = new Map<string, { units: bigint; entries: string[] }>();
-    for (const s of this.appliedSteps) {
-      if (s.kind !== "remove_trustline" || s.reserveReleasedTo?.to !== "sponsor") continue;
-      // A pool-share trustline holds two base reserves, any other trustline one.
-      const [units, entry] =
-        s.subject.type === "pool_share"
-          ? [2n, `pool share ${s.subject.poolId}`]
-          : s.subject.type === "trustline"
-            ? [1n, `trustline ${s.subject.asset.code}:${s.subject.asset.issuer}`]
-            : [0n, ""];
-      if (units === 0n) continue;
-      const current = bySponsor.get(s.reserveReleasedTo.sponsor) ?? { units: 0n, entries: [] };
-      bySponsor.set(s.reserveReleasedTo.sponsor, {
-        units: current.units + units,
-        entries: [...current.entries, entry],
-      });
+    const bySponsor = new Map<string, { stroops: bigint; entries: string[] }>();
+    for (const { step, round } of released) {
+      const plan = this.roundPlans[round] ?? this.input.fresh;
+      const reserve = toStroops(plan.reserve.baseReserve);
+      const credit = (sponsor: string | null | undefined, units: bigint, entry: string) => {
+        if (!sponsor) return;
+        const current = bySponsor.get(sponsor) ?? { stroops: 0n, entries: [] };
+        current.stroops += units * reserve;
+        current.entries.push(entry);
+        bySponsor.set(sponsor, current);
+      };
+      // A step names the sponsor of a trustline or pool share; the sponsors of offers, signers and
+      // the account entry are recorded only in the plan's recovery summary, under these labels.
+      const listed = new Map(
+        plan.recovery.reservesReturnedToSponsors.flatMap(({ sponsor, entries }) =>
+          entries.map((entry) => [entry, sponsor] as const),
+        ),
+      );
+      const { subject } = step;
+      if (step.kind === "remove_trustline" && subject.type === "trustline") {
+        credit(subject.sponsor, 1n, `trustline ${assetKey(subject.asset)}`);
+      } else if (step.kind === "remove_trustline" && subject.type === "pool_share") {
+        credit(subject.sponsor, 2n, `pool share ${subject.poolId}`);
+      } else if (step.kind === "cancel_offer" && subject.type === "offer") {
+        credit(listed.get(`offer ${subject.offerId}`), 1n, `offer ${subject.offerId}`);
+      } else if (step.kind === "merge" && gone) {
+        for (const [entry, sponsor] of listed) {
+          if (entry.startsWith("signer ")) credit(sponsor, 1n, entry);
+          if (entry === "account entry") credit(sponsor, 2n, entry);
+        }
+      }
     }
-    this.report.recovery.reservesReturnedToSponsors = [...bySponsor.entries()].map(
-      ([sponsor, { units, entries }]) => ({
+    this.report.recovery.reservesReturnedToSponsors = [...bySponsor.entries()]
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([sponsor, { stroops, entries }]) => ({
         sponsor,
-        xlm: formatStroops(units * toStroops(fresh.reserve.baseReserve)),
+        xlm: formatStroops(stroops),
         entries,
-      }),
+      }));
+  }
+
+  /** The last merge-carrying envelope this run posted, whatever became of it. */
+  private postedMerge(): SubmittedTransaction | null {
+    const merges = this.report.transactions.filter(
+      (t) =>
+        t.attempts > 0 && (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
     );
+    return merges.at(-1) ?? null;
   }
 
   /**

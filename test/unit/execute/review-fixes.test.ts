@@ -175,34 +175,32 @@ describe("review finding 7: an unknown outcome tells a re-run how long to wait",
   });
 });
 
-describe("review finding 2: a merge that applied unseen is still a close", () => {
-  /**
-   * The merge's first envelope applies but Horizon answers 504 and then 404 for its hash (it lost
-   * the record); `reveal` decides when the record shows up again.
-   */
-  function lostMerge(reveal: (ledger: FakeLedger) => boolean, lagging = false) {
-    let merge: string | null = null;
-    // With `lagging`, the account read that checks the 404 still shows the account, so the 404
-    // is trusted and the merge rebuilt (edge case E5); otherwise the missing account says the
-    // merge's sequence number was used, and the run re-plans.
-    const stale = staleAccountOnce(messy.fixture);
-    const h = harness((l, fetch) =>
-      stale.wrap((url, init) =>
-        merge && url.endsWith(`/transactions/${merge}`) && !reveal(l)
-          ? reply(404)
-          : fetch(url, init),
-      ),
-    );
-    const onEvent = (e: CloseEvent) => {
-      if (e.type === "tx:submitted" && e.index === 2 && e.attempt === 1) {
-        merge = e.hash;
-        h.ledger.faults.push("504-applied");
-        if (lagging) stale.arm(h.ledger);
-      }
-    };
-    return { ...h, onEvent };
-  }
+/**
+ * The merge's first envelope applies but Horizon answers 504 and then 404 for its hash (it lost
+ * the record); `reveal` decides when the record shows up again.
+ */
+function lostMerge(reveal: (ledger: FakeLedger) => boolean, lagging = false) {
+  let merge: string | null = null;
+  // With `lagging`, the account read that checks the 404 still shows the account, so the 404
+  // is trusted and the merge rebuilt (edge case E5); otherwise the missing account says the
+  // merge's sequence number was used, and the run re-plans.
+  const stale = staleAccountOnce(messy.fixture);
+  const h = harness((l, fetch) =>
+    stale.wrap((url, init) =>
+      merge && url.endsWith(`/transactions/${merge}`) && !reveal(l) ? reply(404) : fetch(url, init),
+    ),
+  );
+  const onEvent = (e: CloseEvent) => {
+    if (e.type === "tx:submitted" && e.index === 2 && e.attempt === 1) {
+      merge = e.hash;
+      h.ledger.faults.push("504-applied");
+      if (lagging) stale.arm(h.ledger);
+    }
+  };
+  return { ...h, onEvent };
+}
 
+describe("review finding 2: a merge that applied unseen is still a close", () => {
   it("looks the earlier envelope up when the rebuilt merge finds the account gone", async () => {
     // Horizon finds the first envelope again once the rebuild's preflight has found the account
     // gone (edge case E2 runs the preflight before any rebuild of the merge).
@@ -776,5 +774,66 @@ describe("edge cases E3, E4: an account read behind the run's own transactions i
     const report = await executeClose(await plan(), signers(), { confirm: true, ...deps, onEvent });
     expect(report.stop).toBeNull();
     expect(report.status).toBe("closed");
+  });
+});
+
+describe("edge case E9: reserves returned to sponsors come from the removals that applied", () => {
+  it("credits a sponsored trustline that only a later round removed", async () => {
+    const { ledger, deps, plan } = harness();
+    const late = `LATE:${messy.issuer}`;
+    let changed = false;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onDrift: "replan",
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 0 && !changed) {
+          changed = true;
+          // A trustline sponsored by another account appears and the market vanishes, so the sale
+          // fails and the run re-plans; the accepted re-plan removes the new trustline too.
+          ledger.addTrustline(messy.fixture, late, { sponsor: messy.marketMaker });
+          ledger.quotes.clear();
+        }
+      },
+    });
+    expect(report.status).toBe("closed");
+    expect(report.replans).toHaveLength(1);
+    expect(report.replans[0]!.drift.join(" ")).toMatch(/LATE/);
+    expect(ledger.accounts.get(messy.marketMaker)!.num_sponsoring).toBe(0);
+    expect(report.recovery.reservesReturnedToSponsors).toEqual(
+      [
+        {
+          sponsor: messy.reserveSponsor,
+          xlm: "0.5000000",
+          entries: [`trustline SPTA:${messy.issuer}`],
+        },
+        { sponsor: messy.marketMaker, xlm: "0.5000000", entries: [`trustline ${late}`] },
+      ].sort((a, b) => (a.sponsor < b.sponsor ? -1 : 1)),
+    );
+  });
+
+  /** Another account sponsors the closing account's own entry: two base reserves (CAP-33). */
+  function sponsorAccountEntry(ledger: FakeLedger) {
+    ledger.accounts.get(messy.fixture)!.sponsor = messy.marketMaker;
+    ledger.accounts.get(messy.fixture)!.num_sponsored += 2;
+    ledger.accounts.get(messy.marketMaker)!.num_sponsoring += 2;
+  }
+  const accountEntry = { sponsor: messy.marketMaker, xlm: "1.0000000", entries: ["account entry"] };
+
+  it("credits the sponsored account entry that the merge removed", async () => {
+    const { ledger, deps, plan } = harness();
+    sponsorAccountEntry(ledger);
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    expect(report.status).toBe("closed");
+    expect(report.recovery.reservesReturnedToSponsors).toContainEqual(accountEntry);
+  });
+
+  it("credits it too when the account is gone but the merge was not confirmed", async () => {
+    const { ledger, deps, plan, onEvent } = lostMerge(() => false);
+    sponsorAccountEntry(ledger);
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps, onEvent });
+    expect(report.status).toBe("closed");
+    expect(report.message).toMatch(/not confirmed/);
+    expect(report.recovery.reservesReturnedToSponsors).toContainEqual(accountEntry);
   });
 });
