@@ -3,7 +3,7 @@ import { executeClose, type CloseEvent } from "../../../src/execute/executor.js"
 import { renderReport } from "../../../src/render/report-text.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
 import { messy } from "../../helpers/snapshots.js";
-import { answer, failedOps, harness, reply, signers } from "./harness.js";
+import { answer, failedOps, harness, included, reply, signers } from "./harness.js";
 
 // Findings of the independent review of the E2-S3 executor (2026-09-26). Every test here runs on
 // an injected clock: no fake global Date, no real waiting.
@@ -565,5 +565,42 @@ describe("edge case E2: a rebuilt merge follows a fresh preflight", () => {
       unblocksAtLedger: ledger.ledgerSeq + 51,
     });
     expect(ledger.accounts.has(messy.fixture)).toBe(true);
+  });
+});
+
+describe("edge case E6: included or refused is decided by the ledger, not by the codes", () => {
+  it("treats a tx_failed refused at validation (op_bad_auth) as a refusal", async () => {
+    const { ledger, deps, plan } = harness();
+    const before = ledger.accounts.get(messy.fixture)!.sequence;
+    // stellar-core answers txFAILED for an operation that fails its checks at validation; the
+    // envelope is never included, so Horizon has no record of it.
+    ledger.faults.push(
+      answer({
+        transaction: "tx_fee_bump_inner_failed",
+        inner_transaction: "tx_failed",
+        operations: ["op_bad_auth"],
+      }),
+    );
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    const t = report.transactions[0]!;
+    expect(t.result).toBe("rejected");
+    expect(t.feeChargedStroops).toBeNull();
+    expect(report.steps.some((s) => s.status === "failed")).toBe(false);
+    expect(report.stop).toMatchObject({ code: "TRANSACTION_REJECTED", verdict: "stop" });
+    expect(ledger.accounts.get(messy.fixture)!.sequence).toBe(before);
+  });
+
+  it("treats an included fee bump whose inner code is not tx_failed as included", async () => {
+    const { ledger, deps, plan } = harness();
+    // Included in a ledger that closed after the inner time bound: the inner transaction failed
+    // with tx_too_late at apply time, its sequence number used and the fee charged.
+    ledger.faults.push(
+      included({ transaction: "tx_fee_bump_inner_failed", inner_transaction: "tx_too_late" }),
+    );
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
+    expect(tx0).toHaveLength(1);
+    expect(tx0[0]).toMatchObject({ result: "failed", feeChargedStroops: 1000 });
+    expect(ledger.submissions).toHaveLength(1);
   });
 });

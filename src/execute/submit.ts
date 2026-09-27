@@ -267,11 +267,60 @@ export async function submitAndConfirm(
   const response = await submitter.submit(envelope.xdr);
   if ("status" in response) {
     const known = fromResponse(envelope.hash, response.status, response.body);
+    if (known && (known.kind === "failed" || known.kind === "rejected") && ambiguous(known)) {
+      return settleInclusion(submitter, known);
+    }
     if (known) return known;
   }
   return options.ledgerCloseTime
     ? confirmByLedgerClock(submitter, envelope, options, options.ledgerCloseTime)
     : confirmByLocalClock(submitter, envelope, options);
+}
+
+/**
+ * A 400 answering `tx_failed`, or for a fee bump `tx_fee_bump_inner_failed` whatever the inner
+ * code, does not say whether the transaction was included (edge case E6): stellar-core answers
+ * txFAILED when an operation fails its checks at validation, before any inclusion
+ * (https://github.com/stellar/stellar-core/blob/master/src/transactions/TransactionFrame.cpp,
+ * commit bb32c8a: `op->checkValid` failing, or operation signatures failing, set txFAILED), and a
+ * fee bump included in a ledger can still fail its inner transaction with another code (a
+ * `tx_too_late` at apply time, with its sequence number used and the fee charged).
+ */
+function ambiguous(outcome: { status: number; codes: ResultCodes }): boolean {
+  return (
+    outcome.status === 400 &&
+    (outcome.codes.transaction === "tx_failed" ||
+      outcome.codes.transaction === "tx_fee_bump_inner_failed")
+  );
+}
+
+/**
+ * The ledger decides (edge case E6): a record by hash means included (sequence number used, fee
+ * charged); a 404 means refused at validation, nothing used. A lookup that fails leaves the
+ * reading of the codes (included when the inner code is `tx_failed`).
+ */
+async function settleInclusion(
+  submitter: Submitter,
+  answered: Extract<SubmitOutcome, { kind: "failed" | "rejected" }>,
+): Promise<SubmitOutcome> {
+  const lookup = await lookupTransaction(submitter, answered.hash);
+  if (lookup.kind === "missing") {
+    return {
+      kind: "rejected",
+      hash: answered.hash,
+      status: answered.status,
+      codes: answered.codes,
+    };
+  }
+  if (lookup.kind === "error") return answered;
+  const recorded = outcomeFromRecord(answered.hash, lookup.record);
+  if (recorded.kind !== "failed") return recorded;
+  // A record whose result cannot be decoded still means included; the answer's codes describe it.
+  return {
+    ...recorded,
+    status: answered.status,
+    codes: Object.keys(recorded.codes).length > 0 ? recorded.codes : answered.codes,
+  };
 }
 
 /** Without a ledger clock: look the envelope up until the local clock passes its bound. */

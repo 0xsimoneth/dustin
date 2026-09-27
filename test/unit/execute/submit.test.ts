@@ -60,23 +60,36 @@ describe("submitAndConfirm", () => {
         },
       },
     };
-    const { submitter } = fake([json(body, 400)]);
+    // Included in the ledger but failed (Horizon has its record): sequence number and fee used.
+    const record = { ...applied, successful: false };
+    const { submitter } = fake([json(body, 400)], record);
     const r = await submitAndConfirm(
       submitter,
       { xdr: "ENV", hash: HASH, maxTime: 0 },
       { pollIntervalMs: 0 },
     );
-    // Included in the ledger but failed: sequence number and fee consumed.
     expect(r).toEqual({
       kind: "failed",
       hash: HASH,
       status: 400,
+      ledger: 42,
+      feeChargedStroops: 300,
+      resultXdr: "AAAA",
       codes: {
         transaction: "tx_fee_bump_inner_failed",
         innerTransaction: "tx_failed",
         operations: ["op_too_few_offers"],
       },
     });
+    // The same answer without a record was refused at validation (edge case E6).
+    const { submitter: refused } = fake([json(body, 400)]);
+    expect(
+      await submitAndConfirm(
+        refused,
+        { xdr: "ENV", hash: HASH, maxTime: 0 },
+        { pollIntervalMs: 0 },
+      ),
+    ).toMatchObject({ kind: "rejected", status: 400, codes: { innerTransaction: "tx_failed" } });
     const { submitter: s2 } = fake([
       json({ status: 400, extras: { result_codes: { transaction: "tx_bad_seq" } } }, 400),
     ]);
@@ -170,7 +183,7 @@ describe("submitAndConfirm classification", () => {
     });
   });
 
-  it("reads the fee charged from extras.result_xdr of a failure", async () => {
+  it("reads the fee from extras.result_xdr when the lookup deciding inclusion fails", async () => {
     const body = {
       status: 400,
       extras: {
@@ -182,7 +195,11 @@ describe("submitAndConfirm classification", () => {
         },
       },
     };
-    const { submitter } = fake([json(body, 400)]);
+    // The lookup that decides inclusion answers 503, so the codes decide (tx_failed: included).
+    const fetch = vi.fn((_url: string, init?: RequestInit) =>
+      Promise.resolve((init?.method ?? "GET") === "POST" ? json(body, 400) : json({}, 503)),
+    );
+    const submitter = horizonSubmitter("https://h.example", { fetch });
     const r = await submitAndConfirm(submitter, envelope, { ...clock(), pollIntervalMs: 1000 });
     expect(r).toMatchObject({ kind: "failed", status: 400, feeChargedStroops: 200 });
   });
