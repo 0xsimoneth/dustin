@@ -1,6 +1,6 @@
 # Story 2.1: Sponsor-paid fee-bump submission engine
 
-Status: review
+Status: done
 
 ## Story
 
@@ -90,3 +90,4 @@ From docs/reviews/2026-09-26-e0-e2-review.md, closed in E2-S3 (docs/stories/2-3-
 
 - 2026-09-26: Operation mapping, inner builder, signer interface, fee sponsor with content checks and budget, Horizon submitter with 504 polling. Status: review.
 - 2026-09-26: Review findings R11 and R18 closed in E2-S3; per-sequence budget accounting.
+- 2026-09-27: reviewed in docs/reviews/2026-09-27-e2-integration-review.md; no open finding. Status: done.

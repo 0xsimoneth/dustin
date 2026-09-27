@@ -14,7 +14,7 @@
 # Budget by SOW deliverable: D1 60 h, D2 80 h, D3 40 h, D4 20 h (total 200 h).
 
 generated: "2026-09-25"
-last_updated: "2026-09-26"
+last_updated: "2026-09-27"
 project: dustin
 project_key: dustin
 tracking_system: file-system
@@ -39,12 +39,12 @@ development_status:
   1-7-cli-plan-command: done
   epic-1-retrospective: optional
   epic-2: in-progress
-  2-1-fee-bump-submission-engine: review
-  2-2-simple-close-executor: review
-  2-3-retry-recovery-resume: backlog
-  2-4-verification-receipt: backlog
+  2-1-fee-bump-submission-engine: done
+  2-2-simple-close-executor: done
+  2-3-retry-recovery-resume: review
+  2-4-verification-receipt: review
   2-5-disposal-route-resolution: backlog
-  2-6-live-simple-close: backlog
+  2-6-live-simple-close: review
   epic-2-retrospective: optional
   epic-3: backlog
   3-1-ladder-path-payment: backlog
@@ -186,7 +186,7 @@ stories:
     title: Sponsor-paid fee-bump submission engine
     epic: E2
     week: 2
-    status: review
+    status: done
     estimate_hours: 12
     deliverable: D2
   - key: 2-2-simple-close-executor
@@ -194,7 +194,7 @@ stories:
     title: Execute a simple close
     epic: E2
     week: 2
-    status: review
+    status: done
     estimate_hours: 12
     deliverable: D2
   - key: 2-3-retry-recovery-resume
@@ -202,7 +202,7 @@ stories:
     title: Retry, failure recovery and resumable execution
     epic: E2
     week: 2
-    status: backlog
+    status: review
     estimate_hours: 10
     deliverable: D2
   - key: 2-4-verification-receipt
@@ -210,7 +210,7 @@ stories:
     title: Post-close verification and receipt with explorer links
     epic: E2
     week: 2
-    status: backlog
+    status: review
     estimate_hours: 4
     deliverable: D2
   - key: 2-5-disposal-route-resolution
@@ -226,7 +226,7 @@ stories:
     title: First live end-to-end simple close on testnet with evidence
     epic: E2
     week: 2
-    status: backlog
+    status: review
     estimate_hours: 6
     deliverable: D2
   - key: 3-1-ladder-path-payment

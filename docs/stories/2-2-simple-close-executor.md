@@ -1,6 +1,6 @@
 # Story 2.2: Execute a close
 
-Status: review
+Status: done
 
 ## Story
 
@@ -82,3 +82,4 @@ From docs/reviews/2026-09-26-e0-e2-review.md, closed in E2-S3 (docs/stories/2-3-
 
 - 2026-09-26: `executeClose()` with preflight, drift handling, sponsor check, merge preflight, verification and a progressive report; first live end-to-end close of a messy fixture. Status: review.
 - 2026-09-26: Review findings R1, R2, R6, R9, R10 and R12 closed in E2-S3.
+- 2026-09-27: review findings R1, R2, R9, R10 and R12 closed and the combined E2 review fixes merged (docs/reviews/2026-09-27-e2-integration-review.md). Status: done.

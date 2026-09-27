@@ -61,3 +61,53 @@ Blocked (human actions):
 - Choose the video hosting; the chapter lead's written acknowledgement comes at the end.
 
 Next: E2-S3 retry and recovery (unknown outcomes, ladder fallback, fee escalation, `tx_bad_seq`), E2-S4 `close --execute` with typed confirmation and a receipt, then E2-S6 live evidence and the Epic 2 review.
+
+## 2026-09-27 (sprint day 6, week 1)
+
+### Session summary (2026-09-26 to 2026-09-27)
+
+Done:
+
+- The SOW copy is redacted and the E0 to E2 review is recorded (706cd73).
+- Epic 2 was built in three parallel branches on a shared contract (82b337a), merged in order and each checked in CI:
+  - Executor hardening and E2-S3 (25fdcc1): retry, recovery and resume. Covers 504s, `tx_too_late`, `tx_bad_seq`, `tx_insufficient_fee`, 429s, re-planning on operation failures with fallback down the ladder, and the report kept on thrown errors.
+  - Public API, CLI and E2-S4 (185f85c): `dustin close --execute` with a fresh plan, the typed confirmation of the destination's last four characters, `--yes`, `--partial`, `--memo`, `--json`, `--report`, exit codes 0 to 6 and the receipt.
+  - Pool-share handling, test infrastructure and the evidence writer (321eea8).
+- Review findings R1 to R3, R6, R7 and R9 to R18 are closed.
+- E2-S6: two live closes on testnet, each of a fresh zero-spendable messy fixture with sponsor-paid fee bumps:
+  - through the SDK: `evidence/runs/20260926T125350Z/` (5e1fda7);
+  - through the CLI, with its transcript: `evidence/runs/20260927T200015Z-cli/` (ee001d5).
+
+  The SOW week 2 expected output is met a week early. The builder's baseline fixture was not touched.
+- A combined code review ran over the merged work, with four layers (Blind Hunter, two Edge Case Hunters, Acceptance Auditor) plus an independent executor review. Findings and dispositions are in `docs/reviews/2026-09-27-e2-integration-review.md`. Fixes are in 1e5c5af, aefba65, 3dabfc0 and 953fbd7; documentation corrections are in 8c890b9.
+- The offline tier stands at 58 files and 508 tests. CI is green on Node 22 and 24 for every push.
+
+Traps recorded this session:
+
+- **No ledger header on 404s.** Testnet Horizon sends no `Latest-Ledger` header on a 404 (observed 2026-09-27). A lookup's 404 cannot be dated, so the executor uses the account's sequence number as the witness.
+- **Scripted failures in offline tests.** A scripted 400 with inner `tx_failed` must be recorded on the fake ledger as included (`recordIncludedFaults` in `test/unit/execute/harness.ts`). Otherwise the executor reads it, correctly, as a refusal at validation.
+- **Horizon's code spellings.** Horizon writes `op_offer_not_found`, `op_not_aut_maintain_liabilities` and `op_under_dest_min`. ADR-0006 and the architecture now match.
+
+Blocked (human actions):
+
+- **npm.** `npm login`, then `npm publish` of the 0.0.1 name placeholder with 2FA.
+- **Baseline recording.** E1-S2: record the Demolisher baseline on `messy-20260926T035942Z`, per `evidence/baseline/README.md`.
+- **Chapter lead.** Choose the video hosting, and get the chapter lead's written acknowledgement of the two-fixture reading.
+- **History rewrite (R4, R5).** Decide whether to rewrite history.
+- **Review decisions.** Settle the decisions listed in the new review:
+  - SDK names against PRD section 7;
+  - the CI seed-scan pattern;
+  - the E2-S6 deviations;
+  - zero pauses;
+  - the over-budget exit code.
+- **Testnet CI job.** Dispatch the manual testnet CI job once (E2-S6 task 6).
+
+Next:
+1. Re-review the second-round fixes of E2-S3 and E2-S4 (953fbd7, aefba65, 3dabfc0) and move both stories to done.
+2. Check E2-S5 against the existing ladder and write its record.
+3. Epic 3:
+   - E3-S4: the sequence-guard wait (R8);
+   - E3-S1 and E3-S2: ladder execution (settle AA-14 and BH-7);
+   - E3-S5: the detection-only blockers;
+   - E3-S6: the test matrix with the `edge` fixture;
+   - E3-S7: the metric close of the baseline fixture, after the Demolisher recording.
