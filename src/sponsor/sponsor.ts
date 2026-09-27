@@ -61,6 +61,18 @@ export class FeeSponsor {
     return this.spent;
   }
 
+  /**
+   * Forgets the bids signed for a sequence number that no envelope of this close can use any more:
+   * another transaction consumed it and every envelope signed for it was refused at validation, so
+   * none of them can ever be charged (edge case E7). Only the caller can know that; it must not
+   * release a sequence number while an envelope for it may still apply or may have applied.
+   */
+  release(source: string, sequence: string): void {
+    const key = `${source}:${sequence}`;
+    this.spent -= this.largestBid.get(key) ?? 0;
+    this.largestBid.delete(key);
+  }
+
   /** What is left of the close budget for sequence numbers not signed for yet. */
   get remainingStroops(): number {
     return this.budgetStroops - this.spent;

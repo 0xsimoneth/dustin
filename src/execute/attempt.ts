@@ -332,6 +332,12 @@ export async function submitPlannedTransaction(
           return stop("ACCOUNT_MISSING", "stop", `The account ${plan.account} no longer exists.`);
         }
         rebuiltBecause = `envelope ${short(hash)} was refused with tx_bad_seq; the account's sequence number is now ${fresh.sequence}`;
+        // Every envelope signed for the old sequence number was refused (none is unseen), and
+        // another transaction consumed it, so none can ever be charged: its bids leave the budget
+        // before the rebuild at the new number (edge case E7).
+        if (fresh.sequence !== sequence) {
+          ctx.sponsor.release(plan.account, (BigInt(sequence) + 1n).toString());
+        }
         sequence = fresh.sequence;
         continue;
       }

@@ -135,3 +135,23 @@ describe("signers", () => {
     expect(JSON.stringify(keypairSigner(sponsorKp))).not.toContain(sponsorKp.secret());
   });
 });
+
+describe("FeeSponsor.release (edge case E7)", () => {
+  it("drops the bids of a sequence number that no envelope can use any more", async () => {
+    const s = new FeeSponsor(keypairSigner(sponsorKp), {
+      networkPassphrase: TESTNET,
+      budgetStroops: 3000,
+    });
+    const account = accountKp.publicKey();
+    await s.wrap(inner(1, account, "100"), 1000); // 2000 for sequence 101
+    await expect(s.wrap(inner(1, account, "101"), 1000)).rejects.toMatchObject({
+      code: "SPONSOR_BUDGET_EXCEEDED",
+    });
+    s.release(account, "101");
+    expect(s.spentBidStroops).toBe(0);
+    await s.wrap(inner(1, account, "101"), 1000); // sequence 102 now fits
+    expect(s.spentBidStroops).toBe(2000);
+    s.release(account, "999"); // nothing signed for it: no change
+    expect(s.spentBidStroops).toBe(2000);
+  });
+});

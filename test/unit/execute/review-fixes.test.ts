@@ -486,3 +486,26 @@ describe("edge case E1: a second tx_bad_seq looks the envelopes up before stoppi
     expect(report.status).toBe("closed");
   });
 });
+
+describe("edge case E7: a refused envelope's bid does not stay counted after a resequence", () => {
+  it("closes within a budget that the old sequence's bid would otherwise exhaust", async () => {
+    const { ledger, deps, plan } = harness();
+    const p = await plan({ budgetStroops: 2000 });
+    expect(p.fees.totalStroops).toBe(1500);
+    const report = await executeClose(p, signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        // Another client uses the account's next sequence number while the envelope is in flight.
+        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 1) {
+          const account = ledger.accounts.get(messy.fixture)!;
+          account.sequence = (BigInt(account.sequence) + 1n).toString();
+        }
+      },
+    });
+    expect(report.stop).toBeNull();
+    expect(report.status).toBe("closed");
+    const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
+    expect(tx0.map((t) => t.result)).toEqual(["rejected", "applied"]);
+  });
+});
