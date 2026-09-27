@@ -60,6 +60,22 @@ export interface StepOutcome {
   explanation?: string;
 }
 
+/**
+ * A blocker found while the run executed rather than in the plan: a step that failed on the
+ * ledger twice (AC-E2-S3-4). It sits next to the plan's blockers in `CloseReport.blockers`, with
+ * the step, its last result codes and a remedy.
+ */
+export interface RunBlocker {
+  code: "STEP_FAILED_TWICE";
+  reason: string;
+  remedy: string;
+  /** Fixing what makes the step fail, or allowing a partial close, unblocks it. */
+  permanent: false;
+  /** The step of the plan the run started with. */
+  stepId: string;
+  resultCodes: ResultCodes;
+}
+
 /** Machine-readable reasons a run stopped early or did not start. */
 export type StopCode =
   | "PLAN_CHANGED"
@@ -153,7 +169,8 @@ export interface CloseReport {
   steps: StepOutcome[];
   replans: ReplanRecord[];
   unclosable: UnclosableItem[];
-  blockers: Blocker[];
+  /** The plan's blockers, and any the run found (a step that failed twice). */
+  blockers: Array<Blocker | RunBlocker>;
   warnings: string[];
   recovery: {
     /** The merged balance read from the merge result; null if no merge applied. */

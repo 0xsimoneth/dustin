@@ -25,7 +25,13 @@ import {
 import { operationFailure } from "./classify.js";
 import type { CloseEvent } from "./events.js";
 import { mergePreflight } from "./preflight.js";
-import { replanDrift, rungOneAssets, stepIdentity, withPathsOnlyFor } from "./replan.js";
+import {
+  describeSubject,
+  replanDrift,
+  rungOneAssets,
+  stepIdentity,
+  withPathsOnlyFor,
+} from "./replan.js";
 import {
   mergeAmountFromResultXdr,
   type CloseReport,
@@ -620,7 +626,17 @@ class CloseRun {
     if (failure.verdict === "stop") {
       return stopWith({ code: "OPERATION_FAILED", verdict: "stop", detail: where });
     }
-    if ((stepOutcome?.failures ?? 0) >= 2) {
+    if ((stepOutcome?.failures ?? 0) >= 2 && stepOutcome) {
+      // AC-E2-S3-4: reported as a blocker too, so the receipt's "Not closed" section shows it.
+      const subject = step ? describeSubject(step.subject) : "operation";
+      this.report.blockers.push({
+        code: "STEP_FAILED_TWICE",
+        reason: `Step ${stepOutcome.stepId} (${step?.kind.replaceAll("_", " ") ?? "operation"}, ${subject}) failed twice on the ledger with ${failure.code}: ${failure.explanation}`,
+        remedy: `Find out why it keeps failing (look at the account's ${subject} on the explorer), fix it or run the close with --partial to leave it in place, then run the close again; the next run plans from the ledger.`,
+        permanent: false,
+        stepId: stepOutcome.stepId,
+        resultCodes: outcome.codes,
+      });
       return stopWith({
         code: "STEP_FAILED_TWICE",
         verdict: "stop",

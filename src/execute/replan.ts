@@ -28,7 +28,8 @@ export function stepIdentity(step: CloseStep): string {
   return `${step.kind}|${subjectIdentity(step.subject)}`;
 }
 
-function describe(subject: StepSubject): string {
+/** A step subject in a few words: "offer 123", "DUSTB trustline", "data entry x". */
+export function describeSubject(subject: StepSubject): string {
   switch (subject.type) {
     case "offer":
       return `offer ${subject.offerId}`;
@@ -104,9 +105,9 @@ export function replanDrift(approved: ClosePlan, next: ClosePlan): string[] {
       if (step.kind === "merge") drift.add("a merge that the approved plan did not include");
       else if (known.has(subjectIdentity(step.subject)))
         drift.add(
-          `a ${step.kind.replaceAll("_", " ")} step for the ${describe(step.subject)}, which the approved plan left in place`,
+          `a ${step.kind.replaceAll("_", " ")} step for the ${describeSubject(step.subject)}, which the approved plan left in place`,
         );
-      else drift.add(`a new ${describe(step.subject)}`);
+      else drift.add(`a new ${describeSubject(step.subject)}`);
       continue;
     }
     if (
@@ -130,7 +131,8 @@ export function replanDrift(approved: ClosePlan, next: ClosePlan): string[] {
     }
   }
   for (const item of next.unclosable) {
-    if (!known.has(subjectIdentity(item.subject))) drift.add(`a new ${describe(item.subject)}`);
+    if (!known.has(subjectIdentity(item.subject)))
+      drift.add(`a new ${describeSubject(item.subject)}`);
   }
   return [...drift];
 }

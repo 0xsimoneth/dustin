@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
+import { renderReport } from "../../../src/render/report-text.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
 import { messy } from "../../helpers/snapshots.js";
 import { answer, failedOps, harness, reply, signers } from "./harness.js";
@@ -420,5 +421,31 @@ describe("branches the review found untested", () => {
     expect(report.stop).toMatchObject({ code: "ACCOUNT_MISSING", verdict: "stop" });
     expect(report.verification).toMatchObject({ accountExists: false });
     expect(ledger.submissions).toHaveLength(1);
+  });
+});
+
+describe("AC-E2-S3-4: a step that fails twice is reported as a blocker", () => {
+  it("lists the step in the report's blockers, with its reason, codes and remedy", async () => {
+    const { ledger, deps, plan } = harness();
+    const underfunded = failedOps(
+      "op_success",
+      "op_success",
+      "op_underfunded",
+      ...Array.from({ length: 6 }, () => "op_success"),
+    );
+    ledger.faults.push(underfunded, underfunded);
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    expect(report.stop).toMatchObject({ code: "STEP_FAILED_TWICE", stepId: "S03" });
+    const blocker = report.blockers.find((b) => b.code === "STEP_FAILED_TWICE");
+    expect(blocker).toMatchObject({
+      permanent: false,
+      stepId: "S03",
+      resultCodes: { innerTransaction: "tx_failed" },
+    });
+    expect(blocker!.reason).toMatch(/S03 .*DUSTB.*failed twice.*op_underfunded/);
+    expect(blocker!.remedy).toMatch(/--partial/);
+    // The receipt's "Not closed" section shows it.
+    const text = renderReport(report);
+    expect(text).toMatch(/Not closed[\s\S]*STEP_FAILED_TWICE/);
   });
 });
