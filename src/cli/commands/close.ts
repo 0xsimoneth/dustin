@@ -8,7 +8,8 @@ import {
   statSync,
   writeFileSync,
 } from "node:fs";
-import { dirname } from "node:path";
+import { randomBytes } from "node:crypto";
+import { basename, dirname } from "node:path";
 import { formatStroops } from "../../amounts.js";
 import { verifyHorizonIsTestnet } from "../../config/network.js";
 import { DustinError } from "../../errors/dustin-error.js";
@@ -105,15 +106,20 @@ export async function closeExecute(
   );
   say(renderPlan(plan, { heading: EXECUTION_HEADING }));
 
+  // With --json, a refusal made here still prints one JSON document on stdout: the plan that was
+  // refused (kind "dustin-close-plan"), where an executed run prints its close report.
+  const refusedWith = (text: string) => {
+    say(text);
+    if (options.json) ctx.io.stdout(`${json(plan)}\n`);
+    return ExitCode.NOTHING_EXECUTED;
+  };
   if (plan.transactions.length === 0) {
-    say(
+    return refusedWith(
       "\nNothing to execute: the plan has no step to run (see the blockers above). Nothing was signed or submitted.\n",
     );
-    return ExitCode.NOTHING_EXECUTED;
   }
   if (plan.status !== "closable" && !options.partial) {
-    say(notClosable(plan));
-    return ExitCode.NOTHING_EXECUTED;
+    return refusedWith(notClosable(plan));
   }
   if (!plan.fees.withinBudget) {
     throw new DustinError(
@@ -153,7 +159,7 @@ export async function closeExecute(
   const plans: ClosePlan[] = [plan];
   let latest: CloseReport | null = null;
   let submitted = false;
-  const progress = progressPrinter(say, plans, account);
+  const progress = progressPrinter(say, plans, account, () => submitted);
   const execute = ctx.execute?.executeClose ?? executeClose;
   say(
     `\nClosing ${account} on testnet.\nEvery fee is paid by the sponsor ${sponsor}; the account pays nothing.\n`,
@@ -377,7 +383,12 @@ function stepSummary(steps: CloseStep[]): string {
 }
 
 /** One block per transaction, one line per state (ux-design section 2.5, UX-DR3). */
-function progressPrinter(say: (text: string) => void, plans: ClosePlan[], account: string) {
+function progressPrinter(
+  say: (text: string) => void,
+  plans: ClosePlan[],
+  account: string,
+  anySubmitted: () => boolean,
+) {
   const latestPlan = () => plans[plans.length - 1]!;
   const label = (index: number) => {
     const total = latestPlan().transactions.length;
@@ -391,9 +402,11 @@ function progressPrinter(say: (text: string) => void, plans: ClosePlan[], accoun
       case "drift":
         say(
           `\nThe account changed since the plan was shown (plan hash ${event.previousPlanHash} is now ${event.planHash}); ` +
-            (event.action === "abort"
-              ? "nothing was submitted.\n"
-              : "continuing with the fresh plan.\n"),
+            (event.action === "replan"
+              ? "continuing with the fresh plan.\n"
+              : anySubmitted()
+                ? "the run stops here; the transactions above stay on the ledger.\n"
+                : "nothing was submitted.\n"),
         );
         return;
       case "preflight":
@@ -518,6 +531,8 @@ function receiptFile(path: string, ctx: CloseContext) {
     });
   try {
     if (path.trim() === "") throw refuse("the path is empty");
+    // A report must never take the place of the secrets file (and rotate it away).
+    if (/^\.env(\..*)?$/.test(basename(path))) throw refuse("it is a .env file");
     if (statSync(path, { throwIfNoEntry: false })?.isDirectory()) throw refuse("it is a directory");
     mkdirSync(dirname(path), { recursive: true });
     accessSync(dirname(path), constants.W_OK);
@@ -559,9 +574,11 @@ function receiptFile(path: string, ctx: CloseContext) {
     },
     write(report: CloseReport): void {
       const file = settle();
-      const temporary = `${file}.${process.pid}.${writes++}.tmp`;
+      // Created exclusively (wx) under an unguessable name, so a planted file or symlink with a
+      // predictable name can never be followed and overwritten.
+      const temporary = `${file}.${process.pid}.${writes++}.${randomBytes(6).toString("hex")}.tmp`;
       try {
-        writeFileSync(temporary, `${json(report)}\n`, { mode: 0o644 });
+        writeFileSync(temporary, `${json(report)}\n`, { mode: 0o644, flag: "wx" });
         renameSync(temporary, file);
         lastWriteOk = true;
       } catch (error) {

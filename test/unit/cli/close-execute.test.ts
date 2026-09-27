@@ -156,6 +156,16 @@ describe("dustin close --execute: refusals before anything is signed", () => {
     expect(r.out).toContain("--partial");
   });
 
+  it("prints the refused plan as the one JSON document with --json (exit 3)", async () => {
+    const world = zeroSpendableWorld({ unauthorized: true });
+    const r = await closeCli(world, executeArgs(world, "--yes", "--json"));
+    expect(r.code).toBe(3);
+    const printed = JSON.parse(r.out) as { kind: string; status: string };
+    expect(printed.kind).toBe("dustin-close-plan");
+    expect(printed.status).not.toBe("closable");
+    expect(r.err).toMatch(/Not executed: the plan cannot end in a merge/);
+  });
+
   it("runs everything else with --partial and exits 4", async () => {
     const world = zeroSpendableWorld({ unauthorized: true });
     const r = await closeCli(world, executeArgs(world, "--partial", "--yes"));
@@ -332,6 +342,42 @@ describe("dustin close --execute: recovery after a failure (E2-S3)", () => {
   });
 });
 
+describe("dustin close --execute: drift found after a submission", () => {
+  it("does not claim nothing was submitted when a re-plan finds new entries and stops", async () => {
+    const world = zeroSpendableWorld({ market: true });
+    // After the first transaction, the next one fails with a re-plan code, and meanwhile a new
+    // data entry appeared on the account: the re-plan sees drift and stops (onDrift: abort).
+    const t = tap(world, {
+      posts: 1,
+      then: (url, init) => {
+        if ((init?.method ?? "GET") === "POST") {
+          const account = world.ledger.accounts.get(world.id)!;
+          account.data["dustin.late"] = "MQ==";
+          account.subentry_count += 1;
+          world.ledger.faults.push({
+            status: 400,
+            body: {
+              extras: {
+                result_codes: {
+                  transaction: "tx_fee_bump_inner_failed",
+                  inner_transaction: "tx_failed",
+                  operations: ["op_underfunded", "op_success"],
+                },
+              },
+            },
+          });
+        }
+        return world.ledger.fetch(url, init);
+      },
+    });
+    const r = await closeCli(world, executeArgs(world, "--yes"), { fetch: t.fetch });
+    expect(r.out).toContain("The account changed since the plan was shown");
+    expect(r.out).toContain("the transactions above stay on the ledger");
+    expect(r.out).not.toMatch(/changed since the plan was shown[^\n]*nothing was submitted/);
+    expect(r.code).toBe(5);
+  });
+});
+
 describe("dustin close --execute: failures after a submission", () => {
   it("exits 5 when a later transaction fails, printing every submitted hash", async () => {
     const world = zeroSpendableWorld({ market: true });
@@ -481,6 +527,17 @@ describe("dustin close --execute: --json and --report", () => {
     const latest = JSON.parse(readFileSync(path, "utf8")) as CloseReport;
     expect(latest.status).toBe("closed");
     expect(latest.transactions.map((x) => x.hash)).not.toContain(earlierHash);
+  });
+
+  it("refuses a .env file as the report path, so the secrets are never moved or replaced", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(
+      world,
+      executeArgs(world, "--yes", "--report", join(emptyDir(), ".env")),
+    );
+    expect(r.code).toBe(2);
+    expect(r.err).toContain("it is a .env file");
+    expect(world.ledger.submissions).toHaveLength(0);
   });
 
   it("refuses an empty --report path before anything is signed (exit 2)", async () => {

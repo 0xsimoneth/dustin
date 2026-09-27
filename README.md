@@ -22,11 +22,14 @@ npm install -g stellar-dustin
 # Read-only: prints the ordered close plan. Needs no secret.
 dustin plan G<ACCOUNT> --to G<DESTINATION>
 
-# Executes the plan. Secrets come from the environment or a .env file, never from the command line.
-export DUSTIN_ACCOUNT_SECRET=S...   # the account being closed
-export DUSTIN_SPONSOR_SECRET=S...   # a funded testnet account that pays every fee
+# Executes the plan. Secrets come from a .env file or the environment, never from the command line.
+# Put them in .env (gitignored) with an editor, so they never reach your shell history:
+#   DUSTIN_ACCOUNT_SECRET=S...   the account being closed
+#   DUSTIN_SPONSOR_SECRET=S...   a funded testnet account that pays every fee
 dustin close G<ACCOUNT> --to G<DESTINATION> --execute
 ```
+
+Typing `export DUSTIN_ACCOUNT_SECRET=S...` at a prompt stores the secret in your shell history; if you prefer the environment, read it without echo (`read -rs DUSTIN_ACCOUNT_SECRET && export DUSTIN_ACCOUNT_SECRET`) or load it from a secrets manager.
 
 `dustin close` without `--execute` prints the same plan as `dustin plan` and changes nothing; `--yes`, `--partial` and `--report` have no effect there, and a note on standard error says so.
 
