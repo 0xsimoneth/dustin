@@ -10,6 +10,7 @@ import type { Signer } from "../../../src/sponsor/signer.js";
 import { FakeLedger } from "../../helpers/fake-ledger.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
+import { recordIncludedFaults } from "./harness.js";
 
 // The fake ledger does not verify signatures, so signers only need the right public keys.
 const signerFor = (publicKey: string): Signer => ({
@@ -34,8 +35,15 @@ const BAD_SEQ = answer({
 });
 const LOW_FEE = answer({ transaction: "tx_insufficient_fee" });
 const RATE_LIMITED = { status: 429, body: { status: 429, title: "Rate Limit Exceeded" } };
-const failedOps = (...operations: string[]) =>
-  answer({ transaction: "tx_fee_bump_inner_failed", inner_transaction: "tx_failed", operations });
+// An included failure: recorded on the fake ledger by recordIncludedFaults (edge case E6).
+const failedOps = (...operations: string[]) => ({
+  ...answer({
+    transaction: "tx_fee_bump_inner_failed",
+    inner_transaction: "tx_failed",
+    operations,
+  }),
+  included: true,
+});
 
 /**
  * The fake ledger behind a Horizon client. `wrap` can intercept requests. Time is the fake Date:
@@ -43,7 +51,7 @@ const failedOps = (...operations: string[]) =>
  */
 function setup(wrap?: (ledger: FakeLedger) => FetchLike) {
   const ledger = FakeLedger.messy();
-  const fetch = wrap ? wrap(ledger) : ledger.fetch;
+  const fetch = recordIncludedFaults(ledger, wrap ? wrap(ledger) : ledger.fetch);
   const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 }));
   const submitter = horizonSubmitter(TESTNET_HORIZON, { fetch });
   const sleeps: number[] = [];

@@ -10,6 +10,7 @@ import type { Signer } from "../../../src/sponsor/signer.js";
 import { FakeLedger } from "../../helpers/fake-ledger.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
+import { included, recordIncludedFaults } from "./harness.js";
 
 // The fake ledger does not verify signatures, so signers only need the right public keys.
 const signerFor = (publicKey: string): Signer => ({
@@ -20,10 +21,10 @@ const signers = () => ({ account: signerFor(messy.fixture), feeSponsor: signerFo
 
 function setup() {
   const ledger = FakeLedger.messy();
-  const reader = horizonReader(
-    horizonJson(TESTNET_HORIZON, { fetch: ledger.fetch, retries: 0, backoffMs: 0 }),
-  );
-  const submitter = horizonSubmitter(TESTNET_HORIZON, { fetch: ledger.fetch });
+  // Scripted failures marked `included` are recorded as on the ledger (edge case E6).
+  const fetch = recordIncludedFaults(ledger, ledger.fetch);
+  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 }));
+  const submitter = horizonSubmitter(TESTNET_HORIZON, { fetch });
   const deps = { reader, submitter, pollIntervalMs: 0 };
   const plan = () =>
     planClose(
@@ -213,18 +214,13 @@ describe("executeClose on the fake ledger", () => {
       onEvent: (e) => {
         // Something makes the account a sponsor before the merge: op_is_sponsor is a stop code.
         if (e.type === "tx:confirmed" && e.index === 1) {
-          ledger.faults.push({
-            status: 400,
-            body: {
-              extras: {
-                result_codes: {
-                  transaction: "tx_fee_bump_inner_failed",
-                  inner_transaction: "tx_failed",
-                  operations: ["op_is_sponsor"],
-                },
-              },
-            },
-          });
+          ledger.faults.push(
+            included({
+              transaction: "tx_fee_bump_inner_failed",
+              inner_transaction: "tx_failed",
+              operations: ["op_is_sponsor"],
+            }),
+          );
         }
       },
     });
