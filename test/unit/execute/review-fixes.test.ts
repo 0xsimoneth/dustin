@@ -863,3 +863,69 @@ describe("blind review BH1: a copy of a run in progress says it is running", () 
     expect(report.status).toBe("closed");
   });
 });
+
+describe("blind review BH3: an unknown envelope says whether it may still apply", () => {
+  it("marks one that may still apply: no ledger closed past its bound", async () => {
+    let frozen: string | null = null;
+    const { ledger, deps, plan } = harness((_l, fetch) => async (url, init) => {
+      const response = await fetch(url, init);
+      if (!url.includes("/ledgers")) return response;
+      const page = (await response.json()) as {
+        _embedded: { records: { closed_at: string }[] };
+      };
+      frozen ??= page._embedded.records[0]!.closed_at;
+      page._embedded.records[0]!.closed_at = frozen;
+      return new Response(JSON.stringify(page));
+    });
+    ledger.faults.push("504-not-applied");
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    expect(report.stop).toMatchObject({ code: "OUTCOME_UNKNOWN" });
+    expect(report.transactions[0]).toMatchObject({ result: "unknown", mayStillApply: true });
+    expect(report.transactions[0]!.explanation).toMatch(/may still apply/);
+  });
+
+  it("marks one not found after its bound as one that can never apply", async () => {
+    const { ledger, deps, plan } = harness();
+    ledger.faults.push("504-not-applied");
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    expect(report.status).toBe("closed");
+    const [first, second] = report.transactions.filter((t) => t.round === 0 && t.index === 0);
+    expect(first).toMatchObject({ result: "unknown", mayStillApply: false });
+    expect(first!.explanation).toMatch(/can never apply/);
+    expect(second).toMatchObject({ result: "applied" });
+    expect(second).not.toHaveProperty("mayStillApply");
+  });
+
+  it("does not call one that could not be looked up not found", async () => {
+    const { ledger, deps, plan } = harness(
+      (_l, fetch) => (url, init) =>
+        url.includes("/transactions/") ? reply(503) : fetch(url, init),
+    );
+    ledger.faults.push("504-applied");
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    expect(report.stop).toMatchObject({ code: "OUTCOME_UNKNOWN" });
+    const [tx] = report.transactions;
+    // Its bound passed on the ledger, so it cannot apply any more; it may have applied already.
+    expect(tx).toMatchObject({ result: "unknown", mayStillApply: false });
+    expect(tx!.explanation).toMatch(/could not be looked up/);
+    expect(tx!.explanation).not.toMatch(/not found/i);
+  });
+
+  it("drops the mark once the envelope is found applied after all", async () => {
+    let checked = false;
+    const { deps, plan, onEvent } = lostMerge(() => checked);
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        onEvent(e);
+        if (e.type === "verified") checked = true;
+      },
+    });
+    expect(report.status).toBe("closed");
+    const merge = report.transactions.find((t) => t.phase === "merge" && t.attempt === 1)!;
+    expect(merge).toMatchObject({ result: "applied" });
+    expect(merge).not.toHaveProperty("mayStillApply");
+    expect(merge).not.toHaveProperty("explanation");
+  });
+});

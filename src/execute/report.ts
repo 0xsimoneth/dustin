@@ -50,6 +50,13 @@ export interface SubmittedTransaction {
   hash: string;
   innerHash: string;
   result: SubmitOutcome["kind"] | "pending";
+  /**
+   * Set only while `result` is `unknown` (blind review BH3): true when no ledger had closed past
+   * the time bound, so the envelope may still apply; false when it cannot apply any more (not
+   * found after its bound, its sequence number used, or its bound passed while lookups failed, in
+   * which case it may have applied already; `explanation` says which).
+   */
+  mayStillApply?: boolean;
   ledger: number | null;
   feeChargedStroops: number | null;
   feeAccount: string;

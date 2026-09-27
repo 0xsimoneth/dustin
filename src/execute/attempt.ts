@@ -82,6 +82,7 @@ const short = (hash: string) => `${hash.slice(0, 8)}...`;
 
 export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcome): void {
   entry.result = outcome.kind;
+  if (outcome.kind !== "unknown") delete entry.mayStillApply;
   switch (outcome.kind) {
     case "applied":
       entry.ledger = outcome.ledger;
@@ -99,10 +100,25 @@ export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcom
       entry.explanation = explainCodes(outcome.codes, outcome.status);
       return;
     case "unknown":
-      entry.explanation = outcome.mayStillApply
-        ? "Not found by hash, and no ledger has closed past its time bound yet, so it may still apply."
-        : "Not found by hash after its time bound passed, so it can never apply.";
+      entry.mayStillApply = outcome.mayStillApply === true;
+      entry.explanation = unknownMeaning(outcome);
   }
+}
+
+/** What an unknown outcome means, in the words of the lookups behind it (blind review BH3). */
+function unknownMeaning(outcome: Extract<SubmitOutcome, { kind: "unknown" }>): string {
+  const bound = outcome.mayStillApply
+    ? "no ledger has closed past its time bound yet, so it may still apply"
+    : "its time bound has passed, so it cannot apply any more";
+  if (outcome.lookupError) {
+    return `It could not be looked up by hash (${outcome.lookupError}), so whether it applied is not known; ${bound}.`;
+  }
+  if (outcome.sequenceUsed) {
+    return "Not found by hash, but the account shows its sequence number used: it applied where Horizon has not caught up yet, or another transaction used the number. Either way it cannot apply any more.";
+  }
+  return outcome.mayStillApply
+    ? "Not found by hash, and no ledger has closed past its time bound yet, so it may still apply."
+    : "Not found by hash after its time bound passed, so it can never apply.";
 }
 
 /**
