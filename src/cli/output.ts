@@ -12,8 +12,11 @@ export interface GuardedWriterOptions {
  * A writer for standard output or standard error that never crashes the process. When the
  * reader goes away (`dustin close ... | head`), Node emits an EPIPE "error" event on the stream,
  * and an unhandled one would kill a close with a transaction in flight; after any stream error
- * the writer stops writing to that stream and the run goes on. Nothing is dropped silently: with a
- * `fallback` the rest goes there after a one-time notice (the --report file also gets every change).
+ * the writer stops writing to that stream and the run goes on. With a `fallback`, nothing is
+ * dropped silently: the rest goes there after a one-time notice (the CLI gives standard output
+ * standard error as its fallback). Without one, as for standard error itself, the rest is dropped.
+ * A `--report` file, when one was given, does not depend on either stream and gets every copy of
+ * the report (review round 3, R3-29).
  */
 export function guardedWriter(
   stream: NodeJS.WritableStream,

@@ -590,12 +590,6 @@ function stoppedReport(known: CloseReport | null, error: unknown, account: strin
   return report;
 }
 
-/**
- * The opt-in receipt file of `--report <file>`: the report JSON (public keys, hashes and
- * envelopes only) written after every change and at the end, through a temporary file and a
- * rename so a reader never sees half a file. It is checked before anything is signed; a write
- * that fails later only warns, because stopping a close half way would be worse.
- */
 /** True when both paths exist and are the same file (links followed): same device and inode. */
 function sameFile(a: string, b: string): boolean {
   const x = statSync(a, { throwIfNoEntry: false });
@@ -603,6 +597,16 @@ function sameFile(a: string, b: string): boolean {
   return x !== undefined && y !== undefined && x.dev === y.dev && x.ino === y.ino;
 }
 
+/**
+ * The opt-in receipt file of `--report <file>`: the report JSON (public keys, hashes and
+ * envelopes only), written with every copy the executor publishes (when the report is created,
+ * each envelope before and as its POST starts, each outcome and re-plan, the finish) and once more
+ * at the end, through a temporary file and a rename so a reader never sees half a file. It does
+ * not depend on standard output: after an EPIPE there the rest of the output goes to standard
+ * error (src/cli/output.ts), and the file keeps getting every copy (review round 3, R3-29). It is
+ * checked before anything is signed; a write that fails later only warns, because stopping a
+ * close half way would be worse.
+ */
 function receiptFile(path: string, ctx: CloseContext) {
   const refuse = (detail: string) =>
     new DustinError("CONFIG_INVALID", `Cannot write the report file ${path}: ${detail}.`, {
