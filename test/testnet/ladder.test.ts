@@ -204,6 +204,23 @@ async function effectsOf(hash: string) {
   return page?._embedded.records ?? [];
 }
 
+/** Horizon's operation records of a transaction, in order. */
+async function operationsOf(hash: string) {
+  const page = await client.get<{
+    _embedded: {
+      records: Array<{
+        type: string;
+        to?: string;
+        amount?: string;
+        source_amount?: string;
+        asset_code?: string;
+        limit?: string;
+      }>;
+    };
+  }>(`/transactions/${hash}/operations?limit=200`);
+  return page?._embedded.records ?? [];
+}
+
 const flat = (text: string) => text.replace(/\s+/g, " ");
 
 describeTestnet("E3-S1 live: the market vanishes between the fresh plan and the sale", () => {
@@ -395,6 +412,27 @@ describeTestnet("E3-S2 live: --prefer-destination (canonical decision 8)", () =>
       SPTA: "return_to_issuer",
     });
     expect(disposalOf(plan, "DUSTC")!.disposal!.to).toBe(f.manifest.accounts.destination);
+  });
+
+  it("AC-E3-S1-1: one transaction sells DUSTA to the closing account itself and removes the trustline; the merge carries the proceeds to the destination", async () => {
+    const sale = report.transactions.find((t) => t.phase === "convert")!;
+    expect(sale.result).toBe("applied");
+    const [pay, remove, ...rest] = await operationsOf(sale.hash);
+    expect(rest).toEqual([]);
+    // Horizon's record of the sale: what was sent and what was received, by whom.
+    expect(pay).toMatchObject({
+      type: "path_payment_strict_send",
+      to: f.manifest.accounts.fixture,
+      source_amount: "0.0000007",
+      amount: "0.0000007",
+    });
+    expect(remove).toMatchObject({ type: "change_trust", asset_code: "DUSTA", limit: "0.0000000" });
+    // The merge moved the balance and the proceeds: 4.0000000 + 0.0000007.
+    expect(report.recovery.mergedXlm).toBe("4.0000007");
+    expect(destinationDelta).toBe(toStroops("4.0000007"));
+    expect(flat(receipt)).toMatch(
+      /DUSTA 0\.0000007 sold for XLM by path payment to the account itself in tx 2; the XLM left with the merge/,
+    );
   });
 
   it("AC-E3-S2-2, X-06 (authorized destination trustline with room): the destination's DUSTC balance rises by exactly the dust", () => {
