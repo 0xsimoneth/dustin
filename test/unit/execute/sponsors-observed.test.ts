@@ -29,7 +29,7 @@ function tapped(requests: Request[]) {
 }
 
 describe("E3-S3: reserve sponsors observed before and after the run", () => {
-  it("AC-E3-S3-1 (offline): records the reserve sponsor's num_sponsoring, minimum balance and XLM balance before the first submission and after the final check", async () => {
+  it("S-03, AC-E3-S3-1 (offline): records the reserve sponsor's num_sponsoring, minimum balance and XLM balance before the first submission and after the final check", async () => {
     const requests: Request[] = [];
     const { ledger, deps, plan } = harness(tapped(requests));
     const L = ledger.ledgerSeq;

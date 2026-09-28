@@ -15,7 +15,7 @@ const shifted = (ledger: number) => BigInt(ledger) << 32n;
 const L = 4_913_400;
 
 describe("AC-E3-S4-4: the sequence guard at the boundary", () => {
-  it("AC-E3-S4-4: with L the ledger the merge applies in, a sequence at merge of (L << 32) - 1 passes and L << 32 is blocked", () => {
+  it("S-04, AC-E3-S4-4: with L the ledger the merge applies in, a sequence at merge of (L << 32) - 1 passes and L << 32 is blocked", () => {
     // The earliest ledger a merge can land in is the one after the ledger observed.
     const passes = sequenceGuard({
       sequence: (shifted(L) - 2n).toString(),

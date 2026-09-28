@@ -120,7 +120,7 @@ describe("E3-S4: the executor waits for the sequence guard before the merge", ()
     expect(clock.sleeps).toEqual([5000, 5000, 5000, 5000, 5000]);
   });
 
-  it("AC-E3-S4-2 (offline): runs the cleanup, waits for the unblocking ledger, then merges", async () => {
+  it("S-04, AC-E3-S4-2 (offline): runs the cleanup, waits for the unblocking ledger, then merges", async () => {
     const { ledger, clock, deps, plan } = harness();
     const L = ledger.ledgerSeq;
     bump(ledger, 10);
@@ -455,7 +455,7 @@ describe("E3-S4: op_seq_num_too_far on the ledger", () => {
 });
 
 describe("AC-E3-S4-1, AC-E3-S4-3: a guard beyond the bound blocks the plan", () => {
-  it("AC-E3-S4-1: a far bump makes the plan blocked with SEQNUM_TOO_FAR, the ledger and the ETA, and no merge", async () => {
+  it("S-04, AC-E3-S4-1: a far bump makes the plan blocked with SEQNUM_TOO_FAR, the ledger and the ETA, and no merge", async () => {
     const { ledger, plan } = harness();
     const L = ledger.ledgerSeq;
     // About an hour at 5 s per ledger: far beyond the default bound of 120 ledgers.
@@ -484,7 +484,7 @@ describe("AC-E3-S4-1, AC-E3-S4-3: a guard beyond the bound blocks the plan", () 
     expect(ledger.submissions).toHaveLength(0);
   });
 
-  it("AC-E3-S4-3: with allowPartial it runs the cleanup, never submits a merge and ends partial", async () => {
+  it("S-04, AC-E3-S4-3: with allowPartial it runs the cleanup, never submits a merge and ends partial", async () => {
     const { ledger, deps, plan } = harness();
     const L = ledger.ledgerSeq;
     bump(ledger, 720);
