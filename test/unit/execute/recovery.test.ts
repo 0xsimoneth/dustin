@@ -641,7 +641,7 @@ describe("E2-S3: resuming and progress", () => {
 });
 
 describe("E2-S3: final states that need care", () => {
-  it("does not call a merge that applied a close while Horizon still returns the account", async () => {
+  it("keeps a merge that applied closed, but not verified, while Horizon still returns the account", async () => {
     let stale: unknown = null;
     const { deps, plan } = setup((l) => async (url, init) => {
       if (stale && url.endsWith(`/accounts/${messy.fixture}`)) {
@@ -658,9 +658,12 @@ describe("E2-S3: final states that need care", () => {
         if (e.type === "tx:building" && e.index === 2) stale = { status: "cached" };
       },
     });
-    expect(report.status).toBe("failed");
+    // `closed` means the merge applied (decision EX-10); only the 404 makes it a verified close,
+    // and the CLI exits 5 without it (review round 3, R3-10; this was `failed` before).
+    expect(report.status).toBe("closed");
     expect(report.stop).toMatchObject({ code: "ACCOUNT_STILL_EXISTS", verdict: "stop" });
     expect(report.verification).toMatchObject({ accountExists: true });
+    expect(report.message).toMatch(/Horizon still returned the account at the final check/);
   });
 
   it("stops when a transaction found failed after a 504 has no result codes to classify", async () => {

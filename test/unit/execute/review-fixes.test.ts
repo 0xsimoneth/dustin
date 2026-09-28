@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { DustinError } from "../../../src/errors/dustin-error.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import { renderReport } from "../../../src/render/report-text.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
@@ -229,10 +230,15 @@ describe("review finding 2: a merge that applied unseen is still a close", () =>
 
   it("looks for an earlier envelope when a rebuilt transaction meets tx_no_source_account", async () => {
     let lost: string | null = null;
-    const { ledger, deps, plan } = harness(
-      (_l, fetch) => (url, init) =>
-        lost && url.endsWith(`/transactions/${lost}`) ? reply(404) : fetch(url, init),
-    );
+    // Lookups of the first envelope made after the rebuilt one was posted (review round 3, R3-37).
+    let lookedUpAfterRebuild = 0;
+    const { ledger, deps, plan } = harness((l, fetch) => (url, init) => {
+      if (lost && url.endsWith(`/transactions/${lost}`)) {
+        if (l.submissions.length >= 2) lookedUpAfterRebuild += 1;
+        return reply(404);
+      }
+      return fetch(url, init);
+    });
     ledger.faults.push("504-not-applied");
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
@@ -248,6 +254,8 @@ describe("review finding 2: a merge that applied unseen is still a close", () =>
     const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
     expect(tx0.map((t) => t.result)).toEqual(["unknown", "rejected"]);
     expect(tx0[1]!.resultCodes).toMatchObject({ innerTransaction: "tx_no_source_account" });
+    // Looked up by the attempt loop before it stopped, and once more before the final check.
+    expect(lookedUpAfterRebuild).toBe(2);
     // Nothing of this run removed the account, so the stop stands.
     expect(report.status).toBe("failed");
     expect(report.stop).toMatchObject({ code: "ACCOUNT_MISSING", verdict: "stop" });
@@ -316,26 +324,32 @@ describe("review finding 3: a throwing observer cannot lose the merge", () => {
 
   it("does not count an envelope that was never posted as submitted", async () => {
     const { ledger, deps, plan } = harness();
-    const pending: number[] = [];
-    let thrown = false;
-    const report = await executeClose(await plan(), signers(), {
-      confirm: true,
+    // The run dies between recording the first envelope and posting it: reading `onEvent` for the
+    // tx:submitted event throws, outside the observer's guard (review round 3, R3-37).
+    let recorded = false;
+    const options = {
+      confirm: true as const,
       ...deps,
-      onReport: (r) => {
-        const last = r.transactions.at(-1);
-        if (last?.result !== "pending") return;
-        pending.push(last.attempts);
-        if (!thrown) {
-          thrown = true;
-          throw new Error("disk full");
-        }
+      onReport: (r: { transactions: Array<{ result: string }> }) => {
+        if (r.transactions.some((t) => t.result === "pending")) recorded = true;
       },
-    });
-    expect(report.status).toBe("closed");
-    // Published before its POST, an envelope has been posted 0 times.
-    expect(pending.every((n) => n === 0)).toBe(true);
-    expect(report.transactions.every((t) => t.attempts === 1)).toBe(true);
-    expect(ledger.submissions).toHaveLength(3);
+      get onEvent() {
+        if (recorded) throw new Error("killed before the POST");
+        return () => undefined;
+      },
+    };
+    const error = (await executeClose(await plan(), signers(), options).catch(
+      (e: unknown) => e,
+    )) as DustinError;
+    expect(error.code).toBe("EXECUTION_INTERRUPTED");
+    const report = error.report!;
+    expect(ledger.submissions).toHaveLength(0);
+    expect(report.transactions).toEqual([
+      expect.objectContaining({ result: "pending", attempts: 0 }),
+    ]);
+    // Recorded but never posted: nothing was submitted, so the run is aborted, not failed.
+    expect(report.status).toBe("aborted");
+    expect(report.message).toMatch(/before anything was submitted/);
   });
 });
 
@@ -514,29 +528,43 @@ const BAD_SEQ = answer({
 describe("edge case E1: a second tx_bad_seq looks the envelopes up before stopping", () => {
   it("finds the envelope that applied at the re-read sequence instead of reporting a conflict", async () => {
     let hidden: string | null = null;
-    const { ledger, deps, plan } = harness(
-      (l, fetch) => (url, init) =>
+    // The account read that checks attempt 2's 404 lags too, so the 404 is trusted and attempt 2
+    // is rebuilt (edge case E5): without it the run re-plans and never meets a second tx_bad_seq
+    // (review round 3, R3-2).
+    const stale = staleAccountOnce(messy.fixture);
+    const { ledger, deps, plan } = harness((l, fetch) =>
+      stale.wrap((url, init) =>
         // The lookup source lags: attempt 2's record is invisible until attempt 3 has been posted.
         hidden && l.submissions.length < 3 && url.endsWith(`/transactions/${hidden}`)
           ? reply(404)
           : fetch(url, init),
+      ),
     );
     ledger.faults.push(BAD_SEQ, "504-applied");
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
       onEvent: (e) => {
-        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 2) hidden = e.hash;
+        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 2) {
+          hidden = e.hash;
+          stale.arm(ledger);
+        }
       },
     });
-    const attempt2 = report.transactions.find(
-      (t) => t.round === 0 && t.index === 0 && t.attempt === 2,
-    )!;
-    expect(attempt2.result).toBe("applied");
+    const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
+    // The second tx_bad_seq happened: attempt 3 was refused at the number attempt 2 had used.
+    expect(tx0.map((t) => [t.attempt, t.result, t.resultCodes?.innerTransaction])).toEqual([
+      [1, "rejected", "tx_bad_seq"],
+      [2, "applied", undefined],
+      [3, "rejected", "tx_bad_seq"],
+    ]);
+    const attempt2 = tx0[1]!;
     expect(report.steps.find((s) => s.stepId === "S01")).toMatchObject({
       status: "applied",
       txHash: attempt2.hash,
     });
+    // Found by the lookup before the conflict check, not by a re-plan.
+    expect(report.replans).toEqual([]);
     expect(report.stop).toBeNull();
     expect(report.status).toBe("closed");
   });
@@ -626,7 +654,10 @@ describe("edge case E6: included or refused is decided by the ledger, not by the
     const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
     expect(tx0).toHaveLength(1);
     expect(tx0[0]).toMatchObject({ result: "failed", feeChargedStroops: 1000 });
-    expect(ledger.submissions).toHaveLength(1);
+    // Never rebuilt at the number it used: the rest is planned again from the ledger (review
+    // round 3, R3-9; the run stopped here before).
+    expect(report.transactions.filter((t) => t.round === 0)).toHaveLength(1);
+    expect(report.replans).toHaveLength(1);
   });
 });
 

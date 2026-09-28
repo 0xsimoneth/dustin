@@ -404,21 +404,25 @@ describe("dustin close --execute: failures after a submission", () => {
 });
 
 describe("dustin close --execute: the confirmation summary", () => {
-  it("names the most the sponsor may pay when a retry can raise the bid", async () => {
+  it("names the plan's bid and the close budget as the most the sponsor may pay", async () => {
     const world = zeroSpendableWorld();
     const r = await closeCli(world, executeArgs(world, "--yes"));
     expect(r.code).toBe(0);
-    expect(r.out).toMatch(
-      /pays {9}every fee: the plan bids 0\.0000600 XLM; a retry after a fee surge may bid up to \d+\.\d{7} XLM/,
-    );
+    // Review round 3, R3-25: retries and re-plans can bid more than the plan; only the budget is
+    // a ceiling.
+    expect(r.out).toContain("pays         every fee; the plan bids 0.0000600 XLM\n");
+    expect(r.out).toContain("at most      5.0000000 XLM, the close budget;");
     expect(r.out).toMatch(/can spend {4}\d+\.\d{7} XLM/);
   });
 
-  it("says the bid is the ceiling when --base-fee caps it", async () => {
+  it("names the --base-fee bid, never raised, and still the budget as the ceiling", async () => {
     const world = zeroSpendableWorld();
     const r = await closeCli(world, executeArgs(world, "--yes", "--base-fee", "100"));
     expect(r.code).toBe(0);
-    expect(r.out).toContain("pays         every fee, at most 0.0000600 XLM");
+    expect(r.out).toContain(
+      "pays         every fee; the plan bids 0.0000600 XLM at 100 stroops per operation (--base-fee), never raised",
+    );
+    expect(r.out).toContain("at most      5.0000000 XLM, the close budget;");
   });
 });
 

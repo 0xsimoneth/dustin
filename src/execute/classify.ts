@@ -206,14 +206,32 @@ export function rejectionAction(outcome: { status: number; codes: ResultCodes })
   return { action: "stop", reason };
 }
 
-/** One human sentence for a set of result codes, led by the codes themselves. */
-export function explainCodes(codes: ResultCodes, httpStatus?: number): string {
+/**
+ * Transaction-level codes of a fee bump that was included in a ledger (fee charged) while its
+ * inner transaction failed before any operation ran (review round 3, R3-9): the refusal wording
+ * above ("before it was included") would be wrong for them.
+ */
+const INCLUDED_EXPLANATIONS: Readonly<Record<string, string>> = {
+  tx_too_late:
+    "Included in a ledger that closed after the inner transaction's time bound, so it failed before any operation ran; nothing of it applied, its sequence number and fee were spent.",
+  tx_bad_seq:
+    "Included, but the inner sequence number no longer matched when the ledger applied it, so it failed before any operation ran; nothing of it applied, the fee was spent.",
+};
+
+/**
+ * One human sentence for a set of result codes, led by the codes themselves. `included` says the
+ * transaction was found in a ledger (it failed there), so the sentence never calls it refused.
+ */
+export function explainCodes(codes: ResultCodes, httpStatus?: number, included = false): string {
   const listed = [
     codes.transaction,
     codes.innerTransaction,
     codes.operations?.length ? codes.operations.join(", ") : undefined,
   ].filter((part): part is string => Boolean(part));
   if (listed.length === 0) {
+    if (included) {
+      return "Included in a ledger and failed, but its result could not be read, so which operation failed is not known; nothing of it applied, its sequence number and fee were spent.";
+    }
     if (httpStatus === 429) {
       return "HTTP 429: Horizon's rate limit refused the request; nothing was submitted.";
     }
@@ -223,6 +241,7 @@ export function explainCodes(codes: ResultCodes, httpStatus?: number): string {
   const inner = codes.innerTransaction ?? codes.transaction ?? "";
   const meaning =
     failure?.explanation ??
+    (included ? INCLUDED_EXPLANATIONS[inner] : undefined) ??
     TRANSACTION_EXPLANATIONS[inner] ??
     TRANSACTION_EXPLANATIONS[codes.transaction ?? ""] ??
     "See the result codes.";

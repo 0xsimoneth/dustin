@@ -1,6 +1,13 @@
 import { MIN_BASE_FEE } from "../config/fees.js";
-import { MIN_PAUSE_MS, isPause } from "../config/pauses.js";
+import { MAX_PAUSE_MS, MIN_PAUSE_MS, isPause } from "../config/pauses.js";
 import { DustinError } from "../errors/dustin-error.js";
+
+/**
+ * The longest validity window of an inner transaction, in seconds: one hour. An envelope whose
+ * outcome is not known is waited for until a ledger closes past its time bound, so a window without
+ * a limit would make that wait endless in effect (review round 3, R3-18); the default is 120 s.
+ */
+export const MAX_TIMEOUT_SECONDS = 3600;
 
 /** The numeric execute options, as `validateExecuteOptions` reads them. */
 export interface NumericExecuteOptions {
@@ -23,6 +30,10 @@ const count = (least: number): Rule => ({
   test: (n) => Number.isSafeInteger(n) && n >= least,
   expected: `a whole number of at least ${least}`,
 });
+const between = (least: number, most: number): Rule => ({
+  test: (n) => Number.isSafeInteger(n) && n >= least && n <= most,
+  expected: `a whole number from ${least} to ${most}`,
+});
 // A bound (how long to keep trying) may be 0, meaning "look once".
 const duration: Rule = {
   test: (n) => Number.isFinite(n) && n >= 0,
@@ -30,10 +41,11 @@ const duration: Rule = {
 };
 // A pause (the time slept between two requests to Horizon) is at least 200 ms and never 0, so no
 // caller can make the executor poll Horizon in a tight loop (src/config/pauses.ts). Tests skip real
-// waiting by injecting `sleep`, never by passing 0.
+// waiting by injecting `sleep`, never by passing 0. It is at most Node's timer limit, beyond which
+// a timer fires at once (review round 3, R3-18).
 const pause: Rule = {
   test: isPause,
-  expected: `a pause of at least ${MIN_PAUSE_MS} ms (inject \`sleep\` to skip waiting)`,
+  expected: `a pause of ${MIN_PAUSE_MS} to ${MAX_PAUSE_MS} ms (inject \`sleep\` to skip waiting)`,
 };
 
 const RULES: Record<keyof NumericExecuteOptions, Rule> = {
@@ -45,7 +57,7 @@ const RULES: Record<keyof NumericExecuteOptions, Rule> = {
   verifyTimeoutMs: duration,
   graceSeconds: duration,
   ledgerWaitSeconds: duration,
-  timeoutSeconds: count(1),
+  timeoutSeconds: between(1, MAX_TIMEOUT_SECONDS),
   budgetStroops: count(1),
   maxBaseFeeStroops: count(MIN_BASE_FEE),
 };

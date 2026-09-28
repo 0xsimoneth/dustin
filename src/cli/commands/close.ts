@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { randomBytes } from "node:crypto";
-import { basename, dirname } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { formatStroops } from "../../amounts.js";
 import { verifyHorizonIsTestnet } from "../../config/network.js";
 import type { Sleep } from "../../config/pauses.js";
@@ -31,8 +31,24 @@ import { loadCloseSigners, type SecretSources } from "../secrets.js";
 import type { CommandContext } from "./fixture.js";
 import { checkAddresses, destinationOf, parseBaseFee, type PlanCommandOptions } from "./plan.js";
 
-/** Asks one question; resolves with the answer, or null on EOF or a non-interactive input. */
-export type Prompt = (question: string) => Promise<string | null>;
+/**
+ * Where the facts that the typed confirmation confirms (the plan and the summary) were printed:
+ * standard output, or standard error with --json.
+ */
+export interface PromptContext {
+  facts: "stdout" | "stderr";
+}
+
+/**
+ * Asks one question. Resolves with the answer; with null at the end of input (Ctrl-D) or on
+ * Ctrl-C; or with `{ unasked }`, naming why it could not be asked at all, for example a stream that
+ * is not a terminal (review round 3, R3-28, R3-31). Anything but the right answer is no
+ * confirmation.
+ */
+export type Prompt = (
+  question: string,
+  context?: PromptContext,
+) => Promise<string | null | { unasked: string }>;
 
 export interface CloseCommandOptions extends PlanCommandOptions {
   execute?: boolean;
@@ -126,7 +142,13 @@ export async function closeExecute(
   if (plan.status !== "closable" && !options.partial) {
     return refusedWith(notClosable(plan));
   }
+  // The two sponsor and budget refusals below are errors (exit 3 by code, canonical decision 5);
+  // with --json they print the refused plan too, like every refusal here (review round 3, R3-27).
+  const refusedPlan = () => {
+    if (options.json) ctx.io.stdout(`${json(plan)}\n`);
+  };
   if (!plan.fees.withinBudget) {
+    refusedPlan();
     throw new DustinError(
       "SPONSOR_BUDGET_EXCEEDED",
       `The plan bids up to ${xlm(plan.fees.totalStroops)} in fees, more than the sponsor's close budget of ${xlm(plan.fees.budgetStroops)}; nothing was signed.`,
@@ -138,6 +160,7 @@ export async function closeExecute(
   }
   const spendable = await sponsorSpendable(reader, sponsor);
   if (spendable < BigInt(plan.fees.budgetStroops)) {
+    refusedPlan();
     throw new DustinError(
       "SPONSOR_UNDERFUNDED",
       spendable < 0n
@@ -152,13 +175,13 @@ export async function closeExecute(
 
   // The report file is checked (and its directory created) before the confirmation.
   const receipt = options.report !== undefined ? receiptFile(options.report, ctx) : null;
-  say(summary(plan, spendable, baseFee ?? plan.fees.maxBaseFeeStroops));
+  say(summary(plan, spendable, baseFee));
   if (options.yes) {
     say(
       "\nCONFIRMATION SKIPPED: --yes was given, so the typed confirmation was not asked. Executing now.\n",
     );
   } else {
-    await confirm(destination, ctx.prompt);
+    await confirm(destination, ctx.prompt, options.json ? "stderr" : "stdout");
   }
 
   const plans: ClosePlan[] = [plan];
@@ -236,10 +259,15 @@ export async function closeExecute(
   return code;
 }
 
-/** The last line about the --report file: written, or not, in which case the receipt is all there is. */
-function receiptLine(receipt: { path: string; ok: boolean }): string {
-  return receipt.ok
-    ? `Report written to ${receipt.path}\n`
+/**
+ * The last line about the --report file: written; not written at the end but holding an earlier
+ * copy of this run's report (review round 3, R3-30); or never written, in which case the receipt
+ * is all there is.
+ */
+function receiptLine(receipt: { path: string; ok: boolean; written: boolean }): string {
+  if (receipt.ok) return `Report written to ${receipt.path}\n`;
+  return receipt.written
+    ? `Report NOT fully written to ${receipt.path} (see the warning above): the file holds an earlier copy of this run's report, saved while it was in progress; the receipt printed here is the complete record.\n`
     : `Report NOT written to ${receipt.path} (see the warning above); the receipt printed here is the only record of this run's hashes.\n`;
 }
 
@@ -296,18 +324,24 @@ function notClosable(plan: ClosePlan): string {
 }
 
 /** The four facts to check before typing the confirmation (ux-design section 2.2). */
-function summary(plan: ClosePlan, sponsorSpendableStroops: bigint, maxBidPerOp: number): string {
+function summary(
+  plan: ClosePlan,
+  sponsorSpendableStroops: bigint,
+  baseFee: number | undefined,
+): string {
   const merge = plan.transactions.findIndex((t) =>
     t.stepIds.some((id) => plan.steps.find((s) => s.id === id)?.kind === "merge"),
   );
   const ops = plan.transactions.reduce((n, t) => n + t.opCount, 0);
-  // A retry after a fee surge may raise the bid (E2-S3): per operation up to the cap, and never
-  // beyond the per-close budget, so that is what the sponsor may pay at most.
-  const ceiling = Math.min(plan.fees.budgetStroops, maxBidPerOp * (ops + plan.transactions.length));
-  const pays =
-    ceiling > plan.fees.totalStroops
-      ? `every fee: the plan bids ${xlm(plan.fees.totalStroops)}; a retry after a fee surge may bid up to ${xlm(ceiling)}`
-      : `every fee, at most ${xlm(plan.fees.totalStroops)}`;
+  // Review round 3, R3-25: only the close budget bounds what the sponsor pays. A retry after a fee
+  // surge raises the bid for the same sequence number (not with --base-fee, which is also the cap
+  // per operation), and a transaction that fails on the ledger is charged and makes the run
+  // re-plan, which signs transactions the plan did not have; the sponsor signs nothing that would
+  // take the close past its budget (FeeSponsor), so the budget is the ceiling.
+  const bid =
+    baseFee === undefined
+      ? xlm(plan.fees.totalStroops)
+      : `${xlm(plan.fees.totalStroops)} at ${grouped(baseFee)} stroops per operation (--base-fee), never raised`;
   const lines = [
     "",
     merge >= 0
@@ -319,9 +353,13 @@ function summary(plan: ClosePlan, sponsorSpendableStroops: bigint, maxBidPerOp: 
       : "  receives     nothing through a merge: the account is not merged and stays open",
     `  sponsor      ${plan.feeSponsor ?? ""}`,
     ...(plan.memo !== null
-      ? [`  memo         ${JSON.stringify(plan.memo)} (on every transaction, the merge included)`]
+      ? [
+          // The merge is named only when one is planned (review round 3, R3-32).
+          `  memo         ${JSON.stringify(plan.memo)} (on every transaction${merge >= 0 ? ", the merge included" : ""})`,
+        ]
       : []),
-    `  pays         ${pays}`,
+    `  pays         every fee; the plan bids ${bid}`,
+    `  at most      ${xlm(plan.fees.budgetStroops)}, the close budget; retries and re-plans can bid more than the plan, never more`,
     `  can spend    ${xlm(sponsorSpendableStroops)}`,
     `  signs        ${plural(plan.transactions.length, "fee-bumped transaction", "fee-bumped transactions")}, ${plural(ops, "operation", "operations")}, signed by the account`,
     `  unclosable   ${plural(plan.unclosable.length, "item", "items")}${plan.unclosable.length > 0 ? ", staying on the account" : ""}`,
@@ -329,20 +367,37 @@ function summary(plan: ClosePlan, sponsorSpendableStroops: bigint, maxBidPerOp: 
   return `${lines.join("\n")}\n`;
 }
 
-async function confirm(destination: string, prompt: Prompt | undefined): Promise<void> {
+/**
+ * The typed confirmation. It is asked only where the user saw the facts it confirms: the prompt
+ * learns which stream carried them (`facts`) and declines to ask when that stream, its own input
+ * or its output is not a terminal, naming which (review round 3, R3-28, R3-31).
+ */
+async function confirm(
+  destination: string,
+  prompt: Prompt | undefined,
+  facts: PromptContext["facts"],
+): Promise<void> {
   const tail = destination.slice(-4);
-  let answer: string | null = null;
-  if (prompt) {
-    try {
-      answer = await prompt(
-        `\nType the last 4 characters of the destination ${destination} to confirm: `,
-      );
-    } catch {
-      answer = null;
-    }
+  if (!prompt) {
+    throw declined("no terminal is available to ask on (the input is not interactive)");
+  }
+  let answer: string | null | { unasked: string };
+  try {
+    answer = await prompt(
+      `\nType the last 4 characters of the destination ${destination} to confirm: `,
+      { facts },
+    );
+  } catch {
+    answer = null;
+  }
+  if (answer !== null && typeof answer === "object") {
+    throw declined(
+      `the question was not asked: ${answer.unasked}`,
+      "Run the command in a terminal without redirecting its input, standard output or standard error (with --json, standard output may be redirected: the plan and the question go to standard error), or add --yes for a non-interactive run (it works only with --execute).",
+    );
   }
   if (answer === null) {
-    throw declined("no answer was given (the input is not interactive, or it ended)");
+    throw declined("no answer was given (the input ended, or Ctrl-C was pressed)");
   }
   // The answer is never echoed: a user might have typed anything, even a secret.
   if (answer.trim() !== tail) {
@@ -350,10 +405,11 @@ async function confirm(destination: string, prompt: Prompt | undefined): Promise
   }
 }
 
-function declined(why: string): DustinError {
+function declined(why: string, remedy?: string): DustinError {
   return new DustinError("CONFIRMATION_DECLINED", `Not confirmed: ${why}. Nothing was executed.`, {
     stage: "config",
     remedy:
+      remedy ??
       "Run the command in a terminal and type the last 4 characters of the destination, or add --yes for a non-interactive run (it works only with --execute).",
   });
 }
@@ -546,11 +602,22 @@ function stoppedReport(known: CloseReport | null, error: unknown, account: strin
   return report;
 }
 
+/** True when both paths exist and are the same file (links followed): same device and inode. */
+function sameFile(a: string, b: string): boolean {
+  const x = statSync(a, { throwIfNoEntry: false });
+  const y = statSync(b, { throwIfNoEntry: false });
+  return x !== undefined && y !== undefined && x.dev === y.dev && x.ino === y.ino;
+}
+
 /**
  * The opt-in receipt file of `--report <file>`: the report JSON (public keys, hashes and
- * envelopes only) written after every change and at the end, through a temporary file and a
- * rename so a reader never sees half a file. It is checked before anything is signed; a write
- * that fails later only warns, because stopping a close half way would be worse.
+ * envelopes only), written with every copy the executor publishes (when the report is created,
+ * each envelope before and as its POST starts, each outcome and re-plan, the finish) and once more
+ * at the end, through a temporary file and a rename so a reader never sees half a file. It does
+ * not depend on standard output: after an EPIPE there the rest of the output goes to standard
+ * error (src/cli/output.ts), and the file keeps getting every copy (review round 3, R3-29). It is
+ * checked before anything is signed; a write that fails later only warns, because stopping a
+ * close half way would be worse.
  */
 function receiptFile(path: string, ctx: CloseContext) {
   const refuse = (detail: string) =>
@@ -560,8 +627,15 @@ function receiptFile(path: string, ctx: CloseContext) {
     });
   try {
     if (path.trim() === "") throw refuse("the path is empty");
-    // A report must never take the place of the secrets file (and rotate it away).
-    if (/^\.env(\..*)?$/.test(basename(path))) throw refuse("it is a .env file");
+    // A report must never take the place of the secrets file (and rotate it away): no name that is
+    // .env in any case, since a case-insensitive filesystem (macOS, Windows) opens .env for .ENV,
+    // and no other name for the working directory's .env, a symbolic or hard link to it (review
+    // round 3, R3-26).
+    if (/^\.env(\..*)?$/i.test(basename(path))) throw refuse("it is a .env file");
+    const secrets = ctx.secrets.cwd === undefined ? null : join(ctx.secrets.cwd, ".env");
+    if (secrets !== null && sameFile(path, secrets)) {
+      throw refuse("it is the working directory's .env file");
+    }
     if (statSync(path, { throwIfNoEntry: false })?.isDirectory()) throw refuse("it is a directory");
     mkdirSync(dirname(path), { recursive: true });
     accessSync(dirname(path), constants.W_OK);
@@ -572,6 +646,7 @@ function receiptFile(path: string, ctx: CloseContext) {
   let warned = false;
   let writes = 0;
   let lastWriteOk = false;
+  let anyWriteOk = false;
   // A re-run with the same --report path must not erase the hashes of the earlier run (PRD
   // NFR-03, ux-design section 2.7): before the first write, an existing file is renamed aside;
   // if that fails, this run's report goes beside it instead, so the earlier file is never touched.
@@ -601,6 +676,10 @@ function receiptFile(path: string, ctx: CloseContext) {
     get ok(): boolean {
       return lastWriteOk;
     },
+    /** True when some write reached the file, so it holds at least an earlier copy (R3-30). */
+    get written(): boolean {
+      return anyWriteOk;
+    },
     write(report: CloseReport): void {
       const file = settle();
       // Created exclusively (wx) under an unguessable name, so a planted file or symlink with a
@@ -610,6 +689,7 @@ function receiptFile(path: string, ctx: CloseContext) {
         writeFileSync(temporary, `${json(report)}\n`, { mode: 0o644, flag: "wx" });
         renameSync(temporary, file);
         lastWriteOk = true;
+        anyWriteOk = true;
       } catch (error) {
         lastWriteOk = false;
         try {
