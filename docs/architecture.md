@@ -82,7 +82,7 @@ flowchart LR
   user -. baseline recording .-> demolisher
 ```
 
-No other runtime dependency exists. Stellar RPC is not on the critical path (ADR-0004). There is no database: the ledger is the only state of record, and an optional local journal file only accelerates resume and feeds the evidence package.
+No other runtime dependency exists. Stellar RPC is not on the critical path (ADR-0004). There is no database: the ledger is the only state of record, and an optional local journal file only accelerates resume and feeds the evidence package. As built, there is no journal and no resume option: running a close again is the resume, and the CLI's `--report` file and the SDK's `onReport` copies keep the hashes for the evidence (PRD decision D-2).
 
 ## 4. Components
 
@@ -150,7 +150,7 @@ For each non-native balance `b > 0` the ladder picks the first rung whose precon
 | Rung | Method | Preconditions checked in the snapshot | Protocol failure it avoids |
 |---|---|---|---|
 | 1 | `pathPaymentStrictSend(sendAsset=b.asset, sendAmount=b.balance, destination=self, destAsset=XLM, destMin=quote*(1-slippage))` | trustline `isAuthorized`; Horizon returned at least one path with `destination_amount >= 0.0000001`; no own offers remain on that asset after phase U (they are cancelled first) | `SRC_NOT_AUTHORIZED`, `TOO_FEW_OFFERS`, `UNDER_DESTMIN`, `OFFER_CROSS_SELF` [F8], [F9] |
-| 2 | `payment(destination=issuer, amount=b.balance)` (burn) | issuer account exists; trustline `isAuthorized` (auth-required assets can only be moved by authorized holders); if the issuer is SEP-29 memo-required the transaction carries a memo [F13] | `PAYMENT_NO_DESTINATION`, `PAYMENT_SRC_NOT_AUTHORIZED` [F8] |
+| 2 | `payment(destination=issuer, amount=b.balance)` (burn) | trustline `isAuthorized` (auth-required assets can only be moved by authorized holders); if the issuer is SEP-29 memo-required the transaction carries a memo [F13]. The issuer account does not have to exist: a payment to an issuer that was merged away succeeds and burns the balance (day-1 experiment 4, `docs/progress-log.md`; `docs/README.md` open question 3, resolved 2026-09-26) | `PAYMENT_SRC_NOT_AUTHORIZED` [F8] |
 | 3 | `payment(destination=merge destination, amount=b.balance)` | destination holds a trustline for the asset, `isAuthorized`, free capacity `limit - balance - buying_liabilities >= amount` | `PAYMENT_NO_TRUST`, `PAYMENT_NOT_AUTHORIZED`, `PAYMENT_LINE_FULL` [F7] |
 | 4 | **unclosable** | none of the above | reported with the concrete reason from every rung, e.g. `NO_PATH` + `ISSUER_NOT_AUTHORIZED` + `DEST_NO_TRUSTLINE` |
 
@@ -203,7 +203,7 @@ Per transaction `i`:
    - **`tx_too_late` / `tx_insufficient_fee`**: rebuild (fresh bounds, escalated fee).
    - **`tx_fee_bump_inner_failed` with operation codes** [F15]: classify. State drift (`op_underfunded`, `op_offer_not_found`, `op_invalid_limit`, `op_too_few_offers`, `op_under_dest_min`, `op_cross_self`, `op_src_not_authorized`, `op_line_full`, `op_no_trust`, ...) means the snapshot is stale or the ladder rung is no longer viable: re-inspect and re-plan (max `maxReplans = 3`). The new plan naturally omits everything already applied and moves a failed rung-1 asset to rung 2, and so on. Permanent errors stop the run with a partial report.
    - **Budget exceeded / `MainnetRefused` / signer errors**: stop immediately.
-4. "Step 3 of 5 fails" therefore never leaves the executor guessing: transactions 1 and 2 are on the ledger, transaction 3 was atomic and did nothing [F1], and the next plan is computed from what the ledger says now. Resume after a crash is the same thing: run again; the journal contributes the hashes of transactions 1 and 2 to the evidence package, the ledger contributes the truth.
+4. "Step 3 of 5 fails" therefore never leaves the executor guessing: transactions 1 and 2 are on the ledger, transaction 3 was atomic and did nothing [F1], and the next plan is computed from what the ledger says now. Resume after a crash is the same thing: run again; the journal contributes the hashes of transactions 1 and 2 to the evidence package, the ledger contributes the truth. (As built, the report copies published through `onReport`, and the CLI's `--report` file, play the journal's part; there is no resume option, PRD decision D-2.)
 
 Idempotency argument: an inner transaction is pinned to one sequence number, so the same signed envelope can be submitted any number of times and applies at most once [F1], [S5]; a rebuilt envelope for the same sequence can only apply if the earlier one expired unapplied (time bounds). Concurrency is not supported: two executors on one account race on sequence numbers; the CLI takes a lock file per account (**stretch**: none needed for the SOW).
 
@@ -486,7 +486,7 @@ The executor re-evaluates the same formula in the pre-merge preflight against th
 | Fee payer | Fee-bump every transaction; sponsor is the fee-bump source only | SOW mandate and a strictly smaller blast radius than sponsor-as-transaction-source. | ADR-0003 |
 | Proceeds destination | Path-payment proceeds go to the closing account, then leave through the merge | One delivery, one memo consideration, one recovered number; legal per [F9]. | this doc |
 | Merge placement | Appended to the deterministic transaction when no market step exists; otherwise last and alone | Literal minimum where safe; fresh preflight where needed. | this doc |
-| State of record | The ledger; optional local journal for resume speed and evidence | No database, no server. | ADR-0002 |
+| State of record | The ledger; optional local journal for resume speed and evidence (as built: report copies through `onReport` and `--report`, no resume option, PRD decision D-2) | No database, no server. | ADR-0002 |
 | Contract | None | Every needed capability is a classic operation; contracts cannot source classic transactions, sign for `G` accounts or pay fee bumps. | ADR-0001 |
 | Tests | Offline unit tests on recorded Horizon JSON; testnet integration with a fresh fixture per run; deterministic illiquid asset | Reviewer can run both. | ADR-0005 |
 | Errors | One taxonomy with codes, `retryable`, `stage`, plus Horizon result-code mapping | Integrators branch on codes, not on strings. | ADR-0006 |
@@ -574,7 +574,7 @@ Post-SOW shape, all **stretch (outside SOW)**: a hosted fee-bump relay with abus
 - The sponsor account is funded by Friendbot (10,000 XLM) and holds enough above its own minimum balance to cover the budget.
 - The merge destination exists before the run.
 - `manageSellOffer` with `amount=0` cancels an offer created by `manageBuyOffer` when the offer's own `selling`/`buying` assets are supplied (the `OfferEntry` stores no origin); this is exercised by the test matrix rather than assumed silently.
-- A trustline with zero balance can be removed even if the issuer account no longer exists: **unverified**, listed as a known-limit test to add.
+- A trustline with zero balance can be removed even if the issuer account no longer exists: verified on 2026-09-26 by day-1 experiment 4, which also showed that a payment to the merged-away issuer succeeds and burns the balance (`docs/progress-log.md`; `docs/README.md` open question 3).
 - Horizon can look up a fee-bump transaction by its inner hash as well as its outer hash: **unverified**; the executor uses the outer hash.
 - Explorer URL patterns `https://stellar.expert/explorer/testnet/tx/{hash}` and `/account/{id}` were observed to resolve on 2026-09-25.
 - TypeScript 7 compatibility with the `tsup` declaration pipeline is unverified; TypeScript 5.9 is pinned.
