@@ -192,12 +192,48 @@ function firstCode(codes: SubmittedTransaction["resultCodes"]): string {
 }
 
 /**
+ * Every failure on the ledger of the disposal of one asset, in the order of the report: for each
+ * envelope that failed on the disposal's operation, the rung it tried, from the plan of that
+ * envelope's round, and the operation's code. The step outcome keeps only the last codes and the
+ * rung of the plan the run started with, so a receipt built from it alone named the wrong rung
+ * after a fall down the ladder (closing review CC-8).
+ */
+function disposalFailures(
+  report: CloseReport,
+  stepsOfRound: (round: number) => Map<string, CloseStep>,
+  asset: { code: string; issuer: string },
+): Array<{ rung: DisposalRung | undefined; code: string }> {
+  const failures: Array<{ rung: DisposalRung | undefined; code: string }> = [];
+  for (const tx of report.transactions) {
+    if (tx.result !== "failed") continue;
+    // The operations follow the transaction's steps; the first that is not a success failed.
+    const ops = tx.resultCodes?.operations ?? [];
+    const at = ops.findIndex((c) => c !== "op_success");
+    if (at < 0) continue;
+    const step = stepsOfRound(tx.round).get(tx.stepIds[at] ?? "");
+    if (step?.kind !== "dispose_balance" || step.subject.type !== "trustline") continue;
+    const { code, issuer } = step.subject.asset;
+    if (code !== asset.code || issuer !== asset.issuer) continue;
+    failures.push({ rung: step.disposal?.rung, code: ops[at]! });
+  }
+  return failures;
+}
+
+/** "the sale by path payment failed with X, then the return to its issuer failed with Y". */
+function failedRungs(failures: Array<{ rung: DisposalRung | undefined; code: string }>): string {
+  return failures
+    .map((f) => `the ${f.rung ? RUNG_ATTEMPT[f.rung] : "disposal"} failed with ${f.code}`)
+    .join(", then ");
+}
+
+/**
  * What became of each leftover balance (stories E3-S1 and E3-S2; PRD FR-12): sold for XLM, burned
  * by the return to its issuer (a payment to the issuer takes the asset out of circulation,
  * https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/assets#deleting-or-burning-assets),
  * or sent to the destination, with the transaction and plan round it applied in; after a fall
- * down the ladder, the rung that failed first and its code. The steps come from the plans, so
- * without them this section is empty; so it is for a run that submitted nothing.
+ * down the ladder, each rung that failed and its code, as the failed envelopes and the plans of
+ * their rounds show them (closing review CC-8). The steps come from the plans, so without them
+ * this section is empty; so it is for a run that submitted nothing.
  */
 function disposalLines(
   report: CloseReport,
@@ -215,6 +251,8 @@ function disposalLines(
     if (step?.kind !== "dispose_balance" || step.subject.type !== "trustline") continue;
     const { code, issuer } = step.subject.asset;
     const planned = step.disposal?.rung;
+    // The rungs that failed, from the envelopes that failed and the plans of their rounds (CC-8).
+    const failures = disposalFailures(report, stepsOfRound, step.subject.asset);
     let text: string;
     if (outcome.status === "applied") {
       const rung = outcome.rung ?? planned;
@@ -228,11 +266,15 @@ function disposalLines(
           : rung === "return_to_issuer"
             ? `burned: returned to its issuer ${short(issuer)}${where}`
             : `sent to the destination ${short(report.destination)}${where}`;
-      if ((outcome.failures ?? 0) > 0 && planned && rung !== planned) {
-        text += `, after the ${RUNG_ATTEMPT[planned]} failed with ${firstCode(outcome.resultCodes)}`;
-      }
+      // The fall down the ladder names only rungs that failed, never the plan's first choice when
+      // a re-plan moved the balance without a failure of it.
+      const before = failures.filter((f) => f.rung !== rung);
+      if (before.length > 0) text += `, after ${failedRungs(before)}`;
     } else if (outcome.status === "failed") {
-      text = `not disposed of: the ${planned ? RUNG_ATTEMPT[planned] : "disposal"} failed with ${firstCode(outcome.resultCodes)}`;
+      text =
+        failures.length > 0
+          ? `not disposed of: ${failedRungs(failures)}`
+          : `not disposed of: the ${planned ? RUNG_ATTEMPT[planned] : "disposal"} failed with ${firstCode(outcome.resultCodes)}`;
     } else {
       text = "not disposed of: the run stopped before this step";
     }
