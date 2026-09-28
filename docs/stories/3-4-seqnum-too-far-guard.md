@@ -47,6 +47,7 @@ Two earlier tests described the old behaviour. They keep their names, which `doc
 Command: `DUSTIN_TESTNET=1 npx vitest run --project testnet --reporter=verbose test/testnet/sequence-guard.test.ts`. With `DUSTIN_GUARD_RECORD=<file>` every hash is also written with its purpose (public data only).
 
 - Run 1 (11:00 to 11:05 UTC), at commit bf3f8a0, before `main` was merged: 9 of 9 passed. Its hashes are below.
+- Run 2 (11:10 to 11:15 UTC), at commit df91f73, after `main` (Agent E's review fixes) was merged: 9 of 9 passed. Its hashes follow run 1's, under "Run 2".
 
 Every account is a throwaway created by `buildMessyFixture()` and funded from Friendbot. Each fixture transaction after `create-accounts` and every close transaction is a fee bump paid by the fixture's fee sponsor. The builder's baseline fixture `messy-20260926T035942Z` was not touched. Explorer links, until the testnet reset of 2026-12-16: `https://stellar.expert/explorer/testnet/tx/<hash>`.
 
@@ -141,6 +142,53 @@ Fixture `messy-20260928T110358Z-345b2b`. The cleanup ran first through a plan wi
 
 Both merges have 4913988 as their sequence number shifted right by 32 bits. The one in ledger 4913988 failed; the one in 4913989 applied. This isolates the first valid ledger, which day-1 experiment 5 did not.
 
+### Run 2, after merging `main`
+
+The same three cases on fresh fixtures, with the same outcome: the near case merged in the unblocking ledger itself, and the boundary case failed a merge in the ledger before it and applied the next one in it.
+
+| Case | Fixture | Account | Destination | Fee sponsor | Reserve sponsor | Issuer | Market maker |
+|---|---|---|---|---|---|---|---|
+| near | `messy-20260928T111041Z-eb20a1` | `GBD52CEYDFALTIC5VVWROZMJC6APAF4HIESKW6ZAISYSRBVYYMMIIS4X` | `GCXEBKL2FQG4UMWTA4VRSGJCDGQDPLCVH675OPLAMGK25PWUOE3LMZYA` | `GCGSXWSX24256HERN7PP64XQGG3LHZDDA5UN3JTGQ3M2PDZMC5JYO7OB` | `GCAOFCJ63DX6ETUUHZEI2GV4NURBJP2JGQPXVEOX7MXM2YUBDLZXWLYX` | `GB4GHE2IUWBB2TH3XK3CVPACLQ77LR5RCWURRY5RCSKXNYGCEBCJRSYP` | `GCQMWIKDAU5K453MU37EZ4V2NJQRLX62LWSZHRGVTTKGYQ36MN7HIVG3` |
+| far (left open) | `messy-20260928T111248Z-6e5e4d` | `GCF655OMYRMAZV7QK6RGK54HGXN5WSQ7BYZURVPMV4JE2RBXKRIYIZ4A` | `GARBD426VPDSTVMOUWW7RCNM747HDFC2YNXR5V32GZFR76SHZETEHKM7` | `GDWMXGPDL3HGQS3B4JQLB7XJH3OU54EVY2MTZWKNCFUSAR6YW2RALEJB` | `GBKATT3DW7RINAHHOFPWU3AN4X75EGG2ZADSQSSCLNYS7WE7RLCKQNG2` | `GBWRWEHCMUKFU6OUQYVBZFZ67PR2QERMVTJNOFF4D3WX4ENCVH4WBHIO` | `GDPZEI6REFWVRCZVUBWMMUV7RPUGKC7ITFTCR5KNNKAOG7RXUTT2IFY4` |
+| boundary | `messy-20260928T111353Z-81e748` | `GD7VYAEIP3MYWWOH4YXDOVSTGYMXPCBS6ANN4KF4IK7P6F4PQAEUKDDT` | `GCLALE7UY5AHM6DOE4CPG2F543KPAJZROKW3ZXJXAVVK7UK7BLI67VT3` | `GBH6P7K3TJEZ5JUPRGAUKO4PCBLZFM7WW3ABPLXAL5ZWWXKV5GJ3732S` | `GCK2JDSSLUMX7347X65EATELHIRC2UIP3IY747UF2YOWOYMICKHZ2PM6` | `GCA6ATD5M2WS5JKVGJMWZXJBPAE2EDZDMEF7UKCRCGSSXDQORWZIPCF5` | `GCGG36BFXYQIY2XBCAX7AUYKNNYY5XEQZZJQP7TGZNOFQ4QJADMNH4UY` |
+
+| Ledger | Hash | Purpose |
+|---|---|---|
+| 4914053 | `f2f26e17dfe5b9fddd209ea13800f9d20e0aedd02116775c51dc0ffe6453c9f3` | near: fixture: create accounts |
+| 4914054 | `f75d5c76cb3f88a78bf8dca065a555faf85292a35be27dd092c1751fcf18c613` | near: fixture: trustlines |
+| 4914055 | `fe955d86276182d9409841fee6018ef3bd847f8fc9a91cb8b04027c5d70c0026` | near: fixture: sponsored trustline |
+| 4914056 | `f7a855794f4475c301684fa7bff65d6b1416b5631f6df18989463c5adff087cb` | near: fixture: dust payments |
+| 4914057 | `88da1ba62b7a25df6c0cd1acbf6da73028eb88535cfb04d7fc4fe922ea1b2811` | near: fixture: market maker's DUSTA bid |
+| 4914058 | `11a830fff3f6b0037f712e82ada9daf02c9f67dc136e6db198228a283bf865f9` | near: fixture: offers and data entry |
+| 4914059 | `2fa004329cb06ffad1c1880e9a19728128a6669864edb2d9cddca8139bf9f498` | near: fixture: drain to the minimum balance |
+| 4914061 | `3d35d1ae4e524507abf0345a4b7b312740e198e50df5f64b61ce8593a3afc4bd` | near: BumpSequence to (4914059 + 16) << 32; the plan's guard: sequence at merge 21105791415091203, `unblocksAtLedger` 4914076 |
+| 4914062 | `b8a6d82d0f20801b63df4c6b0a6791cc552a4ad6a18c2b38e3a2f0e43a7c85cd` | near: close tx 1 (cleanup), applied |
+| 4914063 | `f2051a21552170d2f920402d8037fadbf5e7799112f2d79aa01718389cd3ec33` | near: close tx 2 (the sale), applied; wait from ledger 4914063 (11:11:43.4 UTC) to ledger 4914075 (11:12:44.0 UTC) |
+| 4914076 | `83192228110b65fd029c52e7a29cc25f3f09fcfc8b272519f311e304ec92e30c` | near: close tx 3 (merge), applied in the unblocking ledger; account 404 |
+| 4914078 | `14b270aeceafaad1f734bc468fb68d69b6da71aa097b4b3d92ff61f8024f5b50` | far: fixture: create accounts |
+| 4914079 | `2b0cc7426fa4847db9f3d806f25ff84c37cd0a7a54450c31b6a6746b8a76ab5e` | far: fixture: trustlines |
+| 4914080 | `183c239bec4516f3f20fa3b2a3423e11f7a1c65f5c2189eb59ebabc3187baf7c` | far: fixture: sponsored trustline |
+| 4914081 | `f0432b4922b8561ba07fa669990710b4c0fc82ff9058ba3d706f225133f8631e` | far: fixture: dust payments |
+| 4914082 | `867bb427ed325eccf73817f4aff3a354f0a0204ed07742e974d09dc0e128ccf8` | far: fixture: market maker's DUSTA bid |
+| 4914083 | `a840ba6dcb4e69fcd59776f3f90d67a3404aa2e6f0747024c91c28d7d08ee57b` | far: fixture: offers and data entry |
+| 4914084 | `8efff12c3fbc7e1e96bf629ba5c59f0f1a76e12ebbd12ab2fe82b079f773e414` | far: fixture: drain to the minimum balance |
+| 4914086 | `fa965d6c9b374264bce5fc93e9f5be74ffaf42f923db4631e333fcb53e8f0f06` | far: BumpSequence to (4914084 + 720) << 32; the plan: `blocked`, "until ledger 4914805, about 60 minutes from now"; without `allowPartial`: `aborted`, nothing signed |
+| 4914087 | `fe86508536ef50593520027d8dbde9b90ad0d8e784280ae4a51803a9cbfdad24` | far: close with `allowPartial`, tx 1 (cleanup), applied |
+| 4914088 | `3da68d6ae9fed834b135da3b31abf1732886c4c15b02a267f7e42b8ab06885c3` | far: close with `allowPartial`, tx 2 (the sale), applied; `partial`, no merge |
+| 4914089 | `f879cdf6095f3a3ba645e3c51c00d460e2881fb81e2db7eca761708d5f642102` | far: probe, a merge submitted anyway: failed with `op_seq_num_too_far`, sequence number consumed |
+| 4914091 | `3a2cae9e6b697b0ac188e57df2831910ba5885f1a7792a9ce7cdd816c2643c8c` | boundary: fixture: create accounts |
+| 4914092 | `f98121f994b84ecf07fb38c524ca191a170550bf3b10f821c3b622b024689848` | boundary: fixture: trustlines |
+| 4914093 | `31ea91506fdb9a277b165b343b010bd0e148a82fa9b477f12b9b76247daeb30c` | boundary: fixture: sponsored trustline |
+| 4914094 | `22e134a7249bcd689c8b705aa20610a5b67ba825ae9f2d8a5612e380fdf76fee` | boundary: fixture: dust payments |
+| 4914095 | `3f68a749e20cc5ee5781cd14c2308cb139c736a9ac49dcd06bd238754f3cffd0` | boundary: fixture: market maker's DUSTA bid |
+| 4914096 | `4beaff8e5073262ad94b49450ca6b2fbc884bbfbe47f5dfc879e3d2fa471bfb9` | boundary: fixture: offers and data entry |
+| 4914097 | `8c7558f92d4ee821f13e9431d187cfc6388f1ea5f8f55ffd6c3bd93d30d1cf55` | boundary: fixture: drain to the minimum balance |
+| 4914099 | `d2a073aec8e3a1cc0cb2ad62c08be2e127e9f34176dd60b66304be78ff67cc7e` | boundary: BumpSequence to (4914097 + 10) << 32 |
+| 4914100 | `59d69f838632bd2cd1df68e613dabbc73452a1ba88b09fc72bcae80f1fec1adb` | boundary: cleanup tx 1, applied |
+| 4914101 | `262ae14ddb376a120a21f94b8d266b925ebded7ccd7b57473bda14f5440364ca` | boundary: cleanup tx 2 (the sale), applied; next sequence number 21105928854044675, first valid ledger 4914108 |
+| 4914107 | `ca26868fb79cfe7b4b9ed1b75ecdefa20280270538b052c562aefc1adca2fe8c` | boundary: probe merge in ledger 4914107, failed with `op_seq_num_too_far` |
+| 4914108 | `5c7c80f8e6e84d557f3a027bb3f799d3d009d3f3b4969fc912a18256fa2a689b` | boundary: the executor's merge, applied in ledger 4914108; account 404 |
+
 ## Tasks / Subtasks
 
 - [x] Task 1: AC-4 boundary tests of the guard and of the planner's form (`test/unit/plan/guard-boundary.test.ts`, `test/unit/plan/guard-plan.test.ts`) (AC: 4)
@@ -196,7 +244,7 @@ dev-story workflow (AI developer agent)
 ### Completion Notes List
 
 - Offline tier: 73 files and 635 tests before this story and Story 3.3; 81 files and 687 tests after both; 84 files and 752 tests after merging `main` (Agent E's review fixes). Lint, format, typecheck and build pass.
-- Live tier: `test/testnet/sequence-guard.test.ts`, 9 tests, passed on 2026-09-28 (hashes above).
+- Live tier: `test/testnet/sequence-guard.test.ts`, 9 tests, passed twice on 2026-09-28, before and after merging `main` (hashes above).
 - New in the public surface: the `wait` event; `PreflightResult.currentLedger`; `mergePreflight`'s `knownLedger` option; `waitForLedger()` and `ledgerWaitLimitMs()` in `src/execute/preflight.ts` (internal, not exported from the package). No new execute option.
 
 ### File List
