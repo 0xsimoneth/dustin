@@ -494,23 +494,27 @@ A user whose account holds dust, illiquid tokens, a sponsored trustline or a bum
 
 ### Story 3.1 (E3-S1): Ladder execution, path-payment sale (`3-1-ladder-path-payment`)
 
+> Note (2026-09-28, review findings AA-14 and BH-7 of `docs/reviews/2026-09-27-e2-integration-review.md`): AC-E3-S1-1 and the technical note said the sale pays the destination directly. The code, architecture section 4.4 and both E2-S6 evidence runs send the proceeds to the closing account itself, and the merge then moves its whole balance, proceeds included, to the destination: one delivery to the destination, one SEP-29 memo consideration, one recovered amount (`recovery.mergedXlm`). The code is kept and both texts are corrected below. AC-E3-S1-4's option name and default are met as a documented deviation: the SDK keeps `slippageBps`, default 100 (1%), under PRD decision D-2; see `docs/stories/3-1-ladder-path-payment.md`.
+
 As a user,
 I want leftover balances that have a market sold for XLM in the same transaction that removes their trustline,
 So that my dust becomes XLM that reaches my destination.
 
 **Acceptance Criteria:**
 
-- AC-E3-S1-1: **Given** LIQ in the fixture with a live bid, **When** executed, **Then** one transaction contains pathPaymentStrictSend(LIQ to XLM, destination account) followed by changeTrust(LIQ, 0), succeeds, **And** the destination's XLM increases by the received amount, recorded in the receipt as proceeds.
+- AC-E3-S1-1: **Given** LIQ in the fixture with a live bid, **When** executed, **Then** one transaction contains pathPaymentStrictSend(LIQ to XLM, to the closing account itself) followed by changeTrust(LIQ, 0) and succeeds, the proceeds reach the closing account, **And** the merge then moves its whole balance, proceeds included, to the destination, whose XLM increases by the merged amount that the receipt records as `recovery.mergedXlm` (corrected 2026-09-28, see the note above).
 - AC-E3-S1-2: **Given** the market disappears between planning and execution (the market maker cancels its bid in the test), **Then** the transaction fails with `op_too_few_offers`, the executor re-plans and the asset takes the issuer-return route on the next attempt, **And** the receipt shows both attempts.
 - AC-E3-S1-3: **Given** a balance too small to buy 1 stroop of XLM, **Then** the planner already routes it to issuer return (unit test).
 - AC-E3-S1-4: **Then** `destMin` is never below 1 stroop and slippage is configurable (`maxSlippageBps`, default 500).
 
-**Technical notes:** Proceeds are sent straight to the destination so the closed account never holds spendable XLM. The quote is refreshed at execution time; `op_too_few_offers` and `op_under_dest_min` trigger a re-plan of that asset only, thanks to per-asset transactions.
+**Technical notes:** Proceeds go to the closing account itself (architecture section 4.4; day-1 experiment 14) and leave with the merge, so the destination receives them in the merged amount (corrected 2026-09-28, see the note above). The quote is refreshed at execution time: before anything is signed, a fresh plan that sends less XLM to the destination than the approved plan is drift (review finding BH-7). `op_too_few_offers` and `op_under_dest_min` trigger a re-plan of that asset only, thanks to per-asset transactions.
 **Dependencies:** E2-S5, E2-S3. **Estimate:** 8 h. **Evidence:** transaction hashes (SOW 6.1, D2). **SOW deliverable:** D2.
 
 ### Story 3.2 (E3-S2): Ladder execution, issuer return, destination transfer and unclosable reporting (`3-2-ladder-issuer-destination-unclosable`)
 
 > Decision D-1 (2026-09-25, approved): implement `--prefer-destination` / `preferDestination` as an optional rung order (destination before issuer, burn as fallback), default unchanged. Budget: 1 to 2 h inside this story.
+
+> Note (2026-09-28): day-1 experiment 4 (`docs/progress-log.md`, row 4; `docs/README.md` open question 3, resolved) showed that a payment to an issuer whose account was merged away succeeds and burns the balance. An asset whose issuer is gone (ILQ) is therefore returned to the issuer like any other, never transferred to the destination by default and never unclosable. AC-E3-S2-2 and AC-E3-S2-3 are reworded below for the cases that reach those rungs: the destination transfer is reached with `--prefer-destination`, or when the return to issuer is ruled out, which in practice is a SEP-29 memo-required issuer without a memo; an item is unclosable when, in addition, the destination does not trust the asset. The technical note's `op_no_destination` mapping is corrected for the same reason. In AC-E3-S2-3, `--allow-partial` and exit code 2 are superseded by canonical decisions 4 (`--partial`) and 5 (a partial close exits 4); the story record marks this as a documented deviation (`docs/stories/3-2-ladder-issuer-destination-unclosable.md`).
 
 As a user,
 I want balances that cannot be sold returned to the issuer, or sent to my destination when it trusts the asset, and everything else reported with a clear reason,
@@ -519,11 +523,11 @@ So that nothing silently blocks my close.
 **Acceptance Criteria:**
 
 - AC-E3-S2-1: **Given** RET, **Then** payment to the issuer followed by changeTrust(0) succeeds in one transaction, **And** the receipt notes that the balance was burned.
-- AC-E3-S2-2: **Given** ILQ with a destination that trusts it, **Then** payment to the destination followed by changeTrust(0) succeeds, **And** the destination's ILQ balance increases by the dust amount.
-- AC-E3-S2-3: **Given** ILQ with a destination that does not trust it, **When** `dustin close --allow-partial` runs, **Then** everything else is closed, the merge is not attempted, the exit code is 2, **And** the receipt lists ILQ as unclosable with the three failed routes and the remediation text.
+- AC-E3-S2-2: **Given** a balance with no market whose asset the destination trusts, **When** the destination transfer is reached (with `--prefer-destination`, or because the return to issuer is ruled out, for example by a memo-required issuer without a memo), **Then** payment to the destination followed by changeTrust(0) succeeds, **And** the destination's balance of that asset increases by the dust amount (reworded 2026-09-28, see the note above).
+- AC-E3-S2-3: **Given** a balance no rung can dispose of (no market, the return to issuer ruled out, for example by a memo-required issuer without a memo, and a destination that does not trust the asset), **When** `dustin close --allow-partial` runs, **Then** everything else is closed, the merge is not attempted, the exit code is 2, **And** the receipt lists the item as unclosable with the three failed routes and the remediation text (reworded 2026-09-28; flag and exit code superseded by canonical decisions 4 and 5, see the note above).
 - AC-E3-S2-4: **Given** a destination payment fails with `op_line_full`, **Then** the step is reported as unclosable with the remediation "raise the destination's trustline limit for <asset>".
 
-**Technical notes:** Sending an asset to its issuer burns it (clawback guide, see Sources). Failure mapping: `op_no_destination` (issuer gone) falls to route 3 or 4; `op_src_not_authorized` to route 4.
+**Technical notes:** Sending an asset to its issuer burns it (clawback guide, see Sources); it works even when the issuer account was merged away (day-1 experiment 4). Failure mapping, corrected 2026-09-28: a failed disposal re-plans from the ledger (`src/execute/classify.ts`), and the fresh plan decides the rung. `op_no_destination` cannot come from a return to an issuer that is gone; on a transfer it means the destination account is gone. `op_line_full`, `op_no_trust` and `op_not_authorized` on the destination transfer rule rung 3 out, so the balance falls back to the burn, or, with no rung left, becomes `NO_DISPOSAL_ROUTE` with a remedy that names the fix (for `op_line_full`, "raise the destination's trustline limit for <asset>"). `op_src_not_authorized` makes the balance `TRUSTLINE_NOT_AUTHORIZED`, since an unauthorized trustline cannot send even to its issuer (day-1 experiment 13).
 **Dependencies:** E3-S1. **Estimate:** 6 h. **Evidence:** transaction hashes; partial-close receipt. **SOW deliverable:** D2.
 
 ### Story 3.3 (E3-S3): Sponsored trustline unwind with reserve attribution (`3-3-sponsored-trustline-unwind`)
