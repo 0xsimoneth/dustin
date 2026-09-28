@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { exitCodeForReport } from "../../../src/cli/exit-codes.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
+import type { CloseReport } from "../../../src/execute/report.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
 import { messy } from "../../helpers/snapshots.js";
 import { failedOps, harness, reply, signers, type TestClock } from "./harness.js";
@@ -378,5 +379,54 @@ describe("CX-5: op_seq_num_too_far with no re-plan or budget left says when to r
     });
     expect(report.message).toMatch(/left of the close budget/);
     expect(report.message).toContain(`Run the close again at or after ledger ${L + 7}`);
+  });
+});
+
+describe("CX-6: a rejection of an async observer after the finish reaches a published copy", () => {
+  it("publishes again when an async onEvent rejects on 'done' (the review's probe)", async () => {
+    const { deps, plan } = harness();
+    const copies: CloseReport[] = [];
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onReport: (copy) => copies.push(copy),
+      // TypeScript accepts an async function for a void callback.
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises, @typescript-eslint/require-await -- the case under test
+      onEvent: async (e) => {
+        if (e.type === "done") throw new Error("disk full (async)");
+      },
+    });
+    expect(report.status).toBe("closed");
+    const warned = (r: CloseReport) => r.warnings.some((w) => w.includes("disk full (async)"));
+    expect(warned(report)).toBe(true);
+    // Before the fix the last copy (the --report file) lacked the warning.
+    expect(copies.at(-1)!.status).toBe("closed");
+    expect(warned(copies.at(-1)!)).toBe(true);
+  });
+
+  it("publishes again when the rejection lands after executeClose resolved", async () => {
+    const { deps, plan } = harness();
+    const copies: CloseReport[] = [];
+    let rejectLater: (error: Error) => void = () => undefined;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onReport: (copy) => copies.push(copy),
+      // An observer whose promise settles only after the run: the case under test.
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises -- the case under test
+      onEvent: (e) =>
+        e.type === "done"
+          ? new Promise<void>((_resolve, reject) => {
+              rejectLater = reject;
+            })
+          : undefined,
+    });
+    const published = copies.length;
+    rejectLater(new Error("slow observer failed"));
+    // Let the rejection handler run.
+    await new Promise((resolve) => setImmediate(resolve));
+    expect(report.warnings.some((w) => w.includes("slow observer failed"))).toBe(true);
+    expect(copies.length).toBe(published + 1);
+    expect(copies.at(-1)!.warnings.some((w) => w.includes("slow observer failed"))).toBe(true);
   });
 });

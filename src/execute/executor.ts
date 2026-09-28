@@ -83,7 +83,8 @@ export interface ExecuteOptions {
    * Called with a copy of the report whenever it changes (created, each submission attempt, each
    * outcome, each re-plan, finished, and right before an error is thrown), so a caller can persist
    * it while the run progresses (PRD FR-17, AC-E2-S3-6). Copies carry the status `running` until
-   * the run finishes; the last copy carries the final status (blind review BH1).
+   * the run finishes; the last copy carries the final status (blind review BH1). An async
+   * observer whose promise rejects after the finish adds a warning and one more copy (CX-6).
    */
   onReport?: (report: CloseReport) => void;
   config?: DustinConfig;
@@ -350,19 +351,26 @@ class CloseRun {
    * already signed and submitted (review finding 3): its error becomes a warning, once per callback.
    * An async observer (TypeScript accepts one for a `void` callback) whose promise rejects is
    * caught the same way, so it cannot end the process as an unhandled rejection; its warning is
-   * recorded when the rejection arrives (review round 3, R3-15).
+   * recorded when the rejection arrives (review round 3, R3-15). A rejection that arrives once the
+   * run has finished missed the last copy, so the report is published again with the warning: the
+   * last copy (the --report file) says what the returned report says (closing review CX-6).
    */
   private observe(name: "onReport" | "onEvent", call: () => unknown): void {
-    const failed = (error: unknown) => {
-      if (this.failedObservers.has(name)) return;
+    const failed = (error: unknown): boolean => {
+      if (this.failedObservers.has(name)) return false;
       this.failedObservers.add(name);
       this.report.warnings.push(
         `The caller's ${name} callback threw (${error instanceof Error ? error.message : String(error)}); the run went on without it.`,
       );
+      return true;
     };
     try {
       const result = call();
-      if (isThenable(result)) void result.then(undefined, failed);
+      if (isThenable(result)) {
+        void result.then(undefined, (error: unknown) => {
+          if (failed(error) && this.report.status !== "running") this.publish();
+        });
+      }
     } catch (error) {
       failed(error);
     }
