@@ -59,9 +59,11 @@ export interface BuildOptions {
   fetch?: FetchLike;
   /**
    * Receives the new secret keys before any account is funded, so a build that stops halfway
-   * still leaves the keys to every account it touched. Must store them before returning.
+   * still leaves the keys to every account it touched. Must store them before it returns or its
+   * promise resolves; the build waits for it, and a store that fails stops the build before
+   * anything is funded (closing review CP-12).
    */
-  onKeys?: (keys: FixtureKeys) => void;
+  onKeys?: (keys: FixtureKeys) => void | Promise<void>;
 }
 
 export interface RecordedResponse {
@@ -174,7 +176,7 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
       string
     >,
   };
-  options.onKeys?.(keys);
+  await options.onKeys?.(keys);
 
   log(`Funding the fee sponsor ${roles.sponsor} from Friendbot`);
   await friendbot(options.friendbotUrl ?? FRIENDBOT_URL, roles.sponsor, doFetch);
