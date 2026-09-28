@@ -1,0 +1,99 @@
+{
+  "schemaVersion": 1,
+  "kind": "dustin-close-report",
+  "network": {
+    "passphrase": "Test SDF Network ; September 2015",
+    "horizon": "https://horizon-testnet.stellar.org"
+  },
+  "account": "GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5",
+  "destination": "GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73",
+  "feeSponsor": "GAA76S5MCCU2YQ34QY2YRZECO2HRNIKAPHNWTR4IMKB7CRK5D2T67QAN",
+  "planHash": "7ecb40bca57b8f51e3681bdc9a9f2941b37bfc68788a873c90704d4616d0c371",
+  "status": "partial",
+  "message": "Everything that could run has run; the account still exists because 1 item(s) block the merge (see unclosable and blockers).",
+  "stop": null,
+  "startedAt": "2026-09-28T12:55:20.454Z",
+  "finishedAt": "2026-09-28T12:55:27.702Z",
+  "transactions": [
+    {
+      "index": 0,
+      "phase": "cleanup",
+      "stepIds": [
+        "S01",
+        "S02",
+        "S03"
+      ],
+      "attempts": 1,
+      "attempt": 1,
+      "round": 0,
+      "sequence": "21111039865126914",
+      "baseFeeStroops": 84121,
+      "maxTime": 1790600237,
+      "hash": "8c12934d5a03eeee5224e0b06f67a8b00f74f576f461b928321ab476f2550c73",
+      "innerHash": "af05564b955285481c1c7e08373fc7d11a28562ddbe15c5ea3fe65e98933998b",
+      "result": "applied",
+      "ledger": 4915308,
+      "feeChargedStroops": 400,
+      "feeAccount": "GAA76S5MCCU2YQ34QY2YRZECO2HRNIKAPHNWTR4IMKB7CRK5D2T67QAN",
+      "innerEnvelopeXdr": "AAAAAgAAAADKY85zqNuApKe51Ki7pA5soYiO9HJUDTuAaEtjbTswRwAAAAAASwBhAAAAAgAAAAEAAAAAAAAAAAAAAABqumQtAAAAAAAAAAMAAAAAAAAAAQAAAAChOhbH84S5xtSFDPphLm7omN7OJ1NR9wzDEw6Cn5qsDwAAAAFJTFFYAAAAAKE6FsfzhLnG1IUM+mEubuiY3s4nU1H3DMMTDoKfmqwPAAAAAAAAAAMAAAAAAAAABgAAAAFJTFFYAAAAAKE6FsfzhLnG1IUM+mEubuiY3s4nU1H3DMMTDoKfmqwPAAAAAAAAAAAAAAAAAAAACgAAAA5kdXN0aW4uZml4dHVyZQAAAAAAAAAAAAAAAAABbTswRwAAAECbKNDIaLI7Vf2SCAt0aEYBynE5fOxpykap3N9zo/rzKxiadIJuI2Nny5WQG7U92H8YBgUXl5SB7CWFX/eQDGkE",
+      "feeBumpEnvelopeXdr": "AAAABQAAAAAB/0usEKmsQ3yGNYjkgnaPFqFAedtpx4hig/FFXR6n7wAAAAAABSJkAAAAAgAAAADKY85zqNuApKe51Ki7pA5soYiO9HJUDTuAaEtjbTswRwAAAAAASwBhAAAAAgAAAAEAAAAAAAAAAAAAAABqumQtAAAAAAAAAAMAAAAAAAAAAQAAAAChOhbH84S5xtSFDPphLm7omN7OJ1NR9wzDEw6Cn5qsDwAAAAFJTFFYAAAAAKE6FsfzhLnG1IUM+mEubuiY3s4nU1H3DMMTDoKfmqwPAAAAAAAAAAMAAAAAAAAABgAAAAFJTFFYAAAAAKE6FsfzhLnG1IUM+mEubuiY3s4nU1H3DMMTDoKfmqwPAAAAAAAAAAAAAAAAAAAACgAAAA5kdXN0aW4uZml4dHVyZQAAAAAAAAAAAAAAAAABbTswRwAAAECbKNDIaLI7Vf2SCAt0aEYBynE5fOxpykap3N9zo/rzKxiadIJuI2Nny5WQG7U92H8YBgUXl5SB7CWFX/eQDGkEAAAAAAAAAAFdHqfvAAAAQCjayonrSZxLyed1TrADzWaM0H9MXZC8aXGVwxwr/j78oEVuqbE+0r79PvjAR9NH/WNJY0uzuy/FSAcJGduOUgY=",
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/8c12934d5a03eeee5224e0b06f67a8b00f74f576f461b928321ab476f2550c73"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "S01",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "8c12934d5a03eeee5224e0b06f67a8b00f74f576f461b928321ab476f2550c73",
+      "rung": "return_to_issuer"
+    },
+    {
+      "stepId": "S02",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "8c12934d5a03eeee5224e0b06f67a8b00f74f576f461b928321ab476f2550c73"
+    },
+    {
+      "stepId": "S03",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "8c12934d5a03eeee5224e0b06f67a8b00f74f576f461b928321ab476f2550c73"
+    }
+  ],
+  "replans": [],
+  "unclosable": [
+    {
+      "code": "TRUSTLINE_NOT_AUTHORIZED",
+      "subject": {
+        "type": "trustline",
+        "asset": {
+          "type": "credit_alphanum4",
+          "code": "FRZ",
+          "issuer": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL"
+        },
+        "balance": "0.0000005",
+        "sponsor": null
+      },
+      "reason": "Issuer GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL has not authorized the FRZ trustline (or revoked it), so the balance of 0.0000005 FRZ cannot be sent anywhere, not even back to the issuer.",
+      "remedy": "Ask the issuer GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL to authorize the trustline again (SetTrustLineFlags), then run the plan again.",
+      "blocksMerge": true
+    }
+  ],
+  "blockers": [],
+  "warnings": [],
+  "recovery": {
+    "mergedXlm": null,
+    "reservesReturnedToSponsors": [],
+    "feesPaidByAccount": "0",
+    "feesPaidBySponsorStroops": 400,
+    "sponsorsObserved": []
+  },
+  "verification": {
+    "accountExists": true,
+    "horizonStatus": 200,
+    "checkedAt": "2026-09-28T12:55:27.701Z",
+    "ledger": 4915308,
+    "accountUrl": "https://stellar.expert/explorer/testnet/account/GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5"
+  }
+}

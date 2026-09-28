@@ -1,0 +1,82 @@
+{
+  "ledgers": {
+    "before": 4915305,
+    "after": 4915308
+  },
+  "accounts": [
+    {
+      "role": "Account",
+      "account": "GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5",
+      "before": {
+        "balance": "2.5000000",
+        "sequence": "21111039865126913",
+        "subentryCount": 3,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": [
+          {
+            "asset": "FRZ:GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL",
+            "balance": "0.0000005"
+          },
+          {
+            "asset": "ILQX:GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS",
+            "balance": "0.0000003"
+          }
+        ]
+      },
+      "after": {
+        "balance": "2.5000000",
+        "sequence": "21111039865126914",
+        "subentryCount": 1,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": [
+          {
+            "asset": "FRZ:GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL",
+            "balance": "0.0000005"
+          }
+        ]
+      }
+    },
+    {
+      "role": "Destination",
+      "account": "GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73",
+      "before": {
+        "balance": "2.0000000",
+        "sequence": "21111039865126912",
+        "subentryCount": 0,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": []
+      },
+      "after": {
+        "balance": "2.0000000",
+        "sequence": "21111039865126912",
+        "subentryCount": 0,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": []
+      }
+    },
+    {
+      "role": "Fee sponsor",
+      "account": "GAA76S5MCCU2YQ34QY2YRZECO2HRNIKAPHNWTR4IMKB7CRK5D2T67QAN",
+      "before": {
+        "balance": "9972.9994399",
+        "sequence": "21111031275192321",
+        "subentryCount": 0,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": []
+      },
+      "after": {
+        "balance": "9972.9993999",
+        "sequence": "21111031275192321",
+        "subentryCount": 0,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": []
+      }
+    }
+  ]
+}

@@ -1,0 +1,30 @@
+$ dustin fixture verify fixture-manifest.json --snapshot fixture-verification.json
+Verifying fixture GC5TGH4I2JACACJMBAS4IGLAFWCOOWWYXMVCQOKNE64FBGMTMLFMIGTS against SOW Appendix B
+
+PASS  [Appendix B] holds zero spendable XLM
+      observed: balance 4.0000000, minimum 4.0000000, native selling liabilities 0.0000000, spendable 0.0000000
+PASS  [Appendix B] at least 3 trustlines with non-zero balances
+      observed: 4 (DUSTA 0.0000007, DUSTB 0.0000003, DUSTC 0.0000005, SPTA 0.0000001)
+PASS  [Appendix B] at least 1 open offer
+      observed: 2 (ids 828635, 828636)
+PASS  [Appendix B] at least 1 data entry
+      observed: 1 (dustin.fixture)
+PASS  trustline SPTA is sponsored by the reserve sponsor
+      observed: sponsor GCXHKCD7JFENVKT4ZQCLND7D6Y7GQLBJYKJLM3V3C4DSAWQSRTXNFWHL
+PASS  subentry count
+      observed: 7
+PASS  entries sponsored by another account
+      observed: 1
+PASS  sponsors nothing (a sponsoring account cannot be merged)
+      observed: 0
+PASS  holds no liquidity pool shares
+      observed: 0
+PASS  AUTH_IMMUTABLE is not set
+      observed: false
+PASS  the master key alone meets the high threshold
+      observed: master weight 1, high threshold 0
+PASS  the destination account exists
+      observed: exists
+
+Fixture verified: every check passed.
+[exit code 0]

@@ -1,0 +1,134 @@
+$ dustin fixture verify fixture-manifest.json --snapshot fixture-verification.json
+Verifying edge fixture edge-20260928T125416Z-933e2d against its recipe
+
+PASS  destination exists
+      observed: exists
+PASS  authIssuer exists
+      observed: exists
+PASS  clawbackIssuer exists
+      observed: exists
+PASS  plainIssuer exists
+      observed: exists
+PASS  authIssuer account flags
+      observed: AUTH_REQUIRED + AUTH_REVOCABLE
+PASS  clawbackIssuer account flags
+      observed: AUTH_REVOCABLE + AUTH_CLAWBACK_ENABLED
+PASS  plainIssuer account flags
+      observed: none
+PASS  the destination holds no trustline for an edge asset (so no transfer to it is possible)
+      observed: none
+PASS  auth-frozen exists
+      observed: exists
+PASS  auth-frozen holds zero spendable XLM
+      observed: balance 2.5000000, minimum 2.5000000, spendable 0.0000000
+PASS  auth-frozen subentries and sponsored reserves
+      observed: subentry_count 3, num_sponsoring 0
+PASS  auth-frozen holds 0.0000005 FRZ
+      observed: balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities false
+PASS  auth-frozen holds 0.0000003 ILQX
+      observed: balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true
+PASS  auth-frozen has the data entry dustin.fixture
+      observed: present
+PASS  auth-maintain exists
+      observed: exists
+PASS  auth-maintain holds zero spendable XLM
+      observed: balance 2.0000000, minimum 2.0000000, spendable 0.0000000
+PASS  auth-maintain subentries and sponsored reserves
+      observed: subentry_count 2, num_sponsoring 0
+PASS  auth-maintain holds 0.0000005 MNT
+      observed: balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities true
+PASS  auth-authorized exists
+      observed: exists
+PASS  auth-authorized holds zero spendable XLM
+      observed: balance 1.5000000, minimum 1.5000000, spendable 0.0000000
+PASS  auth-authorized subentries and sponsored reserves
+      observed: subentry_count 1, num_sponsoring 0
+PASS  auth-authorized holds 0.0000003 AUTH
+      observed: balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true
+PASS  auth-revoke exists
+      observed: exists
+PASS  auth-revoke holds zero spendable XLM
+      observed: balance 2.0000000, minimum 2.0000000, spendable 0.0000000
+PASS  auth-revoke subentries and sponsored reserves
+      observed: subentry_count 2, num_sponsoring 0
+PASS  auth-revoke holds 0.0000004 RVK
+      observed: balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true
+PASS  auth-revoke has the data entry dustin.fixture
+      observed: present
+PASS  clawback exists
+      observed: exists
+PASS  clawback holds zero spendable XLM
+      observed: balance 1.5000000, minimum 1.5000000, spendable 0.0000000
+PASS  clawback subentries and sponsored reserves
+      observed: subentry_count 1, num_sponsoring 0
+PASS  clawback holds 0.0000004 CLAW
+      observed: balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled
+      true
+PASS  clawback-drift exists
+      observed: exists
+PASS  clawback-drift holds zero spendable XLM
+      observed: balance 1.5000000, minimum 1.5000000, spendable 0.0000000
+PASS  clawback-drift subentries and sponsored reserves
+      observed: subentry_count 1, num_sponsoring 0
+PASS  clawback-drift holds 0.0000004 CLAW
+      observed: balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled
+      true
+PASS  pool-share exists
+      observed: exists
+PASS  pool-share holds zero spendable XLM
+      observed: balance 3.5000000, minimum 3.5000000, spendable 0.0000000
+PASS  pool-share subentries and sponsored reserves
+      observed: subentry_count 5, num_sponsoring 0
+PASS  pool-share has the data entry dustin.fixture
+      observed: present
+PASS  multisig exists
+      observed: exists
+PASS  multisig holds zero spendable XLM
+      observed: balance 2.0000000, minimum 2.0000000, spendable 0.0000000
+PASS  multisig subentries and sponsored reserves
+      observed: subentry_count 2, num_sponsoring 0
+PASS  multisig has the data entry dustin.fixture
+      observed: present
+PASS  claimable exists
+      observed: exists
+PASS  claimable holds zero spendable XLM
+      observed: balance 1.5000000, minimum 1.5000000, spendable 0.0000000
+PASS  claimable subentries and sponsored reserves
+      observed: subentry_count 0, num_sponsoring 1
+PASS  immutable exists
+      observed: exists
+PASS  immutable holds zero spendable XLM
+      observed: balance 1.0000000, minimum 1.0000000, spendable 0.0000000
+PASS  immutable subentries and sponsored reserves
+      observed: subentry_count 0, num_sponsoring 0
+PASS  auth-frozen: the FRZ trustline is not authorized (frozen)
+      observed: balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities false
+PASS  auth-frozen: the ILQX trustline is authorized
+      observed: balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true
+PASS  auth-maintain: the MNT trustline is authorized to maintain liabilities only
+      observed: balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities true
+PASS  auth-maintain: one open offer selling MNT for XLM
+      observed: offer 828622 sells 0.0000002 MNT
+PASS  auth-authorized: the AUTH trustline is authorized
+      observed: balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true
+PASS  auth-revoke: the RVK trustline is authorized
+      observed: balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true
+PASS  clawback: Horizon shows is_clawback_enabled on the CLAW trustline
+      observed: balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled
+      true
+PASS  clawback-drift: Horizon shows is_clawback_enabled on the CLAW trustline
+      observed: balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled
+      true
+PASS  pool-share: holds shares of pool 238e395fbb98bf0b7882ff5bf1982ab43af9da3294d84215ea17a5a535efadba
+      observed: 1.0000000 shares
+PASS  pool-share: holds the pool's LPA and LPB trustlines
+      observed: LPA, LPB
+PASS  multisig: master weight 1, a second signer of weight 1, high threshold 2
+      observed: master weight 1, second signer weight 1, high threshold 2
+PASS  claimable: sponsors the claimable balance it created
+      observed: num_sponsoring 1, claimable balances sponsored 1
+PASS  immutable: AUTH_IMMUTABLE is set
+      observed: AUTH_IMMUTABLE
+
+Fixture verified: every check passed.
+[exit code 0]

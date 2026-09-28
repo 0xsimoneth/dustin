@@ -1,0 +1,193 @@
+{
+  "schemaVersion": 1,
+  "kind": "dustin-close-report",
+  "network": {
+    "passphrase": "Test SDF Network ; September 2015",
+    "horizon": "https://horizon-testnet.stellar.org"
+  },
+  "account": "GC5TGH4I2JACACJMBAS4IGLAFWCOOWWYXMVCQOKNE64FBGMTMLFMIGTS",
+  "destination": "GB7SVMMN4UGKHSAZYEMMLXQ4NILUGQ6BAIYNRSSM4T5JXC64SELTWXY6",
+  "feeSponsor": "GDCZRDFKPBLATSUNIFDPSJYTDF6FGUREF75QKAXDFMTW2XCYJCYGIZ6S",
+  "planHash": "21a0efde25fd2bb5530dcf61559118d523688341086b88d8594b957f01d3562c",
+  "status": "partial",
+  "message": "Everything that could run has run; the account still exists because 2 item(s) block the merge (see unclosable and blockers).",
+  "stop": null,
+  "startedAt": "2026-09-28T12:56:27.788Z",
+  "finishedAt": "2026-09-28T12:56:37.728Z",
+  "transactions": [
+    {
+      "index": 0,
+      "phase": "cleanup",
+      "stepIds": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05"
+      ],
+      "attempts": 1,
+      "attempt": 1,
+      "round": 0,
+      "sequence": "21111095699701765",
+      "baseFeeStroops": 84121,
+      "maxTime": 1790600307,
+      "hash": "d87eb28d7dfff3bc5e3dc50d4b0db34807022f3a0a033b1f236373547dea3098",
+      "innerHash": "3b6769ed13d1d52e1627c3a65bcf154b809e9fec9180f0c1a92e93a07dd55062",
+      "result": "applied",
+      "ledger": 4915321,
+      "feeChargedStroops": 600,
+      "feeAccount": "GDCZRDFKPBLATSUNIFDPSJYTDF6FGUREF75QKAXDFMTW2XCYJCYGIZ6S",
+      "innerEnvelopeXdr": "AAAAAgAAAAC7Mx+I0kAgCSwIJcQZYC2E51rYuyooOU0nuFCZk2LKxAAAAAAASwBuAAAABQAAAAEAAAAAAAAAAAAAAABqumRzAAAAAAAAAAUAAAAAAAAAAwAAAAJEVVNUQQAAAAAAAAAAAAAA6QlmtMLkFJaxOSdx5L6YJCcQ2Rv401xd2ufOWQcXWn0AAAAAAAAAAAAAAAAAAABkAAAAAQAAAAAADKTbAAAAAAAAAAMAAAACRFVTVEMAAAAAAAAAAAAAAOkJZrTC5BSWsTknceS+mCQnENkb+NNcXdrnzlkHF1p9AAAAAkRVU1RCAAAAAAAAAAAAAADpCWa0wuQUlrE5J3HkvpgkJxDZG/jTXF3a585ZBxdafQAAAAAAAAAAAAAAAQAAAAEAAAAAAAyk3AAAAAAAAAABAAAAAH8qsY3lDKPIGcEYxd4cahdDQ8ECMNjKTOT6m4vckRc7AAAAAkRVU1RDAAAAAAAAAAAAAADpCWa0wuQUlrE5J3HkvpgkJxDZG/jTXF3a585ZBxdafQAAAAAAAAAFAAAAAAAAAAYAAAACRFVTVEMAAAAAAAAAAAAAAOkJZrTC5BSWsTknceS+mCQnENkb+NNcXdrnzlkHF1p9AAAAAAAAAAAAAAAAAAAACgAAAA5kdXN0aW4uZml4dHVyZQAAAAAAAAAAAAAAAAABk2LKxAAAAEA2ilujumJqoD8QfsjCDGGD28mOTz09a4SpbvJ3CzsWnhM8BlhHhXCU463YBEpTLAddB0xCoZ8Hb3sa1J4dL5YF",
+      "feeBumpEnvelopeXdr": "AAAABQAAAADFmIyqeFYJyo1BRvknExl8U1IkL/sFAuMrJ21cWEiwZAAAAAAAB7OWAAAAAgAAAAC7Mx+I0kAgCSwIJcQZYC2E51rYuyooOU0nuFCZk2LKxAAAAAAASwBuAAAABQAAAAEAAAAAAAAAAAAAAABqumRzAAAAAAAAAAUAAAAAAAAAAwAAAAJEVVNUQQAAAAAAAAAAAAAA6QlmtMLkFJaxOSdx5L6YJCcQ2Rv401xd2ufOWQcXWn0AAAAAAAAAAAAAAAAAAABkAAAAAQAAAAAADKTbAAAAAAAAAAMAAAACRFVTVEMAAAAAAAAAAAAAAOkJZrTC5BSWsTknceS+mCQnENkb+NNcXdrnzlkHF1p9AAAAAkRVU1RCAAAAAAAAAAAAAADpCWa0wuQUlrE5J3HkvpgkJxDZG/jTXF3a585ZBxdafQAAAAAAAAAAAAAAAQAAAAEAAAAAAAyk3AAAAAAAAAABAAAAAH8qsY3lDKPIGcEYxd4cahdDQ8ECMNjKTOT6m4vckRc7AAAAAkRVU1RDAAAAAAAAAAAAAADpCWa0wuQUlrE5J3HkvpgkJxDZG/jTXF3a585ZBxdafQAAAAAAAAAFAAAAAAAAAAYAAAACRFVTVEMAAAAAAAAAAAAAAOkJZrTC5BSWsTknceS+mCQnENkb+NNcXdrnzlkHF1p9AAAAAAAAAAAAAAAAAAAACgAAAA5kdXN0aW4uZml4dHVyZQAAAAAAAAAAAAAAAAABk2LKxAAAAEA2ilujumJqoD8QfsjCDGGD28mOTz09a4SpbvJ3CzsWnhM8BlhHhXCU463YBEpTLAddB0xCoZ8Hb3sa1J4dL5YFAAAAAAAAAAFYSLBkAAAAQOuT2ep0LQ6u/+kxWCGCWBbVfX+ya0SvkJKLTEEIy1SlwF1SBcr4lz+u6E31TBgWOQHQOXKGFYu73WKwn0OAVQM=",
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/d87eb28d7dfff3bc5e3dc50d4b0db34807022f3a0a033b1f236373547dea3098"
+    },
+    {
+      "index": 1,
+      "phase": "convert",
+      "stepIds": [
+        "S06",
+        "S07"
+      ],
+      "attempts": 1,
+      "attempt": 1,
+      "round": 0,
+      "sequence": "21111095699701766",
+      "baseFeeStroops": 84121,
+      "maxTime": 1790600312,
+      "hash": "eef625a2721c96651402c4c54beb1e75711c4eaa70076090046eaccf3e20fff8",
+      "innerHash": "752f2c84a5b1c75cfdeca9f973d5f26d934d28e2ea495c2d35c1e2498d5a0a94",
+      "result": "applied",
+      "ledger": 4915322,
+      "feeChargedStroops": 300,
+      "feeAccount": "GDCZRDFKPBLATSUNIFDPSJYTDF6FGUREF75QKAXDFMTW2XCYJCYGIZ6S",
+      "innerEnvelopeXdr": "AAAAAgAAAAC7Mx+I0kAgCSwIJcQZYC2E51rYuyooOU0nuFCZk2LKxAAAAAAASwBuAAAABgAAAAEAAAAAAAAAAAAAAABqumR4AAAAAAAAAAIAAAAAAAAADQAAAAJEVVNUQQAAAAAAAAAAAAAA6QlmtMLkFJaxOSdx5L6YJCcQ2Rv401xd2ufOWQcXWn0AAAAAAAAABwAAAAC7Mx+I0kAgCSwIJcQZYC2E51rYuyooOU0nuFCZk2LKxAAAAAAAAAAAAAAABgAAAAAAAAAAAAAABgAAAAJEVVNUQQAAAAAAAAAAAAAA6QlmtMLkFJaxOSdx5L6YJCcQ2Rv401xd2ufOWQcXWn0AAAAAAAAAAAAAAAAAAAABk2LKxAAAAECA+WttQ8En9w4mgfZwL7lXShoFCeBF51okZnViKGCUvZz5qVOcwcp2Nyls+XAS1di+Us68BOJAqXmaURuxu7kL",
+      "feeBumpEnvelopeXdr": "AAAABQAAAADFmIyqeFYJyo1BRvknExl8U1IkL/sFAuMrJ21cWEiwZAAAAAAAA9nLAAAAAgAAAAC7Mx+I0kAgCSwIJcQZYC2E51rYuyooOU0nuFCZk2LKxAAAAAAASwBuAAAABgAAAAEAAAAAAAAAAAAAAABqumR4AAAAAAAAAAIAAAAAAAAADQAAAAJEVVNUQQAAAAAAAAAAAAAA6QlmtMLkFJaxOSdx5L6YJCcQ2Rv401xd2ufOWQcXWn0AAAAAAAAABwAAAAC7Mx+I0kAgCSwIJcQZYC2E51rYuyooOU0nuFCZk2LKxAAAAAAAAAAAAAAABgAAAAAAAAAAAAAABgAAAAJEVVNUQQAAAAAAAAAAAAAA6QlmtMLkFJaxOSdx5L6YJCcQ2Rv401xd2ufOWQcXWn0AAAAAAAAAAAAAAAAAAAABk2LKxAAAAECA+WttQ8En9w4mgfZwL7lXShoFCeBF51okZnViKGCUvZz5qVOcwcp2Nyls+XAS1di+Us68BOJAqXmaURuxu7kLAAAAAAAAAAFYSLBkAAAAQPCoRb0FdnSVzaNU34VXIjHN8878qo3cKT+8EJDVqCNdR+S0JcMQfytyPxeGLJIiXTBE+Jf+IYXn1/+ukgNDRQ0=",
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/eef625a2721c96651402c4c54beb1e75711c4eaa70076090046eaccf3e20fff8"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "S01",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "d87eb28d7dfff3bc5e3dc50d4b0db34807022f3a0a033b1f236373547dea3098"
+    },
+    {
+      "stepId": "S02",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "d87eb28d7dfff3bc5e3dc50d4b0db34807022f3a0a033b1f236373547dea3098"
+    },
+    {
+      "stepId": "S03",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "d87eb28d7dfff3bc5e3dc50d4b0db34807022f3a0a033b1f236373547dea3098",
+      "rung": "send_to_destination"
+    },
+    {
+      "stepId": "S04",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "d87eb28d7dfff3bc5e3dc50d4b0db34807022f3a0a033b1f236373547dea3098"
+    },
+    {
+      "stepId": "S05",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "d87eb28d7dfff3bc5e3dc50d4b0db34807022f3a0a033b1f236373547dea3098"
+    },
+    {
+      "stepId": "S06",
+      "status": "applied",
+      "txIndex": 1,
+      "txHash": "eef625a2721c96651402c4c54beb1e75711c4eaa70076090046eaccf3e20fff8",
+      "rung": "path_payment"
+    },
+    {
+      "stepId": "S07",
+      "status": "applied",
+      "txIndex": 1,
+      "txHash": "eef625a2721c96651402c4c54beb1e75711c4eaa70076090046eaccf3e20fff8"
+    }
+  ],
+  "replans": [],
+  "unclosable": [
+    {
+      "code": "NO_DISPOSAL_ROUTE",
+      "subject": {
+        "type": "trustline",
+        "asset": {
+          "type": "credit_alphanum12",
+          "code": "DUSTB",
+          "issuer": "GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX"
+        },
+        "balance": "0.0000003",
+        "sponsor": null
+      },
+      "reason": "No route disposes of 0.0000003 DUSTB: path payment: Horizon found no strict-send path to XLM for the full balance; return to issuer: issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires a memo (SEP-29) and none was given; send to destination: the destination holds no DUSTB trustline.",
+      "remedy": "Make one route possible, then run the plan again: wait for a market that buys DUSTB for XLM; or pass the memo that issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires (--memo; SEP-29); or open a DUSTB:GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX trustline on the destination account GB7SVMMN4UGKHSAZYEMMLXQ4NILUGQ6BAIYNRSSM4T5JXC64SELTWXY6, or close into a destination that holds one.",
+      "blocksMerge": true,
+      "rungsRuledOut": [
+        {
+          "rung": "path_payment",
+          "reason": "Horizon found no strict-send path to XLM for the full balance"
+        },
+        {
+          "rung": "return_to_issuer",
+          "reason": "issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires a memo (SEP-29) and none was given"
+        },
+        {
+          "rung": "send_to_destination",
+          "reason": "the destination holds no DUSTB trustline"
+        }
+      ]
+    },
+    {
+      "code": "NO_DISPOSAL_ROUTE",
+      "subject": {
+        "type": "trustline",
+        "asset": {
+          "type": "credit_alphanum4",
+          "code": "SPTA",
+          "issuer": "GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX"
+        },
+        "balance": "0.0000001",
+        "sponsor": "GCXHKCD7JFENVKT4ZQCLND7D6Y7GQLBJYKJLM3V3C4DSAWQSRTXNFWHL"
+      },
+      "reason": "No route disposes of 0.0000001 SPTA: path payment: Horizon found no strict-send path to XLM for the full balance; return to issuer: issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires a memo (SEP-29) and none was given; send to destination: the destination holds no SPTA trustline.",
+      "remedy": "Make one route possible, then run the plan again: wait for a market that buys SPTA for XLM; or pass the memo that issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires (--memo; SEP-29); or open a SPTA:GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX trustline on the destination account GB7SVMMN4UGKHSAZYEMMLXQ4NILUGQ6BAIYNRSSM4T5JXC64SELTWXY6, or close into a destination that holds one.",
+      "blocksMerge": true,
+      "rungsRuledOut": [
+        {
+          "rung": "path_payment",
+          "reason": "Horizon found no strict-send path to XLM for the full balance"
+        },
+        {
+          "rung": "return_to_issuer",
+          "reason": "issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires a memo (SEP-29) and none was given"
+        },
+        {
+          "rung": "send_to_destination",
+          "reason": "the destination holds no SPTA trustline"
+        }
+      ]
+    }
+  ],
+  "blockers": [],
+  "warnings": [],
+  "recovery": {
+    "mergedXlm": null,
+    "reservesReturnedToSponsors": [],
+    "feesPaidByAccount": "0",
+    "feesPaidBySponsorStroops": 900,
+    "sponsorsObserved": []
+  },
+  "verification": {
+    "accountExists": true,
+    "horizonStatus": 200,
+    "checkedAt": "2026-09-28T12:56:37.727Z",
+    "ledger": 4915322,
+    "accountUrl": "https://stellar.expert/explorer/testnet/account/GC5TGH4I2JACACJMBAS4IGLAFWCOOWWYXMVCQOKNE64FBGMTMLFMIGTS"
+  }
+}

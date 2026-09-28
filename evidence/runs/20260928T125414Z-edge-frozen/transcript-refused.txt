@@ -1,0 +1,49 @@
+$ dustin close GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5 --to GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73 --execute --yes
+Dustin plan  (re-read for execution: nothing is signed before you confirm)
+Network      testnet   ledger 4,915,305   observed 2026-09-28T12:55:12Z
+Account      GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5
+Balance      2.5000000 XLM, minimum balance 2.5000000 XLM, spendable 0.0000000 XLM (base reserve 0.5000000)
+Destination  GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73
+Sponsor      GAA76S5MCCU2YQ34QY2YRZECO2HRNIKAPHNWTR4IMKB7CRK5D2T67QAN
+Fees         bid up to 0.0426528 XLM (106,632 stroops per operation), paid by the sponsor; the account pays 0
+Budget       5.0000000 XLM per close for the sponsor; the bid above is within it
+Status       PARTIAL: some items cannot be disposed of, so the account would not be merged
+
+Steps, in execution order
+  S01  tx 1  return 0.0000003 ILQX to issuer GCQT...7YRS (burn)
+             why: Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000003 ILQX back to its
+             issuer GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS, which burns it.
+  S02  tx 1  remove trustline ILQX
+             why: The ILQX trustline is empty once the balance is disposed of; a trustline is a subentry that blocks the
+             merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.
+  S03  tx 1  delete data entry "dustin.fixture"
+             why: Data entry "dustin.fixture" is a subentry that blocks the merge; a manage-data operation without a
+             value deletes it.
+
+Transactions (1, each fee-bumped by the sponsor; inner fee 0)
+  tx 1  cleanup    3 ops   bid 426,528 stroops
+             Deterministic cleanup with no market dependency (offer cancellations, returns to issuers, transfers to the
+             destination, removal of emptied trustlines and data entries), grouped into one fee-bumped transaction of at
+             most 100 operations.
+
+Cannot be disposed of (the account is not merged while these remain)
+  TRUSTLINE_NOT_AUTHORIZED  0.0000005 FRZ (issuer GAIL...QANL)
+    Issuer GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL has not authorized the FRZ trustline (or revoked
+    it), so the balance of 0.0000005 FRZ cannot be sent anywhere, not even back to the issuer.
+    remedy: Ask the issuer GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL to authorize the trustline again
+    (SetTrustLineFlags), then run the plan again.
+
+Accounting
+  0.0000000 XLM arrives at GBT6...NU73 (nothing: the plan does not merge)
+  Reserves released to sponsors: none
+  0 XLM paid by the account; every fee is sponsored
+  plan hash 7ecb40bca57b8f51e3681bdc9a9f2941b37bfc68788a873c90704d4616d0c371
+
+Not executed: the plan cannot end in a merge (status PARTIAL), so nothing was signed or submitted.
+  TRUSTLINE_NOT_AUTHORIZED  0.0000005 FRZ (issuer GAIL...QANL)
+    Issuer GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL has not authorized the FRZ trustline (or revoked
+    it), so the balance of 0.0000005 FRZ cannot be sent anywhere, not even back to the issuer.
+    remedy: Ask the issuer GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL to authorize the trustline again
+    (SetTrustLineFlags), then run the plan again.
+To run everything else now, add --partial: the steps above run, the account is not merged.
+[exit code 3]

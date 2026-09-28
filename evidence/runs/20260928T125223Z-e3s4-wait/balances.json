@@ -1,0 +1,78 @@
+{
+  "ledgers": {
+    "before": 4915282,
+    "after": 4915293
+  },
+  "accounts": [
+    {
+      "role": "Destination",
+      "account": "GD3SL7JZIN7KRPVSHYTXX47BZ4ZGVI6NK3T6YO2NHAQ743XDUELELWHS",
+      "before": {
+        "balance": "10.0000000",
+        "sequence": "21110936785911808",
+        "subentryCount": 1,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": [
+          {
+            "asset": "DUSTC:GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ",
+            "balance": "0.0000000"
+          }
+        ]
+      },
+      "after": {
+        "balance": "14.0000007",
+        "sequence": "21110936785911808",
+        "subentryCount": 1,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": [
+          {
+            "asset": "DUSTC:GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ",
+            "balance": "0.0000000"
+          }
+        ]
+      }
+    },
+    {
+      "role": "Reserve sponsor",
+      "account": "GACQCWDOZ4TGFKSJRPKU4XSKGSN34QWJ4T2TZCOMCLWK6LWT2X23YS7H",
+      "before": {
+        "balance": "10.0000000",
+        "sequence": "21110936785911808",
+        "subentryCount": 0,
+        "numSponsoring": 1,
+        "numSponsored": 0,
+        "trustlines": []
+      },
+      "after": {
+        "balance": "10.0000000",
+        "sequence": "21110936785911808",
+        "subentryCount": 0,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": []
+      }
+    },
+    {
+      "role": "Fee sponsor",
+      "account": "GA4WL3KMS5GLVJSDVDTVAWV6OO2MMNXLYN2YZRZNZ5NZVKZMGASEERRL",
+      "before": {
+        "balance": "9865.9997000",
+        "sequence": "21110932490944513",
+        "subentryCount": 0,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": []
+      },
+      "after": {
+        "balance": "9865.9995500",
+        "sequence": "21110932490944513",
+        "subentryCount": 0,
+        "numSponsoring": 0,
+        "numSponsored": 0,
+        "trustlines": []
+      }
+    }
+  ]
+}

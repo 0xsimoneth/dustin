@@ -1,0 +1,99 @@
+$ dustin close GC5TGH4I2JACACJMBAS4IGLAFWCOOWWYXMVCQOKNE64FBGMTMLFMIGTS --to GB7SVMMN4UGKHSAZYEMMLXQ4NILUGQ6BAIYNRSSM4T5JXC64SELTWXY6 --execute --yes
+Dustin plan  (re-read for execution: nothing is signed before you confirm)
+Network      testnet   ledger 4,915,319   observed 2026-09-28T12:56:22Z
+Account      GC5TGH4I2JACACJMBAS4IGLAFWCOOWWYXMVCQOKNE64FBGMTMLFMIGTS
+Balance      4.0000000 XLM, minimum balance 4.0000000 XLM, spendable 0.0000000 XLM (base reserve 0.5000000)
+Destination  GB7SVMMN4UGKHSAZYEMMLXQ4NILUGQ6BAIYNRSSM4T5JXC64SELTWXY6
+Sponsor      GDCZRDFKPBLATSUNIFDPSJYTDF6FGUREF75QKAXDFMTW2XCYJCYGIZ6S
+Fees         bid up to 0.0757089 XLM (84,121 stroops per operation), paid by the sponsor; the account pays 0
+Budget       5.0000000 XLM per close for the sponsor; the bid above is within it
+Status       PARTIAL: some items cannot be disposed of, so the account would not be merged
+
+Steps, in execution order
+  S01  tx 1  cancel offer 828635: sells 0.0000002 DUSTA for XLM
+             why: Open offer 828635 sells 0.0000002 DUSTA for XLM. Offers are subentries that block the merge, and their
+             liabilities stop the balance from moving and the trustline from being removed; it is cancelled with amount
+             0.
+  S02  tx 1  cancel offer 828636: sells 0.0000002 DUSTC for DUSTB
+             why: Open offer 828636 sells 0.0000002 DUSTC for DUSTB. Offers are subentries that block the merge, and
+             their liabilities stop the balance from moving and the trustline from being removed; it is cancelled with
+             amount 0.
+  S03  tx 1  send 0.0000005 DUSTC to destination GB7S...WXY6
+             why: Horizon found no strict-send path to XLM for the full balance. Issuer
+             GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires a memo (SEP-29) and none was given. Send
+             the 0.0000005 DUSTC to the destination GB7SVMMN4UGKHSAZYEMMLXQ4NILUGQ6BAIYNRSSM4T5JXC64SELTWXY6, which
+             holds an authorized DUSTC trustline with room.
+  S04  tx 1  remove trustline DUSTC
+             why: The DUSTC trustline is empty once the balance is disposed of; a trustline is a subentry that blocks
+             the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.
+  S05  tx 1  delete data entry "dustin.fixture"
+             why: Data entry "dustin.fixture" is a subentry that blocks the merge; a manage-data operation without a
+             value deletes it.
+  S06  tx 2  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+             why: Sell the full 0.0000007 DUSTA for about 0.0000007 XLM (at least 0.0000006) with a strict-send path
+             payment to this account; the XLM leaves with the merge. It runs in its own transaction so a moved market
+             cannot roll back the rest.
+  S07  tx 2  remove trustline DUSTA
+             why: The DUSTA trustline is empty once the balance is disposed of; a trustline is a subentry that blocks
+             the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.
+
+Transactions (2, each fee-bumped by the sponsor; inner fee 0)
+  tx 1  cleanup    5 ops   bid 504,726 stroops
+             Deterministic cleanup with no market dependency (offer cancellations, returns to issuers, transfers to the
+             destination, removal of emptied trustlines and data entries), grouped into one fee-bumped transaction of at
+             most 100 operations.
+  tx 2  convert    2 ops   bid 252,363 stroops
+             Market-dependent sale of DUSTA isolated with its trustline removal, so a moved market cannot roll back the
+             rest of the close.
+
+Cannot be disposed of (the account is not merged while these remain)
+  NO_DISPOSAL_ROUTE  0.0000003 DUSTB (issuer GDUQ...25ZX)
+    No route disposes of 0.0000003 DUSTB; every rung of the ladder is ruled out:
+      - path payment: Horizon found no strict-send path to XLM for the full balance
+      - return to issuer: issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires a memo (SEP-29) and
+        none was given
+      - send to destination: the destination holds no DUSTB trustline
+    remedy: Make one route possible, then run the plan again: wait for a market that buys DUSTB for XLM; or pass the
+    memo that issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires (--memo; SEP-29); or open a
+    DUSTB:GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX trustline on the destination account
+    GB7SVMMN4UGKHSAZYEMMLXQ4NILUGQ6BAIYNRSSM4T5JXC64SELTWXY6, or close into a destination that holds one.
+  NO_DISPOSAL_ROUTE  0.0000001 SPTA (issuer GDUQ...25ZX)
+    No route disposes of 0.0000001 SPTA; every rung of the ladder is ruled out:
+      - path payment: Horizon found no strict-send path to XLM for the full balance
+      - return to issuer: issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires a memo (SEP-29) and
+        none was given
+      - send to destination: the destination holds no SPTA trustline
+    remedy: Make one route possible, then run the plan again: wait for a market that buys SPTA for XLM; or pass the memo
+    that issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires (--memo; SEP-29); or open a
+    SPTA:GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX trustline on the destination account
+    GB7SVMMN4UGKHSAZYEMMLXQ4NILUGQ6BAIYNRSSM4T5JXC64SELTWXY6, or close into a destination that holds one.
+
+Accounting
+  0.0000000 XLM arrives at GB7S...WXY6 (nothing: the plan does not merge)
+  Reserves released to sponsors: none
+  0 XLM paid by the account; every fee is sponsored
+  plan hash 21a0efde25fd2bb5530dcf61559118d523688341086b88d8594b957f01d3562c
+
+Not executed: the plan cannot end in a merge (status PARTIAL), so nothing was signed or submitted.
+  NO_DISPOSAL_ROUTE  0.0000003 DUSTB (issuer GDUQ...25ZX)
+    No route disposes of 0.0000003 DUSTB; every rung of the ladder is ruled out:
+      - path payment: Horizon found no strict-send path to XLM for the full balance
+      - return to issuer: issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires a memo (SEP-29) and
+        none was given
+      - send to destination: the destination holds no DUSTB trustline
+    remedy: Make one route possible, then run the plan again: wait for a market that buys DUSTB for XLM; or pass the
+    memo that issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires (--memo; SEP-29); or open a
+    DUSTB:GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX trustline on the destination account
+    GB7SVMMN4UGKHSAZYEMMLXQ4NILUGQ6BAIYNRSSM4T5JXC64SELTWXY6, or close into a destination that holds one.
+  NO_DISPOSAL_ROUTE  0.0000001 SPTA (issuer GDUQ...25ZX)
+    No route disposes of 0.0000001 SPTA; every rung of the ladder is ruled out:
+      - path payment: Horizon found no strict-send path to XLM for the full balance
+      - return to issuer: issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires a memo (SEP-29) and
+        none was given
+      - send to destination: the destination holds no SPTA trustline
+    remedy: Make one route possible, then run the plan again: wait for a market that buys SPTA for XLM; or pass the memo
+    that issuer GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX requires (--memo; SEP-29); or open a
+    SPTA:GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX trustline on the destination account
+    GB7SVMMN4UGKHSAZYEMMLXQ4NILUGQ6BAIYNRSSM4T5JXC64SELTWXY6, or close into a destination that holds one.
+To run everything else now, add --partial: the steps above run, the account is not merged.
+[exit code 3]

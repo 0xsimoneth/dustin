@@ -1,0 +1,1677 @@
+{
+  "checkedAt": "2026-09-28T12:55:09.991Z",
+  "fixture": "edge-20260928T125416Z-933e2d",
+  "profile": "edge",
+  "horizonUrl": "https://horizon-testnet.stellar.org",
+  "result": {
+    "pass": true,
+    "checks": [
+      {
+        "id": "destination/exists",
+        "label": "destination exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authIssuer/exists",
+        "label": "authIssuer exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "clawbackIssuer/exists",
+        "label": "clawbackIssuer exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "plainIssuer/exists",
+        "label": "plainIssuer exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authIssuer/flags",
+        "label": "authIssuer account flags",
+        "appendixB": false,
+        "pass": true,
+        "observed": "AUTH_REQUIRED + AUTH_REVOCABLE",
+        "expected": "AUTH_REQUIRED + AUTH_REVOCABLE"
+      },
+      {
+        "id": "clawbackIssuer/flags",
+        "label": "clawbackIssuer account flags",
+        "appendixB": false,
+        "pass": true,
+        "observed": "AUTH_REVOCABLE + AUTH_CLAWBACK_ENABLED",
+        "expected": "AUTH_REVOCABLE + AUTH_CLAWBACK_ENABLED"
+      },
+      {
+        "id": "plainIssuer/flags",
+        "label": "plainIssuer account flags",
+        "appendixB": false,
+        "pass": true,
+        "observed": "none",
+        "expected": "none"
+      },
+      {
+        "id": "destination/no-edge-trustlines",
+        "label": "the destination holds no trustline for an edge asset (so no transfer to it is possible)",
+        "appendixB": false,
+        "pass": true,
+        "observed": "none",
+        "expected": "none"
+      },
+      {
+        "id": "authFrozen/exists",
+        "label": "auth-frozen exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authFrozen/zero-spendable",
+        "label": "auth-frozen holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 2.5000000, minimum 2.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "authFrozen/subentries",
+        "label": "auth-frozen subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 3, num_sponsoring 0",
+        "expected": "subentry_count 3, num_sponsoring 0"
+      },
+      {
+        "id": "authFrozen/frz-dust",
+        "label": "auth-frozen holds 0.0000005 FRZ",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities false",
+        "expected": "balance 0.0000005"
+      },
+      {
+        "id": "authFrozen/ilqx-dust",
+        "label": "auth-frozen holds 0.0000003 ILQX",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "balance 0.0000003"
+      },
+      {
+        "id": "authFrozen/data",
+        "label": "auth-frozen has the data entry dustin.fixture",
+        "appendixB": false,
+        "pass": true,
+        "observed": "present",
+        "expected": "present"
+      },
+      {
+        "id": "authMaintain/exists",
+        "label": "auth-maintain exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authMaintain/zero-spendable",
+        "label": "auth-maintain holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 2.0000000, minimum 2.0000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "authMaintain/subentries",
+        "label": "auth-maintain subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 2, num_sponsoring 0",
+        "expected": "subentry_count 2, num_sponsoring 0"
+      },
+      {
+        "id": "authMaintain/mnt-dust",
+        "label": "auth-maintain holds 0.0000005 MNT",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities true",
+        "expected": "balance 0.0000005"
+      },
+      {
+        "id": "authAuthorized/exists",
+        "label": "auth-authorized exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authAuthorized/zero-spendable",
+        "label": "auth-authorized holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 1.5000000, minimum 1.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "authAuthorized/subentries",
+        "label": "auth-authorized subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 1, num_sponsoring 0",
+        "expected": "subentry_count 1, num_sponsoring 0"
+      },
+      {
+        "id": "authAuthorized/auth-dust",
+        "label": "auth-authorized holds 0.0000003 AUTH",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "balance 0.0000003"
+      },
+      {
+        "id": "authRevoke/exists",
+        "label": "auth-revoke exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authRevoke/zero-spendable",
+        "label": "auth-revoke holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 2.0000000, minimum 2.0000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "authRevoke/subentries",
+        "label": "auth-revoke subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 2, num_sponsoring 0",
+        "expected": "subentry_count 2, num_sponsoring 0"
+      },
+      {
+        "id": "authRevoke/rvk-dust",
+        "label": "auth-revoke holds 0.0000004 RVK",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "balance 0.0000004"
+      },
+      {
+        "id": "authRevoke/data",
+        "label": "auth-revoke has the data entry dustin.fixture",
+        "appendixB": false,
+        "pass": true,
+        "observed": "present",
+        "expected": "present"
+      },
+      {
+        "id": "clawback/exists",
+        "label": "clawback exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "clawback/zero-spendable",
+        "label": "clawback holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 1.5000000, minimum 1.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "clawback/subentries",
+        "label": "clawback subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 1, num_sponsoring 0",
+        "expected": "subentry_count 1, num_sponsoring 0"
+      },
+      {
+        "id": "clawback/claw-dust",
+        "label": "clawback holds 0.0000004 CLAW",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled true",
+        "expected": "balance 0.0000004"
+      },
+      {
+        "id": "clawbackDrift/exists",
+        "label": "clawback-drift exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "clawbackDrift/zero-spendable",
+        "label": "clawback-drift holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 1.5000000, minimum 1.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "clawbackDrift/subentries",
+        "label": "clawback-drift subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 1, num_sponsoring 0",
+        "expected": "subentry_count 1, num_sponsoring 0"
+      },
+      {
+        "id": "clawbackDrift/claw-dust",
+        "label": "clawback-drift holds 0.0000004 CLAW",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled true",
+        "expected": "balance 0.0000004"
+      },
+      {
+        "id": "poolShare/exists",
+        "label": "pool-share exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "poolShare/zero-spendable",
+        "label": "pool-share holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 3.5000000, minimum 3.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "poolShare/subentries",
+        "label": "pool-share subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 5, num_sponsoring 0",
+        "expected": "subentry_count 5, num_sponsoring 0"
+      },
+      {
+        "id": "poolShare/data",
+        "label": "pool-share has the data entry dustin.fixture",
+        "appendixB": false,
+        "pass": true,
+        "observed": "present",
+        "expected": "present"
+      },
+      {
+        "id": "multisig/exists",
+        "label": "multisig exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "multisig/zero-spendable",
+        "label": "multisig holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 2.0000000, minimum 2.0000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "multisig/subentries",
+        "label": "multisig subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 2, num_sponsoring 0",
+        "expected": "subentry_count 2, num_sponsoring 0"
+      },
+      {
+        "id": "multisig/data",
+        "label": "multisig has the data entry dustin.fixture",
+        "appendixB": false,
+        "pass": true,
+        "observed": "present",
+        "expected": "present"
+      },
+      {
+        "id": "claimable/exists",
+        "label": "claimable exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "claimable/zero-spendable",
+        "label": "claimable holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 1.5000000, minimum 1.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "claimable/subentries",
+        "label": "claimable subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 0, num_sponsoring 1",
+        "expected": "subentry_count 0, num_sponsoring 1"
+      },
+      {
+        "id": "immutable/exists",
+        "label": "immutable exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "immutable/zero-spendable",
+        "label": "immutable holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 1.0000000, minimum 1.0000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "immutable/subentries",
+        "label": "immutable subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 0, num_sponsoring 0",
+        "expected": "subentry_count 0, num_sponsoring 0"
+      },
+      {
+        "id": "authFrozen/frz-frozen",
+        "label": "auth-frozen: the FRZ trustline is not authorized (frozen)",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities false",
+        "expected": "is_authorized false, is_authorized_to_maintain_liabilities false"
+      },
+      {
+        "id": "authFrozen/ilqx-authorized",
+        "label": "auth-frozen: the ILQX trustline is authorized",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "is_authorized true"
+      },
+      {
+        "id": "authMaintain/mnt-maintain",
+        "label": "auth-maintain: the MNT trustline is authorized to maintain liabilities only",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities true",
+        "expected": "is_authorized false, is_authorized_to_maintain_liabilities true"
+      },
+      {
+        "id": "authMaintain/offer",
+        "label": "auth-maintain: one open offer selling MNT for XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "offer 828622 sells 0.0000002 MNT",
+        "expected": "one offer selling 0.0000002 MNT for XLM"
+      },
+      {
+        "id": "authAuthorized/auth-authorized",
+        "label": "auth-authorized: the AUTH trustline is authorized",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "is_authorized true"
+      },
+      {
+        "id": "authRevoke/rvk-authorized",
+        "label": "auth-revoke: the RVK trustline is authorized",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "is_authorized true"
+      },
+      {
+        "id": "clawback/claw-clawback-enabled",
+        "label": "clawback: Horizon shows is_clawback_enabled on the CLAW trustline",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled true",
+        "expected": "is_authorized true, is_clawback_enabled true"
+      },
+      {
+        "id": "clawbackDrift/claw-clawback-enabled",
+        "label": "clawback-drift: Horizon shows is_clawback_enabled on the CLAW trustline",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled true",
+        "expected": "is_authorized true, is_clawback_enabled true"
+      },
+      {
+        "id": "poolShare/shares",
+        "label": "pool-share: holds shares of pool 238e395fbb98bf0b7882ff5bf1982ab43af9da3294d84215ea17a5a535efadba",
+        "appendixB": false,
+        "pass": true,
+        "observed": "1.0000000 shares",
+        "expected": "a non-zero share balance"
+      },
+      {
+        "id": "poolShare/asset-lines",
+        "label": "pool-share: holds the pool's LPA and LPB trustlines",
+        "appendixB": false,
+        "pass": true,
+        "observed": "LPA, LPB",
+        "expected": "LPA, LPB"
+      },
+      {
+        "id": "multisig/thresholds",
+        "label": "multisig: master weight 1, a second signer of weight 1, high threshold 2",
+        "appendixB": false,
+        "pass": true,
+        "observed": "master weight 1, second signer weight 1, high threshold 2",
+        "expected": "master weight 1, second signer weight 1, high threshold 2"
+      },
+      {
+        "id": "claimable/sponsoring",
+        "label": "claimable: sponsors the claimable balance it created",
+        "appendixB": false,
+        "pass": true,
+        "observed": "num_sponsoring 1, claimable balances sponsored 1",
+        "expected": "num_sponsoring 1, claimable balances sponsored 1"
+      },
+      {
+        "id": "immutable/flag",
+        "label": "immutable: AUTH_IMMUTABLE is set",
+        "appendixB": false,
+        "pass": true,
+        "observed": "AUTH_IMMUTABLE",
+        "expected": "AUTH_IMMUTABLE"
+      }
+    ]
+  },
+  "baseReserveStroops": "5000000",
+  "accounts": {
+    "destination": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73",
+      "account_id": "GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73",
+      "sequence": "21111039865126912",
+      "subentry_count": 0,
+      "last_modified_ledger": 4915297,
+      "last_modified_time": "2026-09-28T12:54:32Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "2.0000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {},
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73"
+    },
+    "authIssuer": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL",
+      "account_id": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL",
+      "sequence": "21111039865126915",
+      "sequence_ledger": 4915303,
+      "sequence_time": "1790600102",
+      "subentry_count": 0,
+      "last_modified_ledger": 4915303,
+      "last_modified_time": "2026-09-28T12:55:02Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": true,
+        "auth_revocable": true,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "2.0000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {},
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL"
+    },
+    "clawbackIssuer": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4",
+      "account_id": "GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4",
+      "sequence": "21111039865126912",
+      "subentry_count": 0,
+      "last_modified_ledger": 4915298,
+      "last_modified_time": "2026-09-28T12:54:37Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": true,
+        "auth_immutable": false,
+        "auth_clawback_enabled": true
+      },
+      "balances": [
+        {
+          "balance": "2.0000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {},
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4"
+    },
+    "plainIssuer": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS",
+      "account_id": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS",
+      "sequence": "21111039865126913",
+      "sequence_ledger": 4915301,
+      "sequence_time": "1790600092",
+      "subentry_count": 0,
+      "last_modified_ledger": 4915301,
+      "last_modified_time": "2026-09-28T12:54:52Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "2.0000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {},
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS"
+    },
+    "authFrozen": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5",
+      "account_id": "GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5",
+      "sequence": "21111039865126913",
+      "sequence_ledger": 4915299,
+      "sequence_time": "1790600082",
+      "subentry_count": 3,
+      "last_modified_ledger": 4915302,
+      "last_modified_time": "2026-09-28T12:54:57Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "0.0000005",
+          "limit": "922337203685.4775807",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "last_modified_ledger": 4915303,
+          "is_authorized": false,
+          "is_authorized_to_maintain_liabilities": false,
+          "asset_type": "credit_alphanum4",
+          "asset_code": "FRZ",
+          "asset_issuer": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL"
+        },
+        {
+          "balance": "0.0000003",
+          "limit": "922337203685.4775807",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "last_modified_ledger": 4915301,
+          "is_authorized": true,
+          "is_authorized_to_maintain_liabilities": true,
+          "asset_type": "credit_alphanum4",
+          "asset_code": "ILQX",
+          "asset_issuer": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS"
+        },
+        {
+          "balance": "2.5000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {
+        "dustin.fixture": "ZWRnZQ=="
+      },
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5"
+    },
+    "authMaintain": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA",
+      "account_id": "GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA",
+      "sequence": "21111039865126913",
+      "sequence_ledger": 4915302,
+      "sequence_time": "1790600097",
+      "subentry_count": 2,
+      "last_modified_ledger": 4915302,
+      "last_modified_time": "2026-09-28T12:54:57Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "0.0000005",
+          "limit": "922337203685.4775807",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000002",
+          "last_modified_ledger": 4915303,
+          "is_authorized": false,
+          "is_authorized_to_maintain_liabilities": true,
+          "asset_type": "credit_alphanum4",
+          "asset_code": "MNT",
+          "asset_issuer": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL"
+        },
+        {
+          "balance": "2.0000000",
+          "buying_liabilities": "0.0002000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {},
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA"
+    },
+    "authAuthorized": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH",
+      "account_id": "GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH",
+      "sequence": "21111039865126912",
+      "subentry_count": 1,
+      "last_modified_ledger": 4915299,
+      "last_modified_time": "2026-09-28T12:54:42Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "0.0000003",
+          "limit": "922337203685.4775807",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "last_modified_ledger": 4915301,
+          "is_authorized": true,
+          "is_authorized_to_maintain_liabilities": true,
+          "asset_type": "credit_alphanum4",
+          "asset_code": "AUTH",
+          "asset_issuer": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL"
+        },
+        {
+          "balance": "1.5000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {},
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GDV4JDGVPAP4NEZTASUQOVBVO6Z7UQGVFTOWAI2D366OGTUKCBMWYODH"
+    },
+    "authRevoke": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK",
+      "account_id": "GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK",
+      "sequence": "21111039865126912",
+      "subentry_count": 2,
+      "last_modified_ledger": 4915302,
+      "last_modified_time": "2026-09-28T12:54:57Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "0.0000004",
+          "limit": "922337203685.4775807",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "last_modified_ledger": 4915301,
+          "is_authorized": true,
+          "is_authorized_to_maintain_liabilities": true,
+          "asset_type": "credit_alphanum4",
+          "asset_code": "RVK",
+          "asset_issuer": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL"
+        },
+        {
+          "balance": "2.0000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {
+        "dustin.fixture": "ZWRnZQ=="
+      },
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GDY3KUWQ2J5MJI57UW75JHKIDHKN67AXHP5A3MFDZNR7HNPYJ2FPKZKK"
+    },
+    "clawback": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6",
+      "account_id": "GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6",
+      "sequence": "21111039865126912",
+      "subentry_count": 1,
+      "last_modified_ledger": 4915299,
+      "last_modified_time": "2026-09-28T12:54:42Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "0.0000004",
+          "limit": "922337203685.4775807",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "last_modified_ledger": 4915301,
+          "is_authorized": true,
+          "is_authorized_to_maintain_liabilities": true,
+          "is_clawback_enabled": true,
+          "asset_type": "credit_alphanum4",
+          "asset_code": "CLAW",
+          "asset_issuer": "GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4"
+        },
+        {
+          "balance": "1.5000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {},
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GA5X4VFWX4UMRRNZQXOJ3VVEMMSR3HVLJHYR3T2AW5MUIPFVMCJOFGY6"
+    },
+    "clawbackDrift": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE",
+      "account_id": "GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE",
+      "sequence": "21111039865126912",
+      "subentry_count": 1,
+      "last_modified_ledger": 4915299,
+      "last_modified_time": "2026-09-28T12:54:42Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "0.0000004",
+          "limit": "922337203685.4775807",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "last_modified_ledger": 4915301,
+          "is_authorized": true,
+          "is_authorized_to_maintain_liabilities": true,
+          "is_clawback_enabled": true,
+          "asset_type": "credit_alphanum4",
+          "asset_code": "CLAW",
+          "asset_issuer": "GDNTDE2ZSKLB4U6GT73YWIHRE57QZPOXFMACZL2TLZVOY2PS6YSBRYK4"
+        },
+        {
+          "balance": "1.5000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {},
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GBF2BKXVEJ5M5OBEEKGWC7GEQ5WWA7I4DICJPVTN4WJ6B5PWPUNCPTKE"
+    },
+    "poolShare": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI",
+      "account_id": "GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI",
+      "sequence": "21111039865126912",
+      "subentry_count": 5,
+      "last_modified_ledger": 4915302,
+      "last_modified_time": "2026-09-28T12:54:57Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "1.0000000",
+          "liquidity_pool_id": "238e395fbb98bf0b7882ff5bf1982ab43af9da3294d84215ea17a5a535efadba",
+          "limit": "922337203685.4775807",
+          "last_modified_ledger": 4915302,
+          "is_authorized": false,
+          "is_authorized_to_maintain_liabilities": false,
+          "asset_type": "liquidity_pool_shares"
+        },
+        {
+          "balance": "0.0000000",
+          "limit": "922337203685.4775807",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "last_modified_ledger": 4915302,
+          "is_authorized": true,
+          "is_authorized_to_maintain_liabilities": true,
+          "asset_type": "credit_alphanum4",
+          "asset_code": "LPA",
+          "asset_issuer": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS"
+        },
+        {
+          "balance": "0.0000000",
+          "limit": "922337203685.4775807",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "last_modified_ledger": 4915302,
+          "is_authorized": true,
+          "is_authorized_to_maintain_liabilities": true,
+          "asset_type": "credit_alphanum4",
+          "asset_code": "LPB",
+          "asset_issuer": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS"
+        },
+        {
+          "balance": "3.5000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {
+        "dustin.fixture": "ZWRnZQ=="
+      },
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GDVHVALB6QDUDJEQX5W26JIPRO7K5GPR2WMYCGIY3DUGKDG7KN3MEBYI"
+    },
+    "multisig": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ",
+      "account_id": "GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ",
+      "sequence": "21111039865126912",
+      "subentry_count": 2,
+      "last_modified_ledger": 4915303,
+      "last_modified_time": "2026-09-28T12:55:02Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 2
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "2.0000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ",
+          "type": "ed25519_public_key"
+        },
+        {
+          "weight": 1,
+          "key": "GDN3Q7ZA4SME27TJP7QO4S6TELZ4YJJNUGW5ANKKT3PPQRZVKVFSF57I",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {
+        "dustin.fixture": "ZWRnZQ=="
+      },
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GCQMZVOEUKXPF2FVZN4BVT3U5S2HJWLVDLOCLBK3AI2A7V52V2OF6RPJ"
+    },
+    "claimable": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT",
+      "account_id": "GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT",
+      "sequence": "21111039865126912",
+      "subentry_count": 0,
+      "last_modified_ledger": 4915302,
+      "last_modified_time": "2026-09-28T12:54:57Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": false,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "1.5000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {},
+      "num_sponsoring": 1,
+      "num_sponsored": 0,
+      "paging_token": "GACLBAGWNBYARCVYB2XLILXH2WEYH4YDZIQNJID3BW6HHXBSONYUQJIT"
+    },
+    "immutable": {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET"
+        },
+        "transactions": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET/transactions{?cursor,limit,order}",
+          "templated": true
+        },
+        "operations": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET/operations{?cursor,limit,order}",
+          "templated": true
+        },
+        "payments": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET/payments{?cursor,limit,order}",
+          "templated": true
+        },
+        "effects": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET/effects{?cursor,limit,order}",
+          "templated": true
+        },
+        "offers": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET/offers{?cursor,limit,order}",
+          "templated": true
+        },
+        "trades": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET/trades{?cursor,limit,order}",
+          "templated": true
+        },
+        "data": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET/data/{key}",
+          "templated": true
+        }
+      },
+      "id": "GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET",
+      "account_id": "GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET",
+      "sequence": "21111039865126912",
+      "subentry_count": 0,
+      "last_modified_ledger": 4915303,
+      "last_modified_time": "2026-09-28T12:55:02Z",
+      "thresholds": {
+        "low_threshold": 0,
+        "med_threshold": 0,
+        "high_threshold": 0
+      },
+      "flags": {
+        "auth_required": false,
+        "auth_revocable": false,
+        "auth_immutable": true,
+        "auth_clawback_enabled": false
+      },
+      "balances": [
+        {
+          "balance": "1.0000000",
+          "buying_liabilities": "0.0000000",
+          "selling_liabilities": "0.0000000",
+          "asset_type": "native"
+        }
+      ],
+      "signers": [
+        {
+          "weight": 1,
+          "key": "GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET",
+          "type": "ed25519_public_key"
+        }
+      ],
+      "data": {},
+      "num_sponsoring": 0,
+      "num_sponsored": 0,
+      "paging_token": "GBZ2EVIHLLCH5456YUIOSJGAG3XYMXI2UVA47BFVCNCQAGRDXT2OZLET"
+    }
+  },
+  "offers": {
+    "authMaintain": [
+      {
+        "_links": {
+          "self": {
+            "href": "https://horizon-testnet.stellar.org/offers/828622"
+          },
+          "offer_maker": {
+            "href": "https://horizon-testnet.stellar.org/accounts/GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA"
+          }
+        },
+        "id": "828622",
+        "paging_token": "828622",
+        "seller": "GBFBCCQU3CFQJ5MDVNTHN5KYD5LP3K35F66RSHHCMWLQ7ZI3LA3C57OA",
+        "selling": {
+          "asset_type": "credit_alphanum4",
+          "asset_code": "MNT",
+          "asset_issuer": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL"
+        },
+        "buying": {
+          "asset_type": "native"
+        },
+        "amount": "0.0000002",
+        "price_r": {
+          "n": 1000,
+          "d": 1
+        },
+        "price": "1000.0000000",
+        "last_modified_ledger": 4915302,
+        "last_modified_time": "2026-09-28T12:54:57Z"
+      }
+    ]
+  }
+}

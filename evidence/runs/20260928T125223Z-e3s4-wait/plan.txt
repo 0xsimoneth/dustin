@@ -1,0 +1,81 @@
+$ dustin plan GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S --to GD3SL7JZIN7KRPVSHYTXX47BZ4ZGVI6NK3T6YO2NHAQ743XDUELELWHS --sponsor GA4WL3KMS5GLVJSDVDTVAWV6OO2MMNXLYN2YZRZNZ5NZVKZMGASEERRL
+Dustin plan  (dry run: nothing is signed, nothing is submitted)
+Network      testnet   ledger 4,915,281   observed 2026-09-28T12:53:12Z
+Account      GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S
+Balance      4.0000000 XLM, minimum balance 4.0000000 XLM, spendable 0.0000000 XLM (base reserve 0.5000000)
+Destination  GD3SL7JZIN7KRPVSHYTXX47BZ4ZGVI6NK3T6YO2NHAQ743XDUELELWHS
+Sponsor      GA4WL3KMS5GLVJSDVDTVAWV6OO2MMNXLYN2YZRZNZ5NZVKZMGASEERRL
+Fees         bid up to 0.1261815 XLM (84,121 stroops per operation), paid by the sponsor; the account pays 0
+Budget       5.0000000 XLM per close for the sponsor; the bid above is within it
+Status       CLOSABLE: the plan ends in a merge
+
+Steps, in execution order
+  S01  tx 1  cancel offer 828610: sells 0.0000002 DUSTA for XLM
+             why: Open offer 828610 sells 0.0000002 DUSTA for XLM. Offers are subentries that block the merge, and their
+             liabilities stop the balance from moving and the trustline from being removed; it is cancelled with amount
+             0.
+  S02  tx 1  cancel offer 828611: sells 0.0000002 DUSTC for DUSTB
+             why: Open offer 828611 sells 0.0000002 DUSTC for DUSTB. Offers are subentries that block the merge, and
+             their liabilities stop the balance from moving and the trustline from being removed; it is cancelled with
+             amount 0.
+  S03  tx 1  return 0.0000003 DUSTB to issuer GAYM...ZFPZ (burn)
+             why: Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000003 DUSTB back to its
+             issuer GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ, which burns it.
+  S04  tx 1  remove trustline DUSTB
+             why: The DUSTB trustline is empty once the balance is disposed of; a trustline is a subentry that blocks
+             the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.
+  S05  tx 1  return 0.0000005 DUSTC to issuer GAYM...ZFPZ (burn)
+             why: Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000005 DUSTC back to its
+             issuer GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ, which burns it.
+  S06  tx 1  remove trustline DUSTC
+             why: The DUSTC trustline is empty once the balance is disposed of; a trustline is a subentry that blocks
+             the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.
+  S07  tx 1  return 0.0000001 SPTA to issuer GAYM...ZFPZ (burn)
+             why: Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000001 SPTA back to its
+             issuer GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ, which burns it.
+  S08  tx 1  remove trustline SPTA (reserve sponsored by GACQ...YS7H)
+             why: The SPTA trustline is empty once the balance is disposed of; a trustline is a subentry that blocks the
+             merge. Removing it (limit 0) needs only this account's signature and returns its 0.5 XLM reserve to the
+             reserve sponsor GACQCWDOZ4TGFKSJRPKU4XSKGSN34QWJ4T2TZCOMCLWK6LWT2X23YS7H, not to this account.
+  S09  tx 1  delete data entry "dustin.fixture"
+             why: Data entry "dustin.fixture" is a subentry that blocks the merge; a manage-data operation without a
+             value deletes it.
+  S10  tx 2  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+             why: Sell the full 0.0000007 DUSTA for about 0.0000007 XLM (at least 0.0000006) with a strict-send path
+             payment to this account; the XLM leaves with the merge. It runs in its own transaction so a moved market
+             cannot roll back the rest.
+  S11  tx 2  remove trustline DUSTA
+             why: The DUSTA trustline is empty once the balance is disposed of; a trustline is a subentry that blocks
+             the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.
+  S12  tx 3  merge into GD3S...LWHS (cannot be undone)
+             why: Every subentry is removed by the earlier steps; the account sponsors nothing, is not immutable and the
+             destination exists. The merge sends the whole XLM balance to
+             GD3SL7JZIN7KRPVSHYTXX47BZ4ZGVI6NK3T6YO2NHAQ743XDUELELWHS and deletes the account. It cannot be undone.
+
+Transactions (3, each fee-bumped by the sponsor; inner fee 0)
+  tx 1  cleanup    9 ops   bid 841,210 stroops
+             Deterministic cleanup with no market dependency (offer cancellations, returns to issuers, transfers to the
+             destination, removal of emptied trustlines and data entries), grouped into one fee-bumped transaction of at
+             most 100 operations.
+  tx 2  convert    2 ops   bid 252,363 stroops
+             Market-dependent sale of DUSTA isolated with its trustline removal, so a moved market cannot roll back the
+             rest of the close.
+  tx 3  merge      1 op    bid 168,242 stroops
+             The merge runs alone after the cleanup and the sale because it must wait until ledger 4915293 for the
+             sequence guard.
+
+Warnings
+  - The account's sequence number is ahead of the ledger: the merge must wait until ledger 4915293 (about 60 s). The
+  cleanup and the sale run first; the executor waits before submitting the merge.
+
+If everything succeeds
+  4.0000007 XLM arrives at GD3S...LWHS (balance 4.0000000 + sale 0.0000007)
+  Reserves released to sponsors: 0.5000000 XLM, never this account's
+    0.5000000 XLM reserve unlocked for sponsor GACQ...YS7H (trustline SPTA)
+  0 XLM paid by the account; every fee is sponsored
+  sequence guard: the merge waits until ledger 4,915,293 (about 60 s)
+  plan hash a65f0221ea4fe75f1fdeebfc6441a8d140fc9001f860c25191f9714c32defc8e
+
+Next: dustin close GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S \
+        --to GD3SL7JZIN7KRPVSHYTXX47BZ4ZGVI6NK3T6YO2NHAQ743XDUELELWHS --execute
+[exit code 0]

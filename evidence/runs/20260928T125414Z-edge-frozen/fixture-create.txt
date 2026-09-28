@@ -1,0 +1,15 @@
+$ dustin fixture create --profile edge --dir .fixture --json
+(standard output is saved as fixture-manifest.json; standard error follows)
+Secret keys saved to .fixture/edge-20260928T125416Z-933e2d/keys.json (mode 600, testnet only, never commit)
+Funding the fee sponsor GAA76S5MCCU2YQ34QY2YRZECO2HRNIKAPHNWTR4IMKB7CRK5D2T67QAN from Friendbot
+Fee bid 84121 stroops per operation; base reserve 0.5000000 XLM
+Building the edge variants
+  create-accounts  ok  ledger 4915297  e96e8b69083320ac9eae564cb5954f7fe69ffa35818a8b80d1612573acfc05a9
+  issuer-flags     ok  ledger 4915298  cbe7c1031f5628d3ca14970405be17fa8bd9e3ffb805f585bbf15d2025b76f2b
+  trustlines       ok  ledger 4915299  11b22ba22c6975666cb606a752093690110c2e1588c9c5fb55d9b29506d98351
+  authorize        ok  ledger 4915300  2695c63849ea55404af6308c2552018b2510c150d3bde45d0471f051a5e1d12f
+  dust-payments    ok  ledger 4915301  693b5b56868f39ebdb02e9b3cf529293565bb29efeefc1aee4ad8c8e81e7f380
+  holder-state     ok  ledger 4915302  044bfe80ec16a6434cbd60f175b6da3d4cab49776fac6daf0585fc62f989bb48
+  restrict         ok  ledger 4915303  e35e542acd4f2623046624c0420d43f4e019c9b41895b690879144aff08e0e11
+Manifest saved to .fixture/edge-20260928T125416Z-933e2d/manifest.json; verifying
+[exit code 0]

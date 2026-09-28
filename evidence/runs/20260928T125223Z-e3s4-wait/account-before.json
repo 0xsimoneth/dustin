@@ -1,0 +1,124 @@
+{
+  "_links": {
+    "self": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S"
+    },
+    "transactions": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S/transactions{?cursor,limit,order}",
+      "templated": true
+    },
+    "operations": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S/operations{?cursor,limit,order}",
+      "templated": true
+    },
+    "payments": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S/payments{?cursor,limit,order}",
+      "templated": true
+    },
+    "effects": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S/effects{?cursor,limit,order}",
+      "templated": true
+    },
+    "offers": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S/offers{?cursor,limit,order}",
+      "templated": true
+    },
+    "trades": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S/trades{?cursor,limit,order}",
+      "templated": true
+    },
+    "data": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S/data/{key}",
+      "templated": true
+    }
+  },
+  "id": "GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S",
+  "account_id": "GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S",
+  "sequence": "21111018390290432",
+  "sequence_ledger": 4915281,
+  "sequence_time": "1790599992",
+  "subentry_count": 7,
+  "last_modified_ledger": 4915281,
+  "last_modified_time": "2026-09-28T12:53:12Z",
+  "thresholds": {
+    "low_threshold": 0,
+    "med_threshold": 0,
+    "high_threshold": 0
+  },
+  "flags": {
+    "auth_required": false,
+    "auth_revocable": false,
+    "auth_immutable": false,
+    "auth_clawback_enabled": false
+  },
+  "balances": [
+    {
+      "balance": "0.0000007",
+      "limit": "922337203685.4775807",
+      "buying_liabilities": "0.0000000",
+      "selling_liabilities": "0.0000002",
+      "last_modified_ledger": 4915278,
+      "is_authorized": true,
+      "is_authorized_to_maintain_liabilities": true,
+      "asset_type": "credit_alphanum12",
+      "asset_code": "DUSTA",
+      "asset_issuer": "GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ"
+    },
+    {
+      "balance": "0.0000003",
+      "limit": "922337203685.4775807",
+      "buying_liabilities": "0.0000002",
+      "selling_liabilities": "0.0000000",
+      "last_modified_ledger": 4915278,
+      "is_authorized": true,
+      "is_authorized_to_maintain_liabilities": true,
+      "asset_type": "credit_alphanum12",
+      "asset_code": "DUSTB",
+      "asset_issuer": "GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ"
+    },
+    {
+      "balance": "0.0000005",
+      "limit": "922337203685.4775807",
+      "buying_liabilities": "0.0000000",
+      "selling_liabilities": "0.0000002",
+      "last_modified_ledger": 4915278,
+      "is_authorized": true,
+      "is_authorized_to_maintain_liabilities": true,
+      "asset_type": "credit_alphanum12",
+      "asset_code": "DUSTC",
+      "asset_issuer": "GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ"
+    },
+    {
+      "balance": "0.0000001",
+      "limit": "922337203685.4775807",
+      "buying_liabilities": "0.0000000",
+      "selling_liabilities": "0.0000000",
+      "sponsor": "GACQCWDOZ4TGFKSJRPKU4XSKGSN34QWJ4T2TZCOMCLWK6LWT2X23YS7H",
+      "last_modified_ledger": 4915276,
+      "is_authorized": true,
+      "is_authorized_to_maintain_liabilities": true,
+      "asset_type": "credit_alphanum4",
+      "asset_code": "SPTA",
+      "asset_issuer": "GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ"
+    },
+    {
+      "balance": "4.0000000",
+      "buying_liabilities": "0.0000200",
+      "selling_liabilities": "0.0000000",
+      "asset_type": "native"
+    }
+  ],
+  "signers": [
+    {
+      "weight": 1,
+      "key": "GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S",
+      "type": "ed25519_public_key"
+    }
+  ],
+  "data": {
+    "dustin.fixture": "bWVzc3k="
+  },
+  "num_sponsoring": 0,
+  "num_sponsored": 1,
+  "paging_token": "GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S"
+}

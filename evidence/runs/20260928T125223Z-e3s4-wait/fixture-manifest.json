@@ -1,0 +1,251 @@
+{
+  "schemaVersion": 1,
+  "kind": "dustin-fixture",
+  "profile": "messy",
+  "id": "messy-20260928T125224Z-4d622f",
+  "createdAt": "2026-09-28T12:52:24.646Z",
+  "network": {
+    "passphrase": "Test SDF Network ; September 2015",
+    "horizonUrl": "https://horizon-testnet.stellar.org",
+    "explorerBaseUrl": "https://stellar.expert/explorer/testnet"
+  },
+  "createdAtLedger": 4915272,
+  "recipeHash": "a00bfd18c386d2f536daf544513ee7153c433f62a68437bc3a0af11bdc4ddd9b",
+  "accounts": {
+    "sponsor": "GA4WL3KMS5GLVJSDVDTVAWV6OO2MMNXLYN2YZRZNZ5NZVKZMGASEERRL",
+    "reserveSponsor": "GACQCWDOZ4TGFKSJRPKU4XSKGSN34QWJ4T2TZCOMCLWK6LWT2X23YS7H",
+    "issuer": "GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ",
+    "marketMaker": "GBDYZBW2NPGJI3OINHDKZQUFV3M7QPW2GN25LPVISNTM4RLUQM3FF6GA",
+    "destination": "GD3SL7JZIN7KRPVSHYTXX47BZ4ZGVI6NK3T6YO2NHAQ743XDUELELWHS",
+    "fixture": "GBOZONXB4R6US3HGYH3B6J2ZXTARMY6T2ER4NX3CRP36X4OJFHBK7J5S"
+  },
+  "assets": [
+    {
+      "code": "DUSTA",
+      "issuer": "GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ",
+      "dust": "0.0000007",
+      "expectedRung": "path_payment",
+      "sponsored": false,
+      "destinationTrusts": false
+    },
+    {
+      "code": "DUSTB",
+      "issuer": "GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ",
+      "dust": "0.0000003",
+      "expectedRung": "return_to_issuer",
+      "sponsored": false,
+      "destinationTrusts": false
+    },
+    {
+      "code": "DUSTC",
+      "issuer": "GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ",
+      "dust": "0.0000005",
+      "expectedRung": "return_to_issuer",
+      "sponsored": false,
+      "destinationTrusts": true
+    },
+    {
+      "code": "SPTA",
+      "issuer": "GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ",
+      "dust": "0.0000001",
+      "expectedRung": "return_to_issuer",
+      "sponsored": true,
+      "destinationTrusts": false
+    }
+  ],
+  "offers": [
+    {
+      "id": "828610",
+      "selling": "DUSTA:GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ",
+      "buying": "native",
+      "amount": "0.0000002",
+      "price": "100.0000000"
+    },
+    {
+      "id": "828611",
+      "selling": "DUSTC:GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ",
+      "buying": "DUSTB:GAYMDGFMVQPC7LNQHWDBSU373U26TJBAAMVAVWI2O25XNDAY2YLRZFPZ",
+      "amount": "0.0000002",
+      "price": "1.0000000"
+    }
+  ],
+  "dataEntries": [
+    "dustin.fixture"
+  ],
+  "expected": {
+    "subentryCount": 7,
+    "numSponsored": 1,
+    "baseReserve": "0.5000000",
+    "balance": "4.0000000",
+    "minimumBalance": "4.0000000",
+    "spendable": "0.0000000"
+  },
+  "transactions": [
+    {
+      "step": "create-accounts",
+      "hash": "d1e61a495a955b7acc0728c4600172e547b582b317e2c9e0796d5104b4053d5c",
+      "ledger": 4915273,
+      "feeBumped": false,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/d1e61a495a955b7acc0728c4600172e547b582b317e2c9e0796d5104b4053d5c"
+    },
+    {
+      "step": "trustlines",
+      "hash": "e3494f818bc8185a95f6130af047f2241ab4b0d1a54f6902bbc9a6bd95ace362",
+      "innerHash": "ade739e2b036455b9002bacb582dd5d36f4299610e51b961b4dcaf8c07e88dc4",
+      "ledger": 4915274,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/e3494f818bc8185a95f6130af047f2241ab4b0d1a54f6902bbc9a6bd95ace362"
+    },
+    {
+      "step": "sponsored-trustline",
+      "hash": "e9bd0111b4e51efafc628529be7823c9ef0427e05fbeae19cd35b6f9bebaa426",
+      "innerHash": "67dac1329685964de9dd1df23cf21a5b9e4dc85e915ef894142f62ed92ef0d24",
+      "ledger": 4915275,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/e9bd0111b4e51efafc628529be7823c9ef0427e05fbeae19cd35b6f9bebaa426"
+    },
+    {
+      "step": "dust-payments",
+      "hash": "ead2a1c6432fbd6d8bc3c32e02f5b10ba0a570e956e1c1dd27f6575a1ed54bc3",
+      "innerHash": "466ed09261c713d74d37dc3f646d3432c8cdb825da07a349f3c08ccadaeccb97",
+      "ledger": 4915276,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/ead2a1c6432fbd6d8bc3c32e02f5b10ba0a570e956e1c1dd27f6575a1ed54bc3"
+    },
+    {
+      "step": "market-maker-bid",
+      "hash": "5d7f3552b6806de401ee6c591278eeef3575f8612409c95666c1a69a55985a46",
+      "innerHash": "a038804802a94d8e9ab91b7eeebb28bb34d8ea59c099730282c5bad06a37bc11",
+      "ledger": 4915277,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/5d7f3552b6806de401ee6c591278eeef3575f8612409c95666c1a69a55985a46"
+    },
+    {
+      "step": "offers-and-data",
+      "hash": "dcfcae089ee93eac7f6a701b549ec8ac65c2a61f51c24992bffd8a37f75065b5",
+      "innerHash": "0219f82f7c1a3ec991b49da2ca99353b5ac992482328a62042cec2f112b434be",
+      "ledger": 4915278,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/dcfcae089ee93eac7f6a701b549ec8ac65c2a61f51c24992bffd8a37f75065b5"
+    },
+    {
+      "step": "drain-to-minimum",
+      "hash": "332c39fecb0d8afa23c4de61d7a5cbcd1cbbf0eff89ce7b392b44e3260b04008",
+      "innerHash": "8efbdf14e696d552024ef25f884f3e1b30702cf9093b8617b607ec20174d300f",
+      "ledger": 4915279,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/332c39fecb0d8afa23c4de61d7a5cbcd1cbbf0eff89ce7b392b44e3260b04008"
+    }
+  ],
+  "zeroSpendableProof": {
+    "resultCode": "tx_insufficient_balance",
+    "sequenceUnchanged": true
+  },
+  "liquidPath": {
+    "asset": "DUSTA",
+    "sourceAmount": "0.0000007",
+    "destinationAmount": "0.0000007",
+    "path": []
+  },
+  "verification": {
+    "pass": true,
+    "checks": [
+      {
+        "id": "zero-spendable-xlm",
+        "label": "holds zero spendable XLM",
+        "appendixB": true,
+        "pass": true,
+        "observed": "balance 4.0000000, minimum 4.0000000, native selling liabilities 0.0000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "trustlines-with-balance",
+        "label": "at least 3 trustlines with non-zero balances",
+        "appendixB": true,
+        "pass": true,
+        "observed": "4 (DUSTA 0.0000007, DUSTB 0.0000003, DUSTC 0.0000005, SPTA 0.0000001)",
+        "expected": "3 or more"
+      },
+      {
+        "id": "open-offer",
+        "label": "at least 1 open offer",
+        "appendixB": true,
+        "pass": true,
+        "observed": "2 (ids 828610, 828611)",
+        "expected": "1 or more"
+      },
+      {
+        "id": "data-entry",
+        "label": "at least 1 data entry",
+        "appendixB": true,
+        "pass": true,
+        "observed": "1 (dustin.fixture)",
+        "expected": "1 or more"
+      },
+      {
+        "id": "sponsored-trustline",
+        "label": "trustline SPTA is sponsored by the reserve sponsor",
+        "appendixB": false,
+        "pass": true,
+        "observed": "sponsor GACQCWDOZ4TGFKSJRPKU4XSKGSN34QWJ4T2TZCOMCLWK6LWT2X23YS7H",
+        "expected": "sponsor GACQCWDOZ4TGFKSJRPKU4XSKGSN34QWJ4T2TZCOMCLWK6LWT2X23YS7H"
+      },
+      {
+        "id": "subentry-count",
+        "label": "subentry count",
+        "appendixB": false,
+        "pass": true,
+        "observed": "7",
+        "expected": "7"
+      },
+      {
+        "id": "num-sponsored",
+        "label": "entries sponsored by another account",
+        "appendixB": false,
+        "pass": true,
+        "observed": "1",
+        "expected": "1"
+      },
+      {
+        "id": "not-sponsoring",
+        "label": "sponsors nothing (a sponsoring account cannot be merged)",
+        "appendixB": false,
+        "pass": true,
+        "observed": "0",
+        "expected": "0"
+      },
+      {
+        "id": "no-pool-shares",
+        "label": "holds no liquidity pool shares",
+        "appendixB": false,
+        "pass": true,
+        "observed": "0",
+        "expected": "0"
+      },
+      {
+        "id": "not-immutable",
+        "label": "AUTH_IMMUTABLE is not set",
+        "appendixB": false,
+        "pass": true,
+        "observed": "false",
+        "expected": "false"
+      },
+      {
+        "id": "master-key-can-merge",
+        "label": "the master key alone meets the high threshold",
+        "appendixB": false,
+        "pass": true,
+        "observed": "master weight 1, high threshold 0",
+        "expected": "weight >= high threshold and > 0"
+      },
+      {
+        "id": "destination-exists",
+        "label": "the destination account exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "account GD3SL7JZIN7KRPVSHYTXX47BZ4ZGVI6NK3T6YO2NHAQ743XDUELELWHS exists"
+      }
+    ]
+  }
+}

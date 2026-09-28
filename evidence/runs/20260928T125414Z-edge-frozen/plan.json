@@ -1,0 +1,184 @@
+{
+  "schemaVersion": 1,
+  "kind": "dustin-close-plan",
+  "network": {
+    "passphrase": "Test SDF Network ; September 2015",
+    "horizon": "https://horizon-testnet.stellar.org"
+  },
+  "account": "GDFGHTTTVDNYBJFHXHKKRO5EBZWKDCEO6RZFIDJ3QBUEWY3NHMYEP5X5",
+  "destination": "GBT652JTX4KRA2XPKPFRRAGJA6U6N2HGRTPOJI6ZINRPCKYMV6C3NU73",
+  "feeSponsor": "GAA76S5MCCU2YQ34QY2YRZECO2HRNIKAPHNWTR4IMKB7CRK5D2T67QAN",
+  "memo": null,
+  "options": {
+    "slippageBps": 100,
+    "maxOpsPerTransaction": 100,
+    "maxWaitLedgers": 120
+  },
+  "observed": {
+    "ledger": 4915305,
+    "closedAt": "2026-09-28T12:55:12Z"
+  },
+  "reserve": {
+    "balance": "2.5000000",
+    "baseReserve": "0.5000000",
+    "minimum": "2.5000000",
+    "spendable": "0.0000000"
+  },
+  "snapshotHash": "5c95676dc9a91499d5e171c6914e52ffd77fcf6c6e20b3eaf78a4bbf79923208",
+  "ladderOrder": "sow",
+  "status": "partial",
+  "steps": [
+    {
+      "id": "S01",
+      "kind": "dispose_balance",
+      "txIndex": 0,
+      "subject": {
+        "type": "trustline",
+        "asset": {
+          "type": "credit_alphanum4",
+          "code": "ILQX",
+          "issuer": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS"
+        },
+        "balance": "0.0000003",
+        "sponsor": null
+      },
+      "threshold": "medium",
+      "disposal": {
+        "rung": "return_to_issuer",
+        "amount": "0.0000003",
+        "to": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS",
+        "fallbackRungs": [],
+        "ruledOut": [
+          {
+            "rung": "path_payment",
+            "reason": "Horizon found no strict-send path to XLM for the full balance"
+          },
+          {
+            "rung": "send_to_destination",
+            "reason": "the destination holds no ILQX trustline"
+          }
+        ]
+      },
+      "feeEstimateStroops": 106632,
+      "reason": "Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000003 ILQX back to its issuer GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS, which burns it.",
+      "operation": {
+        "type": "payment",
+        "destination": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS",
+        "asset": {
+          "type": "credit_alphanum4",
+          "code": "ILQX",
+          "issuer": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS"
+        },
+        "amount": "0.0000003"
+      },
+      "dependsOn": []
+    },
+    {
+      "id": "S02",
+      "kind": "remove_trustline",
+      "txIndex": 0,
+      "subject": {
+        "type": "trustline",
+        "asset": {
+          "type": "credit_alphanum4",
+          "code": "ILQX",
+          "issuer": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS"
+        },
+        "balance": "0.0000003",
+        "sponsor": null
+      },
+      "reason": "The ILQX trustline is empty once the balance is disposed of; a trustline is a subentry that blocks the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.",
+      "threshold": "medium",
+      "operation": {
+        "type": "changeTrust",
+        "asset": {
+          "type": "credit_alphanum4",
+          "code": "ILQX",
+          "issuer": "GCQTUFWH6OCLTRWUQUGPUYJON3UJRXWOE5JVD5YMYMJQ5AU7TKWA7YRS"
+        },
+        "limit": "0"
+      },
+      "reserveReleasedTo": {
+        "to": "account"
+      },
+      "feeEstimateStroops": 106632,
+      "dependsOn": [
+        "S01"
+      ]
+    },
+    {
+      "id": "S03",
+      "kind": "remove_data",
+      "txIndex": 0,
+      "subject": {
+        "type": "data",
+        "name": "dustin.fixture"
+      },
+      "reason": "Data entry \"dustin.fixture\" is a subentry that blocks the merge; a manage-data operation without a value deletes it.",
+      "threshold": "medium",
+      "operation": {
+        "type": "manageData",
+        "name": "dustin.fixture",
+        "value": null
+      },
+      "feeEstimateStroops": 106632,
+      "dependsOn": []
+    }
+  ],
+  "transactions": [
+    {
+      "index": 0,
+      "phase": "cleanup",
+      "stepIds": [
+        "S01",
+        "S02",
+        "S03"
+      ],
+      "opCount": 3,
+      "innerFeeStroops": 0,
+      "feeBumpFeeStroops": 426528,
+      "reason": "Deterministic cleanup with no market dependency (offer cancellations, returns to issuers, transfers to the destination, removal of emptied trustlines and data entries), grouped into one fee-bumped transaction of at most 100 operations."
+    }
+  ],
+  "unclosable": [
+    {
+      "code": "TRUSTLINE_NOT_AUTHORIZED",
+      "subject": {
+        "type": "trustline",
+        "asset": {
+          "type": "credit_alphanum4",
+          "code": "FRZ",
+          "issuer": "GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL"
+        },
+        "balance": "0.0000005",
+        "sponsor": null
+      },
+      "reason": "Issuer GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL has not authorized the FRZ trustline (or revoked it), so the balance of 0.0000005 FRZ cannot be sent anywhere, not even back to the issuer.",
+      "remedy": "Ask the issuer GAILLB42O7XS6VYSB5ADBC6VOEPYOCCMWXGV47N4ANTWAMUPPKQIQANL to authorize the trustline again (SetTrustLineFlags), then run the plan again.",
+      "blocksMerge": true
+    }
+  ],
+  "blockers": [],
+  "warnings": [],
+  "recovery": {
+    "xlmToDestination": "0.0000000",
+    "nativeBalance": "2.5000000",
+    "quotedProceedsXlm": "0.0000000",
+    "reservesReturnedToSponsors": [],
+    "feesPaidByAccount": "0"
+  },
+  "fees": {
+    "baseFeeStroops": 106632,
+    "basis": "fee_stats",
+    "maxBaseFeeStroops": 1000000,
+    "perTransactionStroops": [
+      426528
+    ],
+    "totalStroops": 426528,
+    "budgetStroops": 50000000,
+    "withinBudget": true,
+    "payer": "GAA76S5MCCU2YQ34QY2YRZECO2HRNIKAPHNWTR4IMKB7CRK5D2T67QAN"
+  },
+  "sequenceGuard": null,
+  "planHash": "7ecb40bca57b8f51e3681bdc9a9f2941b37bfc68788a873c90704d4616d0c371"
+}
