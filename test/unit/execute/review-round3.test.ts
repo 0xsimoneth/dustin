@@ -195,3 +195,80 @@ describe("R3-6: after tx_bad_seq only this transaction's own refused bids leave 
     expect(report.message).toMatch(/close budget/);
   });
 });
+
+/** The stop's round, and the round of the envelope it names by hash. */
+function stopRounds(report: CloseReport) {
+  const named = report.transactions.find((t) => t.hash === report.stop?.hash);
+  return {
+    code: report.stop?.code,
+    stopRound: report.stop?.round,
+    envelopeRound: named?.round,
+    triggerRound: report.replans[0]?.trigger.round,
+  };
+}
+
+describe("R3-7: a stop raised by a re-plan names the round of the transaction that forced it", () => {
+  it("ACCOUNT_MISSING (edge case E8)", async () => {
+    const { ledger, deps, plan } = harness();
+    const dusta = [...ledger.quotes.keys()][0]!;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      allowPartial: true,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 0) ledger.quotes.set(dusta, "0.0000001");
+        if (e.type === "tx:failed" && e.index === 1) ledger.accounts.delete(messy.fixture);
+      },
+    });
+    expect(stopRounds(report)).toEqual({
+      code: "ACCOUNT_MISSING",
+      stopRound: 0,
+      envelopeRound: 0,
+      triggerRound: 0,
+    });
+  });
+
+  it("PLAN_CHANGED", async () => {
+    const { ledger, deps, plan } = harness();
+    let changed = false;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 0 && !changed) {
+          changed = true;
+          // A new data entry appears and the market vanishes, so the sale fails and the re-plan
+          // finds what the approved plan did not have.
+          const account = ledger.accounts.get(messy.fixture)!;
+          account.data = { late: "MQ==" };
+          account.subentry_count += 1;
+          ledger.quotes.clear();
+        }
+      },
+    });
+    expect(stopRounds(report)).toEqual({
+      code: "PLAN_CHANGED",
+      stopRound: 0,
+      envelopeRound: 0,
+      triggerRound: 0,
+    });
+  });
+
+  it("OVER_BUDGET", async () => {
+    const { ledger, deps, plan } = harness();
+    const p = await plan({ maxOpsPerTransaction: 2, budgetStroops: 2000 });
+    const report = await executeClose(p, signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 4) ledger.quotes.clear();
+      },
+    });
+    expect(stopRounds(report)).toEqual({
+      code: "OVER_BUDGET",
+      stopRound: 0,
+      envelopeRound: 0,
+      triggerRound: 0,
+    });
+  });
+});

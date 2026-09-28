@@ -722,13 +722,17 @@ class CloseRun {
   }): Promise<AfterFailure> {
     const { options, reader, fresh, plan, sponsorKey } = this.input;
     const { tx, where, stepId } = trigger;
+    // The round of the transaction that forced the re-plan. A stop raised after the new round was
+    // counted still names that transaction (txIndex, hash), so it carries its round too (review
+    // round 3, R3-7).
+    const triggerRound = this.round;
     const stopWith = (
       stop: Omit<StopReason, "stage" | "round" | "txIndex" | "hash"> & { stage?: ErrorStage },
     ): AfterFailure => ({
       kind: "stop",
       stop: {
         stage: "submit",
-        round: this.round,
+        round: triggerRound,
         txIndex: tx.index,
         hash: trigger.hash,
         resultCodes: trigger.codes,
@@ -749,7 +753,6 @@ class CloseRun {
       reader: withPathsOnlyFor(reader, allowed),
     });
     const drift = replanDrift(fresh, next);
-    const triggerRound = this.round;
     this.round += 1;
     this.roundPlans[this.round] = next;
     this.report.replans.push({
