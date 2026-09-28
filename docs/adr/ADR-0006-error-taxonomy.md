@@ -64,7 +64,7 @@ Plans and reports never throw for expected conditions; they carry `blockers[]` a
 | `op_offer_not_found` (manage offer) | `MANAGE_SELL_OFFER_NOT_FOUND` | `OFFER_GONE` (filled or cancelled meanwhile) | replan |
 | `op_underfunded` | `PAYMENT_UNDERFUNDED`, `PATH_PAYMENT_STRICT_SEND_UNDERFUNDED` | `BALANCE_CHANGED` (clawback, fill) | replan |
 | `op_src_not_authorized` | `*_SRC_NOT_AUTHORIZED` | `ISSUER_DEAUTHORIZED` | replan (asset moves to a later rung or rung 4) |
-| `op_no_destination` | `PAYMENT_NO_DESTINATION` | `ISSUER_MISSING` / `DEST_MISSING` | replan |
+| `op_no_destination` | `PAYMENT_NO_DESTINATION` | `DEST_MISSING` (a payment to an issuer that was merged away succeeds and burns the balance, so the issuer rung never fails this way: day-1 experiment 4, `docs/README.md` open question 3) | replan |
 | `op_no_trust`, `op_not_authorized`, `op_line_full` | destination-side payment failures | `DEST_NO_TRUSTLINE`, `DEST_NOT_AUTHORIZED`, `DEST_LINE_FULL` | replan |
 | `op_too_few_offers`, `op_under_dest_min` | `PATH_PAYMENT_STRICT_SEND_TOO_FEW_OFFERS`, `_UNDER_DESTMIN` | `NO_PATH`, `SLIPPAGE_EXCEEDED` | replan (rung 1 marked non-viable) |
 | `op_cross_self` | `PATH_PAYMENT_STRICT_SEND_OFFER_CROSS_SELF` | `OWN_OFFER_PRESENT` (ordering violated by external change) | replan |
@@ -91,7 +91,7 @@ An `unclosable[]` entry lists the reason from every rung it tried, so the user s
 | `SLIPPAGE_EXCEEDED` | 1 | execution failed `UNDER_DESTMIN` after a re-plan |
 | `NOT_AUTHORIZED` | 1, 2, 3 | trustline is not authorized; the holder cannot send at all |
 | `MAINTAIN_LIABILITIES_ONLY` | 1, 2, 3 | trustline may keep offers but cannot send (CAP-0018) |
-| `ISSUER_MISSING` | 2 | issuer account does not exist |
+| `ISSUER_MISSING` | 2 | withdrawn on 2026-09-26: a missing issuer account does not rule out rung 2, because a payment to an issuer that was merged away still burns the balance (day-1 experiment 4, `docs/progress-log.md`; `docs/README.md` open question 3); the plan only notes it in the step's reason |
 | `ISSUER_REQUIRES_MEMO` | 2 | SEP-29 marker on the issuer and no memo supplied |
 | `DEST_NO_TRUSTLINE`, `DEST_NOT_AUTHORIZED`, `DEST_LINE_FULL` | 3 | destination cannot receive the asset |
 | `LP_SHARE_BALANCE` | n/a | pool shares are never disposed (out of scope) |
