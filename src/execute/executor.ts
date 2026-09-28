@@ -889,21 +889,20 @@ class CloseRun {
   /**
    * Review finding 2: the account is gone although the run never saw its merge apply (a lost
    * lookup, or a rebuilt merge refused with tx_no_source_account). The merge envelopes the run
-   * posted are looked up once more: one found applied makes the run a close like any other. If
-   * none is confirmed the account is still verified gone, so the run is reported closed with a
-   * message saying the merge was not confirmed, never failed. Null when the account exists or the
-   * run posted no merge at all (then someone else removed it, and the stop stands).
+   * posted that could have applied are looked up once more: one found applied makes the run a
+   * close like any other. If none is confirmed the account is still verified gone, so the run is
+   * reported closed with a message saying the merge was not confirmed, never failed. Null when the
+   * account exists, or when no merge envelope of this run could have applied: none was posted, or
+   * every one was refused before inclusion or failed on the ledger. Then someone else removed the
+   * account, and the stop stands (review round 3, R3-1).
    */
   private async closedUnseen(
     verification: NonNullable<CloseReport["verification"]>,
   ): Promise<CloseReport | null> {
     if (this.merge || verification.accountExists) return null;
-    const merges = this.report.transactions.filter((t) =>
-      (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
-    );
+    const merges = this.mergeCandidates();
     if (merges.length === 0) return null;
     for (const entry of merges) {
-      if (entry.result !== "unknown" && entry.result !== "pending") continue;
       const lookup = await lookupTransaction(this.input.submitter, entry.hash);
       if (lookup.kind !== "found") continue;
       const found = outcomeFromRecord(entry.hash, lookup.record);
@@ -1049,13 +1048,23 @@ class CloseRun {
       }));
   }
 
-  /** The last merge-carrying envelope this run posted, whatever became of it. */
+  /** The last merge-carrying envelope this run posted that could have applied. */
   private postedMerge(): SubmittedTransaction | null {
-    const merges = this.report.transactions.filter(
+    return this.mergeCandidates().at(-1) ?? null;
+  }
+
+  /**
+   * The merge-carrying envelopes this run posted whose outcome is not known: `unknown`, or
+   * `pending` in a run interrupted mid-POST. Only these could have removed the account; one
+   * refused before inclusion or failed on the ledger cannot have (review round 3, R3-1).
+   */
+  private mergeCandidates(): SubmittedTransaction[] {
+    return this.report.transactions.filter(
       (t) =>
-        t.attempts > 0 && (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
+        t.attempts > 0 &&
+        (t.result === "unknown" || t.result === "pending") &&
+        (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
     );
-    return merges.at(-1) ?? null;
   }
 
   /**
