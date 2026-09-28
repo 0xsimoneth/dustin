@@ -54,6 +54,20 @@ export interface WriteEvidenceOptions {
   label?: string;
 }
 
+/**
+ * Throws unless `label` can end a run directory's name, `<UTC stamp>-<label>`: lower-case letters,
+ * digits and hyphens, starting with a letter or a digit, so it can never leave `root`. A live close
+ * checks its label with this before it builds a fixture, so a label the writer would refuse never
+ * costs a spent fixture its record (review finding CC-11).
+ */
+export function assertEvidenceLabel(label: string): void {
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(label)) {
+    throw new Error(
+      `Evidence label ${JSON.stringify(label)} must be lower-case letters, digits and hyphens.`,
+    );
+  }
+}
+
 /** `20260926T134512Z`: sortable, and valid in a path on every platform. */
 export function runStamp(date: Date): string {
   return date
@@ -75,11 +89,7 @@ const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
  */
 export function writeCloseEvidence(evidence: CloseEvidence, options: WriteEvidenceOptions): string {
   const now = options.now ?? new Date();
-  if (options.label !== undefined && !/^[a-z0-9][a-z0-9-]*$/.test(options.label)) {
-    throw new Error(
-      `Evidence label ${JSON.stringify(options.label)} must be lower-case letters, digits and hyphens.`,
-    );
-  }
+  if (options.label !== undefined) assertEvidenceLabel(options.label);
   const name = options.label ? `${runStamp(now)}-${options.label}` : runStamp(now);
   const files = new Map<string, string>([
     ["summary.md", summary(evidence, name, now)],

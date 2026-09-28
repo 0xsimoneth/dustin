@@ -12,7 +12,12 @@ import { FeeSponsor } from "../../../src/sponsor/sponsor.js";
 import { buildInnerTransaction } from "../../../src/tx/build-inner.js";
 import { planFromSnapshot } from "../../../src/plan/plan.js";
 import { renderPlan } from "../../../src/render/plan-text.js";
-import { runStamp, writeCloseEvidence, type CloseEvidence } from "../../helpers/evidence.js";
+import {
+  assertEvidenceLabel,
+  runStamp,
+  writeCloseEvidence,
+  type CloseEvidence,
+} from "../../helpers/evidence.js";
 import { messy, messySnapshot } from "../../helpers/snapshots.js";
 
 // Review finding R16: the evidence of a live close, written offline from a synthetic run. Keys come
@@ -364,5 +369,20 @@ describe("writeCloseEvidence", () => {
 
   it("names runs by UTC second", () => {
     expect(runStamp(new Date("2026-12-16T17:00:00.999Z"))).toBe("20261216T170000Z");
+  });
+});
+
+describe("assertEvidenceLabel", () => {
+  // Review finding CC-11: a live close checks its label with this before building a fixture.
+  it("accepts lower-case letters, digits and hyphens, starting with a letter or a digit", () => {
+    for (const label of ["e3", "e3-cli", "e3s4-wait", "0"]) {
+      expect(() => assertEvidenceLabel(label)).not.toThrow();
+    }
+  });
+
+  it("refuses anything else, a path included, the same way the writer does", () => {
+    for (const label of ["E3", "e3_cli", "e3 cli", "e3/../x", "..", "", "-e3", "e3."]) {
+      expect(() => assertEvidenceLabel(label)).toThrow(/label/);
+    }
   });
 });

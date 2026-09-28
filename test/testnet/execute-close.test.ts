@@ -14,7 +14,7 @@ import { planClose } from "../../src/plan/plan-close.js";
 import { horizonJson, latestLedger } from "../../src/reader/horizon-json.js";
 import { renderPlan } from "../../src/render/plan-text.js";
 import { keypairSigner } from "../../src/sponsor/signer.js";
-import { writeCloseEvidence, type AccountState } from "../helpers/evidence.js";
+import { assertEvidenceLabel, writeCloseEvidence, type AccountState } from "../helpers/evidence.js";
 import { describeTestnet } from "./gate.js";
 
 /**
@@ -24,10 +24,14 @@ import { describeTestnet } from "./gate.js";
  * Off by default, so ordinary testnet runs leave the working tree clean.
  */
 const writeEvidence = process.env.DUSTIN_EVIDENCE === "1";
-const evidenceLabel = process.env.DUSTIN_EVIDENCE_LABEL;
+// An empty label means none, as it always has: the directory is named by the stamp alone.
+const evidenceLabel = process.env.DUSTIN_EVIDENCE_LABEL || undefined;
 
 describeTestnet("executeClose (live testnet)", () => {
   it("closes a fresh zero-spendable messy fixture with every fee paid by the sponsor", async () => {
+    // The label is checked before a fixture is built: once the close has run, a label the writer
+    // refuses would cost the spent fixture its record (review finding CC-11).
+    if (writeEvidence && evidenceLabel !== undefined) assertEvidenceLabel(evidenceLabel);
     const { manifest, keys } = await buildMessyFixture();
     const a = manifest.accounts;
     const client = horizonJson(DEFAULT_HORIZON_URL);
@@ -112,7 +116,11 @@ describeTestnet("executeClose (live testnet)", () => {
           plan,
           planText: renderPlan(plan),
         },
-        { root: "evidence/runs", forbidden, ...(evidenceLabel ? { label: evidenceLabel } : {}) },
+        {
+          root: "evidence/runs",
+          forbidden,
+          ...(evidenceLabel !== undefined ? { label: evidenceLabel } : {}),
+        },
       );
       console.log(`Close evidence written to ${dir}`);
     }
