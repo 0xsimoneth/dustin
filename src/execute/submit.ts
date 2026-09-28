@@ -1,4 +1,4 @@
-import { assertPause, timerSleep, type Sleep } from "../config/pauses.js";
+import { MIN_PAUSE_MS, assertPause, timerSleep, type Sleep } from "../config/pauses.js";
 import type { FetchLike } from "../reader/horizon-json.js";
 import { feeChargedFromResultXdr, resultCodesFromXdr, type ResultCodes } from "./result-codes.js";
 
@@ -409,8 +409,17 @@ async function confirmByLocalClock(
         ? { kind: "unknown", hash: envelope.hash, lookupError: found.detail }
         : { kind: "unknown", hash: envelope.hash };
     }
-    await (options.sleep ?? timerSleep)(options.pollIntervalMs ?? 2000);
+    await (options.sleep ?? timerSleep)(clippedPause(options.pollIntervalMs, deadline - now()));
   }
+}
+
+/**
+ * A pause of the wait for an envelope: `pollIntervalMs`, but never longer than the time left in
+ * the wait (`leftSeconds`), so a long pause cannot outlast the wait's bound, and never below the
+ * 200 ms floor (closing review CX-8).
+ */
+function clippedPause(pollIntervalMs: number | undefined, leftSeconds: number): number {
+  return Math.max(MIN_PAUSE_MS, Math.min(pollIntervalMs ?? 2000, leftSeconds * 1000));
 }
 
 /**
@@ -528,6 +537,6 @@ async function confirmByLedgerClock(
         ...(readError !== null ? { readError } : {}),
       };
     }
-    await (options.sleep ?? timerSleep)(options.pollIntervalMs ?? 2000);
+    await (options.sleep ?? timerSleep)(clippedPause(options.pollIntervalMs, limit - waited));
   }
 }

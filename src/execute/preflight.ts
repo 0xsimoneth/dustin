@@ -1,4 +1,4 @@
-import { assertPause, type Sleep } from "../config/pauses.js";
+import { MIN_PAUSE_MS, assertPause, type Sleep } from "../config/pauses.js";
 import { DustinError } from "../errors/dustin-error.js";
 import { destinationBaseAccount } from "../inspect/address.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
@@ -156,7 +156,8 @@ export interface LedgerWait {
  * Waits until Horizon reports `target` or a later ledger as its latest one (story E3-S4). It reads
  * `GET /ledgers?order=desc&limit=1` and pauses `pollIntervalMs` between reads with the injected
  * `sleep`, never in a tight loop (pauses are at least 200 ms, src/config/pauses.ts). The ledger
- * decides when the wait is over; the local clock only bounds how long it may last (`limitMs`).
+ * decides when the wait is over; the local clock only bounds how long it may last (`limitMs`),
+ * and a pause is never longer than the time left before that limit (closing review CX-8).
  * A read that fails (after the read client's own retries) proves nothing about the ledger: it
  * counts as a poll that did not reach the target, and the wait goes on until its limit; a wait
  * that gives up after a failed last read says why in `readError` (closing review CX-7).
@@ -199,6 +200,10 @@ export async function waitForLedger(
         ...(readError !== null ? { readError } : {}),
       };
     }
-    await options.sleep(options.pollIntervalMs);
+    // Never past the limit by a whole pause: the pause is clipped to the time left, and never
+    // below the 200 ms floor (closing review CX-8).
+    await options.sleep(
+      Math.max(MIN_PAUSE_MS, Math.min(options.pollIntervalMs, options.limitMs - waitedMs)),
+    );
   }
 }

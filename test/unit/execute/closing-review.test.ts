@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { exitCodeForReport } from "../../../src/cli/exit-codes.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
-import { waitForLedger } from "../../../src/execute/preflight.js";
+import { ledgerWaitLimitMs, waitForLedger } from "../../../src/execute/preflight.js";
 import type { CloseReport } from "../../../src/execute/report.js";
+import { submitAndConfirm, type Submitter } from "../../../src/execute/submit.js";
+import { verifyClosed } from "../../../src/execute/verify.js";
+import type { HorizonAccount } from "../../../src/inspect/horizon-types.js";
 import { horizonJson, type FetchLike } from "../../../src/reader/horizon-json.js";
-import { horizonReader } from "../../../src/reader/ledger-reader.js";
+import { horizonReader, type LedgerReader } from "../../../src/reader/ledger-reader.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
 import { noSleep } from "../../helpers/no-sleep.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
@@ -555,5 +558,96 @@ describe("CX-7: a failed ledger read during the sequence-guard wait is a poll th
       polls: 5,
       readError: "socket hang up",
     });
+  });
+});
+
+describe("CX-8: every pause is clipped to the time left in its wait, never below 200 ms", () => {
+  const LEDGER = {
+    sequence: 100,
+    closed_at: "2026-09-28T12:00:00Z",
+    base_fee_in_stroops: 100,
+    base_reserve_in_stroops: 5_000_000,
+    protocol_version: 28,
+  };
+  const HOUR = 60 * 60 * 1000;
+
+  it("the sequence-guard wait lasts its limit, not a whole long pause (the review's probe)", async () => {
+    const clock = testClock(0);
+    const limitMs = ledgerWaitLimitMs(1); // 30 s
+    const waited = await waitForLedger({ latestLedger: () => Promise.resolve(LEDGER) }, 101, {
+      pollIntervalMs: HOUR,
+      limitMs,
+      sleep: clock.sleep,
+      now: clock.now,
+    });
+    // Before the fix: one pause of an hour, 120 times the limit.
+    expect(waited).toMatchObject({ reached: false, waitedMs: limitMs });
+    expect(clock.sleeps).toEqual([limitMs]);
+  });
+
+  it("the sequence-guard wait's last pause is at least 200 ms", async () => {
+    const clock = testClock(0);
+    const waited = await waitForLedger({ latestLedger: () => Promise.resolve(LEDGER) }, 101, {
+      pollIntervalMs: 5000,
+      limitMs: 20_100,
+      sleep: clock.sleep,
+      now: clock.now,
+    });
+    expect(clock.sleeps).toEqual([5000, 5000, 5000, 5000, 200]);
+    expect(waited.waitedMs).toBe(20_200);
+  });
+
+  /** An envelope Horizon answered 504 for and never finds. */
+  const lost: Submitter = {
+    submit: () => Promise.resolve({ status: 504, body: null }),
+    transaction: () => Promise.resolve(null),
+    lookup: () => Promise.resolve({ kind: "missing" }),
+  };
+
+  it("the confirm loop with the ledger's clock ends at maxWaitSeconds", async () => {
+    const clock = testClock(0);
+    const outcome = await submitAndConfirm(
+      lost,
+      { xdr: "ENV", hash: "ab".repeat(32), maxTime: 1000 },
+      {
+        pollIntervalMs: HOUR,
+        maxWaitSeconds: 30,
+        // No ledger ever closes past the time bound.
+        ledgerCloseTime: () => Promise.resolve(0),
+        now: () => clock.now() / 1000,
+        sleep: clock.sleep,
+      },
+    );
+    expect(outcome).toMatchObject({ kind: "unknown", mayStillApply: true });
+    // Before the fix: [3_600_000].
+    expect(clock.sleeps).toEqual([30_000, 200]);
+  });
+
+  it("the confirm loop with the local clock ends at the time bound plus the grace", async () => {
+    const clock = testClock(0);
+    const outcome = await submitAndConfirm(
+      lost,
+      { xdr: "ENV", hash: "ab".repeat(32), maxTime: 20 },
+      { pollIntervalMs: HOUR, graceSeconds: 10, now: () => clock.now() / 1000, sleep: clock.sleep },
+    );
+    expect(outcome).toMatchObject({ kind: "unknown" });
+    expect(clock.sleeps).toEqual([30_000, 200]);
+  });
+
+  it("verifyClosed looks for the 404 for its timeout, not a whole long pause", async () => {
+    const clock = testClock(0);
+    const reader = {
+      latestLedger: () => Promise.resolve(LEDGER),
+      account: () => Promise.resolve({} as HorizonAccount),
+    } as unknown as LedgerReader;
+    const v = await verifyClosed(messy.fixture, {
+      reader,
+      timeoutMs: 30_000,
+      intervalMs: HOUR,
+      now: clock.now,
+      sleep: clock.sleep,
+    });
+    expect(v.accountExists).toBe(true);
+    expect(clock.sleeps).toEqual([30_000]);
   });
 });
