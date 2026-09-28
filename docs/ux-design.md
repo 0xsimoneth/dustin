@@ -70,7 +70,7 @@ Binary: `dustin`. Every command accepts `--network testnet` (the only network ac
 |---|---|---|---|
 | `dustin plan <G-account> [--to <G-destination>] [--sponsor <G-sponsor>]` | Inspects the account and prints the ordered close plan. `--to` is optional here (the destination rung of the disposal ladder shows as "needs --to" until given); `--sponsor` only affects the fee estimate line. | None | Never |
 | `dustin close <G-account> --to <G-destination> [--execute] [--yes] [--partial] [--prefer-destination] [--max-fee <stroops>] [--run-file <path>]` | Re-plans, prints the plan, and stops. With `--execute` it asks for confirmation and runs. With `--execute --yes` it runs without a prompt (scripts). `--partial` allows a teardown that cannot end in a merge (section 2.7). | Account secret and sponsor secret (section 2.3) | Only after `--execute` and confirmation |
-| `dustin fixture create [--profile messy\|simple\|edge] [--out <dir>]` | Builds a testnet fixture account (friendbot-funded issuers, trustlines with dust, offers, data entry, a sponsored trustline, then drains spendable XLM to zero). Writes keys to a mode-600 JSON file. | None (generates its own, testnet only) | Yes, on throwaway testnet accounts |
+| `dustin fixture create [--profile messy\|edge] [--out <dir>]` | Builds a testnet fixture account (friendbot-funded issuers, trustlines with dust, offers, data entry, a sponsored trustline, then drains spendable XLM to zero). Writes keys to a mode-600 JSON file. There is no `simple` profile: the week 2 close used fresh `messy` accounts instead (PRD decision D-4); `edge` is in progress. | None (generates its own, testnet only) | Yes, on throwaway testnet accounts |
 | `dustin fixture show <G-account>` | Prints the same inventory the planner sees, without a plan. Used for the "before" snapshot. | None | Never |
 | `dustin baseline snapshot <G-account> [--out <dir>]` | Saves the account's before-state as JSON and prints it in the plan's table format for the evidence package. | None | Never |
 | `dustin baseline unsponsored <G-account>` | Dry-runs the plan with the account as its own fee payer and prints where it would stop. Complements, and does not replace, the required recording of the existing web tool (SOW D3). | None | Never |
@@ -200,7 +200,7 @@ Blockers the planner detects and reports, with the wording shown to the user (pr
 | Liquidity pool shares held | "N pool share trustlines found; Dustin detects them but does not withdraw (out of scope)" | "withdraw from the pool first" |
 | Raised thresholds / multisig | "the merge needs signature weight N; the provided key has weight M" (AccountMerge is a high-threshold operation) | "collect the extra signatures outside Dustin" |
 | Trustline not authorized (or authorized to maintain liabilities only) with a balance | "issuer has revoked authorization; the balance cannot be sent anywhere" | "ask the issuer to re-authorize or claw back" |
-| Issuer account no longer exists and destination lacks the trustline | "the issuer account is gone and the destination does not hold this asset" | "add a trustline for X on the destination and run again" |
+| Issuer account no longer exists | Not a blocker: a payment to an issuer that was merged away still succeeds and burns the balance, so the balance returns to the issuer as usual (day-1 experiment 4, `docs/progress-log.md`; `docs/README.md` open question 3, resolved 2026-09-26) | none needed |
 | Destination missing / same as account / cannot receive | "destination does not exist" / "destination must differ from the account" / "destination cannot receive this much XLM because of its own offers" | change `--to` |
 | Sequence number too far ahead | "the merge would be rejected (sequence number too high); Dustin will wait about N ledgers (~M min) before tx 3" | none needed; if the wait is longer than `--max-wait`, the plan reports it as unclosable for now |
 
@@ -331,7 +331,7 @@ Event lines on stderr: `{"event":"tx:confirmed","tx":1,"hash":"3f9a...","ledger"
 | 0 | Plan printed, or account fully closed and verified gone | plan: no; close: yes, fully |
 | 1 | Unexpected error (bug); stack trace only with `--verbose` | unknown; run again to find out |
 | 2 | Usage or validation error: bad address, secret on argv, wrong secret, mainnet requested | no |
-| 3 | Nothing executed: confirmation missing or declined, or blockers without `--partial` | no |
+| 3 | Nothing executed: confirmation missing or declined, blockers without `--partial`, or a sponsor or budget precondition failed (the fee bids exceed the per-close budget, or the sponsor cannot cover it; canonical decision 5 as widened on 2026-09-28, PRD decision D-6) | no |
 | 4 | Partial: the run completed what it could, the account still exists | yes |
 | 5 | Stopped or failed during execution; the account is consistent; re-run to continue | yes, partly |
 | 6 | Network: Horizon unreachable before anything was submitted | no |
@@ -397,6 +397,8 @@ Next: record the existing web tool's run against this account and store the reco
 ## 3. SDK ergonomics as UX
 
 The SDK is the integrator's interface, and its objects are what a wallet will eventually render. They are designed to be read by a product person, not just parsed by code: every step has `action` and `reason` strings in plain language, and every amount is a decimal string in XLM or asset units, never stroops.
+
+> Names superseded (PRD decision D-2, 2026-09-28): the SDK kept the names it was built with, and PRD section 7 is the normative API; `docs/integration-notes.md` shows it in use. The sketches in sections 3.1 to 3.3 are the design draft of 2026-09-25 and differ from the code: `executeClose(plan, signers, options)` takes `{ account, feeSponsor }` signers and `confirm: true`; the events are `plan`, `drift`, `preflight`, `tx:building`, `tx:submitted`, `tx:confirmed`, `tx:failed`, `verified` and `done`; there is no resume option, because running a close again is the resume; the rung a disposal used is on its step outcome, with no separate fallback status; `verifyClosed(account, options)` returns `{ accountExists, horizonStatus, checkedAt, ledger, accountUrl }`; and the blocker and unclosable codes are those of PRD section 7. The design properties hold: typed objects, reasons in plain words, signing through callbacks, progress events, and a plan that is what runs.
 
 ### 3.1 Entry points
 
@@ -493,7 +495,7 @@ Design notes for the integrator:
 
 - `items` is the list a person reads; `steps` is the list a machine executes; `transactions` is how the two are grouped. A wallet renders `items`, shows progress by `transactions`, and never needs `steps`.
 - Amounts are decimal strings to avoid floating-point surprises; stroop integers appear only in fee fields and are named `...Stroops`.
-- `blockers[].code` values are stable identifiers (`AUTH_IMMUTABLE`, `IS_SPONSOR`, `POOL_SHARES`, `THRESHOLD`, `TRUSTLINE_UNAUTHORIZED`, `ISSUER_GONE`, `DESTINATION_MISSING`, `DESTINATION_SAME`, `DESTINATION_FULL`, `SEQNUM_TOO_FAR`), each with a human `message` and optional `remedy` so a wallet can localise.
+- `blockers[].code` values are stable identifiers, each with a human `message` and optional `remedy` so a wallet can localise. The implemented codes are the `BlockerCode` and `UnclosableCode` lists of PRD section 7 (PRD decision D-2), which replace this draft's `AUTH_IMMUTABLE`, `POOL_SHARES`, `THRESHOLD`, `TRUSTLINE_UNAUTHORIZED`, `DESTINATION_SAME` and `DESTINATION_FULL`. The draft's `ISSUER_GONE` does not exist: a payment to an issuer that was merged away still burns the balance (day-1 experiment 4; `docs/README.md` open question 3).
 
 ### 3.3 Events, progress and cancellation
 
