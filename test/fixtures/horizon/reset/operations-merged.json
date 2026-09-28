@@ -1,0 +1,348 @@
+{
+  "note": "Recorded from testnet Horizon on 2026-09-28: the latest operations of the account closed by the CLI metric close of E3-S7 (evidence/runs/20260928T112252Z-e3-cli/), which ends in its account_merge. Public data only.",
+  "path": "/accounts/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7/operations?order=desc&limit=10",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7/operations?cursor=&limit=10&order=desc"
+      },
+      "next": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7/operations?cursor=21106366940725251&limit=10&order=desc"
+      },
+      "prev": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7/operations?cursor=21106375530659841&limit=10&order=asc"
+      }
+    },
+    "_embedded": {
+      "records": [
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106375530659841"
+            },
+            "transaction": {
+              "href": "https://horizon-testnet.stellar.org/transactions/36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c"
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106375530659841/effects"
+            },
+            "succeeds": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21106375530659841"
+            },
+            "precedes": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21106375530659841"
+            }
+          },
+          "id": "21106375530659841",
+          "paging_token": "21106375530659841",
+          "transaction_successful": true,
+          "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "type": "account_merge",
+          "type_i": 8,
+          "created_at": "2026-09-28T11:24:02Z",
+          "transaction_hash": "36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c",
+          "account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "into": "GDPZI3OAYYEAXTYY2OHFDZAEEG4PXNBN7AHNLQTEH22O5HTBGBSVB2TS"
+        },
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106371235680258"
+            },
+            "transaction": {
+              "href": "https://horizon-testnet.stellar.org/transactions/f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700"
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106371235680258/effects"
+            },
+            "succeeds": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21106371235680258"
+            },
+            "precedes": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21106371235680258"
+            }
+          },
+          "id": "21106371235680258",
+          "paging_token": "21106371235680258",
+          "transaction_successful": true,
+          "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "type": "change_trust",
+          "type_i": 6,
+          "created_at": "2026-09-28T11:23:57Z",
+          "transaction_hash": "f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700",
+          "asset_type": "credit_alphanum12",
+          "asset_code": "DUSTA",
+          "asset_issuer": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "limit": "0.0000000",
+          "trustee": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "trustor": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7"
+        },
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106371235680257"
+            },
+            "transaction": {
+              "href": "https://horizon-testnet.stellar.org/transactions/f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700"
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106371235680257/effects"
+            },
+            "succeeds": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21106371235680257"
+            },
+            "precedes": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21106371235680257"
+            }
+          },
+          "id": "21106371235680257",
+          "paging_token": "21106371235680257",
+          "transaction_successful": true,
+          "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "type": "path_payment_strict_send",
+          "type_i": 13,
+          "created_at": "2026-09-28T11:23:57Z",
+          "transaction_hash": "f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700",
+          "asset_type": "native",
+          "from": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "to": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "amount": "0.0000007",
+          "path": [],
+          "source_amount": "0.0000007",
+          "destination_min": "0.0000006",
+          "source_asset_type": "credit_alphanum12",
+          "source_asset_code": "DUSTA",
+          "source_asset_issuer": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX"
+        },
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725257"
+            },
+            "transaction": {
+              "href": "https://horizon-testnet.stellar.org/transactions/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725257/effects"
+            },
+            "succeeds": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21106366940725257"
+            },
+            "precedes": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21106366940725257"
+            }
+          },
+          "id": "21106366940725257",
+          "paging_token": "21106366940725257",
+          "transaction_successful": true,
+          "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "type": "manage_data",
+          "type_i": 10,
+          "created_at": "2026-09-28T11:23:52Z",
+          "transaction_hash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+          "name": "dustin.fixture",
+          "value": ""
+        },
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725256"
+            },
+            "transaction": {
+              "href": "https://horizon-testnet.stellar.org/transactions/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725256/effects"
+            },
+            "succeeds": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21106366940725256"
+            },
+            "precedes": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21106366940725256"
+            }
+          },
+          "id": "21106366940725256",
+          "paging_token": "21106366940725256",
+          "transaction_successful": true,
+          "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "type": "change_trust",
+          "type_i": 6,
+          "created_at": "2026-09-28T11:23:52Z",
+          "transaction_hash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+          "asset_type": "credit_alphanum4",
+          "asset_code": "SPTA",
+          "asset_issuer": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "limit": "0.0000000",
+          "trustee": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "trustor": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7"
+        },
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725255"
+            },
+            "transaction": {
+              "href": "https://horizon-testnet.stellar.org/transactions/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725255/effects"
+            },
+            "succeeds": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21106366940725255"
+            },
+            "precedes": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21106366940725255"
+            }
+          },
+          "id": "21106366940725255",
+          "paging_token": "21106366940725255",
+          "transaction_successful": true,
+          "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "type": "payment",
+          "type_i": 1,
+          "created_at": "2026-09-28T11:23:52Z",
+          "transaction_hash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+          "asset_type": "credit_alphanum4",
+          "asset_code": "SPTA",
+          "asset_issuer": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "from": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "to": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "amount": "0.0000001"
+        },
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725254"
+            },
+            "transaction": {
+              "href": "https://horizon-testnet.stellar.org/transactions/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725254/effects"
+            },
+            "succeeds": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21106366940725254"
+            },
+            "precedes": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21106366940725254"
+            }
+          },
+          "id": "21106366940725254",
+          "paging_token": "21106366940725254",
+          "transaction_successful": true,
+          "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "type": "change_trust",
+          "type_i": 6,
+          "created_at": "2026-09-28T11:23:52Z",
+          "transaction_hash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+          "asset_type": "credit_alphanum12",
+          "asset_code": "DUSTC",
+          "asset_issuer": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "limit": "0.0000000",
+          "trustee": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "trustor": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7"
+        },
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725253"
+            },
+            "transaction": {
+              "href": "https://horizon-testnet.stellar.org/transactions/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725253/effects"
+            },
+            "succeeds": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21106366940725253"
+            },
+            "precedes": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21106366940725253"
+            }
+          },
+          "id": "21106366940725253",
+          "paging_token": "21106366940725253",
+          "transaction_successful": true,
+          "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "type": "payment",
+          "type_i": 1,
+          "created_at": "2026-09-28T11:23:52Z",
+          "transaction_hash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+          "asset_type": "credit_alphanum12",
+          "asset_code": "DUSTC",
+          "asset_issuer": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "from": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "to": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "amount": "0.0000005"
+        },
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725252"
+            },
+            "transaction": {
+              "href": "https://horizon-testnet.stellar.org/transactions/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725252/effects"
+            },
+            "succeeds": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21106366940725252"
+            },
+            "precedes": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21106366940725252"
+            }
+          },
+          "id": "21106366940725252",
+          "paging_token": "21106366940725252",
+          "transaction_successful": true,
+          "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "type": "change_trust",
+          "type_i": 6,
+          "created_at": "2026-09-28T11:23:52Z",
+          "transaction_hash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+          "asset_type": "credit_alphanum12",
+          "asset_code": "DUSTB",
+          "asset_issuer": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "limit": "0.0000000",
+          "trustee": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "trustor": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7"
+        },
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725251"
+            },
+            "transaction": {
+              "href": "https://horizon-testnet.stellar.org/transactions/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+            },
+            "effects": {
+              "href": "https://horizon-testnet.stellar.org/operations/21106366940725251/effects"
+            },
+            "succeeds": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21106366940725251"
+            },
+            "precedes": {
+              "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21106366940725251"
+            }
+          },
+          "id": "21106366940725251",
+          "paging_token": "21106366940725251",
+          "transaction_successful": true,
+          "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "type": "payment",
+          "type_i": 1,
+          "created_at": "2026-09-28T11:23:52Z",
+          "transaction_hash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+          "asset_type": "credit_alphanum12",
+          "asset_code": "DUSTB",
+          "asset_issuer": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "from": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+          "to": "GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX",
+          "amount": "0.0000003"
+        }
+      ]
+    }
+  }
+}

@@ -9,6 +9,7 @@ import type { Sleep } from "../../config/pauses.js";
 import { DustinError } from "../../errors/dustin-error.js";
 import { buildMessyFixture } from "../../fixture/builder.js";
 import { buildEdgeFixture } from "../../fixture/edge-builder.js";
+import type { EdgeAccountRole } from "../../fixture/edge.js";
 import { loadEdgeVerifyInput, verifyEdgeFixture } from "../../fixture/edge-verify.js";
 import {
   readAnyManifest,
@@ -16,6 +17,7 @@ import {
   type EdgeFixtureManifest,
   type FixtureKeys,
 } from "../../fixture/manifest.js";
+import { assertNoReset, recordedLedger } from "../../fixture/reset.js";
 import {
   expectationFromManifest,
   loadVerifyInput,
@@ -177,7 +179,13 @@ export function renderEdgeVariants(manifest: EdgeFixtureManifest): string[] {
   ];
 }
 
-/** Exit code 3 when a check fails (docs/prd.md section 6). */
+/**
+ * Exit code 3 when a check fails (docs/prd.md section 6). Before any check, a suspected testnet
+ * reset stops the command with RESET_SUSPECTED, also exit 3 (matrix row X-15): the manifest records
+ * a ledger beyond Horizon's latest one, or one of its accounts answers 404 while Horizon holds no
+ * operation for it. An account that answers 404 with its account_merge still on Horizon was closed,
+ * not reset: its "exists" check fails and names the merge.
+ */
 export async function fixtureVerify(
   manifestPath: string,
   options: { snapshot?: string; json?: boolean },
@@ -193,11 +201,27 @@ export async function fixtureVerify(
     ...(ctx.fetch ? { fetch: ctx.fetch } : {}),
     ...ctx.horizon,
   });
-  const input = await loadVerifyInput(
+  const loaded = await loadVerifyInput(
     client,
     expectationFromManifest(manifest),
     manifest.accounts.fixture,
   );
+  const { closed } = await assertNoReset(client, {
+    manifestId: manifest.id,
+    profile: "messy",
+    recordedLedger: recordedLedger(manifest),
+    latestLedger: loaded.latestLedger ?? 0,
+    accounts: [
+      { role: "fixture", account: manifest.accounts.fixture, found: loaded.account !== null },
+      {
+        role: "destination",
+        account: manifest.accounts.destination,
+        found: loaded.destinationExists,
+      },
+    ],
+  });
+  const merge = closed.find((c) => c.role === "fixture");
+  const input = merge ? { ...loaded, closed: merge } : loaded;
   const result = verifyFixture(input);
   const snapshot = {
     checkedAt: new Date().toISOString(),
@@ -231,11 +255,23 @@ async function fixtureVerifyEdge(
     ...(ctx.fetch ? { fetch: ctx.fetch } : {}),
     ...ctx.horizon,
   });
-  const input = await loadEdgeVerifyInput(
+  const loaded = await loadEdgeVerifyInput(
     client,
     { ...manifest.accounts, multisigSigner: manifest.multisigSigner },
     manifest.pool.id,
   );
+  const { closed } = await assertNoReset(client, {
+    manifestId: manifest.id,
+    profile: "edge",
+    recordedLedger: recordedLedger(manifest),
+    latestLedger: loaded.latestLedger ?? 0,
+    accounts: Object.entries(loaded.accounts).map(([role, account]) => ({
+      role,
+      account: manifest.accounts[role as EdgeAccountRole],
+      found: account !== null && account !== undefined,
+    })),
+  });
+  const input = { ...loaded, closed: Object.fromEntries(closed.map((c) => [c.role, c])) };
   const result = verifyEdgeFixture(input);
   const snapshot = {
     checkedAt: new Date().toISOString(),

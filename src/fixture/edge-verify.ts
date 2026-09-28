@@ -13,6 +13,7 @@ import {
   type EdgeVariant,
   type EdgeVariantRole,
 } from "./edge.js";
+import { describeClosed, type MergeRecord } from "./reset.js";
 import type { VerifyCheck, VerifyResult } from "./verify.js";
 
 /** What the edge checks read from Horizon: GET requests only. */
@@ -25,6 +26,10 @@ export interface EdgeVerifyInput {
   offers: Partial<Record<EdgeVariantRole, HorizonOffer[]>>;
   /** Claimable balances each variant sponsors (GET /claimable_balances?sponsor=). */
   claimableSponsored: Partial<Record<EdgeVariantRole, number>>;
+  /** Horizon's latest ledger when the input was read (the reset check compares it, X-15). */
+  latestLedger?: number;
+  /** The merges that removed accounts which answer 404 while Horizon holds the merge (X-15). */
+  closed?: Partial<Record<EdgeAccountRole, MergeRecord>>;
 }
 
 const HELPERS = ["destination", "authIssuer", "clawbackIssuer", "plainIssuer"] as const;
@@ -68,6 +73,10 @@ export function verifyEdgeFixture(input: EdgeVerifyInput): VerifyResult {
   const checks: VerifyCheck[] = [];
   const add = (id: string, label: string, pass: boolean, observed: string, expected: string) =>
     checks.push({ id, label, appendixB: false, pass, observed, expected });
+  const missing = (role: EdgeAccountRole) => {
+    const closed = input.closed?.[role];
+    return closed ? `Horizon answered 404: ${describeClosed(closed)}` : "Horizon answered 404";
+  };
 
   for (const role of HELPERS) {
     const account = accounts[role];
@@ -75,7 +84,7 @@ export function verifyEdgeFixture(input: EdgeVerifyInput): VerifyResult {
       `${role}/exists`,
       `${role} exists`,
       Boolean(account),
-      account ? "exists" : "Horizon answered 404",
+      account ? "exists" : missing(role),
       "exists",
     );
   }
@@ -110,7 +119,7 @@ export function verifyEdgeFixture(input: EdgeVerifyInput): VerifyResult {
       id("exists"),
       `${variant.name} exists`,
       Boolean(account),
-      account ? "exists" : "Horizon answered 404",
+      account ? "exists" : missing(role),
       "exists",
     );
     if (!account) continue;
@@ -298,5 +307,6 @@ export async function loadEdgeVerifyInput(
     accounts: Object.fromEntries(accountRoles.map((role, i) => [role, records[i] ?? null])),
     offers: { authMaintain: offers },
     claimableSponsored: { claimable },
+    latestLedger: ledger.sequence,
   };
 }
