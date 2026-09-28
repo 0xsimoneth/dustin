@@ -1238,6 +1238,9 @@ class CloseRun {
             `The close stopped on ${err.code} before anything was submitted: ${err.message}`,
           ];
     try {
+      // The removals that applied returned their reserves, interrupted or not (review round 3,
+      // R3-13); the other finishing paths compute them the same way.
+      this.recoverReserves();
       this.finish(status, message, stop);
     } catch {
       // The caller's onReport failed; the report still travels on the error.

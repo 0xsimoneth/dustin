@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { DustinError } from "../../../src/errors/dustin-error.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import type { CloseReport } from "../../../src/execute/report.js";
 import { messy } from "../../helpers/snapshots.js";
@@ -593,5 +594,34 @@ describe("R3-12: a verified close credits and marks what an unseen envelope remo
       expect(step).toMatchObject({ status: "applied", txHash: lost });
       expect(step.explanation).toMatch(/not confirmed by hash/i);
     }
+  });
+});
+
+describe("R3-13: an interrupted run still attributes the reserves its removals returned", () => {
+  it("credits the sponsored trustline when the final check throws after the merge", async () => {
+    let merged = false;
+    const { deps, plan } = harness(
+      (_l, fetch) => (url, init) =>
+        merged && url.endsWith(`/accounts/${messy.fixture}`) ? reply(502) : fetch(url, init),
+    );
+    const error = (await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:confirmed" && e.index === 2) merged = true;
+      },
+    }).catch((e: unknown) => e)) as DustinError;
+    expect(error.code).toBe("HORIZON_UNAVAILABLE");
+    const report = error.report!;
+    // The merge applied (edge case E10: closed, not verified); the removals were confirmed by hash.
+    expect(report.status).toBe("closed");
+    expect(report.verification).toBeNull();
+    expect(report.recovery.reservesReturnedToSponsors).toEqual([
+      {
+        sponsor: messy.reserveSponsor,
+        xlm: "0.5000000",
+        entries: [`trustline SPTA:${messy.issuer}`],
+      },
+    ]);
   });
 });
