@@ -12,6 +12,7 @@ import { explainCodes, rejectionAction } from "./classify.js";
 import type { CloseEvent } from "./events.js";
 import type { StopReason, SubmittedTransaction } from "./report.js";
 import type { ResultCodes } from "./result-codes.js";
+import { operationSummary } from "./summary.js";
 import {
   lookupTransaction,
   outcomeFromRecord,
@@ -54,6 +55,8 @@ export interface AttemptContext {
   /** The sponsor's cap on the bid per operation. */
   maxBaseFeeStroops: number;
   explorerBaseUrl: string;
+  /** The Horizon the run reads and submits to, for each envelope's `horizonUrl` (review AA-9). */
+  horizonUrl: string;
   settings: AttemptSettings;
   /** Adds an envelope to the report and publishes the report. */
   record(entry: SubmittedTransaction): void;
@@ -282,6 +285,10 @@ export async function submitPlannedTransaction(
       innerEnvelopeXdr: inner.toXDR(),
       feeBumpEnvelopeXdr: bump.toXDR(),
       explorerUrl: `${ctx.explorerBaseUrl}/tx/${hash}`,
+      // Review finding AA-9: the persisted report says what the envelope does and where Horizon has
+      // it, as the printed receipt does.
+      horizonUrl: `${ctx.horizonUrl}/transactions/${hash}`,
+      operations: steps.map(operationSummary),
     };
     envelopes.push(entry);
     feeBumps.set(entry, bump);

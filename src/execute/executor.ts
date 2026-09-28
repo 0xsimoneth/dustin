@@ -54,6 +54,7 @@ import {
   outcomeFromRecord,
   type Submitter,
 } from "./submit.js";
+import { reportLinks } from "./summary.js";
 import { verifyClosed } from "./verify.js";
 
 export type { CloseReport, CloseStatus } from "./report.js";
@@ -279,7 +280,7 @@ class CloseRun {
   private merge: { hash: string; ledger: number } | null = null;
 
   constructor(private readonly input: RunInput) {
-    const { fresh, plan, sponsorKey, options } = input;
+    const { fresh, plan, sponsorKey, options, config } = input;
     this.report = {
       schemaVersion: 1,
       kind: "dustin-close-report",
@@ -288,6 +289,8 @@ class CloseRun {
       destination: plan.destination,
       feeSponsor: sponsorKey,
       planHash: fresh.planHash,
+      // Review finding AA-9: the receipt's "Verify it yourself" links, in the persisted report too.
+      links: reportLinks(config.explorerBaseUrl, config.horizonUrl, plan),
       // Until finish() sets the outcome, every published copy says the run is in progress.
       status: "running",
       message: null,
@@ -633,6 +636,7 @@ class CloseRun {
       sponsor: this.sponsor!,
       maxBaseFeeStroops: this.input.fresh.fees.maxBaseFeeStroops,
       explorerBaseUrl: this.input.config.explorerBaseUrl,
+      horizonUrl: this.input.config.horizonUrl,
       settings: this.settings,
       record: (entry) => {
         this.envelopeSteps.set(entry.hash, steps);
