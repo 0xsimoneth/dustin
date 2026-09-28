@@ -2,7 +2,15 @@ import { describe, expect, it } from "vitest";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import type { CloseReport } from "../../../src/execute/report.js";
 import { messy } from "../../helpers/snapshots.js";
-import { answer, failedOps, harness, included, reply, signers } from "./harness.js";
+import {
+  answer,
+  failedOps,
+  harness,
+  included,
+  reply,
+  signers,
+  staleAccountOnce,
+} from "./harness.js";
 
 /**
  * The harness, plus what the latest published copy of the report said about the envelope in
@@ -471,5 +479,79 @@ describe("R3-35: a stop whose envelope settled later says what is known now", ()
     expect(report.stop).toMatchObject({ code: "OUTCOME_UNKNOWN" });
     expect(report.stop).not.toHaveProperty("maxTime");
     expect(report.message).toMatch(/found failed on the ledger/);
+  });
+});
+
+describe("R3-11: a re-plan waits for an account read that shows the run's own transactions", () => {
+  it("does not send steps that applied again when the re-plan's first read is stale", async () => {
+    let copy: unknown = null;
+    let offersCopy: unknown = null;
+    let stale = 0;
+    const h = harness((_l, fetch) => (url, init) => {
+      const reading = (init?.method ?? "GET") === "GET";
+      if (reading && stale > 0 && url.endsWith(`/accounts/${messy.fixture}`)) {
+        stale -= 1;
+        return Promise.resolve(new Response(JSON.stringify(copy)));
+      }
+      if (reading && stale > 0 && url.includes(`/accounts/${messy.fixture}/offers`)) {
+        return Promise.resolve(
+          new Response(JSON.stringify({ _embedded: { records: offersCopy } })),
+        );
+      }
+      return fetch(url, init);
+    });
+    const report = await executeClose(await h.plan(), signers(), {
+      confirm: true,
+      ...h.deps,
+      onEvent: (e) => {
+        if (e.type === "tx:building" && e.index === 0 && copy === null) {
+          copy = structuredClone(h.ledger.accounts.get(messy.fixture));
+          offersCopy = (h.ledger.offers.get(messy.fixture) ?? []).map((o) => ({
+            ...o,
+            paging_token: o.id,
+          }));
+        }
+        // The sale fails on the market, so the run re-plans ...
+        if (e.type === "tx:confirmed" && e.index === 0) h.ledger.quotes.clear();
+        // ... and the re-plan's first account read comes from a Horizon behind transaction 1.
+        if (e.type === "tx:failed" && e.index === 1 && stale === 0) stale = 1;
+      },
+    });
+    expect(report.status).toBe("closed");
+    // One re-plan, from the ledger as it is: nothing of the cleanup was sent again.
+    expect(report.replans).toHaveLength(1);
+    expect(report.transactions.filter((t) => t.round === 1).map((t) => t.result)).toEqual([
+      "applied",
+    ]);
+    expect(report.steps.find((s) => s.stepId === "S03")).toMatchObject({ status: "applied" });
+    expect(report.steps.find((s) => s.stepId === "S03")).not.toHaveProperty("failures");
+  });
+
+  it("records that an unseen envelope's number is used once its rebuild meets tx_bad_seq", async () => {
+    let lost: string | null = null;
+    // The account read that checks the 404 lags too, so the first envelope is rebuilt.
+    const stale = staleAccountOnce(messy.fixture);
+    const { ledger, deps, plan } = harness((_l, fetch) =>
+      stale.wrap((url, init) =>
+        lost && url.endsWith(`/transactions/${lost}`) ? reply(404) : fetch(url, init),
+      ),
+    );
+    ledger.faults.push("504-applied");
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.round === 0 && e.index === 0 && e.attempt === 1) {
+          lost = e.hash;
+          stale.arm(ledger);
+        }
+      },
+    });
+    const [first] = report.transactions;
+    // It applied where Horizon never showed it; the report no longer says it can never apply.
+    expect(first).toMatchObject({ result: "unknown", sequenceUsed: true, mayStillApply: false });
+    expect(first!.explanation).toMatch(/sequence number used/);
+    expect(first!.explanation).not.toMatch(/can never apply/);
+    expect(report.status).toBe("closed");
   });
 });

@@ -61,6 +61,13 @@ export interface SubmittedTransaction {
    * which case it may have applied already; `explanation` says which).
    */
   mayStillApply?: boolean;
+  /**
+   * Set only while `result` is `unknown`: Horizon did not find the envelope by hash, but its
+   * sequence number is known used, because the account showed it used (edge case E5) or a later
+   * envelope for the same number was refused with `tx_bad_seq`. It may have applied where Horizon
+   * has not caught up, or another transaction used the number; either way it cannot apply any more.
+   */
+  sequenceUsed?: true;
   ledger: number | null;
   feeChargedStroops: number | null;
   feeAccount: string;

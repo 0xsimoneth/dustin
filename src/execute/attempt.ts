@@ -84,6 +84,7 @@ const short = (hash: string) => `${hash.slice(0, 8)}...`;
 export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcome): void {
   entry.result = outcome.kind;
   if (outcome.kind !== "unknown") delete entry.mayStillApply;
+  if (outcome.kind !== "unknown" || !outcome.sequenceUsed) delete entry.sequenceUsed;
   switch (outcome.kind) {
     case "applied":
       entry.ledger = outcome.ledger;
@@ -102,6 +103,7 @@ export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcom
       return;
     case "unknown":
       entry.mayStillApply = outcome.mayStillApply === true;
+      if (outcome.sequenceUsed) entry.sequenceUsed = true;
       entry.explanation = unknownMeaning(outcome);
   }
 }
@@ -379,6 +381,14 @@ export async function submitPlannedTransaction(
         if (unseen.length > 0) {
           // Still not seen: the operations may have applied with it, so sending them again at the
           // account's new sequence number could apply them twice. Plan the rest from the ledger.
+          // The refusal proves their number used (by one of them, where Horizon has not caught up,
+          // or by another transaction), which the report records (review round 3, R3-11).
+          for (const e of unseen) {
+            if (e.sequence === entry.sequence) {
+              recordOutcome(e, { kind: "unknown", hash: e.hash, sequenceUsed: true });
+            }
+          }
+          ctx.changed();
           return {
             kind: "replan",
             entry,

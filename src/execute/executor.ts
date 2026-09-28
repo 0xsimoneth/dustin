@@ -561,18 +561,35 @@ class CloseRun {
    * seconds; acting on the stale read would build at a used sequence number or refuse a clean merge.
    */
   private async freshAccount(): Promise<HorizonAccount | null> {
-    const used = this.report.transactions.reduce(
-      (most, t) =>
-        (t.result === "applied" || t.result === "failed") && BigInt(t.sequence) > most
-          ? BigInt(t.sequence)
-          : most,
-      0n,
-    );
+    const used = this.usedSequence();
     for (let read = 1; ; read++) {
       const account = await this.input.reader.account(this.input.plan.account);
       if (!account || BigInt(account.sequence) >= used || read >= 5) return account;
       await this.settings.sleep(this.settings.pollIntervalMs);
     }
+  }
+
+  /**
+   * The highest sequence number this run saw used: by its envelopes that applied or failed on the
+   * ledger, by an envelope Horizon did not find while the account showed its number used (edge
+   * case E5), and by a number a `tx_bad_seq` refusal proved used. The last two count too since
+   * review round 3 (R3-11): a read below them is as stale as one below an applied transaction.
+   */
+  private usedSequence(): bigint {
+    let most = 0n;
+    for (const t of this.report.transactions) {
+      const badSeq =
+        t.result === "rejected" &&
+        (t.resultCodes?.innerTransaction === "tx_bad_seq" ||
+          t.resultCodes?.transaction === "tx_bad_seq");
+      const used =
+        t.result === "applied" ||
+        t.result === "failed" ||
+        (t.result === "unknown" && t.sequenceUsed === true) ||
+        badSeq;
+      if (used && BigInt(t.sequence) > most) most = BigInt(t.sequence);
+    }
+    return most;
   }
 
   private outcomeFor(step: CloseStep): StepOutcome {
@@ -767,8 +784,15 @@ class CloseRun {
     }
     this.stage = "plan";
     const allowed = new Set([...rungOneAssets(fresh)].filter((a) => !this.demoted.has(a)));
+    const paths = withPathsOnlyFor(reader, allowed);
     const next = await planClose(replanInput(plan, sponsorKey, options), {
-      reader: withPathsOnlyFor(reader, allowed),
+      // The closing account is read as the attempt loop reads it: again, a bounded number of
+      // times, while it lags the transactions this run saw use their sequence numbers. A stale
+      // read would plan steps that already applied again (review round 3, R3-11).
+      reader: {
+        ...paths,
+        account: (id) => (id === plan.account ? this.freshAccount() : paths.account(id)),
+      },
     });
     const drift = replanDrift(fresh, next);
     this.round += 1;
