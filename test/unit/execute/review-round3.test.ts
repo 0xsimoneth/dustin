@@ -772,3 +772,55 @@ describe("R3-14: a failed ledger or account read inside the wait proves nothing"
     expect(report.stop).toMatchObject({ code: "OUTCOME_UNKNOWN", verdict: "replan" });
   });
 });
+
+describe("R3-17: no answer of Horizon makes the wait endless", () => {
+  it("takes a close time that is not a number for a failed read", async () => {
+    const { run, waited } = confirmLoop({ lookup: missing }, () => Promise.resolve(Number.NaN));
+    const outcome = await run;
+    expect(outcome).toMatchObject({ kind: "unknown", mayStillApply: true });
+    expect(outcome).toHaveProperty("readError", expect.stringMatching(/close time/));
+    expect(waited()).toBeLessThan(300);
+  });
+
+  it("bounds the whole wait on the local clock when the close time is far in the past", async () => {
+    // A ledger that closed at the epoch: judged by it, the bound would pass in about 1.7e9 s.
+    const { run, waited } = confirmLoop({ lookup: missing }, () => Promise.resolve(0));
+    await expect(run).resolves.toMatchObject({ kind: "unknown", mayStillApply: true });
+    // The default bound: the time left to maxTime (120 s), plus twice the grace and ledger wait.
+    expect(waited()).toBeLessThanOrEqual(260 + 5);
+  });
+
+  it("gives up at once when the local clock gives no time", async () => {
+    const { run, sleeps } = confirmLoop({ lookup: missing }, undefined, {
+      now: () => Number.NaN,
+    });
+    const outcome = await run;
+    expect(outcome).toMatchObject({ kind: "unknown", mayStillApply: true });
+    expect(outcome).toHaveProperty("readError", expect.stringMatching(/clock/));
+    expect(sleeps()).toBe(0);
+  });
+
+  it("stops the run within its own bound when Horizon reports an epoch-old close time", async () => {
+    let ancient = false;
+    const h = harness((_l, fetch) => async (url, init) => {
+      const response = await fetch(url, init);
+      if (!ancient || !url.includes("/ledgers")) return response;
+      const page = (await response.json()) as { _embedded: { records: { closed_at: string }[] } };
+      page._embedded.records[0]!.closed_at = "1970-01-01T00:00:00Z";
+      return new Response(JSON.stringify(page));
+    });
+    h.ledger.faults.push("504-not-applied");
+    const started = h.clock.now();
+    const report = await executeClose(await h.plan(), signers(), {
+      confirm: true,
+      ...h.deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.index === 0) ancient = true;
+      },
+    });
+    expect(report.stop).toMatchObject({ code: "OUTCOME_UNKNOWN" });
+    expect(report.transactions[0]).toMatchObject({ result: "unknown", mayStillApply: true });
+    // timeoutSeconds (120) plus twice the grace (10) and the ledger wait (60), on the test clock.
+    expect((h.clock.now() - started) / 1000).toBeLessThanOrEqual(260 + 10);
+  });
+});

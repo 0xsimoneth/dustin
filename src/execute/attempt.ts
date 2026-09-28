@@ -501,6 +501,11 @@ async function postWithBackoff(
         pollIntervalMs: settings.pollIntervalMs,
         graceSeconds: settings.graceSeconds,
         ledgerWaitSeconds: settings.ledgerWaitSeconds,
+        // Whatever Horizon answers, the wait for one envelope ends on the local clock: its time
+        // bound can be at most timeoutSeconds away, plus the grace and the ledger wait, twice
+        // over for a failed read late in the wait (review round 3, R3-17).
+        maxWaitSeconds:
+          settings.timeoutSeconds + 2 * (settings.graceSeconds + settings.ledgerWaitSeconds),
         now: () => settings.now() / 1000,
         sleep: settings.sleep,
         // A 404 is trusted only while the account has not used the envelope's sequence number;

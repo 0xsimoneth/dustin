@@ -265,6 +265,13 @@ export interface ConfirmOptions {
   /** How long to wait, beyond the time bound and the grace, for such a ledger; default 60 s. */
   ledgerWaitSeconds?: number;
   /**
+   * The longest the whole wait may last, in seconds on the local clock, whatever Horizon answers
+   * (a close time far in the past, for one), so the wait always ends (review round 3, R3-17).
+   * Default: the time left to `maxTime` on the local clock plus twice the grace and the ledger
+   * wait. The executor passes its `timeoutSeconds` plus twice the grace and the ledger wait.
+   */
+  maxWaitSeconds?: number;
+  /**
    * Whether the envelope's sequence number has been used, read from the account. A 404 is trusted
    * only when it has not (edge case E5): Horizon instances behind one address may lag each other,
    * and a 404 carries no ledger to tell (testnet Horizon sent no Latest-Ledger header on
@@ -396,7 +403,8 @@ async function confirmByLocalClock(
   for (;;) {
     const found = await lookupTransaction(submitter, envelope.hash);
     if (found.kind === "found") return outcomeFromRecord(envelope.hash, found.record);
-    if (now() > deadline) {
+    // Written so that a clock giving no time ends the wait instead of prolonging it (R3-17).
+    if (!(now() <= deadline)) {
       return found.kind === "error"
         ? { kind: "unknown", hash: envelope.hash, lookupError: found.detail }
         : { kind: "unknown", hash: envelope.hash };
@@ -431,7 +439,10 @@ async function guardedRead<T>(
  * Every read the wait depends on can fail: the lookup by hash, the latest ledger and the account
  * that checks a 404. A failure proves nothing, so it is only tried again, within the same bound,
  * and the wait then ends as `unknown` naming it, with `mayStillApply` while no ledger was seen
- * past the bound (review round 3, R3-14).
+ * past the bound (review round 3, R3-14). A close time that is not a number is such a failure,
+ * and the whole wait is bounded on the local clock by `maxWaitSeconds`, so neither it nor a close
+ * time far in the past can make the wait endless; a local clock that gives no time ends it at once
+ * (R3-17).
  */
 async function confirmByLedgerClock(
   submitter: Submitter,
@@ -440,12 +451,20 @@ async function confirmByLedgerClock(
   ledgerCloseTime: () => Promise<number>,
 ): Promise<SubmitOutcome> {
   const now = options.now ?? (() => Date.now() / 1000);
+  const grace = options.graceSeconds ?? 10;
+  const ledgerWait = options.ledgerWaitSeconds ?? 60;
   const started = now();
+  const maxWait =
+    options.maxWaitSeconds ?? Math.max(0, envelope.maxTime - started) + 2 * (grace + ledgerWait);
   let firstClose: number | null = null;
   // Set once a ledger closed after maxTime: no later ledger can include the envelope (close times
   // only grow), and every earlier ledger is already ingested, so a 404 from then on is conclusive.
   let pastBound = false;
-  const closeTime = () => guardedRead("the latest ledger", ledgerCloseTime);
+  const closeTime = async (): Promise<{ value: number } | { failed: string }> => {
+    const read = await guardedRead("the latest ledger", ledgerCloseTime);
+    if ("failed" in read || Number.isFinite(read.value)) return read;
+    return { failed: `the latest ledger has no valid close time (${String(read.value)})` };
+  };
   for (;;) {
     const found = await lookupTransaction(submitter, envelope.hash);
     if (found.kind === "found") return outcomeFromRecord(envelope.hash, found.record);
@@ -468,6 +487,15 @@ async function confirmByLedgerClock(
       else readError ??= first.failed;
     }
     const waited = now() - started;
+    if (!Number.isFinite(waited) || !Number.isFinite(maxWait)) {
+      // Without a local clock the wait cannot be measured, so it cannot be bounded either.
+      return {
+        kind: "unknown",
+        hash: envelope.hash,
+        ...(pastBound ? {} : { mayStillApply: true }),
+        readError: "the local clock gave no time, so the wait could not be measured",
+      };
+    }
     if (!pastBound && firstClose !== null && firstClose + waited > envelope.maxTime) {
       const latest = await closeTime();
       if ("value" in latest && latest.value > envelope.maxTime) {
@@ -477,11 +505,12 @@ async function confirmByLedgerClock(
       if ("failed" in latest) readError ??= latest.failed;
     }
     // A failure proves nothing, so it is only tried again, within the same bound; without any
-    // reading of the ledger the bound is measured from the start of the wait.
-    const limit =
-      (firstClose === null ? 0 : envelope.maxTime - firstClose) +
-      (options.graceSeconds ?? 10) +
-      (options.ledgerWaitSeconds ?? 60);
+    // reading of the ledger the bound is measured from the start of the wait. The local clock
+    // bounds the whole wait (R3-17).
+    const limit = Math.min(
+      (firstClose === null ? 0 : envelope.maxTime - firstClose) + grace + ledgerWait,
+      maxWait,
+    );
     if (waited > limit) {
       return {
         kind: "unknown",
