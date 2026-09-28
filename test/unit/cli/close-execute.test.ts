@@ -117,7 +117,8 @@ describe("dustin close --execute: the typed confirmation", () => {
       const r = await closeCli(world, executeArgs(world), { answer: typed });
       expect(r.code).toBe(3);
       expect(r.err).toContain("CONFIRMATION_DECLINED");
-      expect(r.err).toContain("Nothing was executed");
+      // Error lines wrap at 120 columns (E4-S1), so phrases are read with the whitespace flattened.
+      expect(r.err.replace(/\s+/g, " ")).toContain("Nothing was executed");
       expect(r.err).toContain("--yes");
       expect(world.ledger.submissions).toHaveLength(0);
       if (typed) expect(r.err).not.toContain(typed);
@@ -535,7 +536,7 @@ describe("dustin close --execute: --json and --report", () => {
     );
     expect(aside).toHaveLength(1);
     expect(readFileSync(join(dir, aside[0]!), "utf8")).toBe(earlier);
-    expect(second.err).toContain(`was kept as ${join(dir, aside[0]!)}`);
+    expect(second.err.replace(/\s+/g, " ")).toContain(`was kept as ${join(dir, aside[0]!)}`);
     const latest = JSON.parse(readFileSync(path, "utf8")) as CloseReport;
     expect(latest.status).toBe("closed");
     expect(latest.transactions.map((x) => x.hash)).not.toContain(earlierHash);

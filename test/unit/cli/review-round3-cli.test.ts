@@ -182,7 +182,7 @@ describe("R3-26: --report can never name the working directory's .env", () => {
     const path = target(cwd);
     const r = await closeCli(world, executeArgs(world, "--yes", "--report", path), deps);
     expect(r.code).toBe(2);
-    expect(r.err).toMatch(/Cannot write the report file .*\.env/);
+    expect(r.err.replace(/\s+/g, " ")).toMatch(/Cannot write the report file .*\.env/);
     expect(world.ledger.submissions).toHaveLength(0);
     // The secrets file is where it was, as it was.
     expect(readFileSync(join(cwd, ".env"), "utf8")).toBe(text);
@@ -236,9 +236,10 @@ describe("R3-28, R3-31: the confirmation is asked only where the facts were show
     );
     expect(r.code).toBe(3);
     expect(r.err).toContain("CONFIRMATION_DECLINED");
-    expect(r.err).toContain(cause);
+    // Error lines wrap at 120 columns (E4-S1): read with the whitespace flattened.
+    expect(r.err.replace(/\s+/g, " ")).toContain(cause);
     expect(r.err).not.toMatch(/the input is not interactive/);
-    expect(r.err).toContain("Nothing was executed");
+    expect(r.err.replace(/\s+/g, " ")).toContain("Nothing was executed");
     expect(r.err).toContain("--yes");
     expect(world.ledger.submissions).toHaveLength(0);
   });

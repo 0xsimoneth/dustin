@@ -8,6 +8,21 @@ import { closeCli, emptyDir, executeArgs, zeroSpendableWorld } from "./close-wor
 // `--report` keeps has the operation summaries and the links the printed receipt shows.
 
 describe("dustin close --execute: the persisted report says what ran and where to look (AA-9)", () => {
+  it("prints the Horizon resource of the account and the destination under Verify it yourself", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(world, executeArgs(world, "--yes"));
+    expect(r.code).toBe(0);
+    const verify = r.out.slice(r.out.indexOf("Verify it yourself"));
+    expect(verify).toContain(
+      `  account      https://stellar.expert/explorer/testnet/account/${world.id}\n` +
+        `               https://horizon-testnet.stellar.org/accounts/${world.id}\n`,
+    );
+    expect(verify).toContain(
+      `  destination  https://stellar.expert/explorer/testnet/account/${world.destination}\n` +
+        `               https://horizon-testnet.stellar.org/accounts/${world.destination}\n`,
+    );
+  });
+
   it("carries each operation and the Horizon link of each transaction, and the account links", async () => {
     const world = zeroSpendableWorld({ market: true });
     const path = join(emptyDir(), "close.json");

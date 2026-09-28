@@ -530,7 +530,7 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
     );
   }
   out.push(...sponsorLines(report));
-  out.push(`  0 XLM in fees paid by the account`);
+  out.push("  0.0000000 XLM in fees paid by the account");
   out.push(
     `  ${xlm(r.feesPaidBySponsorStroops)} (${grouped(r.feesPaidBySponsorStroops)} stroops) in fees paid by the sponsor`,
   );
@@ -554,8 +554,16 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   }
 
   out.push("", "Verify it yourself");
-  out.push(`  account      ${explorer}/account/${report.account}`);
-  out.push(`  destination  ${destinationAccountUrl(explorer, report.destination)}`);
+  // Review finding AA-9 (story E4-S1): the report's links, the explorer page and Horizon's own
+  // resource for each account, as docs/ux-design.md section 2.6 shows them; a report written
+  // before E4-S1 has no links and gets the explorer pages only.
+  const links = report.links;
+  out.push(`  account      ${links?.account.explorer ?? `${explorer}/account/${report.account}`}`);
+  if (links) out.push(`               ${links.account.horizon}`);
+  out.push(
+    `  destination  ${links?.destination.explorer ?? destinationAccountUrl(explorer, report.destination)}`,
+  );
+  if (links) out.push(`               ${links.destination.horizon}`);
   const v = report.verification;
   if (v === null) {
     out.push(

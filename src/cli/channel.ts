@@ -73,7 +73,7 @@ export function channel(streams: CliStreams, mode: OutputMode): Channel {
     },
     notice: (message) => {
       if (mode.json) line({ type: "notice", message });
-      else streams.stderr(redact(`dustin: ${message}\n`));
+      else streams.stderr(redact(wrapped(`dustin: ${message}`, 2)));
     },
     event: (event) => {
       if (mode.json) line(eventLine(event));
@@ -87,7 +87,8 @@ export function channel(streams: CliStreams, mode: OutputMode): Channel {
       const head =
         failure.code === UNEXPECTED_ERROR ? failure.message : `${failure.code}: ${failure.message}`;
       streams.stderr(
-        redact(`dustin: ${head}\n`) + (failure.remedy ? redact(`  ${failure.remedy}\n`) : ""),
+        redact(wrapped(`dustin: ${head}`, 2)) +
+          (failure.remedy ? redact(wrapped(`  ${failure.remedy}`, 2)) : ""),
       );
     },
     error(error, exitCode) {
@@ -100,6 +101,30 @@ export function channel(streams: CliStreams, mode: OutputMode): Channel {
       if (mode.verbose) streams.stderr(redact(verboseText(error)));
     },
   };
+}
+
+/** The widest line for people: the demo terminal's 120 columns (docs/ux-design.md section 4). */
+const WIDTH = 120;
+
+/**
+ * `text` wrapped at 120 columns, the lines after the first indented by `indent` spaces, each
+ * ending in a line break. A word longer than a line (a URL, a hash) is never split.
+ */
+export function wrapped(text: string, indent: number): string {
+  const lead = /^ */.exec(text)![0];
+  const words = text.slice(lead.length).split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let line = lead;
+  for (const word of words) {
+    if (line.trim() !== "" && line.length + 1 + word.length > WIDTH) {
+      lines.push(line);
+      line = " ".repeat(indent) + word;
+    } else {
+      line = line.trim() === "" ? line + word : `${line} ${word}`;
+    }
+  }
+  lines.push(line);
+  return `${lines.join("\n")}\n`;
 }
 
 /**
