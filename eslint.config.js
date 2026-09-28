@@ -10,6 +10,8 @@ export default defineConfig([
     "scripts/spike/",
     "stellar-build/",
     ".stellar-build/",
+    // Git worktrees of parallel agents hold whole copies of the repository.
+    ".claude/worktrees/",
   ]),
   js.configs.recommended,
   tseslint.configs.recommendedTypeChecked,

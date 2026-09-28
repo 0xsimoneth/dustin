@@ -29,3 +29,6 @@ coverage/
 
 # Fixture keys written by the fixture builder (testnet only, never committed)
 .fixture/
+
+# Git worktrees of parallel coding agents (local tooling, never committed)
+.claude/worktrees/
