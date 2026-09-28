@@ -1,3 +1,4 @@
+import type { FeeBumpTransaction } from "@stellar/stellar-sdk";
 import type { ErrorStage } from "../errors/dustin-error.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
 import type { ClosePlan, CloseStep, PlannedTransaction } from "../plan/model.js";
@@ -179,6 +180,8 @@ export async function submitPlannedTransaction(
   let badSeq = 0;
   let rebuiltBecause: string | undefined;
   const envelopes: SubmittedTransaction[] = [];
+  /** The fee bump behind each envelope, so a release takes back exactly its bid (R3-6). */
+  const feeBumps = new Map<SubmittedTransaction, FeeBumpTransaction>();
 
   // The highest bid the cap and the budget allow for this transaction's next sequence number.
   const ceiling = () =>
@@ -261,6 +264,7 @@ export async function submitPlannedTransaction(
       explorerUrl: `${ctx.explorerBaseUrl}/tx/${hash}`,
     };
     envelopes.push(entry);
+    feeBumps.set(entry, bump);
     ctx.record(entry);
     ctx.emit({
       type: "tx:submitted",
@@ -387,11 +391,18 @@ export async function submitPlannedTransaction(
           return stop("ACCOUNT_MISSING", "stop", `The account ${plan.account} no longer exists.`);
         }
         rebuiltBecause = `envelope ${short(hash)} was refused with tx_bad_seq; the account's sequence number is now ${fresh.sequence}`;
-        // Every envelope signed for the old sequence number was refused (none is unseen), and
-        // another transaction consumed it, so none can ever be charged: its bids leave the budget
-        // before the rebuild at the new number (edge case E7).
+        // Every envelope of this transaction signed for the old sequence number was refused (none
+        // is unseen), and another transaction consumed it, so none of them can ever be charged:
+        // their bids leave the budget before the rebuild at the new number (edge case E7). Only
+        // theirs: another transaction of this run may hold the charged bid for that number, when
+        // this one was built on a stale read (review round 3, R3-6).
         if (fresh.sequence !== sequence) {
-          ctx.sponsor.release(plan.account, (BigInt(sequence) + 1n).toString());
+          const old = (BigInt(sequence) + 1n).toString();
+          ctx.sponsor.release(
+            envelopes
+              .filter((e) => e.sequence === old && e.result === "rejected")
+              .map((e) => feeBumps.get(e)!),
+          );
         }
         sequence = fresh.sequence;
         continue;

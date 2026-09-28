@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { executeClose } from "../../../src/execute/executor.js";
+import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import type { CloseReport } from "../../../src/execute/report.js";
 import { messy } from "../../helpers/snapshots.js";
-import { failedOps, harness, signers } from "./harness.js";
+import { answer, failedOps, harness, signers } from "./harness.js";
 
 /**
  * The harness, plus what the latest published copy of the report said about the envelope in
@@ -128,5 +128,70 @@ describe("R3-5: the remedy of a step that fails twice says what the user can do"
     expect(blocker.remedy).toMatch(/--partial does not skip it/);
     expect(blocker.remedy).toMatch(/DUSTB trustline/);
     expect(blocker.remedy).toMatch(/run the close again/);
+  });
+});
+
+/**
+ * A Horizon behind the one that took transaction `index` of round 0: the next `reads` account
+ * reads after its confirmation see the account as it was before it.
+ */
+function lagAfter(index: number, reads: number) {
+  let copy: unknown = null;
+  let left = 0;
+  const h = harness((_l, fetch) => (url, init) => {
+    const reading = (init?.method ?? "GET") === "GET";
+    if (reading && left > 0 && url.endsWith(`/accounts/${messy.fixture}`)) {
+      left -= 1;
+      return Promise.resolve(new Response(JSON.stringify(copy)));
+    }
+    return fetch(url, init);
+  });
+  const onEvent = (e: CloseEvent) => {
+    if (e.type === "tx:building" && e.index === index && copy === null) {
+      copy = structuredClone(h.ledger.accounts.get(messy.fixture));
+    }
+    if (e.type === "tx:confirmed" && e.index === index && e.hash) left = reads;
+  };
+  return { ...h, onEvent };
+}
+
+/** The most the sponsor can be charged for what it signed: the largest bid per sequence number. */
+function worstCase(report: CloseReport): number {
+  const bySequence = new Map<string, number>();
+  for (const t of report.transactions) {
+    const total = t.baseFeeStroops * (t.stepIds.length + 1);
+    bySequence.set(t.sequence, Math.max(bySequence.get(t.sequence) ?? 0, total));
+  }
+  return [...bySequence.values()].reduce((a, b) => a + b, 0);
+}
+
+describe("R3-6: after tx_bad_seq only this transaction's own refused bids leave the budget", () => {
+  it("keeps the close within its budget when a stale read made it reuse a charged number", async () => {
+    // Five stale reads after transaction 1: transaction 2 is built at the number it used.
+    const { ledger, deps, plan, onEvent } = lagAfter(0, 5);
+    const p = await plan({ budgetStroops: 1500 });
+    expect(p.fees.totalStroops).toBe(1500);
+    let pushed = false;
+    const report = await executeClose(p, signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        onEvent(e);
+        // The merge's first bid is refused for its fee, so the run would have to raise it.
+        if (e.type === "tx:building" && e.index === 2 && e.attempt === 1 && !pushed) {
+          pushed = true;
+          ledger.faults.push(answer({ transaction: "tx_insufficient_fee" }));
+        }
+      },
+    });
+    const tx1 = report.transactions.filter((t) => t.index === 1);
+    expect(tx1.map((t) => [t.result, t.resultCodes?.innerTransaction])).toEqual([
+      ["rejected", "tx_bad_seq"],
+      ["applied", undefined],
+    ]);
+    // Transaction 1's charged bid stayed counted, so the merge's raise does not fit the budget.
+    expect(worstCase(report)).toBeLessThanOrEqual(1500);
+    expect(report.stop).toMatchObject({ code: "FEE_LIMIT" });
+    expect(report.message).toMatch(/close budget/);
   });
 });
