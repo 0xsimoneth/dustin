@@ -113,7 +113,13 @@ async function submitOwn(
     hash: hashHex(tx),
     maxTime: Number(tx.timeBounds?.maxTime ?? 0),
   });
-  record({ case: name, purpose, hash: hashHex(tx), result: outcome.kind });
+  record({
+    case: name,
+    purpose,
+    hash: hashHex(tx),
+    result: outcome.kind,
+    ...(outcome.kind === "applied" ? { ledger: outcome.ledger } : {}),
+  });
   if (outcome.kind !== "applied") throw new Error(`${purpose}: ${JSON.stringify(outcome)}`);
   return { hash: outcome.hash, ledger: outcome.ledger };
 }
@@ -604,6 +610,9 @@ describeTestnet("E3-S1 live: dust below the resolution of the book (X-10, AC-E3-
       case: name,
       purpose: `probe: strict-send 0.0000005 DUSTA -> XLM, destMin 0.0000001 (${outcome.kind}${codes.length ? `: ${codes.join(", ")}` : ""})`,
       hash: probe.hash,
+      ...(outcome.kind === "failed" || outcome.kind === "applied"
+        ? { ledger: outcome.ledger }
+        : {}),
     });
     plan = await planFor(f);
     report = await executeClose(plan, signersOf(f), { confirm: true });
