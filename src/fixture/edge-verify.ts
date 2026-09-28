@@ -203,6 +203,7 @@ export function verifyEdgeFixture(input: EdgeVerifyInput): VerifyResult {
       : "no offer",
     `one offer selling ${EDGE.maintainOffer.amount} MNT for XLM`,
   );
+  const name = (role: EdgeVariantRole) => variants.find((v) => v.role === role)!.name;
   for (const [role, code] of [
     ["authAuthorized", "AUTH"],
     ["authRevoke", "RVK"],
@@ -210,7 +211,7 @@ export function verifyEdgeFixture(input: EdgeVerifyInput): VerifyResult {
     const l = line(role, code);
     add(
       `${role}/${code.toLowerCase()}-authorized`,
-      `${role}: the ${code} trustline is authorized`,
+      `${name(role)}: the ${code} trustline is authorized`,
       authorized(l),
       describeLine(l),
       "is_authorized true",
@@ -220,7 +221,7 @@ export function verifyEdgeFixture(input: EdgeVerifyInput): VerifyResult {
     const l = line(role, "CLAW");
     add(
       `${role}/claw-clawback-enabled`,
-      `${role}: Horizon shows is_clawback_enabled on the CLAW trustline`,
+      `${name(role)}: Horizon shows is_clawback_enabled on the CLAW trustline`,
       l?.is_clawback_enabled === true && authorized(l),
       describeLine(l),
       "is_authorized true, is_clawback_enabled true",
