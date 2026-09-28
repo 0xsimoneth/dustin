@@ -1,0 +1,353 @@
+# Ordering rules and known limits
+
+> Status: first version, 2026-09-28 (sprint day 7 of 30). This is the write-up of SOW Deliverable 4 (story E4-S5, PRD FR-27) and describes the code on the main branch on that date. Three pieces are still being built and are marked "in progress" where they appear: the executor's wait for the sequence-number guard (story E3-S4), the live proof of the disposal ladder beyond its first two rungs, with the `edge` fixture (stories E3-S1, E3-S2 and E3-S6), and the sponsored-unwind report (story E3-S3). Values in angle brackets, such as `<E3-S7 SDK close: evidence/runs/<stamp>-e3/>`, are placeholders for evidence that does not exist yet.
+
+The reviewer can read this without running anything. Wallet developers find the API in the [integration notes](integration-notes.md).
+
+## Summary
+
+Dustin closes a Stellar testnet account in a fixed order: it cancels the open offers, disposes of the leftover balances, removes the trustlines and data entries, and merges the account into a destination. It shows the whole plan before anything is signed, and every transaction it submits is fee-bumped by a sponsor, so an account with no spendable XLM pays nothing.
+
+What the evidence shows so far: on 2026-09-26 and 2026-09-27 two freshly built messy accounts were closed on testnet, one through the SDK and one through the CLI ([SDK close](../evidence/runs/20260926T125350Z/summary.md), [CLI close](../evidence/runs/20260927T200015Z-cli/summary.md)). Each held 4.0000000 XLM against a minimum balance of 4.0000000 XLM (nothing spendable), 4 trustlines with dust (one of them sponsored by a separate reserve sponsor), 2 open offers and 1 data entry. Each close took 3 fee-bumped transactions. The destination received 4.0000007 XLM (the balance plus 0.0000007 XLM from selling one dust balance), the sponsored trustline's 0.5 XLM reserve was unlocked for its reserve sponsor and not paid to the account, the sponsor paid 1,500 stroops in fees, the closed account paid nothing, and Horizon answers 404 for the account.
+
+The close of the baseline fixture `messy-20260926T035942Z`, the account the Demolisher baseline is recorded on, is still to come (story E3-S7): `<E3-S7 SDK close: evidence/runs/<stamp>-e3/>`, transactions `<E3-S7 tx 1 hash>`, `<E3-S7 tx 2 hash>`, `<E3-S7 tx 3 hash>`, merged amount `<E3-S7 merged XLM>`.
+
+## 1. Why closing an account is an ordered teardown
+
+Three protocol rules force the order.
+
+- **Subentries block the merge.** An account can be merged only when it holds no trustlines, offers or data entries; signers do not count, they are removed with the account ([list of operations, Account merge](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#account-merge)). Otherwise the merge fails with `ACCOUNT_MERGE_HAS_SUB_ENTRIES` ([Account merge result codes](https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/account-merge)).
+- **Balances block trustline removal.** Change Trust with limit 0 removes a trustline only if "the limit is sufficient to hold the current balance of the trustline and still satisfy its buying liabilities"; with any balance left it fails with `CHANGE_TRUST_INVALID_LIMIT` ([Change Trust result codes](https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/change-trust)).
+- **Liabilities block both.** An open offer is a subentry itself. What it sells is locked as selling liabilities, so a payment of the whole balance fails as underfunded ("does not have enough funds to send amount and still satisfy its selling liabilities", [list of operations, Payment](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#payment)); what it buys counts as buying liabilities on the trustline, which the Change Trust rule above must still satisfy.
+
+The account also has to pay for its own teardown, and a zero-spendable account cannot. Its minimum balance is (2 + subentries + entries it sponsors − entries sponsored for it) × 0.5 XLM ([sponsored reserves, effect on minimum balance](https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves#effect-on-minimum-balance); [minimum balance](https://developers.stellar.org/docs/learn/fundamentals/lumens#minimum-balance)), and spendable XLM is the balance minus that minimum minus XLM selling liabilities. The messy fixture holds 4.0000000 XLM with 7 subentries, 1 of them sponsored: (2 + 7 − 1) × 0.5 = 4.0 XLM, so nothing is spendable. An ordinary transaction from such an account is refused with `tx_insufficient_balance` and consumes nothing; the same operation wrapped in a fee bump paid by another account succeeds ([progress log](progress-log.md), day-1 experiment 1).
+
+```mermaid
+flowchart LR
+  O[Cancel open offers] --> B[Dispose of each balance]
+  B --> T[Remove each trustline]
+  O --> T
+  T --> M[Merge the account]
+  D[Delete data entries] --> M
+```
+
+## 2. The ordering rules
+
+These are rules R1 to R9 of the [architecture](architecture.md) (section 5.1). The planner applies them in `src/plan/order.ts` and packs the result into transactions in `src/plan/grouping.ts` (section 3). Each rule gives the protocol fact that forces it and what Dustin does about it.
+
+**R1. Cancel every open offer before disposing of any balance or removing any trustline.**
+Because: an offer's selling liabilities make a full-balance payment underfunded ([Payment](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#payment)); its buying liabilities make Change Trust fail with `CHANGE_TRUST_INVALID_LIMIT` ([Change Trust result codes](https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/change-trust)); a path payment that would cross the account's own offer fails with `PATH_PAYMENT_STRICT_SEND_OFFER_CROSS_SELF` ([Path payment strict send result codes](https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/path-payment-strict-send)); and an offer is a subentry that blocks the merge.
+In Dustin: each offer becomes a `cancel_offer` step, a Manage Sell Offer with amount 0 and the offer's own assets and price. The same operation deletes an offer that was placed with Manage Buy Offer (day-1 experiment 2). A market quote whose path could run through one of the account's own offers is not trusted, because the plan cancels those offers first.
+In the evidence: steps S01 and S02 of the [committed plan](../evidence/plan/fixture-plan.txt), transaction 1 of both live closes.
+
+**R2. Dispose of a balance before removing its trustline, and leave exactly zero.**
+Because: `CHANGE_TRUST_INVALID_LIMIT` while any balance remains ([Change Trust result codes](https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/change-trust)). A strict-send path payment of the whole balance and a payment of the whole balance both leave exactly zero, so the removal can follow in the same transaction (day-1 experiments 7 and 14).
+In Dustin: a `dispose_balance` step and its `remove_trustline` step form one unit that is never split across transactions. Which disposal is used is the ladder of section 4.
+
+**R3. Remove a sponsored trustline like any other trustline; never revoke the sponsorship.**
+Because: the owner may remove its own sponsored entry, and then the sponsor's `numSponsoring` and the owner's `numSponsored` both decrease ([sponsored reserves](https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves); [CAP-33](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0033.md)). Revoking the sponsorship would move the reserve onto the owner, which a zero-spendable owner cannot pay (`REVOKE_SPONSORSHIP_LOW_RESERVE`). Day-1 experiment 3 confirmed that the owner's signature alone removes the trustline, and that adding the reserve sponsor's signature is refused (`tx_bad_auth_extra`).
+In Dustin: the removal needs only the account's signature; the step names the reserve sponsor as the one whose reserve is released (section 5).
+
+**R4. Delete data entries at any point before the merge.**
+Because: a Manage Data operation without a value deletes the entry; it depends on nothing else, and the entry is a subentry that blocks the merge ([list of operations, Manage data](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#manage-data)).
+In Dustin: `remove_data` steps run in the cleanup transaction.
+
+**R5. Leave the signers alone.**
+Because: signers do not block a merge; the merge removes them ([Account merge](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#account-merge); stellar-core counts every subentry that is not a signer, [MergeOpFrame.cpp](https://github.com/stellar/stellar-core/blob/master/src/transactions/MergeOpFrame.cpp)).
+In Dustin: there is no step for signers. The reserve of a sponsored signer is credited to its sponsor when the merge applies.
+
+**R6. Report liquidity pool shares, never withdraw them; remove an empty pool-share trustline before its pool's asset trustlines.**
+Because: withdrawing from pools is out of scope for the SOW; a pool-share trustline costs two base reserves ([liquidity pools, trustlines](https://developers.stellar.org/docs/learn/fundamentals/liquidity-on-stellar-sdex-liquidity-pools#trustlines)); and an asset trustline "still referenced by a liquidity pool" cannot be removed (`CHANGE_TRUST_CANNOT_DELETE`, [list of operations, Change trust](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#change-trust)).
+In Dustin: held shares are a blocker (`LIQUIDITY_POOL_SHARES`), and the trustlines of that pool's assets stay (`POOL_ASSET_TRUSTLINE`). An empty pool-share trustline is removed first. When Horizon does not return a pool, the planner derives its two assets from the pool id, which is the SHA-256 of the pool's parameters ([CAP-38](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0038.md)); if no pair of the account's assets matches, every credit trustline stays, so no transaction can fail on `CHANGE_TRUST_CANNOT_DELETE`.
+
+**R7. The merge is the last operation, and a merge that follows other work of the run goes out only after a fresh preflight.**
+Because: each `ACCOUNT_MERGE_*` failure code names a condition that can change between plan and merge: subentries left, the account sponsoring something (`ACCOUNT_MERGE_IS_SPONSOR`), `AUTH_IMMUTABLE`, a missing destination, a sequence number too far ahead ([Account merge result codes](https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/account-merge)); and a destination that marks itself memo-required under [SEP-29](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0029.md) must receive a memo.
+In Dustin: the preflight (`src/execute/preflight.ts`) reads the account, the destination and the latest ledger again and checks that the account exists and sponsors nothing, that the destination (the base account of an `M...` address) exists, that a `G...` destination that has become memo-required gets a memo, and that the sequence guard holds; when the merge runs alone, also that no trustline, offer or data entry is left. If any check fails, the merge is not submitted.
+
+**R8. Evaluate the sequence guard for the sequence number the account will have when the merge applies, against the earliest ledger the merge can land in.**
+Because: the merge fails with `ACCOUNT_MERGE_SEQNUM_TOO_FAR` when that sequence number is at or above the ledger number shifted left by 32 bits ([MergeOpFrame.cpp](https://github.com/stellar/stellar-core/blob/master/src/transactions/MergeOpFrame.cpp)). Section 7 gives the arithmetic.
+
+**R9. Run each market-dependent step, a path payment, in its own transaction together with its trustline removal.**
+Because: a transaction is atomic: "The entire transaction will fail if any operation fails, and all previous operations will be rolled back" ([transaction lifecycle, application](https://developers.stellar.org/docs/learn/fundamentals/transactions/transaction-lifecycle#10-application-validator)). A path payment is the only step that can fail for reasons outside the account (the market moves), and it must not take the deterministic cleanup down with it.
+In Dustin: one `convert` transaction per asset sold on the market (section 3).
+
+Order within a kind is stable, so the same account state always gives the same plan and the same `planHash`: offers by id, trustlines by asset code and then issuer, data entries by name.
+
+## 3. Grouping and "the minimum number of transactions"
+
+The SOW asks for the plan to be "grouped into the minimum number of transactions". Dustin reads that as the fewest transactions under three constraints ([canonical decision 6](README.md); architecture section 5.2):
+
+1. A transaction carries at most 100 operations ([operations and transactions](https://developers.stellar.org/docs/learn/fundamentals/transactions/operations-and-transactions#transactions)).
+2. A market-dependent step is isolated with its trustline removal (R9).
+3. A merge that follows market-dependent steps runs only after a fresh preflight (R7).
+
+The planner therefore builds three kinds of transaction:
+
+- **cleanup**: offer cancellations, returns to issuers, transfers to the destination, removals of emptied trustlines and data deletions, packed in order into transactions of up to 100 operations, never splitting a disposal from its removal;
+- **convert**: one transaction per path payment, with that asset's trustline removal;
+- **merge**: the merge joins the last cleanup transaction when there is no convert transaction and there is room; otherwise it runs alone and last. It also runs alone when the sequence guard says it has to wait (section 7).
+
+So a messy account without a market step closes in **one** fee-bumped transaction (an offline CLI test shows it as `tx 1/1`), and the messy fixture closes in **three**: 9 cleanup operations, 2 convert operations and the merge ([committed plan](../evidence/plan/fixture-plan.txt)), because one of its dust balances has a market.
+
+The atomicity consequence: when an operation fails on the ledger, its whole transaction applies nothing, yet the account's sequence number and the sponsor's fee are spent ("the sequence number of the inner transaction is always consumed at apply time", [fee-bump transactions, application](https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions#application)). Transactions that applied before it stay applied. The executor then reads the ledger, plans what is left (at most 3 re-plans by default) and continues. Keeping the market step apart means that a moved market costs one small transaction instead of the whole cleanup.
+
+## 4. The disposal ladder
+
+Every non-zero balance on a trustline has to leave before the trustline can go. The ladder is the SOW's order ([canonical decision 8](README.md)): sell it for XLM by path payment; otherwise return it to its issuer; otherwise send it to the destination if the destination holds the trustline; otherwise report it as unclosable with a stated reason. The CLI flag `--prefer-destination` (SDK option `preferDestination: true`, PRD decision D-1 of 2026-09-25) tries the destination before the issuer and keeps the burn as the fallback. The default order is used for the fixture close, the demo and the evidence.
+
+Before any rung, the trustline itself is checked. A trustline its issuer has not authorized, or has limited to maintaining liabilities, cannot send anything, not even back to the issuer: revoking authorization "prevents that account from transferring or trading the asset" ([Authorization Revocable](https://developers.stellar.org/docs/tokens/control-asset-access#authorization-revocable-0x2); day-1 experiment 13 saw `op_src_not_authorized` on the payment back to the issuer and `op_invalid_limit` on the removal). Such a balance is unclosable at once.
+
+```mermaid
+flowchart TD
+  B["Non-zero balance on a trustline"] --> A{"Trustline authorized?"}
+  A -->|"not authorized, or maintain liabilities only"| U1["Unclosable: TRUSTLINE_NOT_AUTHORIZED<br/>or MAINTAIN_LIABILITIES_ONLY"]
+  A -->|yes| P{"Strict-send path to XLM for the<br/>whole balance, not through the<br/>account's own offers?"}
+  P -->|yes| R1["Rung 1: path payment to the account itself"]
+  P -->|no| I{"Issuer requires a memo<br/>that was not given?"}
+  I -->|no| R2["Rung 2: pay it back to the issuer, which burns it"]
+  I -->|yes| D{"Destination holds an authorized<br/>trustline with room, and gets<br/>any memo it requires?"}
+  D -->|yes| R3["Rung 3: send it to the destination"]
+  D -->|no| U2["Unclosable: NO_DISPOSAL_ROUTE"]
+```
+
+With `--prefer-destination` the destination question comes before the issuer question.
+
+| Rung | Operation | Precondition in the plan | Protocol facts |
+|---|---|---|---|
+| 1, path payment | Path Payment Strict Send of the whole balance to the account itself, destination asset XLM | Horizon's strict-send path search returned a path worth at least 1 stroop; the path does not rely on one of the account's own offers. `destMin` is the quote minus the slippage bound (default 100 basis points, rounded up), never below 1 stroop. | [strict-send paths](https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-strict-send-payment-paths); a path payment to the sender itself is allowed (day-1 experiment 14); the XLM leaves with the merge |
+| 2, return to issuer | Payment of the whole balance to the issuer | The trustline is authorized; an issuer that is memo-required under SEP-29 needs `--memo`. The issuer account does not have to exist. | "To delete, or 'burn', an asset, you must send it back to the account that issued it" ([assets](https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/assets#deleting-or-burning-assets)); a payment to an issuer that was merged away still succeeds and burns the balance (day-1 experiment 4; [open question 3](README.md)) |
+| 3, send to destination | Payment of the whole balance to the merge destination | The destination exists, is neither the account nor the issuer, gets any memo it requires, and holds an authorized trustline with room: limit minus balance minus buying liabilities is at least the amount. | [Payment](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#payment) |
+| Unclosable | none | No rung above is possible | The reason names every rung that was ruled out and why; the remedy says what would open a route |
+
+Every `dispose_balance` step records its choice: the rung, the amount, where the balance goes, the quote and `destMin` for a path payment, the later rungs that were also possible (`fallbackRungs`) and every rung ruled out with its reason (`ruledOut`).
+
+**Which balances are unclosable.** A payment to an issuer whose account was merged away succeeds and burns the balance, so a missing issuer is not a reason; the step's text only notes it. What remains unclosable is a balance on a trustline that is not authorized (`TRUSTLINE_NOT_AUTHORIZED`), a balance on a trustline authorized to maintain liabilities only (`MAINTAIN_LIABILITIES_ONLY`), and a balance with no market whose issuer requires a memo that was not given, when the destination cannot take it either (`NO_DISPOSAL_ROUTE`). Pool shares and the asset trustlines of a held pool are reported too (R6). In the default order, rung 3 is reached only when rung 2 is refused, which in practice means a memo-required issuer and no `--memo`.
+
+A clawback-enabled trustline goes through the same ladder: clawback is a power of the issuer, not a limit on the holder ([Clawback Enabled](https://developers.stellar.org/docs/tokens/control-asset-access#clawback-enabled-0x8)). The plan warns that the issuer can change the balance before execution; if it does, the disposal fails and the executor plans again.
+
+**Failure mapping during execution.** The planner chooses from a snapshot; the ledger can change before the transaction lands. The executor maps the failed operation's result code (`src/execute/classify.ts`, [ADR-0006](adr/ADR-0006-error-taxonomy.md)):
+
+| Result code of the failed operation | Meaning | What the executor does |
+|---|---|---|
+| `op_too_few_offers`, `op_under_dest_min`, `op_cross_self` | The market disappeared or moved | Plans again with rung 1 dropped for that asset, so the balance falls to the next possible rung |
+| `op_src_not_authorized` | The issuer revoked authorization after the plan | Plans again: the balance is now unclosable, so the run stops before the merge (`PLAN_NOT_CLOSABLE`) unless a partial close was allowed |
+| `op_underfunded` | The balance is lower than planned (a clawback, a fill) | Plans again from the ledger |
+| `op_no_destination`, `op_no_trust`, `op_not_authorized`, `op_line_full` | The payment's destination is missing, lacks the trustline, is not authorized, or is full | Plans again from the ledger |
+| `op_cannot_delete` | A pool share still uses the trustline | Stops |
+| any code not in the mapping | | Stops rather than guess |
+
+Around that mapping: a step that fails twice becomes a `STEP_FAILED_TWICE` blocker and the run stops; at most `maxReplans` re-plans run (default 3); and a re-plan that finds something the approved plan did not have (a new subentry, a larger balance, an asset moving up the ladder) follows `onDrift`, which stops by default. Falling down the ladder and dropping the steps that already applied are not drift. The rung a disposal actually used is recorded on its step outcome (`rung`); there is no separate fallback status (PRD decision D-2).
+
+In the evidence: both week-2 closes applied rung 1 (DUSTA sold for 0.0000007 XLM, transaction 2) and rung 2 (DUSTB, DUSTC and SPTA returned to their issuer, transaction 1) on testnet. In progress: the live proof of a fall from rung 1 after the market moves, of rung 3, and of the unclosable exit on the `edge` fixture (stories E3-S1, E3-S2 and E3-S6): `<E3-S6 edge fixture close: evidence/runs/<stamp>-edge/>`.
+
+## 5. Sponsored reserves
+
+Two different sponsors appear in a close:
+
+- the **fee sponsor** pays every transaction fee through fee bumps (section 6);
+- a **reserve sponsor** paid the base reserve of one of the account's entries; in the fixture it sponsors one trustline.
+
+A sponsored trustline adds one subentry and one sponsored entry to the account, so it costs the account nothing and costs the reserve sponsor 0.5 XLM of its own minimum balance. When the owner removes it, "numSponsoring is decreased on the sponsoring account and numSponsored is decreased on the sponsored account" ([sponsored reserves](https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves)). No XLM moves: the reserve sponsor's minimum balance drops by 0.5 XLM. Day-1 experiment 3 showed exactly this on testnet: the reserve sponsor's `num_sponsoring` went from 1 to 0 and its balance did not change.
+
+Dustin therefore never counts a sponsored reserve as recovered XLM:
+
+- The plan's `recovery.xlmToDestination` is the account's XLM balance now plus the quoted proceeds of its path payments. Reserves are not paid out; removing an entry lowers the minimum balance, and the merge moves the whole balance (architecture section 6.2).
+- The plan's `recovery.reservesReturnedToSponsors` lists every reserve sponsor with the XLM and the entries: one base reserve per trustline, offer and signer, two per pool-share trustline, and two for the account entry itself when the account's own reserve is sponsored. Signers and the account entry are credited only when the merge applies.
+- The report recomputes the same list from the steps that actually applied, in whichever plan round they applied, and reads the merged amount from the merge result (`recovery.mergedXlm`).
+
+In the evidence: in the week-2 SDK close the reserve sponsor stayed at 10.0000000 XLM while its `num_sponsoring` went from 1 to 0, the destination grew by exactly 4.0000007 XLM, and the report lists 0.5000000 XLM for trustline SPTA returned to the reserve sponsor ([summary](../evidence/runs/20260926T125350Z/summary.md)). The plan, the report and the printed receipt all show that line. In progress: the sponsored-unwind report of story E3-S3, `<E3-S3 sponsored-unwind report: evidence/runs/<stamp>/>`.
+
+If the closed account itself sponsors anything, including claimable balances it created, the merge is impossible (section 8).
+
+## 6. Fees
+
+- **Every transaction is fee-bumped.** The inner transaction is sourced from and signed by the account being closed, so it uses that account's sequence number; its fee is 0. The sponsor wraps it in a fee bump, signs only that outer envelope and pays the whole fee ([fee-bump transactions](https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions); [CAP-15](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0015.md); [ADR-0003](adr/ADR-0003-fee-bump-every-transaction.md)). Day-1 experiment 1 verified an inner fee of `"0"` from an account at exactly its minimum balance: Horizon shows the sponsor as `fee_account` and the account's balance did not move.
+- **The fee rule.** A fee bump's fee must be at least the network minimum for the inner operations plus one, and at least the inner fee ([validity of a fee-bump transaction](https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions#validity-of-a-fee-bump-transaction)). Dustin bids a base fee per operation, so a transaction of n operations bids base × (n + 1).
+- **The bid.** The base fee is max(last ledger base fee, `fee_charged` p80) from Horizon's [fee stats](https://developers.stellar.org/docs/data/apis/horizon/api-reference/retrieve-fee-stats), at least 100 stroops and at most `maxBaseFeeStroops` (default 1,000,000 stroops, 0.1 XLM per operation), or an explicit override (`--base-fee`, `baseFeeStroops`) clamped the same way. A fixed 100 stroops is not enough: testnet has real surge pricing, with a `max_fee` p50 of 204,000 stroops observed on 2026-09-25 ([canonical decision 7](README.md)). The ledger charges its clearing fee, usually far below the bid ([fees](https://developers.stellar.org/docs/learn/fundamentals/fees-resource-limits-metering#inclusion-fee)): the week-2 SDK close bid 84,434 stroops per operation, 1,266,510 stroops in all, and was charged 1,500 stroops (100 per operation, the fee bump included).
+- **The budget.** Each close has a sponsor budget, default 5 XLM (`budgetStroops` 50,000,000). The plan shows the total bid and whether it fits (`fees.totalStroops`, `fees.withinBudget`). Before anything is signed, Dustin refuses a plan whose bids exceed the budget and a sponsor that cannot spend at least the budget; the CLI exits with code 3, "nothing executed", in both cases (canonical decision 5 as widened on 2026-09-28, PRD decision D-6). A re-plan during the run must fit what is left of the budget.
+- **What the sponsor signs.** Only fee-bump envelopes. Before signing, the sponsor refuses an inner transaction sourced by the sponsor itself, any operation that acts for another account, and any bid that would take the close over its budget (`src/sponsor/sponsor.ts`). Its signature can authorize nothing but the fee, so the most a sponsor can lose on one close is its budget.
+- **Retries never pay twice.** A 504, a 5xx or a lost connection is followed by lookups of the transaction's hash until its time bound (120 seconds) has passed and a ledger has closed after it ([Horizon timeout](https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/http-status-codes/horizon-specific/timeout)); no second envelope goes out while the first may still apply. An envelope refused with `tx_too_late`, or not found after its time bound, is rebuilt for the same sequence number with fresh time bounds, and the bid is raised after an expiry. `tx_insufficient_fee` is rebuilt with the bid doubled, up to the cap and within the budget. The budget counts only the largest bid per sequence number, because a sequence number is consumed once whichever envelope carries it. Dustin never relies on replace-by-fee, which needs a tenfold bid ([replace-by-fee](https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions#replace-by-fee)); an envelope whose outcome cannot be known stops the run (`OUTCOME_UNKNOWN`) with its time bound, and running again is safe once a ledger has closed after that bound.
+- **Pauses.** Pauses between requests to Horizon are at least 200 ms and never 0 (PRD decision D-5).
+
+## 7. The sequence-number guard
+
+Every account carries a sequence number that grows by one with each of its transactions. A new account starts at the number of the ledger that created it shifted left by 32 bits, so an ordinary account stays far below the limit. The limit bites only after a Bump Sequence pushed the number far ahead, and Bump Sequence only "bumps forward" ([list of operations, Bump sequence](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#bump-sequence)): nothing can lower a sequence number, so waiting for the ledger to catch up is the only remedy.
+
+The rule, from stellar-core: the merge fails with `ACCOUNT_MERGE_SEQNUM_TOO_FAR` ("Source account sequence number is too high", [Account merge result codes](https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/account-merge)) when `sourceAccount.seqNum >= getStartingSequenceNumber(header)`, and the starting sequence number of a ledger is `ledgerSeq << 32` ([MergeOpFrame.cpp](https://github.com/stellar/stellar-core/blob/master/src/transactions/MergeOpFrame.cpp), [TransactionUtils.cpp](https://github.com/stellar/stellar-core/blob/master/src/transactions/TransactionUtils.cpp); [raven ground truth](research/raven-ground-truth.md), section 6).
+
+The planner's arithmetic ([canonical decision 10](README.md); `src/plan/guard.ts`):
+
+```text
+sequenceAtMerge  = sequence + (index of the merge transaction) + 1
+earliestLedger   = observed ledger + 1
+ok               = sequenceAtMerge < earliestLedger << 32
+unblocksAtLedger = (sequenceAtMerge >> 32) + 1          when not ok
+etaSeconds       = (unblocksAtLedger - observed ledger) x 5
+```
+
+Each earlier transaction of the close uses one sequence number, hence the merge index. The 5 seconds per ledger is an observation (32 ledgers in 160 seconds on 2026-09-26), used for the estimate only.
+
+Two worked examples:
+
+- The committed fixture plan: sequence at merge 20,935,049,285,206,023; earliest ledger 4,875,056; 4,875,056 << 32 = 20,938,206,086,168,576, which is larger, so the guard passes ([committed plan](../evidence/plan/fixture-plan.txt)).
+- Day-1 experiment 5: a sequence number bumped to (4,874,033 + 20) << 32 = 20,933,898,233,970,688. A merge at the next sequence number failed with `op_seq_num_too_far`; the formula gives ledger 4,874,054; a merge submitted at ledger 4,874,061 succeeded in ledger 4,874,062, and the account then returned 404 ([progress log](progress-log.md)). The exact first valid ledger was not isolated live; unit tests cover the boundary.
+
+What the plan reports: `sequenceGuard` with `sequenceAtMerge`, `earliestLedger`, `ok`, `unblocksAtLedger` and `etaSeconds`, and then
+
+- **guard passes**: nothing more; the plan text prints "sequence guard ok";
+- **guard fails, wait of at most `maxWaitLedgers`** (default 120 ledgers, about 10 minutes): the merge is moved into its own last transaction, the cleanup runs first, and a warning says the merge must wait until ledger N (about S seconds);
+- **guard fails, longer wait**: blocker `SEQNUM_TOO_FAR` (not permanent) with the ledger and the minutes; the plan has no merge and its status is `blocked`; the cleanup can run with `--partial`.
+
+What the executor does today: before a merge that follows other transactions of the run, the preflight evaluates the guard again against the latest ledger; when it fails, the merge is not submitted and the run stops (`MERGE_PREFLIGHT_FAILED`, with `unblocksAtLedger`). A merge refused on the ledger with `op_seq_num_too_far` stops the run with `SEQNUM_TOO_FAR` and the ledger at which to run the close again. **In progress (story E3-S4, review finding R8):** the executor's wait, which polls the latest ledger until the guard passes and then submits the merge, within the plan's `maxWaitLedgers`; its live proof on a bumped account is `<E3-S4 sequence-guard wait: evidence/runs/<stamp>-seq/>`.
+
+## 8. Known limits
+
+### 8.1 Out of scope by the SOW
+
+| Limit (SOW wording) | What Dustin does | What a user can do |
+|---|---|---|
+| Mainnet. Testnet only, no real value. | Refuses any network passphrase but testnet, and any Horizon that does not serve the testnet, before the first read (`MAINNET_REFUSED`). | Nothing in this release; the mainnet gate is described in [mainnet readiness](next-steps/mainnet-readiness.md). |
+| Contract accounts (C addresses). Classic G address accounts only. | Refuses a `C...` account or destination (`CONTRACT_ACCOUNT`, CLI exit code 2). | Nothing with Dustin: a contract account is managed through its contract. |
+| Liquidity pool share withdrawal. Detected and reported, not automated. | Blocker `LIQUIDITY_POOL_SHARES`; the pool's asset trustlines are `POOL_ASSET_TRUSTLINE`; an empty pool-share trustline is removed. | Withdraw from the pool (Liquidity Pool Withdraw) and remove the pool-share trustline outside Dustin, then plan again. |
+| Multisig accounts with raised thresholds. Detected and reported, not automated. | Assumes the master key alone; blocker `THRESHOLD_UNMET` or `MASTER_KEY_DISABLED`, naming the weight needed. | Collect the other signatures outside Dustin. |
+| Claimable balance cleanup. | An account that created claimable balances sponsors their reserves ([claimable balances](https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves#effect-on-claimable-balances)); blocker `IS_SPONSOR`. | Have the claimable balances claimed or clawed back, end any other sponsorship, then plan again. |
+| Production key management. The sponsor uses an env key for this scope. | The CLI reads the two secrets from the environment or `.env`, and only for `dustin close --execute`; the SDK takes signer objects and never reads a secret. | Keep keys in your own key store and pass a `Signer` ([integration notes](integration-notes.md)). |
+| Wallet UI. Third-party wallet integration work. | None; the CLI is the interface of this scope. | Build the screens from the plan and the report ([integration notes](integration-notes.md)). |
+
+### 8.2 Set by the protocol or by the account
+
+Every unclosable code and blocker code of PRD section 7, with the remedy the planner prints. An unclosable item stays on the account, its trustline stays, and the plan has no merge; with `--partial` (SDK `allowPartial: true`) everything else runs and the account remains open (CLI exit code 4).
+
+| Code | Kind | Meaning | What a user can do |
+|---|---|---|---|
+| `TRUSTLINE_NOT_AUTHORIZED` | unclosable | The issuer has not authorized the trustline, or revoked it; the balance cannot move, not even to the issuer. | Ask the issuer to authorize the trustline again or to claw the balance back, then plan again. |
+| `MAINTAIN_LIABILITIES_ONLY` | unclosable | The issuer limited the trustline to maintaining liabilities; the balance cannot be sent. | The same as above. |
+| `NO_DISPOSAL_ROUTE` | unclosable | No market, the issuer requires a memo that was not given, and the destination cannot take the asset. | Open one route: give the memo the issuer requires, find a market, or use a destination with an authorized trustline that has room. |
+| `LIQUIDITY_POOL_SHARES` | blocker | The account holds pool shares. | Withdraw and remove the pool-share trustline outside Dustin. |
+| `LIQUIDITY_POOL_SHARES` | unclosable | An empty pool-share trustline whose pool neither Horizon nor the account's assets identify. | Check the pool on Horizon (`/liquidity_pools/{id}`) and plan again, or remove the trustline outside Dustin. |
+| `POOL_ASSET_TRUSTLINE` | unclosable | A trustline of a pool's asset while the account holds that pool's shares (or an unidentified pool). | Withdraw from the pool and remove the pool-share trustline first. |
+| `IS_SPONSOR` | blocker | The account sponsors reserves of other entries, including claimable balances it created (`ACCOUNT_MERGE_IS_SPONSOR`). | End those sponsorships (revoke or transfer them; have the claimable balances claimed), then plan again. |
+| `AUTH_IMMUTABLE_SET` | blocker | The account has the `AUTH_IMMUTABLE` flag and can never be merged (`ACCOUNT_MERGE_IMMUTABLE_SET`). | None for the merge; `--partial` empties the account. |
+| `THRESHOLD_UNMET` | blocker | The master key's weight is below the threshold the cleanup or the merge needs. | Collect the extra signatures outside Dustin. |
+| `MASTER_KEY_DISABLED` | blocker | The master key has weight 0. | The same. |
+| `DESTINATION_MISSING` | blocker | The destination does not exist (`ACCOUNT_MERGE_NO_ACCOUNT`). | Fund the destination first, or choose another; Dustin never creates it. |
+| `DESTINATION_IS_SELF` | blocker | The destination is the account itself (`ACCOUNT_MERGE_MALFORMED`). | Choose another destination. |
+| `DESTINATION_REQUIRES_MEMO` | blocker | The destination is memo-required under SEP-29 and no memo was given. | Pass the memo it expects (`--memo`, SDK `memo`). |
+| `SEQNUM_TOO_FAR` | blocker | The sequence number is ahead of the ledger by more than the wait the plan accepts (section 7). | Wait until the ledger named in the reason and plan again; the cleanup can run now with `--partial`. |
+| `ACCOUNT_MISSING` | blocker | Horizon answers 404: the account was already merged or never existed. | Nothing is left to close. |
+| `STEP_FAILED_TWICE` | found during a run | A step failed on the ledger twice. | Find out why on the explorer, fix it or allow a partial close, then run again. |
+
+### 8.3 Limits of this release
+
+- Only the master key signs. A `Signer` may be a wallet or a device, but the planner checks thresholds against the master key's weight.
+- One close per account at a time: two runs on one account compete for its sequence numbers, and a run refused with `tx_bad_seq` twice stops with `SEQUENCE_CONFLICT`.
+- The amounts the user confirmed are not enforced on the executor's fresh plan: the plan hash leaves out market quotes, so a worse quote while the confirmation waits lowers the merged amount without counting as drift (review finding BH-7). A check that compares the fresh plan's `xlmToDestination` with the confirmed plan is planned in story E3-S1 and is not built yet.
+- The executor does not yet wait for the sequence guard (section 7, in progress).
+
+### 8.4 Limits of the evidence
+
+The testnet is reset to genesis about once a quarter; the next reset is scheduled for 2026-12-16 17:00 UTC and deletes every account, transaction and explorer page ([networks](https://developers.stellar.org/docs/networks); canonical decision 12). The explorer links in this write-up stop resolving then. The report, the envelope XDR and the Horizon JSON committed under `evidence/` remain the record ([evidence layout](../evidence/runs/README.md)), and `dustin fixture create` rebuilds a messy fixture in one command.
+
+## 9. Prior art
+
+Dustin is not the first tool that closes Stellar accounts, and not the only project working on accounts that cannot pay their own fees. What follows was verified on 2026-09-25 ([competitive landscape](analysis/competitive-landscape.md); canonical decisions 13 and 14).
+
+- **StellarExpert Account Demolisher** (live since 2019; its client is MIT-licensed inside the [explorer repository](https://github.com/stellar-expert/stellar-expert-explorer)). It deletes data entries, cancels offers, sells leftover assets on the DEX, returns unsold balances to their issuers, removes trustlines and merges through a mediator whose server co-signs the merge. Every transaction is sourced from and paid by the account being closed; there is no fee bump, no sponsorship logic and no preview, and the secret key is pasted into the browser. The tool is live: the route is in the current source and the testnet co-signer answered on 2026-09-25. A black-box probe of that co-signer on 2026-09-25 saw payouts of 0.5 and 0.9999999 XLM refused and payouts of 1 and 5 XLM signed; the server code is private, so the rule is inferred from behaviour. On an account at its minimum balance its first transaction is expected to be refused for lack of a fee (`tx_insufficient_balance`, the refusal day-1 experiment 1 saw for an unbumped transaction). The recording of the tool on Dustin's baseline fixture, which is what will show where it stops, is pending (story E1-S2, protocol in [evidence/baseline](../evidence/baseline/README.md)): `<E1-S2 baseline recording: evidence/baseline/demolisher-<date>.mp4 or link>`, stopping at `<E1-S2 message and time in the recording>`.
+- **The SCF #44 "Account Demolisher" RFP** ([round recap](https://medium.com/stellar-community/scf-44-round-recap-b5e8acd87045), 2026-07-24) funded two responses:
+  - [LumenWipe](https://github.com/LumenWipe/lumenwipe): a web app, a hosted API and a thin SDK client (`@lumenwipe/sdk`, an HTTP client of the hosted API that builds no transactions itself). A hosted fee-bump sponsor endpoint for reserve-locked accounts was merged on 2026-09-08 ([pull request 216](https://github.com/LumenWipe/lumenwipe/pull/216); API key required, sponsored fee capped at 0.1 XLM per transaction), while its README still lists sponsored fees on the roadmap; whether it is enabled in production is not known.
+  - [Account Demolisher](https://communityfund.stellar.org/submissions/recqvIs2iRu34ESGo) (demolisher.app): a web app that rejects fee-bump envelopes, so the account being closed pays its own fees; it is not published as a library and has no CLI.
+- **An unfunded prior-art planner**, `@bleu/account-demolisher` ([repository](https://github.com/bleu/scf-account-demolisher), a single commit of 2026-05-30, not on npm): a standalone TypeScript planner with a mandatory dry-run preview, merge preconditions including the sequence-number bound, a packer of at most 100 operations and a dry-run CLI. It has no signing, submission, fee bump or sponsorship unwinding. It is prior art for Dustin's planner (Deliverable 1).
+- **[js-stellar-wallets issue 98](https://github.com/stellar/js-stellar-wallets/issues/98)**, "Add helper that closes a user's account": opened on 2019-08-12, never commented on, still open, in a repository archived on 2024-02-08.
+
+What Dustin adds, and how to check each point:
+
+1. An embeddable library and CLI with no backend: no hosted API, API key, mediator or co-signing server. Check: the package's two runtime dependencies (`@stellar/stellar-sdk`, `commander`) in `package.json`.
+2. Plan first: `planClose()` only reads from Horizon, and every step carries a reason and a fee estimate. Check: the [committed plan](../evidence/plan/fixture-plan.txt) and the offline dry-run tests.
+3. A fee-bumped close of zero-spendable accounts with the integrator's own sponsor key, within a budget the integrator sets. Check: the week-2 transaction chains, where Horizon shows the sponsor as `fee_account` of every transaction.
+4. Sponsored-reserve accounting: a sponsored entry's reserve is attributed to its sponsor, never counted as recovered. Check: section 5 and the reports.
+5. A published fixture, a test matrix and a baseline recording. The fixture builder is done; the test matrix (`<E3-S6 test matrix: docs/test-matrix.md>`) is in progress and the baseline recording is pending.
+
+## 10. Evidence, now and pending
+
+| Claim | Evidence in the repository | Pending |
+|---|---|---|
+| The planner reads and never writes | [Committed plan, text](../evidence/plan/fixture-plan.txt) and [JSON](../evidence/plan/fixture-plan.json) of the baseline fixture | |
+| A zero-spendable account closed with sponsor-paid fee bumps | [SDK close](../evidence/runs/20260926T125350Z/summary.md), [CLI close](../evidence/runs/20260927T200015Z-cli/summary.md) of fresh messy fixtures | The metric close of the baseline fixture: `<E3-S7 SDK close: evidence/runs/<stamp>-e3/>` |
+| Protocol facts behind the rules | Day-1 experiments in the [progress log](progress-log.md) and the [raw results](research/day1-experiments-2026-09-26.json) | |
+| Where the existing tool stops | [Recording protocol](../evidence/baseline/README.md) | `<E1-S2 baseline recording: evidence/baseline/demolisher-<date>.mp4 or link>` |
+| The unclosable exit | Offline tests | `<E3-S6 edge fixture close: evidence/runs/<stamp>-edge/>` |
+| The sequence-guard wait | Offline tests of the arithmetic | `<E3-S4 sequence-guard wait: evidence/runs/<stamp>-seq/>` |
+| The test matrix | Tests under `test/` (`npm test`) | `<E3-S6 test matrix: docs/test-matrix.md>`, `<E4-S3 test results: evidence/tests/>` |
+| The demo | | `<E4-S6 60-second demo video link>` |
+| One page for the reviewer | | `<E4-S7 evidence index: evidence/README.md>` |
+
+## Glossary
+
+- **Subentry**: a trustline, offer, signer or data entry on an account; each raises the minimum balance by one base reserve, and every subentry but a signer blocks a merge ([accounts](https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts)).
+- **Base reserve**: 0.5 XLM, the unit of the minimum balance; an account needs two of them to exist ([lumens](https://developers.stellar.org/docs/learn/fundamentals/lumens#minimum-balance)).
+- **Spendable XLM**: the balance minus the minimum balance minus XLM selling liabilities. "Zero spendable" means nothing is left for a fee.
+- **Sponsored reserve**: a reserve another account pays on your behalf; when the entry goes, the reserve is released to that sponsor ([sponsored reserves](https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves)).
+- **Fee-bump transaction**: a wrapper that lets a fee account pay for a transaction another account already signed; the wrapper counts as one extra operation ([fee-bump transactions](https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions)).
+- **Trustline**: an account's permission to hold one asset of one issuer, with its balance and limit ([list of operations, Change trust](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#change-trust)).
+- **Path payment**: a payment that sends one asset and delivers another through the order books; Dustin uses the strict-send form to sell dust for XLM ([Path payment strict send](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#path-payment-strict-send)).
+- **Burn**: sending an asset back to its issuer, which removes it from circulation ([glossary, Burn](https://developers.stellar.org/docs/learn/glossary#burn)).
+- **Account merge**: the operation that moves an account's whole XLM balance to another account and deletes the account ([Account merge](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#account-merge)).
+- **Sequence number**: the counter that orders an account's transactions; each transaction uses the next one ([operations and transactions](https://developers.stellar.org/docs/learn/fundamentals/transactions/operations-and-transactions)).
+- **Stroop**: 0.0000001 XLM, the unit of fees ([glossary, Stroop](https://developers.stellar.org/docs/learn/glossary#stroop)).
+- **Horizon**: the network's public HTTP API; a 404 for an account means it is not on the ledger ([retrieve an account](https://developers.stellar.org/docs/data/apis/horizon/api-reference/retrieve-an-account)).
+
+## Assumptions
+
+1. The rules are numbered as in the architecture (R1 to R9, section 5.1). The sixteen draft rules of the [documentation plan](documentation-plan.md) (section 3.2) are all covered: plan first and "the account signs, the sponsor pays" in sections 6 and 10; offers first in R1; the ladder, frozen balances and clawback in R2 and section 4; data entries in R4; trustline removal in R2; sponsored trustlines in R3; grouping in section 3; the sequence guard in R8 and section 7; the merge checks and "merge last" in R7; detect and report in R6 and section 8.
+2. Figures from the evidence (fees, ledgers, amounts) are those committed in `evidence/` and in the progress log on the dates given there.
+3. Prior-art statements are as verified on 2026-09-25; the repositories named may have changed since.
+4. The ledger close time of about 5 seconds is an observation used only for estimates; nothing depends on it for correctness.
+
+## Sources
+
+Stellar documentation (developers.stellar.org):
+
+- List of operations: Account merge, Bump sequence, Change trust, Manage data, Payment, Path payment strict send: https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations
+- Account merge result codes: https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/account-merge
+- Change Trust result codes: https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/change-trust
+- Path payment strict send result codes: https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/path-payment-strict-send
+- Operations and transactions (1 to 100 operations, sequence numbers): https://developers.stellar.org/docs/learn/fundamentals/transactions/operations-and-transactions
+- Transaction lifecycle, application (atomicity, sequence number consumed): https://developers.stellar.org/docs/learn/fundamentals/transactions/transaction-lifecycle#10-application-validator
+- Fee-bump transactions (validity, application, replace-by-fee): https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions
+- Fees and the inclusion fee: https://developers.stellar.org/docs/learn/fundamentals/fees-resource-limits-metering#inclusion-fee
+- Horizon fee stats: https://developers.stellar.org/docs/data/apis/horizon/api-reference/retrieve-fee-stats
+- Horizon timeout (504): https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/http-status-codes/horizon-specific/timeout
+- Horizon strict-send payment paths: https://developers.stellar.org/docs/data/apis/horizon/api-reference/list-strict-send-payment-paths
+- Horizon, retrieve an account: https://developers.stellar.org/docs/data/apis/horizon/api-reference/retrieve-an-account
+- Sponsored reserves (minimum balance, removal, claimable balances): https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves
+- Lumens, minimum balance: https://developers.stellar.org/docs/learn/fundamentals/lumens#minimum-balance
+- Accounts: https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/accounts
+- Assets, deleting or burning assets: https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/assets#deleting-or-burning-assets
+- Controlling access to an asset with flags (revocable, clawback): https://developers.stellar.org/docs/tokens/control-asset-access
+- Liquidity pools, trustlines: https://developers.stellar.org/docs/learn/fundamentals/liquidity-on-stellar-sdex-liquidity-pools#trustlines
+- Glossary: https://developers.stellar.org/docs/learn/glossary
+- Networks (testnet resets): https://developers.stellar.org/docs/networks
+
+Protocol and core sources:
+
+- CAP-15, fee-bump transactions: https://github.com/stellar/stellar-protocol/blob/master/core/cap-0015.md
+- CAP-33, sponsored reserves: https://github.com/stellar/stellar-protocol/blob/master/core/cap-0033.md
+- CAP-38, liquidity pools: https://github.com/stellar/stellar-protocol/blob/master/core/cap-0038.md
+- SEP-29, account memo requirements: https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0029.md
+- stellar-core `MergeOpFrame.cpp`: https://github.com/stellar/stellar-core/blob/master/src/transactions/MergeOpFrame.cpp
+- stellar-core `TransactionUtils.cpp`: https://github.com/stellar/stellar-core/blob/master/src/transactions/TransactionUtils.cpp
+
+Prior art:
+
+- StellarExpert explorer repository (Account Demolisher client): https://github.com/stellar-expert/stellar-expert-explorer and the tool at https://stellar.expert/demolisher/public/
+- SCF #44 round recap: https://medium.com/stellar-community/scf-44-round-recap-b5e8acd87045
+- LumenWipe: https://github.com/LumenWipe/lumenwipe and pull request 216: https://github.com/LumenWipe/lumenwipe/pull/216
+- Account Demolisher (SCF #44 submission): https://communityfund.stellar.org/submissions/recqvIs2iRu34ESGo
+- `@bleu/account-demolisher`: https://github.com/bleu/scf-account-demolisher
+- js-stellar-wallets issue 98: https://github.com/stellar/js-stellar-wallets/issues/98
+
+Repository:
+
+- Accepted SOW: [SUCCESSFUL_SOW.md](../SUCCESSFUL_SOW.md); canonical decisions and open questions: [docs/README.md](README.md); PRD decisions D-1 to D-7: [prd.md](prd.md)
+- Day-1 experiments: [progress-log.md](progress-log.md), [day1-experiments-2026-09-26.json](research/day1-experiments-2026-09-26.json)
+- Review of the Epic 2 integration: [2026-09-27-e2-integration-review.md](reviews/2026-09-27-e2-integration-review.md)

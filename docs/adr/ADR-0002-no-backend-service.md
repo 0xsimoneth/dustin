@@ -16,7 +16,7 @@ The other reason for a server, state, does not apply: the ledger is the state of
 1. Dustin is a library plus CLI. No HTTP service, no database, no queue.
 2. The sponsor is an `EnvSponsor` implementing the `FeeBumpSigner` interface: it reads `DUSTIN_SPONSOR_SECRET` once at startup, keeps the `Keypair` in memory, signs fee-bump envelopes only, never serialises the key, and refuses to sign an inner transaction hash the executor did not build in the current run.
 3. The closing account's key comes from `DUSTIN_ACCOUNT_SECRET` or stdin, never from argv.
-4. An optional local journal file (hashes and XDR of submitted transactions) exists for evidence and faster resume; deleting it loses nothing.
+4. An optional local journal file (hashes and XDR of submitted transactions) exists for evidence and faster resume; deleting it loses nothing. As built, the report copies published through `onReport` and the CLI's `--report` file play that part, and there is no resume option: running the close again is the resume (PRD decision D-2).
 5. The sponsor budget per close (`sponsorBudgetStroops`, default 5 XLM) and the per-operation fee cap (`maxBaseFeeStroops`, default 0.1 XLM) are enforced in the library, so the same limits will apply unchanged if a service later wraps it.
 
 ## Consequences

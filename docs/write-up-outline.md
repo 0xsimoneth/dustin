@@ -1,6 +1,6 @@
 ---
 title: Ordering rules and known limits (write-up skeleton)
-status: skeleton with placeholders; becomes docs/ordering-rules-and-known-limits.md in Week 4
+status: skeleton with placeholders; the write-up itself is docs/write-up.md (first version 2026-09-28, story E4-S5)
 owner: the builder
 audience: the reviewer first, wallet developers second
 ---
@@ -32,7 +32,7 @@ Dustin closed the testnet account `<FIXTURE_G>` on `<DATE UTC>` in `<N>` transac
 - **R2. The account signs, the sponsor pays.** Every transaction is an inner transaction sourced from the account being closed, wrapped in a fee-bump transaction paid by the sponsor. Because: fee-bump transactions let a separate fee account pay for an existing transaction; the wrapper counts as one more operation, and its fee must be at least the network minimum for that count and at least the inner fee. In the fixture close: fee account `<SPONSOR_G>` on `<TX1_HASH>`, `<TX2_HASH>`, `<TX3_HASH>`.
 - **R3. Cancel every offer before touching any trustline.** Because: offers hold liabilities, and a trustline cannot be removed while the limit cannot cover the balance and its buying liabilities. An offer is deleted by setting its amount to 0 with its existing offer ID. In the fixture close: offers `<OFFER_ID_1>` and `<OFFER_ID_2>`, tx 1.
 - **R4. Empty every non-XLM balance before removing its trustline, using the ladder in section 3.** Because: the trustline limit 0 is refused while a balance remains. In the fixture close: `<CODE1>` sold by path payment, `<CODE2>` returned to its issuer, `<CODE3>` sent to the destination, `<CODE4>` `<route>`, all in tx 2.
-- **R5. A frozen balance cannot be moved by its holder.** Because: with authorization required, the issuer must approve an account before it can hold the asset, and a revoked trustline freezes the asset so the holder can neither transfer nor trade it. Only the issuer can act. In the fixture close: `<did not apply / applied to CODE, reported as TRUSTLINE_UNAUTHORIZED>`; covered by the test matrix.
+- **R5. A frozen balance cannot be moved by its holder.** Because: with authorization required, the issuer must approve an account before it can hold the asset, and a revoked trustline freezes the asset so the holder can neither transfer nor trade it. Only the issuer can act. In the fixture close: `<did not apply / applied to CODE, reported as TRUSTLINE_NOT_AUTHORIZED>`; covered by the test matrix.
 - **R6. Clawback-enabled trustlines close normally; the flag is reported.** Because: clawback is a power of the issuer to burn a holder's balance, not a restriction on the holder. In the fixture close: `<did not apply / applied to CODE>`; covered by the test matrix.
 - **R7. Delete data entries with a manage-data operation that carries no value.** Because: a manage-data operation with the name and no value deletes the entry. In the fixture close: `<DATA_NAME>`, tx 1.
 - **R8. Remove trustlines last, with limit 0.** Because: Change Trust with limit 0 deletes the trustline, and only then is its reserve released. In the fixture close: four trustlines, tx 2.
@@ -53,7 +53,7 @@ Dustin closed the testnet account `<FIXTURE_G>` on `<DATE UTC>` in `<N>` transac
 flowchart TD
     A[Non-XLM balance] --> B{Is there a path to XLM<br/>with acceptable price?}
     B -- yes --> C[Sell by path payment<br/>strict send]
-    B -- no --> D{Does the issuer still exist<br/>and is the trustline authorized?}
+    B -- no --> D{Is the trustline authorized, and does<br/>a memo-required issuer get its memo?}
     D -- yes --> E[Return to issuer]
     D -- no --> F{Does the destination hold an<br/>authorized trustline with room?}
     F -- yes --> G[Send to destination]
@@ -63,9 +63,11 @@ flowchart TD
 | Exit | When | What the user sees | Reason code |
 |---|---|---|---|
 | Sell | An offer book path from the asset to XLM exists | "sold for `<amount>` XLM" | none |
-| Return to issuer | No path, issuer account exists, trustline authorized | "returned to issuer `<G>`" | none |
-| Send to destination | No path, issuer gone or cannot receive, destination holds the trustline | "sent to destination" | none |
-| Unclosable | None of the above | "unclosable: `<reason>`, remedy: `<text>`" | `<codes as exported by the SDK, e.g. TRUSTLINE_UNAUTHORIZED, ISSUER_GONE>` |
+| Return to issuer | No path, trustline authorized, memo given if the issuer requires one; the issuer account need not exist, because a payment to an issuer that was merged away still burns the balance (day-1 experiment 4; `docs/README.md` open question 3) | "returned to issuer `<G>`" | none |
+| Send to destination | No path, the issuer requires a memo that was not given, destination holds an authorized trustline with room | "sent to destination" | none |
+| Unclosable | None of the above | "unclosable: `<reason>`, remedy: `<text>`" | `<codes as exported by the SDK: TRUSTLINE_NOT_AUTHORIZED, MAINTAIN_LIABILITIES_ONLY, NO_DISPOSAL_ROUTE>` |
+
+> As built, a trustline that is not authorized is unclosable before any rung is tried; `docs/write-up.md` section 4 has the diagram of the implemented ladder.
 
 In the fixture close: `<one line per asset with its exit and the transaction hash>`.
 
@@ -108,7 +110,7 @@ In the fixture close: sequence `<SEQ>`, ledger `<LEDGER>`, `<LEDGER x 2^32>`; gu
 ### 7.2 Out of reach by protocol
 
 - Frozen (deauthorized or unauthorized) balances: only the issuer can move them (R5).
-- Balances whose issuer no longer exists and for which the destination holds no trustline (`ISSUER_GONE`).
+- Balances with no market whose issuer requires a memo that was not given and that the destination cannot take (`NO_DISPOSAL_ROUTE`). A missing issuer is not a limit: a payment to an issuer that was merged away still burns the balance (day-1 experiment 4; `docs/README.md` open question 3).
 - Accounts with the immutable flag (R13).
 - Accounts that sponsor other accounts' reserves (R12).
 - A sequence number that has run ahead of the ledger (R11): wait, do not retry.
@@ -172,7 +174,7 @@ Closed account: `https://stellar.expert/explorer/testnet/account/<FIXTURE_G>` (m
 
 ## Assumptions
 
-1. Rule numbering R1 to R16 matches `docs/documentation-plan.md` section 3.2; if the implementation adds or drops a rule, both documents change together.
+1. Rule numbering R1 to R16 matches `docs/documentation-plan.md` section 3.2; if the implementation adds or drops a rule, both documents change together. The write-up (`docs/write-up.md`) numbers the rules as the architecture does (R1 to R9, section 5.1) and maps these sixteen onto them in its assumptions.
 2. The reason codes in section 3 are the working set from `docs/ux-design.md` section 3.2; the final document uses the identifiers exported by the SDK.
 3. "A sequence number can only be raised, never lowered" is stated from the Bump Sequence semantics recorded in `docs/research/raven-ground-truth.md` section 6 (stellar-core source) and was not separately re-verified against developers.stellar.org in this session.
 4. The statement that the Demolisher stops on the fixture is filled from the baseline recording; this skeleton states only what its public client source shows (transactions sourced and paid by the account being closed; no fee-bump or sponsorship code).

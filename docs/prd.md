@@ -106,14 +106,14 @@ Acceptance:
 
 #### FR-03: Disposal Ladder planning
 
-For every Dust balance the planner selects the first Rung whose preconditions hold and records the remaining Rungs as execution-time fallbacks: `path_payment` when Horizon `GET /paths/strict-send` (source asset and amount, destination asset XLM) returns at least one path whose XLM output is at least 1 stroop after the configured slippage; `return_to_issuer` when the issuer account exists and the trustline is fully authorized; `send_to_destination` when the Destination holds a trustline for the asset that is authorized and has limit room for the amount; otherwise `unclosable` with an `UnclosableCode`.
+For every Dust balance the planner selects the first Rung whose preconditions hold and records the remaining Rungs as execution-time fallbacks: `path_payment` when Horizon `GET /paths/strict-send` (source asset and amount, destination asset XLM) returns at least one path whose XLM output is at least 1 stroop after the configured slippage; `return_to_issuer` when the trustline is fully authorized and, for an issuer that is memo-required under SEP-29, a memo is given (the issuer account does not have to exist: a payment to an issuer that was merged away succeeds and burns the balance, day-1 experiment 4, `docs/README.md` open question 3); `send_to_destination` when the Destination holds a trustline for the asset that is authorized and has limit room for the amount; otherwise `unclosable` with an `UnclosableCode`.
 
 Acceptance:
 - Fixture A asset A1 (direct XLM book) plans `path_payment` with path, estimated XLM out, and `destMin`.
 - Fixture A asset A2 (2-hop book) plans `path_payment` with a 2-hop path.
 - Fixture A asset A3 (no book, live issuer, authorized) plans `return_to_issuer` with the reason "no strict-send path found".
 - Fixture B asset A5 (no book, frozen by issuer) plans `unclosable` with `TRUSTLINE_NOT_AUTHORIZED`, a reason naming the issuer, and the remedy "issuer must re-authorize or claw back".
-- Variant ISS (issuer account merged away) plans `send_to_destination` when the Destination holds the trustline, otherwise `ISSUER_ACCOUNT_MISSING`; the executor's observed outcome is recorded in the write-up (section 4.4). `[ASSUMPTION: whether a payment of an asset whose issuer no longer exists succeeds is not settled by the docs; it is verified empirically in Week 3.]`
+- Variant ISS (issuer account merged away) plans `return_to_issuer` like any authorized balance: the payment to the merged-away issuer succeeds and burns the balance, and the emptied trustline can then be deleted. This was settled on 2026-09-26 by day-1 experiment 4 (`docs/progress-log.md`; `docs/README.md` open question 3, resolved); a missing issuer is informational in the step's reason and never an unclosable reason. The outcome is recorded in the write-up (`docs/write-up.md`, section 4).
 
 #### FR-04: Transaction grouping
 
@@ -275,7 +275,7 @@ Acceptance:
 
 #### FR-21: Fixture builder `dustin fixture create`
 
-`dustin fixture create [--variant a|a0|b|simple|seq-near|seq-far|lp|ms|clw|auth|iss] [--out <manifest.json>] [--secrets <path>]` builds the requested fixture on testnet as specified in section 9 using only friendbot-funded accounts, writes a public manifest (public keys, assets, issuers, expected plan summary) and a separate secrets file that is gitignored. The canonical Fixture A ends with Spendable XLM exactly 0. The command is repeatable after a testnet reset.
+`dustin fixture create [--variant a|a0|b|simple|seq-near|seq-far|lp|ms|clw|auth|iss] [--out <manifest.json>] [--secrets <path>]` builds the requested fixture on testnet as specified in section 9 using only friendbot-funded accounts, writes a public manifest (public keys, assets, issuers, expected plan summary) and a separate secrets file that is gitignored. The canonical Fixture A ends with Spendable XLM exactly 0. The command is repeatable after a testnet reset. The `simple` variant is not built: the Week 2 close used fresh Fixture A accounts instead (PRD decision D-4).
 
 Acceptance:
 - `dustin fixture create --variant a` followed by `dustin fixture verify` passes every check in FR-22.
@@ -292,7 +292,7 @@ Acceptance:
 
 #### FR-23: Fixture variants for the matrix
 
-The builder can produce the variants in section 9: A0 (fully sponsored, literal 0 XLM balance), B (stranded asset frozen by its issuer), SIMPLE (no leftover balances), SEQ-NEAR and SEQ-FAR (`BumpSequence`), LP (pool share trustline with a deposit), MS (additional signer and raised high threshold), CLW (clawback-enabled asset), AUTH (authorization-required issuer in each authorization state), ISS (issuer account merged away).
+The builder can produce the variants in section 9: A0 (fully sponsored, literal 0 XLM balance), B (stranded asset frozen by its issuer), SIMPLE (no leftover balances; not built, PRD decision D-4), SEQ-NEAR and SEQ-FAR (`BumpSequence`), LP (pool share trustline with a deposit), MS (additional signer and raised high threshold), CLW (clawback-enabled asset), AUTH (authorization-required issuer in each authorization state), ISS (issuer account merged away).
 
 Acceptance:
 - Each variant builds on testnet and its manifest states the expected Plan Status and expected codes.
@@ -330,7 +330,7 @@ Acceptance:
 
 #### FR-27: Write-up on ordering rules and known limits
 
-`docs/ordering-rules-and-limits.md` states the normative ordering rules (section 8), the Disposal Ladder preconditions and observed outcomes (including the empirical results of ISS and AUTH), the grouping rule and its atomicity consequence, the fee model, the sequence-number guard, and the list of what is detected and reported but not handled (pool shares, sponsoring reserves and claimable balances, raised thresholds, C addresses, mainnet), each with the remedy the user has.
+`docs/write-up.md` (the name in story E4-S5; first version 2026-09-28) states the normative ordering rules (section 8), the Disposal Ladder preconditions and observed outcomes (including the empirical results of ISS and AUTH), the grouping rule and its atomicity consequence, the fee model, the sequence-number guard, and the list of what is detected and reported but not handled (pool shares, sponsoring reserves and claimable balances, raised thresholds, C addresses, mainnet), each with the remedy the user has.
 
 Acceptance:
 - Every `UnclosableCode` and Blocker code in section 7 appears in the write-up with its remedy.
@@ -698,7 +698,7 @@ Fixture A plus Trustline A5: asset `FRZ` from issuer I3 with `AUTH_REQUIRED` and
 | MS | A plus an extra signer and high threshold above the master weight | `blocked`, `THRESHOLD_UNMET` |
 | CLW | A with `LIQ` replaced by a clawback-enabled asset; issuer claws back between plan and execution in the recorded test | Drift handling per FR-16 |
 | AUTH | Authorization-required issuer in three states: authorized (normal), unauthorized with zero balance (removable), authorized-to-maintain-liabilities with dust (unclosable) | Per state |
-| ISS | A plus an asset whose issuer account was merged away; Destination holds the trustline | `send_to_destination` or `ISSUER_ACCOUNT_MISSING`; outcome recorded in the write-up |
+| ISS | A plus an asset whose issuer account was merged away; Destination holds the trustline | `return_to_issuer`: the payment burns the balance even though the issuer is gone (day-1 experiment 4; `docs/README.md` open question 3, resolved 2026-09-26); outcome recorded in the write-up |
 
 ### 9.4 Test matrix
 
@@ -777,7 +777,7 @@ Anything else is stretch (section 14).
 | D1 `planClose()` read-only planner, CLI dry run | FR-01, FR-02, FR-03, FR-04, FR-05, FR-06, FR-07, FR-08, FR-09, FR-10; NFR-01, NFR-05, NFR-10 | Public repo; `dustin plan` runnable against any testnet account (FR-09); committed plan output for Fixture A in `evidence/plan/` (FR-29) |
 | D2 `executeClose()` live on testnet, fee-sponsored, ladder, sponsored unwinding, seqnum guard, retry and recovery | FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20; NFR-02, NFR-03, NFR-04, NFR-09, NFR-11 | Transaction hashes with Explorer links and the Horizon 404 for the Account in `evidence/runs/<UTC stamp>/` (FR-18, FR-29; the layout is `evidence/runs/README.md`); 60-second video (FR-28) |
 | D3 Edge cases, fixture, baseline recording, test matrix | FR-21, FR-22, FR-23, FR-24, FR-25 | Test results screenshot and text in `evidence/tests/` (FR-24); public repo with `npm test` and `npm run test:live` (FR-24, FR-26); baseline recording and snapshots in `evidence/baseline/` (FR-25) |
-| D4 README, integration notes, write-up, 60-second demo, evidence package, npm package | FR-26, FR-27, FR-28, FR-29, FR-30; NFR-06, NFR-07, NFR-08, NFR-12 | Public repo (FR-30); write-up `docs/ordering-rules-and-limits.md` (FR-27); video (FR-28); `evidence/README.md` (FR-29) |
+| D4 README, integration notes, write-up, 60-second demo, evidence package, npm package | FR-26, FR-27, FR-28, FR-29, FR-30; NFR-06, NFR-07, NFR-08, NFR-12 | Public repo (FR-30); write-up `docs/write-up.md` (FR-27); video (FR-28); `evidence/README.md` (FR-29) |
 
 ### 12.2 Appendix B checklist to requirements
 
@@ -842,7 +842,7 @@ Candidates only; none is committed, scheduled, or budgeted.
 
 1. npm package name (`dustin` if available, otherwise a scoped name). Owner: the builder. Decide in Week 1.
 2. Does the hosted Account Demolisher offer a testnet mode? If not, the baseline is recorded by running its MIT-licensed source locally against testnet Horizon. Owner: the builder. Verify on day 1.
-3. Observed behavior of payments of an asset whose issuer account was merged away (variant ISS); determines whether `send_to_destination` is reachable in practice or `ISSUER_ACCOUNT_MISSING` applies. Owner: the builder. Week 3.
+3. Observed behavior of payments of an asset whose issuer account was merged away (variant ISS); determines whether `send_to_destination` is reachable in practice or `ISSUER_ACCOUNT_MISSING` applies. Owner: the builder. Week 3. Resolved on 2026-09-26 by day-1 experiment 4 (`docs/progress-log.md`; `docs/README.md` open question 3): the payment succeeds and burns the balance, so `return_to_issuer` needs only an authorized holder trustline and `ISSUER_ACCOUNT_MISSING` is informational, not an unclosable reason.
 4. Sprint start date, since the SOW's suggested date has passed; also whether the 2026-12-16 testnet reset falls inside the review window. Owner: the builder with the Ambassador Chapter Lead.
 5. Whether the reviewer prefers the video hosted as a repository release asset or an external link; both are acceptable per SOW 6.1. Owner: the Ambassador Chapter Lead.
 
@@ -869,7 +869,7 @@ Candidates only; none is committed, scheduled, or budgeted.
 - A-9. The environment variables are `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET`; secrets are never accepted as CLI flags.
 - A-10. Node.js LTS lines at delivery are 22.x and 24.x.
 - A-11. The Explorer used for links is StellarExpert's testnet explorer; any public testnet explorer that resolves transaction hashes and account ids is acceptable.
-- A-12. Whether a payment of an asset whose issuer no longer exists succeeds is not settled by the documentation; it is an empirical test (T-24), and the success-metric fixture does not depend on it.
+- A-12. Whether a payment of an asset whose issuer no longer exists succeeds is not settled by the documentation; it is an empirical test (T-24), and the success-metric fixture does not depend on it. Settled on 2026-09-26 by day-1 experiment 4: it succeeds and burns the balance (`docs/README.md` open question 3).
 - A-13. The Account Demolisher's MIT license and the limits quoted in the SOW's problem statement are taken from the SOW; the tool's existence and feature list were corroborated independently.
 - A-14. The builder appears in project documents only as the GitHub account `0xsimoneth`; no SOW contact details are copied.
 - A-15. Base fee on testnet is normally the network minimum of 100 stroops; example figures in this document use that value.
