@@ -1,6 +1,6 @@
 # Wallet integration notes
 
-> Status: first version, 2026-09-28 (story E4-S4, PRD FR-26). The API below is what `src/index.ts` exports on the main branch on that date, with the names of PRD section 7 (rewritten on 2026-09-28, PRD decision D-2). **Not released yet:** the npm package `stellar-dustin` 0.1.0 is planned for week 4; until then, build it from source (section 1). While the version starts with 0, a minor release may still change the API.
+> Status: first version 2026-09-28, updated the same day for the Epic 3 code and the third review round (story E4-S4, PRD FR-26). The API below is what `src/index.ts` exports on the main branch on that date, with the names of PRD section 7 (rewritten on 2026-09-28, PRD decision D-2). **Not released yet:** the npm package `stellar-dustin` 0.1.0 is planned for week 4; until then, build it from source (section 1). While the version starts with 0, a minor release may still change the API.
 
 These notes are for a wallet developer who wants to offer "close this account" to users: plan the close, show it, get the account holder's approval, execute it with the wallet's own signer and a sponsor that pays every fee, and handle what can go wrong. Why the steps come in the order they do is in the [write-up](write-up.md).
 
@@ -120,7 +120,7 @@ Either print it or build a screen from it.
 - Show the destination in full and say that the merge cannot be undone. The CLI makes the user type the last four characters of the destination; a wallet can use its own confirmation (PIN, biometrics, a hardware button) as long as the destination is unmistakable.
 - Call `executeClose` with `confirm: true` only after that approval. Anything but the literal `true` throws `CONFIRMATION_REQUIRED` before anything is read or signed.
 - Pass the plan the user approved. `executeClose` plans again from the ledger and compares the two (section 8).
-- The plan hash leaves out market quotes, so a worse quote after the approval is not drift and lowers the merged amount without a stop (review finding BH-7; a check is planned in story E3-S1 and not built yet). If the time between approval and execution is long, call `planClose` again just before executing and ask again when `recovery.xlmToDestination` fell.
+- The plan hash leaves out market quotes, so `executeClose` also compares the approved plan's `recovery.xlmToDestination` with its fresh plan's: a lower amount (a sale's quote got worse while the user decided) is drift, and by default nothing is signed (`XLM_TO_DESTINATION_FELL`, section 8; review finding BH-7). Show the user the amount you pass in, since that is the one checked.
 
 ## 6. Step 4: execute the close
 
@@ -180,11 +180,19 @@ Before anything is read, `executeClose` checks that the account signer's key is 
 
 1. The options are checked (`CONFIG_INVALID` for a value out of range) and the plan's network must be the testnet.
 2. Horizon must prove it serves the testnet (`GET /`).
-3. The account is read again and planned again with the approved plan's options (round 0). A different plan hash is drift (section 8).
-4. The run ends before anything is signed, with status `aborted`, when the account no longer exists (`ACCOUNT_MISSING`, with Horizon's 404 recorded in `verification`), when the plan changed and `onDrift` is `"abort"` (`PLAN_CHANGED`), when the fresh plan cannot end in a merge and `allowPartial` is not set (`PLAN_NOT_CLOSABLE`), when it has nothing to execute (`NOTHING_TO_EXECUTE`), or when it bids more than the budget (`OVER_BUDGET`). It throws `SPONSOR_UNDERFUNDED`, carrying the aborted report, when the sponsor cannot spend at least the budget.
-5. Each planned transaction is built, signed by the account signer, wrapped and signed by the sponsor, recorded in the report, then posted. A merge that follows other transactions first passes a fresh preflight.
-6. Failures are retried, rebuilt or planned again from the ledger as the [write-up](write-up.md) describes (sections 4 and 6).
-7. Horizon is asked for the account; after a merge the executor waits up to `verifyTimeoutMs` for the 404.
+3. The account is read again and planned again with the approved plan's options (round 0). A different plan hash, or less XLM for the destination than the approved plan promised, is drift (section 8).
+4. The run ends before anything is signed, with status `aborted`, in these cases:
+   - the account no longer exists (`ACCOUNT_MISSING`, with Horizon's 404 recorded in `verification`);
+   - the plan changed and `onDrift` is `"abort"` (`PLAN_CHANGED`, or `XLM_TO_DESTINATION_FELL` when only the amount fell);
+   - the fresh plan cannot end in a merge and `allowPartial` is not set (`PLAN_NOT_CLOSABLE`);
+   - it has nothing to execute (`NOTHING_TO_EXECUTE`);
+   - it bids more than the budget (`OVER_BUDGET`).
+
+   It throws `SPONSOR_UNDERFUNDED`, carrying the aborted report, when the sponsor cannot spend at least the budget. Just before the first submission the executor reads each reserve sponsor the plan names (section 6.4).
+5. Each planned transaction is built, signed by the account signer, wrapped and signed by the sponsor, recorded in the report, then posted. A merge runs after a fresh preflight when it follows other transactions, and also when its plan says the sequence guard does not hold yet.
+6. The sequence-guard wait (story E3-S4). When the guard is all that holds the merge back, the executor emits `wait` with `state: "start"`, reads the latest ledger every `pollIntervalMs`, and emits `wait` with `state: "end"` once the ledger before `untilLedger` has closed. It then checks again and submits the merge. The wait has two bounds: the plan's `maxWaitLedgers` (default 120 ledgers, about 10 minutes) counted from the latest ledger, and a limit on the local clock of twice the time of the ledgers to wait for plus two more, at about 5 s per ledger. Beyond either bound nothing more is signed and the run stops with `SEQNUM_TOO_FAR` and `stop.unblocksAtLedger` (section 10).
+7. Failures are retried, rebuilt or planned again from the ledger as the [write-up](write-up.md) describes (sections 4 and 6).
+8. Horizon is asked for the account; after a merge the executor waits up to `verifyTimeoutMs` for the 404. It then reads the reserve sponsors again.
 
 ### 6.3 Options
 
@@ -198,12 +206,12 @@ Before anything is read, `executeClose` checks that the account signer's key is 
 | `config`, `reader` | testnet defaults | As for `planClose`. |
 | `budgetStroops` | the plan's (5 XLM) | The sponsor's budget for this close. |
 | `maxBaseFeeStroops` | the plan's (1,000,000) | Cap on the bid per operation, also for fee escalation. |
-| `timeoutSeconds` | `120` | Validity of each inner transaction. |
+| `timeoutSeconds` | `120` | Validity of each inner transaction, from 1 to 3600 seconds. |
 | `maxAttemptsPerTransaction` | `5` | Envelopes per planned transaction, the first one included. |
 | `maxReplans` | `3` | Re-plans after operations failed on the ledger. |
 | `maxRateLimitRetries` | `5` | Posts of one envelope after HTTP 429. |
-| `pollIntervalMs` | `2000` | Pause between lookups; at least 200, never 0 (PRD decision D-5). |
-| `backoffMs` | `1000` | First pause after a 429, doubled each time; at least 200, never 0. |
+| `pollIntervalMs` | `2000` | Pause between lookups, and between reads of the latest ledger during the sequence-guard wait; from 200 ms (never 0, PRD decision D-5) to 2^31 - 1 ms, Node's timer limit. |
+| `backoffMs` | `1000` | First pause after a 429, doubled each time; from 200 to 2^31 - 1 ms, and the doubled pause stops at that limit. |
 | `graceSeconds` | `10` | How long to keep looking for an unconfirmed envelope after its time bound. |
 | `ledgerWaitSeconds` | `60` | How long to wait beyond that for a ledger closed after the bound. |
 | `verifyTimeoutMs` | `30000` | How long the final check waits for Horizon to answer 404 after a merge. |
@@ -217,17 +225,25 @@ A custom `submitter` is also accepted; it is internal and not documented before 
 
 | Field | Meaning |
 |---|---|
-| `status` | `closed` (a merge of this run applied), `partial` (everything possible ran; the account still exists), `aborted` (nothing was submitted), `failed` (stopped after something was submitted; run again to continue). Copies published during a run carry `running`. |
-| `stop` | Why the run stopped or did not start: `code`, `stage`, `verdict`, `detail`, and where relevant `txIndex`, `hash`, `stepId`, `resultCodes`, `unblocksAtLedger`, `maxTime`. `null` when the run did everything it could. |
+| `status` | `closed` (a merge of this run applied), `partial` (everything possible ran; the account still exists), `aborted` (nothing was submitted), `failed` (stopped after something was submitted, with no merge of this run applied; run again to continue). Copies published during a run carry `running`. |
+| `stop` | Why the run stopped or did not start: `code`, `stage`, `verdict`, `detail`, and where relevant `txIndex`, `hash`, `stepId`, `resultCodes`, `unblocksAtLedger`, `maxTime`, and `xlmToDestination` (`{ approved, fresh }`, for `XLM_TO_DESTINATION_FELL`). `null` when the run did everything it could. |
 | `message` | The same in one sentence. |
-| `transactions[]` | Every envelope submitted: `hash` (the fee bump's, the one explorers show), `innerHash`, `sequence`, `baseFeeStroops`, `ledger`, `feeChargedStroops`, `feeAccount`, `result` (`pending`, `applied`, `failed`, `rejected`, `unknown`), `mayStillApply`, `resultCodes`, `explanation`, both envelopes as XDR and `explorerUrl`. |
+| `transactions[]` | Every envelope submitted: `hash` (the fee bump's, the one explorers show), `innerHash`, `sequence`, `baseFeeStroops`, `ledger`, `feeChargedStroops`, `feeAccount`, `result` (`pending`, `applied`, `failed`, `rejected`, `unknown`), `resultCodes`, `explanation`, both envelopes as XDR and `explorerUrl`. An envelope whose outcome is `unknown` also carries `mayStillApply`, `sequenceUsed` (not found by hash, but its sequence number is known used) and `lookupError` (why the outcome could not be settled). |
 | `steps[]` | Each step of the plan the run started with: `status` (`applied`, `failed`, `not_run`), `txHash`, and `rung` for a disposal, which after a fall down the ladder differs from the plan. There is no separate fallback status (PRD decision D-2). |
 | `replans[]` | Each re-plan with its trigger, the assets demoted from the path payment and any drift. |
 | `unclosable[]`, `blockers[]` | What still keeps the account open, including `STEP_FAILED_TWICE` found during the run. |
-| `recovery` | `mergedXlm` (read from the merge result), `reservesReturnedToSponsors`, `feesPaidByAccount` (`"0"`), `feesPaidBySponsorStroops`. |
+| `recovery` | `mergedXlm` (read from the merge result), `reservesReturnedToSponsors`, `feesPaidByAccount` (`"0"`), `feesPaidBySponsorStroops`, and `sponsorsObserved`: for each reserve sponsor the plans name, a `SponsorObservation` `{ sponsor, before, after }`. Each side is a `SponsorState` `{ numSponsoring, balance, minimumBalance, ledger }` as Horizon showed it before the first submission and after the final check, or null when that read failed (a warning says so; it never changes the outcome) or, for `before`, when only a re-plan named the sponsor. Both types are exported. |
 | `verification` | `accountExists`, `horizonStatus`, `checkedAt`, `accountUrl`, `ledger`. |
 
-A verified close is `status === "closed"` with `verification.accountExists === false`. `closed` with `verification` null means the merge applied but the run was interrupted before the final check: call `verifyClosed(account)`, which returns `{ accountExists, horizonStatus, checkedAt, ledger, accountUrl }` and looks again every `intervalMs` (default 2 s) until Horizon answers 404 or `timeoutMs` (default 30 s) has passed.
+A merge of this run that applied always gives `status: "closed"` (review round 3, R3-10):
+
+- a verified close is `closed` with `verification.accountExists === false` and no `stop`;
+- when Horizon still returns the account at the final check, the report is `closed` with the stop `ACCOUNT_STILL_EXISTS`, and the CLI exits 5. Look at the account on the explorer before doing anything else;
+- `closed` with `verification` null means the merge applied but the run was interrupted before the final check: call `verifyClosed(account)`. It returns `{ accountExists, horizonStatus, checkedAt, ledger, accountUrl }` and looks again every `intervalMs` (default 2 s) until Horizon answers 404 or `timeoutMs` (default 30 s) has passed.
+
+The account being gone proves a close only after this run posted a merge envelope that could have applied, one whose outcome is `unknown` or `pending`. When the run's merge was refused or failed on the ledger and someone else removed the account, the run's stop stands (R3-1).
+
+On the live closes of 2026-09-28 the reserve sponsor showed `numSponsoring` 1 before and 0 after, and a minimum balance of 1.5 XLM before and 1.0 XLM after. Its balance was unchanged ([SDK close](../evidence/runs/20260928T112239Z-e3/summary.md), [CLI close](../evidence/runs/20260928T112252Z-e3-cli/summary.md)).
 
 ## 7. Progress events and persisted copies
 
@@ -236,8 +252,9 @@ A verified close is `status === "closed"` with `verification.accountExists === f
 | `type` | When | Fields | Show |
 |---|---|---|---|
 | `plan` | The fresh plan before anything is signed (`round` 0), and each re-plan | `plan`, `round` | "Checking the account" or "Plan updated" |
-| `drift` | The ledger differs from the approved plan | `action` (`abort` or `replan`), `previousPlanHash`, `planHash` | "The account changed" |
-| `preflight` | Before a merge that follows other transactions | `index`, `ok`, `detail` | Only on failure |
+| `drift` | The ledger differs from the approved plan | `action` (`abort` or `replan`), `previousPlanHash`, `planHash`, and `xlmToDestination` (`{ approved, fresh }`) when the destination would receive less | "The account changed" or "The amount fell" |
+| `preflight` | Before a merge that follows other transactions or whose plan says the sequence guard does not hold yet | `index`, `ok`, `detail` | Only on failure |
+| `wait` | The sequence-guard wait before a merge begins (`state: "start"`) and ends (`state: "end"`); a wait that runs out ends with a failed `preflight` instead | `reason` (`"sequence"`), `state`, `index`, `untilLedger`, `currentLedger` | "Waiting for ledger N (about S s)" |
 | `tx:building` | An envelope is being built; a rebuild raises `attempt` | `index`, `phase`, `opCount`, `attempt`, `round` | "Transaction n of m" |
 | `tx:submitted` | Signed and recorded in the report, about to be posted | `index`, `hash`, `explorerUrl`, `attempt`, `round` | The hash and the explorer link |
 | `tx:confirmed` | Applied on the ledger | `index`, `hash`, `ledger`, `feeChargedStroops` | "Confirmed" |
@@ -251,10 +268,16 @@ A verified close is `status === "closed"` with `verification.accountExists === f
 
 ## 8. Drift
 
-Drift is a difference between the ledger and the plan the user approved. Dustin looks for it at the start (the fresh plan's hash differs from the approved plan's) and after every mid-run re-plan (the re-plan found a new offer, trustline, data entry or pool share, a larger balance, an asset moving up the ladder, or a merge the approved plan did not have). Steps that already applied disappearing, and balances falling down the ladder, are not drift.
+Drift is a difference between the ledger and the plan the user approved. Dustin looks for it in three places:
 
-- `onDrift: "abort"` (default): the run stops with `PLAN_CHANGED`. At the start nothing was submitted (`aborted`); mid-run the transactions already applied stay applied (`failed`).
-- `onDrift: "replan"`: the run continues with the fresh plan without asking anyone.
+- at the start, when the fresh plan's hash differs from the approved plan's;
+- at the start, when the fresh plan sends less XLM to the destination (`recovery.xlmToDestination`, compared in stroops) than the approved plan. The plan hash leaves market quotes out, so a sale whose quote got worse while the user decided shows only here (review finding BH-7). A higher amount is not drift;
+- after every mid-run re-plan, when the re-plan found a new offer, trustline, data entry or pool share, a larger balance, an asset moving up the ladder, or a merge the approved plan did not have.
+
+Steps that already applied disappearing, and balances falling down the ladder, are not drift, even though a sale that falls to the burn lowers the proceeds.
+
+- `onDrift: "abort"` (default): the run stops with `PLAN_CHANGED`, or with `XLM_TO_DESTINATION_FELL` when only the amount fell. When the amount fell, under either code, both amounts are in `stop.xlmToDestination` and on the `drift` event. A stop at the start has submitted nothing (`aborted`; the CLI exits 3). A stop mid-run leaves the transactions already applied on the ledger (`failed`; the CLI exits 5).
+- `onDrift: "replan"`: the run continues with the fresh plan without asking anyone. A fallen amount then adds a warning that names both amounts.
 
 A wallet should keep the default, show the new plan (`planClose` again) and ask the user again.
 
@@ -275,7 +298,9 @@ Some stops say when to come back:
 | `stop.code` | Run again when |
 |---|---|
 | `OUTCOME_UNKNOWN` | A ledger has closed after `stop.maxTime`: until then the envelope `stop.hash` may still apply. |
-| `MERGE_PREFLIGHT_FAILED` or `SEQNUM_TOO_FAR` with `stop.unblocksAtLedger` | That ledger has closed. The executor's own wait for the sequence guard is in progress (story E3-S4). |
+| `SEQNUM_TOO_FAR` with `stop.unblocksAtLedger` | At or after that ledger. The executor already waits for the sequence guard within the plan's `maxWaitLedgers` and its local-clock limit (section 6.2, step 6). This stop means the wait would have been longer, or ran out, or the sequence number moved on while it waited, or the merge failed with `op_seq_num_too_far` twice. |
+| `MERGE_PREFLIGHT_FAILED` | The cause in `stop.detail` is gone: something other than the guard held the merge back, such as a subentry left, a sponsorship, or a destination that is missing or now requires a memo. |
+| `XLM_TO_DESTINATION_FELL`, `PLAN_CHANGED` | The user has seen and approved the new plan (section 8). |
 | `RETRY_LIMIT`, `FEE_LIMIT`, `OVER_BUDGET` | Network fees fall, or with a larger `budgetStroops` or `maxBaseFeeStroops`. |
 | `STEP_FAILED_TWICE`, `OPERATION_FAILED`, `TRANSACTION_REJECTED`, `REPLAN_LIMIT` | The cause in `stop.detail` is fixed, or with `allowPartial` to leave the item in place. |
 | `SEQUENCE_CONFLICT` | No other client is submitting for the account. |
@@ -302,7 +327,7 @@ A `DustinError` has `code` (stable; branch on it, never on the message), `stage`
 | `SPONSOR_REFUSED`, `TOO_MANY_OPERATIONS` | Safety checks before signing; they indicate a bug | Report it with `error.report`. |
 | `EXECUTION_INTERRUPTED` | Any unexpected error during a run, wrapped with its cause | Read `error.report` and continue as in section 10. |
 
-The report's `stop.code` is one of `PLAN_CHANGED`, `PLAN_NOT_CLOSABLE`, `NOTHING_TO_EXECUTE`, `ACCOUNT_MISSING`, `OVER_BUDGET`, `OPERATION_FAILED`, `STEP_FAILED_TWICE`, `REPLAN_LIMIT`, `TRANSACTION_REJECTED`, `SEQUENCE_CONFLICT`, `FEE_LIMIT`, `RETRY_LIMIT`, `OUTCOME_UNKNOWN`, `MERGE_PREFLIGHT_FAILED`, `SEQNUM_TOO_FAR`, `ACCOUNT_STILL_EXISTS`, or the code of the `DustinError` that interrupted the run. Its `verdict` is `replan` when running the close again is the remedy and `stop` when something must change first.
+The report's `stop.code` is one of `PLAN_CHANGED`, `XLM_TO_DESTINATION_FELL`, `PLAN_NOT_CLOSABLE`, `NOTHING_TO_EXECUTE`, `ACCOUNT_MISSING`, `OVER_BUDGET`, `OPERATION_FAILED`, `STEP_FAILED_TWICE`, `REPLAN_LIMIT`, `TRANSACTION_REJECTED`, `SEQUENCE_CONFLICT`, `FEE_LIMIT`, `RETRY_LIMIT`, `OUTCOME_UNKNOWN`, `MERGE_PREFLIGHT_FAILED`, `SEQNUM_TOO_FAR`, `ACCOUNT_STILL_EXISTS`, or the code of the `DustinError` that interrupted the run. Its `verdict` is `replan` when running the close again is the remedy and `stop` when something must change first.
 
 Horizon timeouts are Dustin's to handle: after a 504 it looks the transaction up by hash and never sends a second envelope while the first may still apply. Do not submit Dustin's envelopes yourself, and do not submit other transactions for the account while a close runs.
 
@@ -341,9 +366,22 @@ The plan's `unclosable` and `blockers` codes, with their meaning and remedy, are
 2. Asks Horizon which network it serves (`GET /`) and refuses anything but the testnet.
 3. Reads the account again and prints a fresh plan, with the sponsor as fee payer and the sponsor's per-close budget (5 XLM) next to the fee bid.
 4. Stops before anything is signed, with exit code 3, when there is nothing to execute, when an item cannot be disposed of and `--partial` is not given (with the reason and the remedy for each item), when the fee bid exceeds the budget, or when the sponsor cannot spend at least the budget.
-5. Shows what will happen (the destination, the XLM it receives through the merge, the sponsor and what it can spend, the transactions and operations) and asks for the last four characters of the destination. Anything else, an empty answer, the end of input, Ctrl-C, or a standard input that is not a terminal leaves everything untouched (exit 3). `--yes` skips the question for scripts and says so loudly; it is honoured only with `--execute`.
-6. Runs the plan. Every transaction is signed by the account and fee-bumped by the sponsor. Each one prints its hash and explorer link when it is submitted, then its ledger and the fee charged to the sponsor when it is confirmed, or its result codes when it fails.
-7. Checks the account on Horizon (404 means it no longer exists) and prints a receipt: every transaction with its outer and inner hash, ledger, fee and operations; the XLM merged into the destination; reserves returned to reserve sponsors; fees paid by the account (0) and by the sponsor; explorer links for the account and the destination. After a partial or failed run it says what is left and how to continue: run the same command again, and Dustin reads the account again and plans only what is left.
+5. Shows what will happen and asks for the last four characters of the destination. The summary gives:
+   - the destination and the XLM it receives through the merge;
+   - the sponsor, the plan's bid and, on its own "at most" line, the close budget as the most the sponsor can pay (retries and re-plans can bid more than the plan, never more than the budget);
+   - what the sponsor can spend, and the transactions and operations.
+
+   The question is asked only when standard input, standard error (which carries the question) and the stream that carried the plan and the summary (standard output, or standard error with `--json`) are all terminals. Otherwise the run ends unconfirmed with exit code 3, and the message names the stream that is not a terminal (review round 3, R3-28, R3-31). A wrong answer, an empty answer, the end of input or Ctrl-C also leave everything untouched (exit 3). `--yes` skips the question for scripts and says so loudly; it is honoured only with `--execute`.
+6. Runs the plan through `executeClose`, which plans again after the answer. If a quote got worse in the meantime and the destination would receive less than the summary said, the run stops with exit code 3 and signs nothing; the progress line names both amounts (`XLM_TO_DESTINATION_FELL`). Every transaction is signed by the account and fee-bumped by the sponsor. Each one prints its hash and explorer link when it is submitted, then its ledger and the fee charged to the sponsor when it is confirmed, or its result codes when it fails. A merge held back by the sequence guard prints the start of the wait (the ledger it can land from, the latest ledger, about how long to go) and its end (the ledger that closed).
+7. Checks the account on Horizon (404 means it no longer exists) and prints a receipt:
+   - every transaction with its outer and inner hash, ledger, fee and operations;
+   - the XLM merged into the destination, and "Reserves released to sponsors" with each reserve sponsor's planned reserve and the `num_sponsoring`, minimum balance and XLM balance observed on Horizon before and after;
+   - the fees paid by the account (0) and by the sponsor;
+   - a Disposals section with what became of each leftover balance: sold, burned by the return to its issuer, or sent to the destination, in which transaction, and which rung failed first after a fall down the ladder;
+   - a "Not closed" section with each unclosable item, the rungs ruled out and the remedy;
+   - explorer links for the account and the destination.
+
+   After a partial or failed run a "Next" line says what is left and how to continue: run the same command again, and Dustin reads the account again and plans only what is left. A sequence-guard stop names the ledger at which to run it. Guard stops exit 3 when the run was refused before anything was signed, 4 for a partial run with `--partial`, and 5 when the run stopped part-way.
 
 Details of the options:
 
@@ -351,7 +389,7 @@ Details of the options:
 - `--sponsor <G...>`: with `--execute` it must be the owner of `DUSTIN_SPONSOR_SECRET` (otherwise `WRONG_SIGNER`, exit 2); leave it out and the sponsor is that owner.
 - `--base-fee <stroops>`: with `--execute` it is both the bid and the ceiling: every re-plan keeps it, and a retry after `tx_insufficient_fee` cannot bid above it, so the run stops instead. Without it, a retry after a fee surge may raise the bid up to the per-operation cap, never beyond the 5 XLM budget.
 - `--json`: one JSON document on standard output, the plan or, with `--execute`, the final close report; the plan, the question, the progress and the receipt go to standard error. Progress as newline-delimited JSON events, and a non-interactive `--json`, are deferred to story E4-S1 (review finding AA-10).
-- `--report <file>`: the close report (JSON with public keys, hashes and envelopes; never a secret), rewritten after every change so a stopped run still has every hash. An earlier file at that path is kept under a timestamped name. A path whose name is `.env` is refused.
+- `--report <file>`: the close report (JSON with public keys, hashes and envelopes; never a secret), rewritten after every change so a stopped run still has every hash. An existing file at that path is kept under a timestamped name. A file named `.env` in any letter case (also `.env.<suffix>`), and any path that is the working directory's `.env` through a symbolic or hard link, is refused (review round 3, R3-26).
 
 The secrets come from `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` in the environment, else from `.env` in the working directory, and only `dustin close --execute` reads them; a value on the command line is refused (exit 2) without being echoed. `DUSTIN_HORIZON_URL` and `DUSTIN_EXPLORER_BASE` come from the environment only.
 
@@ -359,7 +397,7 @@ The secrets come from `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` in the
 
 1. Code examples use `@stellar/stellar-sdk` 17.1.0; `keyStore` and `wallet` stand for the integrator's own APIs.
 2. The CLI appendix describes `src/cli/commands/close.ts` on 2026-09-28; its output wording may change in story E4-S1.
-3. Fee figures quoted from the evidence are those of the week-2 testnet close (2026-09-26).
+3. Fee figures quoted from the evidence are those of the week-2 testnet close (2026-09-26); the reserve sponsor's observed figures are those of the metric closes of 2026-09-28.
 
 ## Sources
 
