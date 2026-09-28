@@ -455,6 +455,9 @@ async function postWithBackoff(
   const { settings } = ctx;
   for (let retry = 0; ; retry++) {
     entry.attempts += 1;
+    // Published as it happens (AC-E2-S3-6) and before the POST goes out, so a copy saved while the
+    // POST is in flight counts it (review round 3, R3-3); a re-post after a 429 too (R3-4).
+    ctx.changed();
     const outcome = await submitAndConfirm(
       ctx.submitter,
       { xdr: entry.feeBumpEnvelopeXdr, hash: entry.hash, maxTime },
@@ -475,8 +478,6 @@ async function postWithBackoff(
     );
     const limited = outcome.kind === "rejected" && outcome.status === 429;
     if (!limited || retry >= settings.maxRateLimitRetries) return outcome;
-    // Published as it happens (AC-E2-S3-6): posted `attempts` times, still pending.
-    ctx.changed();
     await settings.sleep(settings.backoffMs * 2 ** retry);
   }
 }

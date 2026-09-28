@@ -1,6 +1,10 @@
+import { existsSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { CloseReport } from "../../../src/execute/report.js";
 import {
   closeCli,
+  emptyDir,
   executeArgs,
   zeroSpendableWorld,
   type Fetch,
@@ -30,5 +34,35 @@ describe("R3-1: a merge this run knows did not apply is no close", () => {
     expect(r.out).not.toContain("Dustin close receipt   CLOSED");
     expect(r.out).not.toMatch(/The merge was applied/);
     expect(r.out).toContain("ACCOUNT_MISSING");
+  });
+});
+
+describe("R3-3, auditor 5: the --report file follows the run while it goes", () => {
+  it("holds the envelope in flight, posted once, while its POST is on its way", async () => {
+    const world = zeroSpendableWorld({ market: true });
+    const path = join(emptyDir(), "close.json");
+    const seen: Array<{ status: string; hashes: number; attempts: number } | null> = [];
+    const fetch = (url: string, init?: RequestInit) => {
+      if ((init?.method ?? "GET") === "POST") {
+        const copy = existsSync(path)
+          ? (JSON.parse(readFileSync(path, "utf8")) as CloseReport)
+          : null;
+        seen.push(
+          copy && {
+            status: copy.status,
+            hashes: copy.transactions.length,
+            attempts: copy.transactions.at(-1)?.attempts ?? 0,
+          },
+        );
+      }
+      return world.ledger.fetch(url, init);
+    };
+    const r = await closeCli(world, executeArgs(world, "--yes", "--report", path), { fetch });
+    expect(r.code).toBe(0);
+    expect(seen).toEqual([
+      { status: "running", hashes: 1, attempts: 1 },
+      { status: "running", hashes: 2, attempts: 1 },
+      { status: "running", hashes: 3, attempts: 1 },
+    ]);
   });
 });
