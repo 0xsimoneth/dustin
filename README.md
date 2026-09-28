@@ -45,9 +45,10 @@ Typing `export DUSTIN_ACCOUNT_SECRET=S...` at a prompt stores the secret in your
 
 - `dustin plan`, and `dustin close` without `--execute`, only read from Horizon; nothing is signed or submitted.
 - `dustin close --execute` reads the account again and prints the fresh plan and a summary. Its "at most" line names the close budget, the most the sponsor can pay whatever retries and re-plans bid. It then asks you to type the last four characters of the destination; `--yes` skips this for scripts. The question is asked only when standard input, standard error and the stream that carried the plan (standard output, or standard error with `--json`) are terminals. Otherwise the run ends with exit code 3 and says which stream is not a terminal.
-- If a quote gets worse after the confirmation, so that the destination would receive less than the summary said, the run stops with exit code 3 and signs nothing.
+- If a quote gets worse after the confirmation, so that the close would recover less than the summary said (the destination would receive less or, without a merge, the account would keep less), the run stops with exit code 3 and signs nothing.
 - Each transaction prints its hash and explorer link as it is submitted. A merge held back by the sequence guard prints the start and the end of its wait.
-- The receipt lists what became of each leftover balance (Disposals), each unclosable item with the rungs ruled out, and "Reserves released to sponsors" with the figures observed on Horizon. It ends with Horizon's 404 for the account. The full sequence is in the [integration notes](docs/integration-notes.md) (appendix).
+- The receipt lists what became of each leftover balance (Disposals, with each rung that failed and its own code after a fall down the ladder), each unclosable item with the rungs ruled out, and "Reserves released to sponsors" with the figures observed on Horizon. While a merge envelope's outcome is not known, it says so instead of claiming the XLM stayed on the account. It ends with Horizon's 404 for the account. Rendered from a copy saved while a run was going, it says what has not happened yet ("not run yet", "attributed when the run ends", "not read yet"). The full sequence is in the [integration notes](docs/integration-notes.md) (appendix).
+- If standard output is closed early (`dustin close ... | head`), the rest of the output goes to standard error after a one-line notice, starting with the part that hit the closed pipe, so no hash or receipt is lost.
 - Exit code 0 means the plan was printed, or the account is closed and verified gone. A sequence-guard stop exits 3 when the run was refused before signing, 4 for a partial run with `--partial`, and 5 when it stopped part-way; the receipt names the ledger at which to run the same command again.
 
 | Option of `dustin close` | Effect |
@@ -60,7 +61,7 @@ Typing `export DUSTIN_ACCOUNT_SECRET=S...` at a prompt stores the secret in your
 | `--prefer-destination` | Try the transfer to the destination before the return to the issuer. |
 | `--sponsor <G...>` | The fee sponsor; with `--execute` it must own `DUSTIN_SPONSOR_SECRET`. |
 | `--base-fee <stroops>` | Bid per operation instead of the `fee_stats` estimate; with `--execute` also the highest bid. |
-| `--json` | One JSON document on standard output (the plan, or the close report); the rest on standard error. |
+| `--json` | Exactly one JSON document on standard output: the close report once the executor has one, otherwise the plan (also when the run is refused, or fails before the executor's first report); the rest on standard error. |
 | `--report <file>` | With `--execute`, keep the close report (JSON, no secrets) in this file as the run goes. An existing file is kept under a timestamped name; a `.env` name in any letter case, or a link to the working directory's `.env`, is refused. |
 
 Exit codes:
@@ -113,6 +114,7 @@ console.log(renderReport(report, { plans: [plan] }));
 - `keypairSigner()` keeps the keypair in a closure. Any object with `publicKey()` and `sign(tx)` is a `Signer`, so a wallet can sign with its own key store or a hardware device. The sponsor signs only the fee-bump envelopes.
 - Before signing, `executeClose()` re-reads the account and plans again. If the plan changed, it stops with status `aborted` and submits nothing; pass `onDrift: "replan"` to continue with the fresh plan.
 - Errors are `DustinError`s with a stable `code`. When a run stops on an error after something was submitted, the error can carry the report so far in `error.report`.
+- The numeric options are checked before anything is read or signed, and a value out of range throws `CONFIG_INVALID`: for example `timeoutSeconds` from 1 to 3600, `graceSeconds` and `ledgerWaitSeconds` from 0 to 3600, `verifyTimeoutMs` at most one hour, and every pause (`pollIntervalMs`, `backoffMs`) at least 200 ms. The [integration notes](docs/integration-notes.md) list every option (section 6.3).
 - The SDK never reads environment variables or `.env`; the CLI does, for `dustin close --execute` only.
 
 The [integration notes](docs/integration-notes.md) cover the whole wallet flow: rendering the plan, approval, signers, events, drift, partial closes, continuing a stopped run, errors and how to fund and protect a sponsor.
@@ -150,7 +152,7 @@ Out of scope for this release:
 
 Limits set by the protocol:
 
-- A balance on a trustline its issuer has deauthorized (or authorized to maintain liabilities only) cannot be moved by the holder; Dustin reports it as unclosable, and only the issuer can re-authorize it or claw it back. A balance with no market whose issuer requires a memo needs `--memo`. A merged-away issuer is no obstacle: paying the balance back still burns it.
+- A balance on a trustline its issuer has deauthorized (or authorized to maintain liabilities only) cannot be moved by the holder; Dustin reports it as unclosable, and only the issuer can re-authorize it, or claw it back when the trustline is clawback-enabled. A balance with no market whose issuer requires a memo needs `--memo`. A merged-away issuer is no obstacle: paying the balance back still burns it.
 - An account that sponsors reserves for other accounts (including claimable balances it created), an account with the `AUTH_IMMUTABLE` flag, and an account whose sequence number is ahead of the ledger cannot be merged. Dustin detects each case and says what to do.
 
 Every case with its code and remedy is in the [write-up](docs/write-up.md), section 8.
@@ -165,6 +167,12 @@ The evidence follows SOW section 6.1; the [evidence index](evidence/README.md) m
 | D2 Live close on testnet | Transaction hashes (links) + 60-second video | The metric close of 2026-09-28, with the complete Epic 3 code, through the [SDK](evidence/runs/20260928T112239Z-e3/summary.md) and the [CLI](evidence/runs/20260928T112252Z-e3-cli/summary.md): zero-spendable messy accounts, every transaction a sponsor-paid fee bump, the reports, envelopes, Horizon records and the 404 ([layout](evidence/runs/README.md)). The first closes of week 2: [SDK](evidence/runs/20260926T125350Z/summary.md), [CLI](evidence/runs/20260927T200015Z-cli/summary.md). Pending: the video (E4-S6), and the close of the baseline fixture itself after its recording (matrix row B-03). |
 | D3 Edge cases and tests | Test results screenshot + public repo + baseline recording | The [test matrix](docs/test-matrix.md): every row with its offline and live tests; the tests under `test/` ([Development](#development)); the [baseline protocol](evidence/baseline/README.md). Pending: the test results screenshot (E4-S3), the Demolisher recording (E1-S2). |
 | Documentation, demo and evidence | Public repo + write-up + 60-second video | The [write-up](docs/write-up.md), the [integration notes](docs/integration-notes.md) and the [evidence index](evidence/README.md). Pending: the video (E4-S6) and the complete evidence package (E4-S7). |
+
+Three more live runs through the CLI on 2026-09-28, each with its transcript, report and Horizon records:
+
+- [Sequence-guard wait](evidence/runs/20260928T125223Z-e3s4-wait/summary.md): a sequence number bumped 12 ledgers ahead; the cleanup and the sale ran, the CLI printed the wait, and the merge applied in the unblocking ledger 4915293 (story E3-S4).
+- [Unclosable exit on the `edge` fixture](evidence/runs/20260928T125414Z-edge-frozen/summary.md): 62 of 62 fixture checks; a trustline frozen by its issuer; exit 3 without `--partial`, nothing signed; exit 4 with it, the rest cleaned up and the frozen FRZ trustline left, with its reason and remedy on the receipt (SOW week 3).
+- [Partial close with no route](evidence/runs/20260928T125528Z-e3s2-partial/summary.md): an issuer that requires a memo; DUSTC sent to the destination, DUSTB and SPTA `NO_DISPOSAL_ROUTE`, exit 3, then exit 4 with the partial-close receipt (story E3-S2).
 
 ## Development
 
@@ -187,7 +195,7 @@ Fixtures can also be built by hand on testnet: `dustin fixture create --profile 
 |---|---|---|---|
 | Week 1 | 2026-09-22 to 2026-09-28 | Fixture built, Demolisher baseline recorded, `planClose()` dry run printed | fixture built and dry run committed (`evidence/plan/`); the Demolisher baseline recording is pending |
 | Week 2 | 2026-09-29 to 2026-10-05 | Zero-XLM account closed end to end with sponsored fees | met early on 2026-09-26: [transaction chain and 404](evidence/runs/20260926T125350Z/summary.md) |
-| Week 3 | 2026-10-06 to 2026-10-12 | Disposal ladder, sponsored unwind, sequence guard, test matrix, messy fixture closed | met early on 2026-09-28: the ladder, the sponsored unwind, the sequence-guard wait and the edge cases proven live ([test matrix](docs/test-matrix.md)), and the messy fixture closed through the [SDK](evidence/runs/20260928T112239Z-e3/summary.md) and the [CLI](evidence/runs/20260928T112252Z-e3-cli/summary.md) ([evidence index](evidence/README.md)); the close of the baseline fixture itself follows its Demolisher recording |
+| Week 3 | 2026-10-06 to 2026-10-12 | Disposal ladder, sponsored unwind, sequence guard, test matrix, messy fixture closed | met early on 2026-09-28: the ladder, the sponsored unwind, the sequence-guard wait and the edge cases proven live ([test matrix](docs/test-matrix.md); through the CLI: [the wait](evidence/runs/20260928T125223Z-e3s4-wait/summary.md), [the unclosable exit](evidence/runs/20260928T125414Z-edge-frozen/summary.md)), and the messy fixture closed through the [SDK](evidence/runs/20260928T112239Z-e3/summary.md) and the [CLI](evidence/runs/20260928T112252Z-e3-cli/summary.md) ([evidence index](evidence/README.md)); the close of the baseline fixture itself follows its Demolisher recording |
 | Week 4 | 2026-10-13 to 2026-10-19 | npm publish, 60-second demo, evidence package, write-up | started early: first versions of the write-up and the integration notes; the npm release, the demo and the evidence package are pending |
 
 ## More

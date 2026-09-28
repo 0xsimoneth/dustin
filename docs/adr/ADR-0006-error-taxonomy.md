@@ -96,7 +96,7 @@ An `unclosable[]` entry lists the reason from every rung it tried, so the user s
 | `DEST_NO_TRUSTLINE`, `DEST_NOT_AUTHORIZED`, `DEST_LINE_FULL` | 3 | destination cannot receive the asset |
 | `LP_SHARE_BALANCE` | n/a | pool shares are never disposed (out of scope) |
 
-Every entry carries `remedy`, for example: "Ask the issuer G... to authorize the trustline (setTrustLineFlags) or to claw the balance back; then rerun."
+Every entry carries `remedy`, for example: "Ask the issuer G... to authorize the trustline again (SetTrustLineFlags), then run the plan again." As built, the remedy adds "or to claw the balance back" only for a clawback-enabled trustline, since a clawback needs the trustline's clawback flag, which only a trustline created after its issuer set `AUTH_CLAWBACK_ENABLED` has (closing review CP-7, 2026-09-28). Rung 1's two cases are told apart as built: "Horizon found no strict-send path to XLM for the full balance", or "the best strict-send quote pays less than 1 stroop of XLM for the full balance" (closing review CP-5).
 
 ### Logging and redaction
 

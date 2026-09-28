@@ -182,7 +182,7 @@ Plan result: this account cannot be fully closed yet.
 
   blocker   ILLQ 0.5000000: issuer GBIL...7LNE has revoked authorization for this trustline,
             so the balance cannot be sent anywhere, not even back to the issuer.
-            remedy: ask the issuer to re-authorize the trustline or claw the balance back, then run this plan again.
+            remedy: ask the issuer to authorize the trustline again (SetTrustLineFlags), then run the plan again.
 
   Dustin can still cancel 2 offers, delete 1 data entry, dispose of 3 balances, remove 3 trustlines
   and move 2.5000000 XLM (spendable after that cleanup) to GDES...M4RX.
@@ -191,18 +191,20 @@ Plan result: this account cannot be fully closed yet.
   To do that part now:  dustin close GDME...7Q2K --to GDES...M4RX --execute --partial
 ```
 
+As built (closing review, 2026-09-28): the remedy offers a clawback ("or to claw the balance back") only for a clawback-enabled trustline, since a clawback needs the trustline's clawback flag, which only a trustline created after its issuer set `AUTH_CLAWBACK_ENABLED` has (review finding CP-7). A partial run never moves native XLM: the cleanup and the sales run, and the XLM stays on the account, so the mockup's line about moving the spendable XLM to the destination describes a sweep that was not built.
+
 Blockers the planner detects and reports, with the wording shown to the user (protocol facts from the AccountMerge documentation, see Sources):
 
 | Condition | Shown as | Remedy line |
 |---|---|---|
-| Account has `AUTH_IMMUTABLE` set | "this account can never be merged (immutable flag)" | none; Dustin offers `--partial` to recover spendable XLM only |
+| Account has `AUTH_IMMUTABLE` set | "this account can never be merged (immutable flag)" | none; as built, when the plan runs something before its merge, the remedy says that with `--partial` it still runs but the account stays on the ledger and keeps its XLM (review finding CP-2) |
 | Account sponsors reserves for others (`numSponsoring > 0`, including claimable balances it created) | "this account is sponsoring N entries for other accounts; a sponsoring account cannot be merged" | "revoke or let those sponsorships end first"; claimable balance cleanup is out of scope per the SOW |
 | Liquidity pool shares held | "N pool share trustlines found; Dustin detects them but does not withdraw (out of scope)" | "withdraw from the pool first" |
-| Raised thresholds / multisig | "the merge needs signature weight N; the provided key has weight M" (AccountMerge is a high-threshold operation) | "collect the extra signatures outside Dustin" |
-| Trustline not authorized (or authorized to maintain liabilities only) with a balance | "issuer has revoked authorization; the balance cannot be sent anywhere" | "ask the issuer to re-authorize or claw back" |
+| Raised thresholds / multisig | "the merge needs signature weight N; the provided key has weight M" (AccountMerge is a high-threshold operation) | "collect the extra signatures outside Dustin"; as built, "sign outside Dustin with enough weight, or have the signers lower the thresholds (SetOptions)", and, when every signer together stays below the weight the merge needs, "none: ... the account can never be closed" (review findings CP-3, CP-4) |
+| Trustline not authorized (or authorized to maintain liabilities only) with a balance | "issuer has revoked authorization; the balance cannot be sent anywhere" | "ask the issuer to re-authorize", and "or to claw the balance back" only for a clawback-enabled trustline (review finding CP-7) |
 | Issuer account no longer exists | Not a blocker: a payment to an issuer that was merged away still succeeds and burns the balance, so the balance returns to the issuer as usual (day-1 experiment 4, `docs/progress-log.md`; `docs/README.md` open question 3, resolved 2026-09-26) | none needed |
 | Destination missing / same as account / cannot receive | "destination does not exist" / "destination must differ from the account" / "destination cannot receive this much XLM because of its own offers" | change `--to` |
-| Sequence number too far ahead | "the merge would be rejected (sequence number too high); Dustin will wait about N ledgers (~M min) before tx 3" | none needed; if the wait is longer than `--max-wait`, the plan reports it as unclosable for now |
+| Sequence number too far ahead | "the merge would be rejected (sequence number too high); Dustin will wait about N ledgers (~M min) before tx 3"; as built, the warning says the merge must wait until ledger N (about S s), names what runs first (the cleanup, the sale or sales, or both) and says the executor waits (review finding CP-17) | none needed; if the wait is longer than `--max-wait`, the plan reports it as unclosable for now. As built there is no `--max-wait` flag: beyond the plan's `maxWaitLedgers` (120 ledgers by default) the plan is blocked with `SEQNUM_TOO_FAR` and the ledger |
 
 ### 2.5 Progress rendering
 
@@ -283,7 +285,7 @@ The partial and failed variants change the verdict line and the affected rows on
 Dustin report   PARTIAL   (exit code 4)
 ...
   5   0.5000000 ILLQ                unclosable   issuer GBIL...7LNE revoked authorization; nothing can move this balance
-                                                 except the issuer (re-authorize or claw back)
+                                                 except the issuer (re-authorize; claw back if clawback-enabled)
  12   account                       not done     merge blocked while item 5 remains; 1.5000000 XLM stays locked
  13   sweep                         done         2.5000000 XLM sent to GDES...M4RX in tx 3 (spendable after cleanup)
 ```
