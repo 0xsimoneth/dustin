@@ -588,7 +588,11 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   return `${out.join("\n")}\n`;
 }
 
-function nextStep(report: CloseReport): string | null {
+/**
+ * The receipt's "Next" line: what to do after this report, or null when nothing is left to do.
+ * The CLI's last `error` line with --json carries it as the remedy (review finding AA-10).
+ */
+export function nextStep(report: CloseReport): string | null {
   // Review finding AA-13: a run after a completed close found the account gone (Horizon 404) and
   // submitted nothing; running it again would change nothing.
   if (

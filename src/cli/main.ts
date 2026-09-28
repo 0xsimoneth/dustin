@@ -22,4 +22,8 @@ process.exitCode = await run(process.argv, { stdout, stderr }, version, {
   // The question goes to standard error; it is asked only when every stream it depends on is a
   // terminal, standard output included when the plan it confirms was printed there.
   prompt: terminalPrompt({ input: process.stdin, output: process.stderr, stdout: process.stdout }),
+  // Review finding CL-1: SIGINT and SIGTERM while the executor runs stop it at the next safe point;
+  // a second one exits at once with code 5 (https://nodejs.org/api/process.html#signal-events).
+  signals: process,
+  exit: (code) => process.exit(code),
 });

@@ -2,6 +2,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Keypair } from "@stellar/stellar-sdk";
+import type { SignalSource } from "../../../src/cli/commands/close.js";
 import { run } from "../../../src/cli/run.js";
 import type { executeClose } from "../../../src/execute/executor.js";
 import type { HorizonBalance } from "../../../src/inspect/horizon-types.js";
@@ -117,6 +118,12 @@ export async function closeCli(
     answer?: string | null | ((question: string) => string | null);
     fetch?: Fetch;
     executeClose?: typeof executeClose;
+    /** The process signals of the run (review CL-1); without it no handler is added. */
+    signals?: SignalSource;
+    /** The forced exit after a second signal; without it the second signal only warns. */
+    exit?: (code: number) => void;
+    /** Receives every text written to standard output, as it is written. */
+    onStdout?: (text: string) => void;
   } = {},
 ): Promise<CliRun> {
   const out: string[] = [];
@@ -125,7 +132,13 @@ export async function closeCli(
   const answer = deps.answer;
   const code = await run(
     ["node", "dustin", ...args],
-    { stdout: (s) => void out.push(s), stderr: (s) => void err.push(s) },
+    {
+      stdout: (s) => {
+        out.push(s);
+        deps.onStdout?.(s);
+      },
+      stderr: (s) => void err.push(s),
+    },
     "0.0.0",
     {
       env: deps.env ?? world.env,
@@ -136,6 +149,8 @@ export async function closeCli(
         sleep: noSleep,
         ...(deps.executeClose ? { executeClose: deps.executeClose } : {}),
       },
+      ...(deps.signals ? { signals: deps.signals } : {}),
+      ...(deps.exit ? { exit: deps.exit } : {}),
       ...(answer === undefined
         ? {}
         : {

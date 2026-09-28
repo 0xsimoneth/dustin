@@ -124,16 +124,24 @@ describe("dustin close --execute: the typed confirmation", () => {
     });
   }
 
-  it("with --json still asks, on standard error, and prints only the refused plan on standard output when declined", async () => {
+  it("with --json never asks: without --yes it refuses with CONFIRMATION_REQUIRED, the plan on standard output (exit 3)", async () => {
     const world = zeroSpendableWorld();
-    const r = await closeCli(world, executeArgs(world, "--json"), { answer: "nope" });
+    const r = await closeCli(world, executeArgs(world, "--json"), { answer: "never asked" });
     expect(r.code).toBe(3);
-    expect(r.prompts).toHaveLength(1);
-    // Closing review CC-2: standard output carries one JSON document, the refused plan; the human
-    // text stays on standard error.
+    // Review finding AA-10 (E4-S1): --json is machine mode, so no question is ever asked.
+    expect(r.prompts).toEqual([]);
+    expect(world.ledger.submissions).toHaveLength(0);
+    // Closing review CC-2: standard output carries one JSON document, the refused plan.
     expect(JSON.parse(r.out)).toMatchObject({ kind: "dustin-close-plan", account: world.id });
-    expect(r.out).not.toContain("You are about to close");
-    expect(r.err).toContain("You are about to close");
+    // Standard error carries NDJSON only: the refusal is one `error` line.
+    const lines = r.err
+      .trimEnd()
+      .split("\n")
+      .map((l) => JSON.parse(l) as Record<string, unknown>);
+    expect(lines).toEqual([
+      expect.objectContaining({ type: "error", code: "CONFIRMATION_REQUIRED", exitCode: 3 }),
+    ]);
+    expect(r.err).not.toContain("You are about to close");
   });
 });
 
@@ -475,10 +483,21 @@ describe("dustin close --execute: --json and --report", () => {
       verification: { accountExists: false, horizonStatus: 404 },
     });
     expect(report.transactions.map((t) => t.hash)).toEqual(hashes(world));
-    // The plan, the progress and the receipt went to standard error.
-    expect(r.err).toContain("re-read for execution");
-    expect(r.err).toContain("submitted");
-    expect(r.err).toContain("Dustin close receipt   CLOSED");
+    // Review finding AA-10 (E4-S1): standard error carries the progress as NDJSON, no human text.
+    const types = r.err
+      .trimEnd()
+      .split("\n")
+      .map((l) => (JSON.parse(l) as { type: string }).type);
+    expect(types).toEqual([
+      "notice",
+      "plan",
+      "tx:building",
+      "tx:submitted",
+      "tx:confirmed",
+      "verified",
+      "done",
+    ]);
+    expect(r.err).not.toContain("Dustin close receipt");
     expectNoSecret(world, r.out, r.err);
   });
 

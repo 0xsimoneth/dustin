@@ -5,11 +5,13 @@ import { DustinError } from "../errors/dustin-error.js";
 import { redact } from "../errors/redact.js";
 import type { executeClose } from "../execute/executor.js";
 import type { FetchLike } from "../reader/horizon-json.js";
+import { channel, type Channel, type OutputMode } from "./channel.js";
 import {
   closeExecute,
   ignoredFlagsNote,
   type CloseCommandOptions,
   type Prompt,
+  type SignalSource,
 } from "./commands/close.js";
 import { fixtureCreate, fixtureVerify, type CommandContext } from "./commands/fixture.js";
 import { buildPlan, planCommand, printPlan, type PlanCommandOptions } from "./commands/plan.js";
@@ -41,6 +43,13 @@ export interface CliDeps {
    * must not wait injects one that returns at once), or the executor itself.
    */
   execute?: { sleep?: Sleep; executeClose?: typeof executeClose };
+  /**
+   * SIGINT and SIGTERM while `close --execute` runs the executor (review finding CL-1): `process`
+   * in the binary, a fake in tests. Without it no handler is added.
+   */
+  signals?: SignalSource;
+  /** Ends the process at once (`process.exit` in the binary), after a second signal. */
+  exit?: (code: number) => void;
 }
 
 /** Commands report their exit code here; `run()` returns it. */
@@ -58,9 +67,12 @@ export function buildProgram(
   io: CliIo,
   deps: CliDeps = { env: {} },
   state: CliState = { exitCode: 0 },
+  mode: OutputMode = { json: false, verbose: false },
+  out: Channel = channel(io, mode),
 ): Command {
-  const ctx: CommandContext = {
+  const ctx: CommandContext & { out: Channel } = {
     io,
+    out,
     config: () => resolveConfig(configFromEnv(deps.env)),
     ...(deps.fetch ? { fetch: deps.fetch } : {}),
     ...(deps.horizon ? { horizon: deps.horizon } : {}),
@@ -72,14 +84,26 @@ export function buildProgram(
     .version(version)
     .exitOverride()
     .configureOutput({
-      // Commander echoes arguments in its errors; never let it print a secret.
+      // Commander echoes arguments in its errors; never let it print a secret. In machine mode
+      // its human text is held back: run() reports a usage error as one `error` line (AA-10).
       writeOut: (text) => io.stdout(redact(text)),
-      writeErr: (text) => io.stderr(redact(text)),
+      writeErr: (text) => {
+        if (!mode.json) io.stderr(redact(text));
+      },
     })
     .showHelpAfterError()
-    .option("--network <name>", "network to use; only testnet is supported", "testnet");
+    .option("--network <name>", "network to use; only testnet is supported", "testnet")
+    .option(
+      "--verbose",
+      "on an error, print its full detail: cause chain, Horizon result codes, details (secrets redacted)",
+    );
 
-  program.hook("preAction", (command) => {
+  program.hook("preAction", (command, action) => {
+    // The parsed options decide the output mode from here on (review finding AA-10).
+    const name = action.name();
+    mode.json =
+      (name === "plan" || name === "close") && action.opts<{ json?: boolean }>().json === true;
+    mode.verbose = action.optsWithGlobals<{ verbose?: boolean }>().verbose === true;
     const { network } = command.opts<{ network: string }>();
     if (network !== "testnet") {
       throw new DustinError(
@@ -104,7 +128,10 @@ export function buildProgram(
     .option("--prefer-destination", "try the destination transfer before the return to issuer")
     .option("--memo <memo>", "memo for destinations that require one (SEP-29)")
     .option("--base-fee <stroops>", "fee bid per operation instead of the fee_stats estimate")
-    .option("--json", "print the plan as one JSON document")
+    .option(
+      "--json",
+      "machine mode: print the plan as one JSON document; errors go to standard error as NDJSON",
+    )
     .action(async (account: string, options: PlanCommandOptions) => {
       state.exitCode = await planCommand(account, options, ctx);
     });
@@ -132,7 +159,10 @@ export function buildProgram(
       "--base-fee <stroops>",
       "fee bid per operation instead of the fee_stats estimate; with --execute, the highest bid",
     )
-    .option("--json", "print one JSON document: the plan, or with --execute the final close report")
+    .option(
+      "--json",
+      "machine mode: one JSON document on standard output (the plan, or with --execute the final close report), NDJSON progress on standard error, never a question (with --execute it needs --yes)",
+    )
     .option(
       "--report <file>",
       "with --execute, keep the close report (JSON) in this file, updated as the run goes",
@@ -150,12 +180,14 @@ export function buildProgram(
           secrets: { env: deps.env, ...(deps.cwd !== undefined ? { cwd: deps.cwd } : {}) },
           ...(deps.prompt ? { prompt: deps.prompt } : {}),
           ...(deps.execute ? { execute: deps.execute } : {}),
+          ...(deps.signals ? { signals: deps.signals } : {}),
+          ...(deps.exit ? { exit: deps.exit } : {}),
         });
         return;
       }
       // Canonical decision 4: without --execute, close behaves exactly like plan.
       const note = ignoredFlagsNote(options);
-      if (note) io.stderr(note);
+      if (note) out.notice(note);
       const plan = await buildPlan(account, options, ctx);
       printPlan(plan, options, ctx, "add --execute to run this plan");
       state.exitCode = 0;
