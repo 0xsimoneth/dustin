@@ -202,7 +202,10 @@ export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<
   await options.onKeys?.(keys);
 
   log(`Funding the fee sponsor ${roles.sponsor} from Friendbot`);
-  await friendbot(options.friendbotUrl ?? FRIENDBOT_URL, roles.sponsor, doFetch, sleep);
+  await friendbot(options.friendbotUrl ?? FRIENDBOT_URL, roles.sponsor, doFetch, {
+    sleep,
+    horizonUrl: config.horizonUrl,
+  });
   const ledger = await latestLedger(client);
   const createdAtLedger = ledger.sequence;
   const baseReserve = BigInt(ledger.base_reserve_in_stroops);

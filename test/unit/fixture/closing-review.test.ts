@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import { run } from "../../../src/cli/run.js";
 import { TESTNET_PASSPHRASE } from "../../../src/config/network.js";
 import { DustinError } from "../../../src/errors/dustin-error.js";
-import { buildMessyFixture } from "../../../src/fixture/builder.js";
+import { buildMessyFixture, friendbot } from "../../../src/fixture/builder.js";
 import { buildEdgeFixture, openSettleChecks } from "../../../src/fixture/edge-builder.js";
 import { edgeSteps, type EdgeAccountRole } from "../../../src/fixture/edge.js";
 import { verifyEdgeFixture, type EdgeVerifyInput } from "../../../src/fixture/edge-verify.js";
@@ -286,5 +286,86 @@ describe("CP-11: a step settles only on checks that ran and passed", () => {
     expect(openSettleChecks(verifyEdgeFixture(input), ["clawback/claw-dust"])).toEqual([
       "clawback holds 0.0000004 CLAW: balance 0.0000000, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled true",
     ]);
+  });
+});
+
+describe("CP-8: after a failed Friendbot try, Horizon says whether the account was funded", () => {
+  const KEY = "GA6B2IOCNM54LTPBH73RYS35LEJBDO7FEL63UM2P5BTGIPNMERGT4ZQ7";
+  const timeout = () =>
+    Promise.reject(new DOMException("The operation timed out.", "TimeoutError"));
+  /**
+   * Friendbot answers each try in turn (`"timeout"` is a try that funded the account but gave up
+   * here); Horizon answers each look at the account in turn (the last answer repeats).
+   */
+  function world(tries: Array<number | "timeout">, looks: number[]) {
+    const seen: string[] = [];
+    let t = 0;
+    let l = 0;
+    const fetch = (url: string) => {
+      seen.push(url);
+      if (url === `${HORIZON}/`) return passphrase();
+      if (url.startsWith(FRIENDBOT)) {
+        const next = tries[Math.min(t++, tries.length - 1)]!;
+        // Friendbot funds with CreateAccount, which fails for an account that exists.
+        return next === "timeout"
+          ? timeout()
+          : answer(next, { detail: "createAccountAlreadyExist" });
+      }
+      if (/\/accounts\/G[A-Z2-7]{55}$/.test(url)) {
+        const status = looks[Math.min(l++, looks.length - 1)]!;
+        return answer(status, status === 200 ? { id: url.slice(-56) } : { status });
+      }
+      return answer(400, { status: 400 });
+    };
+    const count = (prefix: string) => seen.filter((u) => u.startsWith(prefix)).length;
+    return {
+      fetch,
+      friendbotTries: () => count(FRIENDBOT),
+      looks: () => count(`${HORIZON}/accounts/`),
+    };
+  }
+  const opts = { sleep: noSleep, horizonUrl: HORIZON };
+
+  it("a try that timed out after funding the account: Horizon has it, so no second try", async () => {
+    const w = world(["timeout", 400], [200]);
+    await expect(friendbot(FRIENDBOT, KEY, w.fetch, opts)).resolves.toBeUndefined();
+    expect(w.friendbotTries()).toBe(1);
+    expect(w.looks()).toBe(1);
+  });
+
+  it("an answer that is not OK: Horizon is asked after each try, until it shows the account", async () => {
+    const w = world([400], [404, 200]);
+    await expect(friendbot(FRIENDBOT, KEY, w.fetch, opts)).resolves.toBeUndefined();
+    expect(w.friendbotTries()).toBe(2);
+    expect(w.looks()).toBe(2);
+  });
+
+  it("an account Horizon never shows still fails, after three tries; a failed look proves nothing", async () => {
+    for (const looks of [[404], [500]]) {
+      const w = world([500], looks);
+      const error = await friendbot(FRIENDBOT, KEY, w.fetch, opts).catch((e: unknown) => e);
+      expect((error as DustinError).code).toBe("FRIENDBOT_FAILED");
+      expect(w.friendbotTries()).toBe(3);
+      expect(w.looks()).toBe(3);
+    }
+  });
+
+  it("edge and messy builders: a timed-out try that funded the sponsor does not stop the build", async () => {
+    const edge = world(["timeout", 400], [200]);
+    const e1 = await buildEdgeFixture({
+      fetch: edge.fetch,
+      friendbotUrl: FRIENDBOT,
+      sleep: noSleep,
+    }).catch((e: unknown) => e);
+    // Past Friendbot: stopped by the next Horizon read (HTTP 400), not FRIENDBOT_FAILED.
+    expect((e1 as DustinError).code).toBe("HORIZON_UNAVAILABLE");
+    expect(edge.friendbotTries()).toBe(1);
+
+    const messyWorld = world(["timeout", 400], [200]);
+    const e2 = await buildMessyFixture({ fetch: messyWorld.fetch, friendbotUrl: FRIENDBOT }).catch(
+      (e: unknown) => e,
+    );
+    expect((e2 as DustinError).code).toBe("HORIZON_UNAVAILABLE");
+    expect(messyWorld.friendbotTries()).toBe(1);
   });
 });

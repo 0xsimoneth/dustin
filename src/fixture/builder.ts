@@ -173,7 +173,9 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
   await options.onKeys?.(keys);
 
   log(`Funding the fee sponsor ${roles.sponsor} from Friendbot`);
-  await friendbot(options.friendbotUrl ?? FRIENDBOT_URL, roles.sponsor, doFetch);
+  await friendbot(options.friendbotUrl ?? FRIENDBOT_URL, roles.sponsor, doFetch, {
+    horizonUrl: config.horizonUrl,
+  });
   const createdAtLedger = (await latestLedger(client)).sequence;
   const baseFee = baseFeeFromFeeStats(await server.feeStats());
   log(
@@ -337,13 +339,27 @@ async function mustGetAccount(client: HorizonJsonClient, id: string): Promise<Ho
   return account;
 }
 
-/** Funds a fresh testnet account from Friendbot, with three tries. `wait` pauses between tries. */
+export interface FriendbotOptions {
+  /** Pauses between tries; default a timer. */
+  sleep?: (ms: number) => Promise<unknown>;
+  /**
+   * Horizon to ask, after a try that failed, whether the account exists. A try can fund the
+   * account and still fail here (a timeout, a reset connection); every later try is then refused,
+   * because Friendbot funds with CreateAccount, which fails for an account that exists
+   * (https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#create-account;
+   * closing review CP-8).
+   */
+  horizonUrl?: string;
+}
+
+/** Funds a fresh testnet account from Friendbot, with three tries. */
 export async function friendbot(
   url: string,
   publicKey: string,
   doFetch: FetchLike,
-  wait: (ms: number) => Promise<unknown> = sleep,
+  options: FriendbotOptions = {},
 ): Promise<void> {
+  const wait = options.sleep ?? sleep;
   let problem = "";
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await wait(2000 * attempt);
@@ -356,6 +372,9 @@ export async function friendbot(
     } catch {
       problem = "unreachable";
     }
+    if (options.horizonUrl && (await accountExists(options.horizonUrl, publicKey, doFetch))) {
+      return;
+    }
   }
   throw new DustinError("FRIENDBOT_FAILED", `Friendbot could not fund ${publicKey} (${problem}).`, {
     stage: "build",
@@ -363,6 +382,26 @@ export async function friendbot(
     verdict: "retry-same",
     remedy: "Friendbot is rate limited; wait a minute and run the command again.",
   });
+}
+
+/**
+ * Whether Horizon shows the account: true on HTTP 200 only. A 404, another status or no answer
+ * proves nothing either way, and the Friendbot loop tries again.
+ */
+async function accountExists(
+  horizonUrl: string,
+  publicKey: string,
+  doFetch: FetchLike,
+): Promise<boolean> {
+  try {
+    const response = await doFetch(`${horizonUrl}/accounts/${publicKey}`, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(30_000),
+    });
+    return response.status === 200;
+  } catch {
+    return false;
+  }
 }
 
 /**
