@@ -869,3 +869,38 @@ describe("R3-21: failed lookups are retried even when the bound passed long befo
     expect(sleeps).toBeGreaterThan(0);
   });
 });
+
+describe("R3-15: an async observer whose promise rejects is caught like one that throws", () => {
+  it("records the warning for an async onEvent and leaves no rejection unhandled", async () => {
+    const { deps, plan } = harness();
+    // An async function is assignable to (event) => void, so TypeScript accepts it.
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises -- the case under test
+      onEvent: async (e) => {
+        await Promise.resolve();
+        if (e.type === "tx:confirmed" && e.index === 2) throw new Error("disk full (async)");
+      },
+    });
+    expect(report.status).toBe("closed");
+    expect(report.warnings.join(" ")).toMatch(/onEvent callback threw \(disk full \(async\)\)/);
+  });
+
+  it("records the warning for an async onReport", async () => {
+    const { deps, plan } = harness();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      // eslint-disable-next-line @typescript-eslint/no-misused-promises -- the case under test
+      onReport: async (r) => {
+        await Promise.resolve();
+        if (r.transactions.length === 1) throw new Error("no space left (async)");
+      },
+    });
+    expect(report.status).toBe("closed");
+    expect(report.warnings.join(" ")).toMatch(
+      /onReport callback threw \(no space left \(async\)\)/,
+    );
+  });
+});

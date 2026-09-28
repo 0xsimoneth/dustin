@@ -331,16 +331,23 @@ class CloseRun {
   /**
    * Calls one of the caller's observers. An observer that throws must not stop a run that has
    * already signed and submitted (review finding 3): its error becomes a warning, once per callback.
+   * An async observer (TypeScript accepts one for a `void` callback) whose promise rejects is
+   * caught the same way, so it cannot end the process as an unhandled rejection; its warning is
+   * recorded when the rejection arrives (review round 3, R3-15).
    */
-  private observe(name: "onReport" | "onEvent", call: () => void): void {
-    try {
-      call();
-    } catch (error) {
+  private observe(name: "onReport" | "onEvent", call: () => unknown): void {
+    const failed = (error: unknown) => {
       if (this.failedObservers.has(name)) return;
       this.failedObservers.add(name);
       this.report.warnings.push(
         `The caller's ${name} callback threw (${error instanceof Error ? error.message : String(error)}); the run went on without it.`,
       );
+    };
+    try {
+      const result = call();
+      if (isThenable(result)) void result.then(undefined, failed);
+    } catch (error) {
+      failed(error);
     }
   }
 
@@ -1282,6 +1289,15 @@ class CloseRun {
           report: this.report,
         });
   }
+}
+
+/** A promise, or anything else with a `then` method: what an async observer returns. */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value !== null &&
+    (typeof value === "object" || typeof value === "function") &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
 }
 
 /**
