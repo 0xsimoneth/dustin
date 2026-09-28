@@ -17,6 +17,13 @@ export interface GuardedWriterOptions {
  * standard error as its fallback). Without one, as for standard error itself, the rest is dropped.
  * A `--report` file, when one was given, does not depend on either stream and gets every copy of
  * the report (review round 3, R3-29).
+ *
+ * On a pipe, `write()` does not throw on EPIPE: the chunk is discarded and the failure arrives
+ * later, through the write's callback (EPIPE for the chunk that hit the broken pipe, then an error
+ * for each chunk queued behind it) and then the "error" event. So every write carries a callback,
+ * and each chunk whose callback reports an error goes to the fallback, in the order written and
+ * after the notice: the chunk that hit the broken pipe and those written in the same tick are not
+ * lost, even when no later write comes (closing review CC-1).
  */
 export function guardedWriter(
   stream: NodeJS.WritableStream,
@@ -36,7 +43,11 @@ export function guardedWriter(
   return (text) => {
     if (broken) return elsewhere(text);
     try {
-      stream.write(text);
+      stream.write(text, (error) => {
+        if (!error) return;
+        broken = true;
+        elsewhere(text);
+      });
     } catch {
       broken = true;
       elsewhere(text);
