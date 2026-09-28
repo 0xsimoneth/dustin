@@ -258,10 +258,15 @@ export async function closeExecute(
   return code;
 }
 
-/** The last line about the --report file: written, or not, in which case the receipt is all there is. */
-function receiptLine(receipt: { path: string; ok: boolean }): string {
-  return receipt.ok
-    ? `Report written to ${receipt.path}\n`
+/**
+ * The last line about the --report file: written; not written at the end but holding an earlier
+ * copy of this run's report (review round 3, R3-30); or never written, in which case the receipt
+ * is all there is.
+ */
+function receiptLine(receipt: { path: string; ok: boolean; written: boolean }): string {
+  if (receipt.ok) return `Report written to ${receipt.path}\n`;
+  return receipt.written
+    ? `Report NOT fully written to ${receipt.path} (see the warning above): the file holds an earlier copy of this run's report, saved while it was in progress; the receipt printed here is the complete record.\n`
     : `Report NOT written to ${receipt.path} (see the warning above); the receipt printed here is the only record of this run's hashes.\n`;
 }
 
@@ -625,6 +630,7 @@ function receiptFile(path: string, ctx: CloseContext) {
   let warned = false;
   let writes = 0;
   let lastWriteOk = false;
+  let anyWriteOk = false;
   // A re-run with the same --report path must not erase the hashes of the earlier run (PRD
   // NFR-03, ux-design section 2.7): before the first write, an existing file is renamed aside;
   // if that fails, this run's report goes beside it instead, so the earlier file is never touched.
@@ -654,6 +660,10 @@ function receiptFile(path: string, ctx: CloseContext) {
     get ok(): boolean {
       return lastWriteOk;
     },
+    /** True when some write reached the file, so it holds at least an earlier copy (R3-30). */
+    get written(): boolean {
+      return anyWriteOk;
+    },
     write(report: CloseReport): void {
       const file = settle();
       // Created exclusively (wx) under an unguessable name, so a planted file or symlink with a
@@ -663,6 +673,7 @@ function receiptFile(path: string, ctx: CloseContext) {
         writeFileSync(temporary, `${json(report)}\n`, { mode: 0o644, flag: "wx" });
         renameSync(temporary, file);
         lastWriteOk = true;
+        anyWriteOk = true;
       } catch (error) {
         lastWriteOk = false;
         try {

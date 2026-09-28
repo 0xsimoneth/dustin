@@ -1,4 +1,4 @@
-import { existsSync, linkSync, readdirSync, readFileSync, symlinkSync } from "node:fs";
+import { chmodSync, existsSync, linkSync, readdirSync, readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { Prompt } from "../../../src/cli/commands/close.js";
@@ -233,5 +233,26 @@ describe("R3-28, R3-31: the confirmation is asked only where the facts were show
     expect(r.err).toContain("Nothing was executed");
     expect(r.err).toContain("--yes");
     expect(world.ledger.submissions).toHaveLength(0);
+  });
+});
+
+describe("R3-30: a report file that holds an earlier copy is not called missing", () => {
+  it("says the file holds an earlier copy when only the later writes failed", async () => {
+    const world = zeroSpendableWorld({ market: true });
+    const dir = emptyDir();
+    const path = join(dir, "close.json");
+    // The directory turns read-only before the second POST: the copies written until then stay.
+    const fetch = beforePost(world, 2, () => chmodSync(dir, 0o500));
+    try {
+      const r = await closeCli(world, executeArgs(world, "--yes", "--report", path), { fetch });
+      expect(r.code).toBe(0);
+      const saved = JSON.parse(readFileSync(path, "utf8")) as CloseReport;
+      expect(saved.status).toBe("running");
+      expect(saved.transactions).toHaveLength(2);
+      expect(r.out).not.toContain("the only record");
+      expect(r.out).toMatch(/Report NOT fully written to .*the file holds an earlier copy/s);
+    } finally {
+      chmodSync(dir, 0o700);
+    }
   });
 });
