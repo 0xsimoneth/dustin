@@ -225,11 +225,11 @@ interface ShownPlan {
 async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
   const { account, destination, baseFee, sponsor, reader, plan } = shown;
   const { options, ctx, out, document } = shown;
-  // A refusal before anything is signed: the words for people, an `error` line with --json, the
-  // refused plan as the stdout document, exit 3 (canonical decision 5).
+  // A refusal before anything is signed: the words for people on standard output, or with --json
+  // an `error` line and the refused plan as the stdout document; exit 3 (canonical decision 5).
   const refusedWith = (text: string, code: string, message: string, remedy: string) => {
     out.say(text);
-    out.fail({ code, message, remedy, exitCode: ExitCode.NOTHING_EXECUTED });
+    if (out.mode.json) out.fail({ code, message, remedy, exitCode: ExitCode.NOTHING_EXECUTED });
     document(plan);
     return ExitCode.NOTHING_EXECUTED;
   };

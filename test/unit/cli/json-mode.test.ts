@@ -185,6 +185,14 @@ describe("close --execute --json (AA-10)", () => {
     ]);
   });
 
+  it("prints the refusal for people on standard output only, as before machine mode existed", async () => {
+    const world = zeroSpendableWorld({ unauthorized: true });
+    const r = await closeCli(world, executeArgs(world, "--yes"));
+    expect(r.code).toBe(3);
+    expect(r.out).toContain("Not executed: the plan cannot end in a merge");
+    expect(r.err).toBe("");
+  });
+
   it("ends a run that stopped with the stop as its last line (exit 5)", async () => {
     const world = zeroSpendableWorld({ market: true });
     const recording = recordIncludedFaults(world.ledger, world.ledger.fetch);
