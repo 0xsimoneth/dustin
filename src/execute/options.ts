@@ -9,6 +9,13 @@ import { DustinError } from "../errors/dustin-error.js";
  */
 export const MAX_TIMEOUT_SECONDS = 3600;
 
+/**
+ * The longest final check after a merge, in milliseconds: one hour (the default is 30 s). Like the
+ * grace and the ledger wait, which extend the same waits as the validity window and are bounded by
+ * `MAX_TIMEOUT_SECONDS`, a longer one would make the wait endless in effect (closing review CX-9).
+ */
+export const MAX_VERIFY_TIMEOUT_MS = 60 * 60 * 1000;
+
 /** The numeric execute options, as `validateExecuteOptions` reads them. */
 export interface NumericExecuteOptions {
   maxAttemptsPerTransaction?: number;
@@ -34,11 +41,14 @@ const between = (least: number, most: number): Rule => ({
   test: (n) => Number.isSafeInteger(n) && n >= least && n <= most,
   expected: `a whole number from ${least} to ${most}`,
 });
-// A bound (how long to keep trying) may be 0, meaning "look once".
-const duration: Rule = {
-  test: (n) => Number.isFinite(n) && n >= 0,
-  expected: "a finite number of at least 0",
-};
+// A bound (how long to keep trying) may be 0, meaning "look once", and has a ceiling: the grace
+// and the ledger wait extend the wait for an unconfirmed envelope (maxWaitSeconds is the window
+// plus twice both), so without one they would make it endless in effect, as an unbounded window
+// would (closing review CX-9; review round 3, R3-18).
+const duration = (most: number): Rule => ({
+  test: (n) => Number.isFinite(n) && n >= 0 && n <= most,
+  expected: `a finite number from 0 to ${most}`,
+});
 // A pause (the time slept between two requests to Horizon) is at least 200 ms and never 0, so no
 // caller can make the executor poll Horizon in a tight loop (src/config/pauses.ts). Tests skip real
 // waiting by injecting `sleep`, never by passing 0. It is at most Node's timer limit, beyond which
@@ -54,9 +64,9 @@ const RULES: Record<keyof NumericExecuteOptions, Rule> = {
   maxRateLimitRetries: count(0),
   pollIntervalMs: pause,
   backoffMs: pause,
-  verifyTimeoutMs: duration,
-  graceSeconds: duration,
-  ledgerWaitSeconds: duration,
+  verifyTimeoutMs: duration(MAX_VERIFY_TIMEOUT_MS),
+  graceSeconds: duration(MAX_TIMEOUT_SECONDS),
+  ledgerWaitSeconds: duration(MAX_TIMEOUT_SECONDS),
   timeoutSeconds: between(1, MAX_TIMEOUT_SECONDS),
   budgetStroops: count(1),
   maxBaseFeeStroops: count(MIN_BASE_FEE),

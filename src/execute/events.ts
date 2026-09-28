@@ -13,8 +13,10 @@ export type CloseEvent =
       previousPlanHash: string;
       planHash: string;
       /**
-       * Set when the fresh plan sends less XLM to the destination than the approved plan
-       * (`recovery.xlmToDestination`), which the plan hash alone does not show (review BH-7).
+       * Set when the fresh plan recovers less XLM than the approved plan, which the plan hash alone
+       * does not show (review BH-7): the account's balance plus the quoted sales, which is
+       * `recovery.xlmToDestination` when the plan merges and what the account keeps when it does
+       * not (closing review CX-2).
        */
       xlmToDestination?: { approved: string; fresh: string };
     }

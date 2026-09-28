@@ -1,10 +1,11 @@
 import { formatStroops, toStroops } from "../amounts.js";
 import { DEFAULT_EXPLORER_BASE } from "../config/network.js";
-import type {
-  CloseReport,
-  SponsorObservation,
-  SponsorState,
-  SubmittedTransaction,
+import {
+  mayHaveApplied,
+  type CloseReport,
+  type SponsorObservation,
+  type SponsorState,
+  type SubmittedTransaction,
 } from "../execute/report.js";
 import { destinationBaseAccount } from "../inspect/address.js";
 import type { ClosePlan, CloseStep, DisposalRung } from "../plan/model.js";
@@ -178,6 +179,10 @@ function transactionLines(
 
 const entryName = (entry: string) => entry.replace(/:G[A-Z2-7]{55}/g, "");
 
+/** An envelope as the receipt numbers it: "tx 3", or "tx 1 of round 2" after a re-plan. */
+const txName = (tx: SubmittedTransaction) =>
+  `tx ${tx.index + 1}${tx.round > 0 ? ` of round ${tx.round}` : ""}`;
+
 /** A rung as the subject of "the ... failed". */
 const RUNG_ATTEMPT: Record<DisposalRung, string> = {
   path_payment: "sale by path payment",
@@ -192,17 +197,55 @@ function firstCode(codes: SubmittedTransaction["resultCodes"]): string {
 }
 
 /**
+ * Every failure on the ledger of the disposal of one asset, in the order of the report: for each
+ * envelope that failed on the disposal's operation, the rung it tried, from the plan of that
+ * envelope's round, and the operation's code. The step outcome keeps only the last codes and the
+ * rung of the plan the run started with, so a receipt built from it alone named the wrong rung
+ * after a fall down the ladder (closing review CC-8).
+ */
+function disposalFailures(
+  report: CloseReport,
+  stepsOfRound: (round: number) => Map<string, CloseStep>,
+  asset: { code: string; issuer: string },
+): Array<{ rung: DisposalRung | undefined; code: string }> {
+  const failures: Array<{ rung: DisposalRung | undefined; code: string }> = [];
+  for (const tx of report.transactions) {
+    if (tx.result !== "failed") continue;
+    // The operations follow the transaction's steps; the first that is not a success failed.
+    const ops = tx.resultCodes?.operations ?? [];
+    const at = ops.findIndex((c) => c !== "op_success");
+    if (at < 0) continue;
+    const step = stepsOfRound(tx.round).get(tx.stepIds[at] ?? "");
+    if (step?.kind !== "dispose_balance" || step.subject.type !== "trustline") continue;
+    const { code, issuer } = step.subject.asset;
+    if (code !== asset.code || issuer !== asset.issuer) continue;
+    failures.push({ rung: step.disposal?.rung, code: ops[at]! });
+  }
+  return failures;
+}
+
+/** "the sale by path payment failed with X, then the return to its issuer failed with Y". */
+function failedRungs(failures: Array<{ rung: DisposalRung | undefined; code: string }>): string {
+  return failures
+    .map((f) => `the ${f.rung ? RUNG_ATTEMPT[f.rung] : "disposal"} failed with ${f.code}`)
+    .join(", then ");
+}
+
+/**
  * What became of each leftover balance (stories E3-S1 and E3-S2; PRD FR-12): sold for XLM, burned
  * by the return to its issuer (a payment to the issuer takes the asset out of circulation,
  * https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/assets#deleting-or-burning-assets),
  * or sent to the destination, with the transaction and plan round it applied in; after a fall
- * down the ladder, the rung that failed first and its code. The steps come from the plans, so
- * without them this section is empty; so it is for a run that submitted nothing.
+ * down the ladder, each rung that failed and its code, as the failed envelopes and the plans of
+ * their rounds show them (closing review CC-8). The steps come from the plans, so without them
+ * this section is empty; so it is for a run that submitted nothing. `openMerge` is a merge
+ * envelope whose fate is not known: a sale's XLM leaves with it if it applies (CC-10).
  */
 function disposalLines(
   report: CloseReport,
   stepsOfRound: (round: number) => Map<string, CloseStep>,
   merged: boolean,
+  openMerge: SubmittedTransaction | undefined,
 ): string[] {
   if (report.transactions.length === 0) return [];
   const lines: string[] = [];
@@ -215,26 +258,42 @@ function disposalLines(
     if (step?.kind !== "dispose_balance" || step.subject.type !== "trustline") continue;
     const { code, issuer } = step.subject.asset;
     const planned = step.disposal?.rung;
+    // The rungs that failed, from the envelopes that failed and the plans of their rounds (CC-8).
+    const failures = disposalFailures(report, stepsOfRound, step.subject.asset);
     let text: string;
     if (outcome.status === "applied") {
       const rung = outcome.rung ?? planned;
       const tx = report.transactions.find((t) => t.hash === outcome.txHash);
-      const where = tx
-        ? ` in tx ${tx.index + 1}${tx.round > 0 ? ` of round ${tx.round}` : ""}`
-        : "";
+      const where = tx ? ` in ${txName(tx)}` : "";
+      // No final word on the XLM while a merge envelope may still apply or may have applied
+      // (closing review CC-10), nor in a copy saved while the run is going (CC-9).
+      const xlmNow = merged
+        ? "the XLM left with the merge"
+        : openMerge
+          ? `the XLM leaves with the merge if that envelope applies (${txName(openMerge)})`
+          : report.status === "running"
+            ? "the XLM is on the account while the run goes on"
+            : "the XLM stays on the account";
       text =
         rung === "path_payment"
-          ? `sold for XLM by path payment to the account itself${where}; ${merged ? "the XLM left with the merge" : "the XLM stays on the account"}`
+          ? `sold for XLM by path payment to the account itself${where}; ${xlmNow}`
           : rung === "return_to_issuer"
             ? `burned: returned to its issuer ${short(issuer)}${where}`
             : `sent to the destination ${short(report.destination)}${where}`;
-      if ((outcome.failures ?? 0) > 0 && planned && rung !== planned) {
-        text += `, after the ${RUNG_ATTEMPT[planned]} failed with ${firstCode(outcome.resultCodes)}`;
-      }
+      // The fall down the ladder names only rungs that failed, never the plan's first choice when
+      // a re-plan moved the balance without a failure of it.
+      const before = failures.filter((f) => f.rung !== rung);
+      if (before.length > 0) text += `, after ${failedRungs(before)}`;
     } else if (outcome.status === "failed") {
-      text = `not disposed of: the ${planned ? RUNG_ATTEMPT[planned] : "disposal"} failed with ${firstCode(outcome.resultCodes)}`;
+      text =
+        failures.length > 0
+          ? `not disposed of: ${failedRungs(failures)}`
+          : `not disposed of: the ${planned ? RUNG_ATTEMPT[planned] : "disposal"} failed with ${firstCode(outcome.resultCodes)}`;
     } else {
-      text = "not disposed of: the run stopped before this step";
+      text =
+        report.status === "running"
+          ? "not run yet"
+          : "not disposed of: the run stopped before this step";
     }
     lines.push(...wrap(text, 4, `  ${code} ${step.subject.balance}  `));
   }
@@ -248,15 +307,20 @@ function disposalLines(
  * check. Removing a sponsored entry moves no XLM: it lowers the sponsor's num_sponsoring, and so
  * its minimum balance
  * (https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves#effect-on-minimum-balance).
+ * The executor attributes the reserves when the run ends, so a copy saved while the run is going
+ * says so instead of "none" (closing review CC-9).
  */
 function sponsorLines(report: CloseReport): string[] {
   const planned = report.recovery.reservesReturnedToSponsors;
   const observed = report.recovery.sponsorsObserved ?? [];
   const total = planned.reduce((sum, x) => sum + toStroops(x.xlm), 0n);
+  const running = report.status === "running";
   const lines = wrap(
     planned.length > 0
       ? `Reserves released to sponsors: ${formatStroops(total)} XLM, never this account's`
-      : "Reserves released to sponsors: none",
+      : running
+        ? "Reserves released to sponsors: attributed when the run ends"
+        : "Reserves released to sponsors: none",
     4,
     "  ",
   );
@@ -267,19 +331,24 @@ function sponsorLines(report: CloseReport): string[] {
       ...wrap(
         x
           ? `${x.xlm} XLM reserve returned to sponsor ${short(sponsor)}, never this account's (${x.entries.map(entryName).join(", ")})`
-          : `nothing returned to sponsor ${short(sponsor)} by this run`,
+          : running
+            ? `reserve of sponsor ${short(sponsor)}: attributed when the run ends`
+            : `nothing returned to sponsor ${short(sponsor)} by this run`,
         6,
         "    ",
       ),
     );
     const o = observed.find((s) => s.sponsor === sponsor);
-    if (o) lines.push(...wrap(observedText(o), 6, "      "));
+    if (o) lines.push(...wrap(observedText(o, running), 6, "      "));
   }
   return lines;
 }
 
-/** What Horizon showed for one reserve sponsor before and after the run, in one sentence. */
-function observedText(o: SponsorObservation): string {
+/**
+ * What Horizon showed for one reserve sponsor before and after the run, in one sentence; in a copy
+ * saved while the run is going, the reading after the run is not taken yet (CC-9).
+ */
+function observedText(o: SponsorObservation, running = false): string {
   const state = (s: SponsorState) =>
     `num_sponsoring ${s.numSponsoring}, minimum balance ${s.minimumBalance} XLM, XLM balance ${s.balance}`;
   const { before, after } = o;
@@ -303,7 +372,7 @@ function observedText(o: SponsorObservation): string {
     );
   }
   if (before) {
-    return `observed on Horizon before the first submission: ${state(before)}; not read after the run`;
+    return `observed on Horizon before the first submission: ${state(before)}; ${running ? "not read yet" : "not read after the run"}`;
   }
   if (after) {
     return `observed on Horizon after the run: ${state(after)}; not read before the first submission`;
@@ -418,6 +487,18 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
     (s) => s.status === "applied" && steps.get(s.stepId)?.kind === "merge",
   );
   const mergeApplied = r.mergedXlm !== null || merged || appliedMerge || report.status === "closed";
+  // Without an applied merge, the last merge envelope whose fate is open (`mayHaveApplied`, the
+  // executor's own rule since closing review CX-1): the account's XLM goes with it if it applies
+  // (CC-10).
+  const openMerge = mergeApplied
+    ? undefined
+    : report.transactions
+        .filter(
+          (t) =>
+            mayHaveApplied(t) &&
+            (t.phase === "merge" || t.stepIds.some((id) => isMerge(t.round, id))),
+        )
+        .at(-1);
   out.push("", "Result");
   if (r.mergedXlm !== null) {
     out.push(
@@ -435,6 +516,14 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
         "  ",
       ),
     );
+  } else if (openMerge) {
+    out.push(
+      ...wrap(
+        `The merge (${txName(openMerge)}) has no known outcome: if it applies, or applied, the account's XLM goes to the destination with it; look its hash up on the explorer.`,
+        4,
+        "  ",
+      ),
+    );
   } else {
     out.push(
       ...wrap("No merge: the account was not merged, so no XLM moved through a merge.", 4, "  "),
@@ -446,7 +535,7 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
     `  ${xlm(r.feesPaidBySponsorStroops)} (${grouped(r.feesPaidBySponsorStroops)} stroops) in fees paid by the sponsor`,
   );
 
-  const disposals = disposalLines(report, stepsOfRound, mergeApplied);
+  const disposals = disposalLines(report, stepsOfRound, mergeApplied, openMerge);
   if (disposals.length > 0) {
     out.push("", "Disposals (what became of each leftover balance)", ...disposals);
   }

@@ -38,6 +38,7 @@ import {
   withPathsOnlyFor,
 } from "./replan.js";
 import {
+  mayHaveApplied,
   mergeAmountFromResultXdr,
   type CloseReport,
   type CloseStatus,
@@ -71,10 +72,11 @@ export interface ExecuteOptions {
   /** Run the cleanup even when the plan cannot end in a merge; default false. */
   allowPartial?: boolean;
   /**
-   * When the account changed since the plan, when the fresh plan made before signing sends less
-   * XLM to the destination than the approved plan (a worse quote; review BH-7), or when a mid-run
-   * re-plan finds something the approved plan did not have: stop (default) or continue with the
-   * fresh plan.
+   * When the account changed since the plan, when the fresh plan made before signing recovers less
+   * XLM than the approved plan (a worse quote; review BH-7): the account's balance plus the quoted
+   * sales, which the merge sends to the destination or, in a plan without a merge, the account
+   * keeps (closing review CX-2), or when a mid-run re-plan finds something the approved plan did
+   * not have: stop (default) or continue with the fresh plan.
    */
   onDrift?: "abort" | "replan";
   onEvent?: (event: CloseEvent) => void;
@@ -82,7 +84,8 @@ export interface ExecuteOptions {
    * Called with a copy of the report whenever it changes (created, each submission attempt, each
    * outcome, each re-plan, finished, and right before an error is thrown), so a caller can persist
    * it while the run progresses (PRD FR-17, AC-E2-S3-6). Copies carry the status `running` until
-   * the run finishes; the last copy carries the final status (blind review BH1).
+   * the run finishes; the last copy carries the final status (blind review BH1). An async
+   * observer whose promise rejects after the finish adds a warning and one more copy (CX-6).
    */
   onReport?: (report: CloseReport) => void;
   config?: DustinConfig;
@@ -106,7 +109,10 @@ export interface ExecuteOptions {
    * most 2^31 - 1 (Node's timer limit).
    */
   pollIntervalMs?: number;
-  /** How long to keep looking for an unconfirmed envelope after its time bound; default 10 s. */
+  /**
+   * How long to keep looking for an unconfirmed envelope after its time bound; default 10 s, at
+   * most 3600 (closing review CX-9).
+   */
   graceSeconds?: number;
   /** Re-plans allowed after operations failed on the ledger; default 3 (architecture 7.2). */
   maxReplans?: number;
@@ -119,7 +125,10 @@ export interface ExecuteOptions {
    * and the doubled pause never goes beyond that limit either.
    */
   backoffMs?: number;
-  /** How long the final check waits for Horizon to answer 404 after a merge; default 30 s. */
+  /**
+   * How long the final check waits for Horizon to answer 404 after a merge; default 30 s, at most
+   * one hour (3,600,000 ms; closing review CX-9).
+   */
   verifyTimeoutMs?: number;
   /**
    * Waits between lookups and retries; default a timer. Pauses are at least 200 ms and never 0
@@ -133,7 +142,8 @@ export interface ExecuteOptions {
   now?: () => number;
   /**
    * How long to wait, beyond an unconfirmed envelope's time bound and the grace, for a ledger that
-   * closed after the bound; after it the run stops with OUTCOME_UNKNOWN. Default 60 s.
+   * closed after the bound; after it the run stops with OUTCOME_UNKNOWN. Default 60 s, at most 3600
+   * (closing review CX-9).
    */
   ledgerWaitSeconds?: number;
 }
@@ -141,8 +151,8 @@ export interface ExecuteOptions {
 /**
  * Executes a close plan (SOW Deliverable 2). Every transaction is an inner transaction signed by
  * the account and wrapped in a fee bump signed by the sponsor (ADR-0003). Before anything is signed
- * the account is re-inspected and re-planned; a changed plan, or one that sends less XLM to the
- * destination than the approved plan (review BH-7), aborts unless `onDrift: "replan"`.
+ * the account is re-inspected and re-planned; a changed plan, or one that recovers less XLM than
+ * the approved plan (review BH-7, closing review CX-2), aborts unless `onDrift: "replan"`.
  * A merge in its own transaction runs only after a fresh preflight. Submissions are retried and
  * rebuilt safely, and operation failures re-plan from live state (E2-S3). The ledger is the source
  * of truth: running again after any stop continues from wherever the account is.
@@ -261,6 +271,8 @@ class CloseRun {
   private readonly settledLate = new Set<string>();
   /** Assets whose strict-send sale failed on the market during this run. */
   private readonly demoted = new Set<string>();
+  /** The failing operation code of each failure of a step, in order (closing review CX-4). */
+  private readonly failureCodes = new Map<StepOutcome, string[]>();
   private sponsor: FeeSponsor | null = null;
   private stage: ErrorStage = "plan";
   private round = 0;
@@ -347,19 +359,26 @@ class CloseRun {
    * already signed and submitted (review finding 3): its error becomes a warning, once per callback.
    * An async observer (TypeScript accepts one for a `void` callback) whose promise rejects is
    * caught the same way, so it cannot end the process as an unhandled rejection; its warning is
-   * recorded when the rejection arrives (review round 3, R3-15).
+   * recorded when the rejection arrives (review round 3, R3-15). A rejection that arrives once the
+   * run has finished missed the last copy, so the report is published again with the warning: the
+   * last copy (the --report file) says what the returned report says (closing review CX-6).
    */
   private observe(name: "onReport" | "onEvent", call: () => unknown): void {
-    const failed = (error: unknown) => {
-      if (this.failedObservers.has(name)) return;
+    const failed = (error: unknown): boolean => {
+      if (this.failedObservers.has(name)) return false;
       this.failedObservers.add(name);
       this.report.warnings.push(
         `The caller's ${name} callback threw (${error instanceof Error ? error.message : String(error)}); the run went on without it.`,
       );
+      return true;
     };
     try {
       const result = call();
-      if (isThenable(result)) void result.then(undefined, failed);
+      if (isThenable(result)) {
+        void result.then(undefined, (error: unknown) => {
+          if (failed(error) && this.report.status !== "running") this.publish();
+        });
+      }
     } catch (error) {
       failed(error);
     }
@@ -403,13 +422,20 @@ class CloseRun {
         detail: `The account ${plan.account} does not exist on the testnet ledger (Horizon answered 404); if an earlier run merged it, the close is complete. Nothing was submitted.`,
       });
     }
-    // Drift before anything is signed: a changed structure (plan hash), or less XLM for the
-    // destination than the caller approved. The plan hash leaves quotes and destMin out, so a
-    // sale quoted lower while the confirmation waited changes only the amount (review BH-7).
+    // Drift before anything is signed: a changed structure (plan hash), or less XLM recovered than
+    // the caller approved, for the destination or, without a merge, for the account (closing
+    // review CX-2). The plan hash leaves quotes and destMin out, so a sale quoted lower while the
+    // confirmation waited changes only the amount (review BH-7).
     // Mid-run re-plans are judged by replanDrift() instead, where a failed sale may fall down the
     // ladder and lower the proceeds by design.
     const hashChanged = fresh.planHash !== plan.planHash;
     const fell = xlmFell(plan, fresh);
+    // Closing review CX-3: a fresh plan without the approved plan's merge is named for what it is.
+    const merges = (p: ClosePlan) => p.steps.some((s) => s.kind === "merge");
+    const lostMerge = merges(plan) && !merges(fresh);
+    // The warning for a run that goes on with the fresh plan: added only once every refusal below
+    // has passed, so no stopped run says it went on (closing review CX-3).
+    let wentOn: string | null = null;
     if (hashChanged || fell) {
       const action = options.onDrift ?? "abort";
       this.emit({
@@ -420,15 +446,25 @@ class CloseRun {
         ...(fell ? { xlmToDestination: fell } : {}),
       });
       const amounts = fell
-        ? `the XLM the destination would receive fell from ${fell.approved} XLM to ${fell.fresh} XLM`
+        ? `${recoveredXlmWords(plan, fresh)} fell from ${fell.approved} XLM to ${fell.fresh} XLM`
         : "";
+      const noMerge = `the fresh plan no longer merges (status ${fresh.status})`;
       if (action === "abort") {
         if (hashChanged) {
+          const clauses = [
+            `The account changed since the plan was made (plan hash ${plan.planHash} is now ${fresh.planHash})`,
+            ...(lostMerge ? [noMerge] : []),
+            ...(fell ? [amounts] : []),
+          ];
+          const said =
+            clauses.length > 1
+              ? `${clauses.slice(0, -1).join(", ")}, and ${clauses.at(-1)!}`
+              : clauses[0]!;
           return this.abort({
             code: "PLAN_CHANGED",
             stage: "plan",
             verdict: "replan",
-            detail: `The account changed since the plan was made (plan hash ${plan.planHash} is now ${fresh.planHash})${fell ? `, and ${amounts}` : ""}; nothing was submitted. Review the new plan and run again.`,
+            detail: `${said}; nothing was submitted. Review the new plan and run again.`,
             ...(fell ? { xlmToDestination: fell } : {}),
           });
         }
@@ -440,10 +476,12 @@ class CloseRun {
           xlmToDestination: fell!,
         });
       }
-      if (fell) {
-        this.report.warnings.push(
-          `Since the plan was approved, ${amounts} (a worse quote for a sale, or a lower balance); the run went on with the fresh plan (onDrift "replan").`,
-        );
+      const causes = [
+        ...(lostMerge ? [noMerge] : []),
+        ...(fell ? [`${amounts} (a worse quote for a sale, or a lower balance)`] : []),
+      ];
+      if (causes.length > 0) {
+        wentOn = `Since the plan was approved, ${causes.join(", and ")}; the run went on with the fresh plan (onDrift "replan")${lostMerge ? " as a partial close (allowPartial): the account is not merged" : ""}.`;
       }
     }
     if (fresh.status !== "closable" && !options.allowPartial) {
@@ -481,6 +519,8 @@ class CloseRun {
     await this.checkSponsorFunds();
     // Story E3-S3: the reserve sponsors as they are before anything is submitted.
     await this.observeSponsors("before");
+    // Past every refusal before signing: only now has the run gone on with the fresh plan (CX-3).
+    if (wentOn !== null) this.report.warnings.push(wentOn);
     this.sponsor = new FeeSponsor(this.input.signers.feeSponsor, {
       networkPassphrase: fresh.network.passphrase,
       budgetStroops: fresh.fees.budgetStroops,
@@ -746,18 +786,24 @@ class CloseRun {
       untilLedger,
       currentLedger,
     });
+    // A read of the latest ledger that fails is a poll that did not reach the ledger: the wait
+    // goes on until its limit (closing review CX-7).
     const waited = await waitForLedger(this.input.reader, target, {
       pollIntervalMs: this.settings.pollIntervalMs,
       limitMs: ledgerWaitLimitMs(target - currentLedger),
       sleep: this.settings.sleep,
       now: this.settings.now,
+      knownLedger: currentLedger,
     });
     if (!waited.reached) {
+      const seconds = Math.round(waited.waitedMs / 1000);
       return {
         stop: this.sequenceStop(
           tx,
           untilLedger,
-          `the executor waited ${Math.round(waited.waitedMs / 1000)} s for ledger ${target} to close, but Horizon still reported ledger ${waited.ledger}: ledgers closed slower than the wait allows.`,
+          waited.readError !== undefined
+            ? `the executor waited ${seconds} s for ledger ${target} to close, but the last read of the latest ledger failed (${waited.readError}); the last ledger Horizon reported was ${waited.ledger}.`
+            : `the executor waited ${seconds} s for ledger ${target} to close, but Horizon still reported ledger ${waited.ledger}: ledgers closed slower than the wait allows.`,
         ),
       };
     }
@@ -918,8 +964,14 @@ class CloseRun {
       stepOutcome.failures = (stepOutcome.failures ?? 0) + 1;
       stepOutcome.resultCodes = outcome.codes;
       stepOutcome.explanation = failure.explanation;
+      this.failureCodes.set(stepOutcome, [
+        ...(this.failureCodes.get(stepOutcome) ?? []),
+        failure.code,
+      ]);
       this.publish();
     }
+    // Every failure of this step in the run, this one last.
+    const codes = (stepOutcome && this.failureCodes.get(stepOutcome)) ?? [failure.code];
     const stepId = stepOutcome?.stepId;
     const where = `Step ${stepId ?? `${failure.index + 1} of transaction ${tx.index + 1}`} (${step?.kind.replaceAll("_", " ") ?? "operation"}) failed with ${failure.code}: ${failure.explanation}`;
     const stopWith = (stop: Omit<StopReason, "stage" | keyof typeof at>): AfterFailure => ({
@@ -948,7 +1000,9 @@ class CloseRun {
       const maxWait =
         (this.roundPlans[this.round] ?? this.input.fresh).options?.maxWaitLedgers ??
         DEFAULT_MAX_WAIT_LEDGERS;
-      const twice = (stepOutcome?.failures ?? 0) >= 2;
+      // "This way" means op_seq_num_too_far: a failure of the merge with another code (a re-plan
+      // code such as op_has_sub_entries) is counted apart (closing review CX-4).
+      const twice = codes.filter((c) => c === "op_seq_num_too_far").length >= 2;
       const tooFar = unblocks !== undefined && unblocks - latest.sequence > maxWait;
       if (twice || tooFar) {
         const when =
@@ -969,6 +1023,7 @@ class CloseRun {
         explanation: failure.explanation,
         where,
         ...(stepId ? { stepId } : {}),
+        ...(unblocks !== undefined ? { unblocksAtLedger: unblocks } : {}),
       });
     }
     if (failure.verdict === "stop") {
@@ -979,7 +1034,8 @@ class CloseRun {
       const subject = step ? describeSubject(step.subject) : "operation";
       this.report.blockers.push({
         code: "STEP_FAILED_TWICE",
-        reason: `Step ${stepOutcome.stepId} (${step?.kind.replaceAll("_", " ") ?? "operation"}, ${subject}) failed twice on the ledger with ${failure.code}: ${failure.explanation}`,
+        // Each code when they differ, in order (closing review CX-4).
+        reason: `Step ${stepOutcome.stepId} (${step?.kind.replaceAll("_", " ") ?? "operation"}, ${subject}) ${failedHow(codes)}: ${failure.explanation}`,
         // Review round 3, R3-5: --partial only lets a plan that cannot merge run; it is not an
         // input to the planner, so the next plan includes the same step again.
         remedy: `Look at the account's ${subject} on the explorer to find out why the step keeps failing, resolve that or wait until it settles, then run the close again, which plans from the ledger; --partial does not skip it, since the next plan includes the step again.`,
@@ -987,10 +1043,15 @@ class CloseRun {
         stepId: stepOutcome.stepId,
         resultCodes: outcome.codes,
       });
+      const times = codes.length === 2 ? "twice" : `${codes.length} times`;
+      const before = codes.slice(0, -1);
+      const earlier = before.every((c) => c === failure.code)
+        ? ""
+        : ` (${before.length === 1 ? "first" : "before this"} with ${before.join(", then ")})`;
       return stopWith({
         code: "STEP_FAILED_TWICE",
         verdict: "stop",
-        detail: `${where} It failed twice, so the run stops here, before the merge.`,
+        detail: `${where} It failed ${times}${earlier}, so the run stops here, before the merge.`,
       });
     }
     if (failure.demoteRung1 && step?.subject.type === "trustline") {
@@ -1019,9 +1080,14 @@ class CloseRun {
     /** One sentence that opens the stop's detail. */
     where: string;
     stepId?: string;
+    /**
+     * Set when the merge failed with op_seq_num_too_far within the plan's bound: the first ledger
+     * the next merge can land in (closing review CX-5).
+     */
+    unblocksAtLedger?: number;
   }): Promise<AfterFailure> {
     const { options, reader, fresh, plan, sponsorKey } = this.input;
-    const { tx, where, stepId } = trigger;
+    const { tx, where, stepId, unblocksAtLedger } = trigger;
     // The round of the transaction that forced the re-plan. A stop raised after the new round was
     // counted still names that transaction (txIndex, hash), so it carries its round too (review
     // round 3, R3-7).
@@ -1040,12 +1106,30 @@ class CloseRun {
         ...stop,
       },
     });
-    if (this.report.replans.length >= (options.maxReplans ?? 3)) {
-      return stopWith({
-        code: "REPLAN_LIMIT",
-        verdict: "stop",
-        detail: `${where} The run already re-planned ${this.report.replans.length} times, so it stops here.`,
-      });
+    // Closing review CX-5: after op_seq_num_too_far within the bound, waiting for a ledger is all
+    // the merge needs, so a stop that cannot plan it again now is the guard's stop: verdict
+    // replan, and the ledger to run the close again at.
+    const guardStop = (why: string): AfterFailure | null =>
+      unblocksAtLedger === undefined
+        ? null
+        : stopWith({
+            code: "SEQNUM_TOO_FAR",
+            verdict: "replan",
+            detail: `${where} The next merge can land from ledger ${unblocksAtLedger}, but ${why} Run the close again at or after ledger ${unblocksAtLedger}; it continues from the ledger.`,
+            unblocksAtLedger,
+          });
+    const maxReplans = options.maxReplans ?? 3;
+    if (this.report.replans.length >= maxReplans) {
+      return (
+        guardStop(
+          `the run already re-planned ${this.report.replans.length} times (maxReplans ${maxReplans}), so it cannot plan the merge again now.`,
+        ) ??
+        stopWith({
+          code: "REPLAN_LIMIT",
+          verdict: "stop",
+          detail: `${where} The run already re-planned ${this.report.replans.length} times, so it stops here.`,
+        })
+      );
     }
     this.stage = "plan";
     const allowed = new Set([...rungOneAssets(fresh)].filter((a) => !this.demoted.has(a)));
@@ -1128,12 +1212,18 @@ class CloseRun {
     // re-plan never runs its first transactions and then stops before the merge for lack of it.
     const left = this.sponsor!.remainingStroops;
     if (next.fees.totalStroops > left) {
-      return stopWith({
-        code: "OVER_BUDGET",
-        stage: "sponsor",
-        verdict: "stop",
-        detail: `${where} The re-plan's fee bids total ${next.fees.totalStroops} stroops, more than the ${left} stroops left of the close budget of ${next.fees.budgetStroops} stroops; nothing more was signed. Raise the close budget or wait for network fees to fall, then run the close again.`,
-      });
+      const { totalStroops, budgetStroops } = next.fees;
+      return (
+        guardStop(
+          `the re-plan's fee bids total ${totalStroops} stroops, more than the ${left} stroops left of the close budget of ${budgetStroops} stroops; nothing more was signed.`,
+        ) ??
+        stopWith({
+          code: "OVER_BUDGET",
+          stage: "sponsor",
+          verdict: "stop",
+          detail: `${where} The re-plan's fee bids total ${totalStroops} stroops, more than the ${left} stroops left of the close budget of ${budgetStroops} stroops; nothing more was signed. Raise the close budget or wait for network fees to fall, then run the close again.`,
+        })
+      );
     }
     return { kind: "replan", plan: next };
   }
@@ -1247,8 +1337,9 @@ class CloseRun {
    * close like any other. If none is confirmed the account is still verified gone, so the run is
    * reported closed with a message saying the merge was not confirmed, never failed. Null when the
    * account exists, or when no merge envelope of this run could have applied: none was posted, or
-   * every one was refused before inclusion or failed on the ledger. Then someone else removed the
-   * account, and the stop stands (review round 3, R3-1).
+   * every one was refused before inclusion, failed on the ledger (review round 3, R3-1) or was
+   * judged unable to apply by the run itself (closing review CX-1; `mergeCandidates`). Then
+   * someone else removed the account, and the stop stands.
    */
   private async closedUnseen(
     verification: NonNullable<CloseReport["verification"]>,
@@ -1426,15 +1517,23 @@ class CloseRun {
    * With the account verified gone after this run's merge every entry of it is gone, so the steps
    * of an envelope that may have applied unseen count as applied, not confirmed by hash (review
    * round 3, R3-12): those of the unconfirmed merge, and those of an envelope whose sequence number
-   * is known used. Only steps still `not_run` are marked; one another envelope applied keeps it.
+   * is known used. A step still `not_run` is marked, and so is one that failed in an envelope
+   * before the unseen one, which carried it again; it keeps its failure count (closing review
+   * CX-10). One that another envelope applied, or that failed later, keeps its status.
    */
   private markGoneSteps(unconfirmed: SubmittedTransaction | null): void {
+    const order = new Map(this.report.transactions.map((t, i) => [t.hash, i]));
     for (const entry of this.report.transactions) {
       const unseen = entry.result === "unknown" && entry.sequenceUsed === true;
       if (entry !== unconfirmed && !unseen) continue;
+      const at = order.get(entry.hash)!;
       for (const step of this.envelopeSteps.get(entry.hash) ?? []) {
         const outcome = this.outcomes.get(stepIdentity(step));
-        if (outcome?.status !== "not_run") continue;
+        if (!outcome || outcome.status === "applied") continue;
+        // A failed step is marked only when it failed before this envelope carried it again.
+        if (outcome.status === "failed" && (order.get(outcome.txHash ?? "") ?? Infinity) >= at) {
+          continue;
+        }
         outcome.status = "applied";
         outcome.txHash = entry.hash;
         if (entry.round > 0) outcome.round = entry.round;
@@ -1451,15 +1550,18 @@ class CloseRun {
   }
 
   /**
-   * The merge-carrying envelopes this run posted whose outcome is not known: `unknown`, or
-   * `pending` in a run interrupted mid-POST. Only these could have removed the account; one
-   * refused before inclusion or failed on the ledger cannot have (review round 3, R3-1).
+   * The merge-carrying envelopes this run posted that may have applied unseen: `pending` in a run
+   * interrupted mid-POST, or `unknown` with a flag that leaves its fate open (`mayStillApply`,
+   * `lookupError`, `sequenceUsed`). Only these could have removed the account; one refused before
+   * inclusion or failed on the ledger cannot have (review round 3, R3-1), and neither can one the
+   * run itself found gone past its time bound with its sequence number unused, which it judged
+   * "can never apply" (closing review CX-1).
    */
   private mergeCandidates(): SubmittedTransaction[] {
     return this.report.transactions.filter(
       (t) =>
         t.attempts > 0 &&
-        (t.result === "unknown" || t.result === "pending") &&
+        mayHaveApplied(t) &&
         (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
     );
   }
@@ -1533,23 +1635,55 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 }
 
 /**
- * Both amounts when the fresh plan sends less XLM to the destination than the approved one
- * (`recovery.xlmToDestination`, BigInt stroops); null when it sends as much or more, which is not
- * drift (review BH-7).
+ * Both amounts when the fresh plan recovers less XLM than the approved one; null when it recovers
+ * as much or more, which is not drift (review BH-7). What a plan recovers is the account's native
+ * balance plus the quoted proceeds of its sales, in BigInt stroops: `recovery.xlmToDestination`
+ * when the plan merges, and what the account keeps when it does not, where `xlmToDestination` is
+ * 0 and would hide a worse quote (closing review CX-2).
  */
 function xlmFell(
   approved: ClosePlan,
   fresh: ClosePlan,
 ): { approved: string; fresh: string } | null {
-  const before = toStroops(approved.recovery.xlmToDestination);
-  const now = toStroops(fresh.recovery.xlmToDestination);
+  const recovered = (p: ClosePlan) =>
+    toStroops(p.recovery.nativeBalance) + toStroops(p.recovery.quotedProceedsXlm);
+  const before = recovered(approved);
+  const now = recovered(fresh);
   return now < before ? { approved: formatStroops(before), fresh: formatStroops(now) } : null;
+}
+
+/**
+ * What the two amounts of a fall (`xlmFell`) measure, in words, from whether the plans merge: the
+ * XLM the destination would receive when both do, the XLM the account would keep when neither does,
+ * and the XLM the close would recover otherwise (closing review CX-2). The CLI's progress line uses
+ * the same words.
+ */
+export function recoveredXlmWords(approved: ClosePlan, fresh: ClosePlan): string {
+  const merges = (p: ClosePlan) => p.steps.some((s) => s.kind === "merge");
+  if (merges(approved) && merges(fresh)) return "the XLM the destination would receive";
+  if (!merges(approved) && !merges(fresh)) {
+    return "the XLM the account would keep (its balance plus the quoted sales; the plan does not merge)";
+  }
+  return "the XLM the close would recover (the account's balance plus the quoted sales)";
 }
 
 /** An error in a few words for a warning: its code and message when it is a DustinError. */
 function errorText(error: unknown): string {
   if (error instanceof DustinError) return `${error.code}: ${error.message}`;
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * How a step failed on the ledger, from the failing code of each of its failures in order: "failed
+ * twice on the ledger with X" when they share one code, otherwise each code in order, so that a
+ * STEP_FAILED_TWICE blocker never credits a failure to the wrong code (closing review CX-4).
+ */
+function failedHow(codes: string[]): string {
+  const times = codes.length === 2 ? "twice" : `${codes.length} times`;
+  if (new Set(codes).size <= 1) return `failed ${times} on the ledger with ${codes.at(-1) ?? ""}`;
+  return codes.length === 2
+    ? `failed twice on the ledger, first with ${codes[0]!}, then with ${codes[1]!}`
+    : `failed ${times} on the ledger, with ${codes.slice(0, -1).join(", ")} and then ${codes.at(-1)!}`;
 }
 
 /** A wait of `ledgers` ledgers in words, at the observed 5 s per ledger (src/plan/guard.ts). */

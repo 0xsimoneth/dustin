@@ -10,8 +10,16 @@ import type { ResultCodes, SubmitOutcome } from "./submit.js";
  * run that was killed says it never finished instead of claiming an outcome (blind review BH1).
  *
  * - `closed`: a merge of this run applied, seen by hash or proven by the account being gone after
- *   this run posted a merge envelope that could have applied (one whose outcome is unknown; not
- *   one refused or failed on the ledger). It does not by itself say the account was verified gone:
+ *   this run posted a merge envelope that could have applied: one `pending` mid-POST, or one
+ *   `unknown` that may still apply (`mayStillApply`), may have applied (`sequenceUsed`) or could
+ *   not be looked up (`lookupError`). Not one refused or failed on the ledger (review round 3,
+ *   R3-1), nor one the run itself found gone past its time bound with its sequence number unused
+ *   ("it can never apply", no flag; closing review CX-1): with only such envelopes the account's
+ *   removal is someone else's, and the run keeps its stop (`failed`, CLI exit 5). The price: a
+ *   merge that applied while a lagging account read showed its number unused, and whose record
+ *   Horizon never returns, is reported `failed`, not `closed`; running the close again then finds
+ *   the account gone (ACCOUNT_MISSING, nothing submitted). It does not by itself say the account
+ *   was verified gone:
  *   a verified close is `closed` with `verification.accountExists === false` and no `stop`.
  *   `closed` with `verification.accountExists === true` means Horizon still returned the account
  *   at the final check (`stop.code` ACCOUNT_STILL_EXISTS, and the message says so), and `closed`
@@ -86,6 +94,23 @@ export interface SubmittedTransaction {
   explanation?: string;
 }
 
+/**
+ * True for an envelope that may have applied although the run never saw it apply: `pending` (its
+ * POST was in flight when the run stopped), or `unknown` while it may still apply
+ * (`mayStillApply`), may have applied (`sequenceUsed`) or could not be looked up (`lookupError`).
+ * False for one refused before inclusion or failed on the ledger (review round 3, R3-1), and for
+ * one found gone past its time bound with its sequence number unused, which can never apply
+ * (closing review CX-1). The executor's proof of a close by the account being gone and the
+ * receipt's words about a merge whose fate is open (CC-10) follow the same rule.
+ */
+export function mayHaveApplied(t: SubmittedTransaction): boolean {
+  return (
+    t.result === "pending" ||
+    (t.result === "unknown" &&
+      (t.mayStillApply === true || t.lookupError !== undefined || t.sequenceUsed === true))
+  );
+}
+
 /** A step of the plan the run started with, and what became of it. */
 export interface StepOutcome {
   stepId: string;
@@ -115,7 +140,12 @@ export interface RunBlocker {
   code: "STEP_FAILED_TWICE";
   reason: string;
   remedy: string;
-  /** Fixing what makes the step fail, or allowing a partial close, unblocks it. */
+  /**
+   * Not permanent: resolving what makes the step fail, or waiting until it settles, and then
+   * running the close again unblocks it. Allowing a partial close does not: `--partial`
+   * (`allowPartial`) is no input to the planner, so the next plan includes the step again (review
+   * round 3, R3-5; acceptance audit CA-13).
+   */
   permanent: false;
   /** The step of the plan the run started with. */
   stepId: string;
@@ -126,9 +156,11 @@ export interface RunBlocker {
 export type StopCode =
   | "PLAN_CHANGED"
   /**
-   * The fresh plan made before signing sends less XLM to the destination than the plan the caller
-   * approved (`recovery.xlmToDestination`), for example because a sale's quote got worse while the
-   * confirmation waited; the plan hash leaves quotes out, so it does not show this (review BH-7).
+   * The fresh plan made before signing recovers less XLM than the plan the caller approved, for
+   * example because a sale's quote got worse while the confirmation waited; the plan hash leaves
+   * quotes out, so it does not show this (review BH-7). What a plan recovers is the account's
+   * balance plus the quoted sales: `recovery.xlmToDestination` when it merges, what the account
+   * keeps when it does not (closing review CX-2).
    */
   | "XLM_TO_DESTINATION_FELL"
   | "PLAN_NOT_CLOSABLE"
@@ -166,8 +198,10 @@ export interface StopReason {
   /** For a sequence-number stop: the first ledger the merge can land in. */
   unblocksAtLedger?: number;
   /**
-   * For a drift stop before anything was signed: the XLM the destination would receive in the
-   * approved plan and in the fresh plan, when the fresh amount is lower (review BH-7).
+   * For a drift stop before anything was signed: the XLM the approved plan and the fresh plan
+   * recover, when the fresh amount is lower (review BH-7): the account's balance plus the quoted
+   * sales, which is the XLM the destination would receive when the plan merges and the XLM the
+   * account would keep when it does not (closing review CX-2).
    */
   xlmToDestination?: { approved: string; fresh: string };
   /**

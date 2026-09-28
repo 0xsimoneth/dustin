@@ -1,4 +1,4 @@
-import { assertPause, timerSleep, type Sleep } from "../config/pauses.js";
+import { assertPause, clipPause, timerSleep, type Sleep } from "../config/pauses.js";
 import type { FetchLike } from "../reader/horizon-json.js";
 import { feeChargedFromResultXdr, resultCodesFromXdr, type ResultCodes } from "./result-codes.js";
 
@@ -41,6 +41,12 @@ export type SubmitOutcome =
       readError?: string;
       /** Horizon answered 404, but the account shows the envelope's sequence number used. */
       sequenceUsed?: boolean;
+      /**
+       * What proved the number used, when it was not the account read: a later envelope for the
+       * same sequence number refused with `tx_bad_seq` (review round 3, R3-11; closing review
+       * CX-11). The explanation names it.
+       */
+      sequenceUsedBy?: "tx_bad_seq";
     };
 
 export interface TransactionRecord {
@@ -409,8 +415,16 @@ async function confirmByLocalClock(
         ? { kind: "unknown", hash: envelope.hash, lookupError: found.detail }
         : { kind: "unknown", hash: envelope.hash };
     }
-    await (options.sleep ?? timerSleep)(options.pollIntervalMs ?? 2000);
+    await (options.sleep ?? timerSleep)(clippedPause(options.pollIntervalMs, deadline - now()));
   }
+}
+
+/**
+ * A pause of the wait for an envelope: `pollIntervalMs`, but never longer than the time left in
+ * the wait (`leftSeconds`) and never below the 200 ms floor (`clipPause`, closing review CX-8).
+ */
+function clippedPause(pollIntervalMs: number | undefined, leftSeconds: number): number {
+  return clipPause(pollIntervalMs ?? 2000, leftSeconds * 1000);
 }
 
 /**
@@ -528,6 +542,6 @@ async function confirmByLedgerClock(
         ...(readError !== null ? { readError } : {}),
       };
     }
-    await (options.sleep ?? timerSleep)(options.pollIntervalMs ?? 2000);
+    await (options.sleep ?? timerSleep)(clippedPause(options.pollIntervalMs, limit - waited));
   }
 }
