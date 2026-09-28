@@ -113,3 +113,25 @@ describe("R3-32: the memo line names the merge only when a merge is planned", ()
     expect(r.out).not.toContain("the merge included");
   });
 });
+
+describe("R3-27: with --json, every refusal before signing prints the refused plan", () => {
+  it("prints the plan when the bids exceed the close budget (exit 3)", async () => {
+    const world = zeroSpendableWorld({ dataEntries: 60 });
+    const r = await closeCli(world, executeArgs(world, "--yes", "--json", "--base-fee", "1000000"));
+    expect(r.code).toBe(3);
+    expect(r.err).toContain("SPONSOR_BUDGET_EXCEEDED");
+    const printed = JSON.parse(r.out) as { kind: string; fees: { withinBudget: boolean } };
+    expect(printed).toMatchObject({ kind: "dustin-close-plan", fees: { withinBudget: false } });
+    expect(world.ledger.submissions).toHaveLength(0);
+  });
+
+  it("prints the plan when the sponsor cannot cover the budget (exit 3)", async () => {
+    const world = zeroSpendableWorld();
+    world.ledger.accounts.get(world.sponsor.publicKey())!.balances[0]!.balance = "3.0000000";
+    const r = await closeCli(world, executeArgs(world, "--yes", "--json"));
+    expect(r.code).toBe(3);
+    expect(r.err).toContain("SPONSOR_UNDERFUNDED");
+    expect(JSON.parse(r.out)).toMatchObject({ kind: "dustin-close-plan" });
+    expect(world.ledger.submissions).toHaveLength(0);
+  });
+});

@@ -125,7 +125,13 @@ export async function closeExecute(
   if (plan.status !== "closable" && !options.partial) {
     return refusedWith(notClosable(plan));
   }
+  // The two sponsor and budget refusals below are errors (exit 3 by code, canonical decision 5);
+  // with --json they print the refused plan too, like every refusal here (review round 3, R3-27).
+  const refusedPlan = () => {
+    if (options.json) ctx.io.stdout(`${json(plan)}\n`);
+  };
   if (!plan.fees.withinBudget) {
+    refusedPlan();
     throw new DustinError(
       "SPONSOR_BUDGET_EXCEEDED",
       `The plan bids up to ${xlm(plan.fees.totalStroops)} in fees, more than the sponsor's close budget of ${xlm(plan.fees.budgetStroops)}; nothing was signed.`,
@@ -137,6 +143,7 @@ export async function closeExecute(
   }
   const spendable = await sponsorSpendable(reader, sponsor);
   if (spendable < BigInt(plan.fees.budgetStroops)) {
+    refusedPlan();
     throw new DustinError(
       "SPONSOR_UNDERFUNDED",
       spendable < 0n
