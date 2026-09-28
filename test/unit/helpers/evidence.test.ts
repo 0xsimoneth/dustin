@@ -10,7 +10,10 @@ import { hashHex } from "../../../src/sponsor/fee-bump.js";
 import { keypairSigner } from "../../../src/sponsor/signer.js";
 import { FeeSponsor } from "../../../src/sponsor/sponsor.js";
 import { buildInnerTransaction } from "../../../src/tx/build-inner.js";
+import { planFromSnapshot } from "../../../src/plan/plan.js";
+import { renderPlan } from "../../../src/render/plan-text.js";
 import { runStamp, writeCloseEvidence, type CloseEvidence } from "../../helpers/evidence.js";
+import { messy, messySnapshot } from "../../helpers/snapshots.js";
 
 // Review finding R16: the evidence of a live close, written offline from a synthetic run. Keys come
 // from fixed raw seeds at runtime; no secret key is ever spelled out in this file.
@@ -304,6 +307,59 @@ describe("writeCloseEvidence", () => {
     expect(JSON.parse(readFileSync(join(dir, "report.json"), "utf8"))).toMatchObject({
       status: "closed",
     });
+  });
+
+  it("adds the approved plan and the ladder as planned and as run, under <stamp>-<label>", async () => {
+    const e = await evidence();
+    const plan = planFromSnapshot(await messySnapshot(), {
+      destination: messy.destination,
+      feeSponsor: messy.sponsor,
+      baseFeeStroops: 100,
+    });
+    const sale = plan.steps.find((st) => st.disposal?.rung === "path_payment")!;
+    const burn = plan.steps.find((st) => st.disposal?.rung === "return_to_issuer")!;
+    // The sale failed on the market and fell down the ladder (E2-S3); the burn applied as planned.
+    e.report.steps = [
+      {
+        stepId: sale.id,
+        status: "applied",
+        txIndex: 1,
+        txHash: "e".repeat(64),
+        rung: "return_to_issuer",
+        round: 1,
+      },
+      {
+        stepId: burn.id,
+        status: "applied",
+        txIndex: 0,
+        txHash: "f".repeat(64),
+        rung: "return_to_issuer",
+      },
+    ];
+    e.plan = plan;
+    e.planText = renderPlan(plan);
+    const dir = writeCloseEvidence(e, { root, now: NOW, label: "e3" });
+    expect(dir).toBe(join(root, "20260926T120030Z-e3"));
+    expect(JSON.parse(readFileSync(join(dir, "plan.json"), "utf8"))).toMatchObject({
+      planHash: plan.planHash,
+      ladderOrder: "sow",
+    });
+    expect(readFileSync(join(dir, "plan.txt"), "utf8")).toContain("Dustin plan");
+    const text = readFileSync(join(dir, "summary.md"), "utf8");
+    expect(text).toContain("# Live close 20260926T120030Z-e3");
+    expect(text).toContain("## Disposal ladder");
+    expect(text).toContain(
+      `| ${sale.id} | DUSTA:${messy.issuer} | 0.0000007 | path_payment | return_to_issuer | applied | \`${"e".repeat(64)}\` |`,
+    );
+    expect(text).toContain("`plan.json`");
+  });
+
+  it("refuses a label that is not lower-case letters, digits and hyphens, writing nothing", async () => {
+    const e = await evidence();
+    for (const label of ["E3", "e3/../x", "", "-e3"]) {
+      expect(() => writeCloseEvidence(e, { root, now: NOW, label })).toThrow(/label/);
+    }
+    expect(readdirSync(root)).toEqual([]);
   });
 
   it("names runs by UTC second", () => {

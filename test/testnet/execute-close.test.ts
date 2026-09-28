@@ -12,6 +12,7 @@ import {
 import type { HorizonAccount } from "../../src/inspect/horizon-types.js";
 import { planClose } from "../../src/plan/plan-close.js";
 import { horizonJson, latestLedger } from "../../src/reader/horizon-json.js";
+import { renderPlan } from "../../src/render/plan-text.js";
 import { keypairSigner } from "../../src/sponsor/signer.js";
 import { writeCloseEvidence, type AccountState } from "../helpers/evidence.js";
 import { describeTestnet } from "./gate.js";
@@ -19,9 +20,11 @@ import { describeTestnet } from "./gate.js";
 /**
  * With DUSTIN_EVIDENCE=1 the run also writes evidence/runs/<UTC stamp>/ (review finding R16):
  * DUSTIN_TESTNET=1 DUSTIN_EVIDENCE=1 npm run test:testnet -- test/testnet/execute-close.test.ts
+ * DUSTIN_EVIDENCE_LABEL=e3 names the directory <UTC stamp>-e3 (the Epic 3 metric close, E3-S7).
  * Off by default, so ordinary testnet runs leave the working tree clean.
  */
 const writeEvidence = process.env.DUSTIN_EVIDENCE === "1";
+const evidenceLabel = process.env.DUSTIN_EVIDENCE_LABEL;
 
 describeTestnet("executeClose (live testnet)", () => {
   it("closes a fresh zero-spendable messy fixture with every fee paid by the sponsor", async () => {
@@ -106,8 +109,10 @@ describeTestnet("executeClose (live testnet)", () => {
             after: after[i] ?? null,
           })),
           ledgers: { before: ledgerBefore, after: (await latestLedger(client)).sequence },
+          plan,
+          planText: renderPlan(plan),
         },
-        { root: "evidence/runs", forbidden },
+        { root: "evidence/runs", forbidden, ...(evidenceLabel ? { label: evidenceLabel } : {}) },
       );
       console.log(`Close evidence written to ${dir}`);
     }

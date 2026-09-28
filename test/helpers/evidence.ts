@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { formatStroops, toStroops } from "../../src/amounts.js";
 import { containsSecretSeed } from "../../src/errors/redact.js";
 import type { CloseReport } from "../../src/execute/report.js";
+import type { ClosePlan } from "../../src/plan/model.js";
 import type { FixtureManifest } from "../../src/fixture/manifest.js";
 import type { VerifyResult } from "../../src/fixture/verify.js";
 
@@ -35,6 +36,9 @@ export interface CloseEvidence {
   }>;
   /** The latest ledger before the close started and after it was verified. */
   ledgers: { before: number; after: number };
+  /** The plan the close was approved with (written as plan.json), and its text (plan.txt). */
+  plan?: ClosePlan;
+  planText?: string;
 }
 
 export interface WriteEvidenceOptions {
@@ -43,6 +47,11 @@ export interface WriteEvidenceOptions {
   /** Strings that must appear in no file, e.g. the fixture's secret keys. */
   forbidden?: readonly string[];
   now?: Date;
+  /**
+   * Appended to the directory name, `<UTC stamp>-<label>` (for example `e3` for the Epic 3 close):
+   * lower-case letters, digits and hyphens only.
+   */
+  label?: string;
 }
 
 /** `20260926T134512Z`: sortable, and valid in a path on every platform. */
@@ -66,8 +75,23 @@ const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;
  */
 export function writeCloseEvidence(evidence: CloseEvidence, options: WriteEvidenceOptions): string {
   const now = options.now ?? new Date();
+  if (options.label !== undefined && !/^[a-z0-9][a-z0-9-]*$/.test(options.label)) {
+    throw new Error(
+      `Evidence label ${JSON.stringify(options.label)} must be lower-case letters, digits and hyphens.`,
+    );
+  }
+  const name = options.label ? `${runStamp(now)}-${options.label}` : runStamp(now);
   const files = new Map<string, string>([
-    ["summary.md", summary(evidence, now)],
+    ["summary.md", summary(evidence, name, now)],
+    ...(evidence.plan ? [["plan.json", json(evidence.plan)] as [string, string]] : []),
+    ...(evidence.planText !== undefined
+      ? [
+          [
+            "plan.txt",
+            evidence.planText.endsWith("\n") ? evidence.planText : `${evidence.planText}\n`,
+          ] as [string, string],
+        ]
+      : []),
     ["report.json", json(evidence.report)],
     ["fixture-manifest.json", json(evidence.manifest)],
     ["fixture-verification.json", json(evidence.verification)],
@@ -87,7 +111,7 @@ export function writeCloseEvidence(evidence: CloseEvidence, options: WriteEviden
       throw new Error(`Refusing to write evidence: ${name} contains a forbidden secret.`);
     }
   }
-  const dir = join(options.root, runStamp(now));
+  const dir = join(options.root, name);
   mkdirSync(options.root, { recursive: true });
   // Not recursive: an existing run directory throws EEXIST instead of being overwritten.
   mkdirSync(dir);
@@ -95,7 +119,7 @@ export function writeCloseEvidence(evidence: CloseEvidence, options: WriteEviden
   return dir;
 }
 
-function summary(e: CloseEvidence, now: Date): string {
+function summary(e: CloseEvidence, name: string, now: Date): string {
   const r = e.report;
   const explorer = e.manifest.network.explorerBaseUrl;
   const horizon = r.network.horizon;
@@ -148,7 +172,7 @@ function summary(e: CloseEvidence, now: Date): string {
       `| ${c.pass ? "PASS" : "FAIL"} | ${c.appendixB ? "yes" : "no"} | ${c.label} | ${c.observed} |`,
   );
   return [
-    `# Live close ${runStamp(now)}`,
+    `# Live close ${name}`,
     "",
     "Written by `test/testnet/execute-close.test.ts` with `DUSTIN_EVIDENCE=1`. Public data only: public keys, hashes, envelopes and Horizon JSON.",
     "",
@@ -175,6 +199,7 @@ function summary(e: CloseEvidence, now: Date): string {
     "|---|---|---|---|---|---|---|---|---|---|",
     ...txRows.map((row) => `| ${row} |`),
     "",
+    ...ladderSection(e),
     "## Fixture before the close (SOW Appendix B)",
     "",
     `Verification ${e.verification.pass ? "passed" : "FAILED"}.`,
@@ -190,6 +215,14 @@ function summary(e: CloseEvidence, now: Date): string {
     "",
     "## Files",
     "",
+    ...(e.plan
+      ? [
+          "- `plan.json`: the close plan the run was approved with (`planClose()` output, read-only).",
+        ]
+      : []),
+    ...(e.planText !== undefined
+      ? ["- `plan.txt`: the same plan as `dustin plan` prints it."]
+      : []),
     "- `report.json`: the close report, with the inner and fee-bump envelope XDR of every transaction.",
     "- `fixture-manifest.json`: the fixture's public manifest.",
     "- `fixture-verification.json`: the pre-close verification.",
@@ -203,6 +236,43 @@ function summary(e: CloseEvidence, now: Date): string {
     "Explorer links resolve only until the next testnet reset (scheduled for 2026-12-16), which deletes every account and transaction; the JSON and XDR in this directory are the durable record.",
     "",
   ].join("\n");
+}
+
+/**
+ * The disposal ladder as planned and as it ran: one row per balance the plan disposed of, with the
+ * rung it was planned on, the rung it applied with (a failed sale falls down the ladder, E2-S3) and
+ * the transaction that carried it.
+ */
+function ladderSection(e: CloseEvidence): string[] {
+  const plan = e.plan;
+  if (!plan) return [];
+  const outcomes = new Map(e.report.steps.map((o) => [o.stepId, o]));
+  const rows = plan.steps
+    .filter((step) => step.kind === "dispose_balance" && step.disposal)
+    .map((step) => {
+      const subject = step.subject.type === "trustline" ? step.subject : null;
+      const outcome = outcomes.get(step.id);
+      return [
+        step.id,
+        subject ? `${subject.asset.code}:${subject.asset.issuer}` : "-",
+        step.disposal!.amount,
+        step.disposal!.rung,
+        outcome?.rung ?? (outcome?.status === "applied" ? step.disposal!.rung : "-"),
+        outcome?.status ?? "-",
+        outcome?.txHash ? `\`${outcome.txHash}\`` : "-",
+      ].join(" | ");
+    });
+  if (rows.length === 0) return [];
+  return [
+    "## Disposal ladder",
+    "",
+    `Ladder order: \`${plan.ladderOrder}\` (${plan.ladderOrder === "sow" ? "the SOW order: path payment, return to issuer, transfer to the destination" : "--prefer-destination: the destination before the return to issuer"}).`,
+    "",
+    "| Step | Asset | Amount | Planned rung | Applied rung | Outcome | Transaction |",
+    "|---|---|---|---|---|---|---|",
+    ...rows.map((row) => `| ${row} |`),
+    "",
+  ];
 }
 
 function formatSigned(stroops: bigint): string {
