@@ -254,7 +254,7 @@ The Close Report is written incrementally by the CLI (`--report <path>`) and pub
 
 Acceptance:
 - Interrupting a close after its first transaction and running the same close again completes it with exactly the remaining transactions.
-- Re-running a completed close through `executeClose()` records Horizon's 404 (`verification.accountExists === false`) and submits nothing. The CLI stops such a re-run before the executor with exit code 3; recording the 404 there is deferred review finding AA-13 (E4-S2).
+- Re-running a completed close through `executeClose()` records Horizon's 404 (`verification.accountExists === false`) and submits nothing. The CLI does the same since story E4-S2 (review finding AA-13): it asks nothing and signs nothing, the report records the 404, the receipt says a close by an earlier run is complete, and the exit code is 3 (section 6).
 
 #### FR-18: Close Report
 
@@ -267,7 +267,7 @@ Acceptance:
 
 #### FR-19: CLI `dustin close`
 
-`dustin close <G...> --to <G...> --execute [--yes] [--partial] [--json] [--memo <m>] [--prefer-destination] [--base-fee <stroops>] [--report <path>]` loads `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` from the environment (or `.env`), prints the plan, requires the typed confirmation of the destination's last four characters or `--yes`, refuses to start when Plan Status is not `closable` unless `--partial` is given, streams progress (one line per transaction with hash and explorer link; NDJSON with `--json` is deferred review finding AA-10, E4-S1), and exits with the codes of canonical decision 5 in `docs/README.md`: 0 closed and verified gone, 1 unexpected error, 2 usage or validation error, 3 nothing executed (no confirmation, blockers without `--partial`, or a failed sponsor or budget precondition), 4 partial, 5 stopped or failed during execution, 6 Horizon unreachable before any submission. There is no `--resume`: running the same command again continues from the ledger.
+`dustin close <G...> --to <G...> --execute [--yes] [--partial] [--json] [--memo <m>] [--prefer-destination] [--base-fee <stroops>] [--report <path>]` loads `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` from the environment, else `.env`, else a hidden prompt on a terminal (decision D-11), prints the plan, requires the typed confirmation of the destination's last four characters or `--yes`, refuses to start when Plan Status is not `closable` unless `--partial` is given, streams progress (one line per transaction with hash and explorer link; with `--json`, one NDJSON object per line on standard error and one JSON document on standard output, and never a question, since story E4-S1, review finding AA-10, section 6), and exits with the codes of canonical decision 5 in `docs/README.md`: 0 closed and verified gone, 1 unexpected error, 2 usage or validation error, 3 nothing executed (no confirmation, blockers without `--partial`, or a failed sponsor or budget precondition), 4 partial, 5 stopped or failed during execution, 6 Horizon unreachable before any submission. There is no `--resume`: running the same command again continues from the ledger.
 
 Acceptance:
 - Closing Fixture A from the CLI prints the plan, the confirmation prompt, one hash line per transaction, and "account G... no longer exists", exit code 0.

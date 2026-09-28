@@ -20,7 +20,7 @@ cd ../your-wallet
 npm install ../dustin/stellar-dustin-<version>.tgz
 ```
 
-The JSON documents the SDK and the CLI produce are described by [plan-schema.json](plan-schema.json) (the `ClosePlan`) and [receipt-schema.json](receipt-schema.json) (the `CloseReport`). <!-- reconcile: A -->
+The JSON documents the SDK and the CLI produce are described by [plan-schema.json](plan-schema.json) (the `ClosePlan`) and [receipt-schema.json](receipt-schema.json) (the `CloseReport`), both JSON Schema draft 2020-12. They allow properties they do not list, so a later minor version may add fields; the offline tests validate every plan and report of the fixtures against them in a strict mode (story E4-S1).
 
 ## 2. The flow in one diagram
 
@@ -66,7 +66,7 @@ const plan = await planClose({
 });
 ```
 
-`planClose()` sends GET requests only: Horizon's root (to check that it serves the testnet), the account, its offers, each issuer the account holds a balance of, the destination, one strict-send path search per non-zero authorized balance, the fee statistics and the latest ledger (plus claimable balances when the account sponsors something or is named as a claimant, and pools when it holds pool shares). <!-- reconcile: B --> It takes no secret and cannot sign or submit anything.
+`planClose()` sends GET requests only: Horizon's root (to check that it serves the testnet), the account, its offers, each issuer the account holds a balance of, the destination, one strict-send path search per non-zero authorized balance, the fee statistics, the latest ledger, and the claimable balances that name the account as a claimant (`/claimable_balances?claimant=`, every page); plus the claimable balances the account sponsors when it sponsors something, and pools when it holds pool shares. A custom `LedgerReader` without `claimableBalancesClaimableBy` skips the claimant read, and the snapshot then says it could not ask. It takes no secret and cannot sign or submit anything.
 
 | `PlanCloseInput` field | Default | Meaning |
 |---|---|---|
@@ -96,11 +96,11 @@ What a `ClosePlan` holds:
 | `steps[]` | In execution order: `id`, `kind` (`cancel_offer`, `dispose_balance`, `remove_trustline`, `remove_data`, `merge`), `txIndex`, `subject`, `reason`, `dependsOn`, `threshold`, `operation`, and for disposals `disposal` (`rung`, `amount`, `to`, `quotedXlm`, `destMinXlm`, `fallbackRungs`, `ruledOut`); for removals `reserveReleasedTo`. |
 | `transactions[]` | `index`, `phase` (`cleanup`, `convert`, `merge`), `stepIds`, `opCount`, `innerFeeStroops` (always 0), `feeBumpFeeStroops` (the sponsor's bid), `reason`. |
 | `unclosable[]`, `blockers[]` | `code`, `reason`, `remedy` (and `permanent` for blockers): what keeps the account open and what the user can do (section 12). |
-| `warnings[]` | For example a clawback-enabled trustline, a merge that has to wait for the sequence guard, a pool derived from its id, or claimable balances that name the account as a claimant and are lost to it after the merge. <!-- reconcile: B --> |
+| `warnings[]` | For example a clawback-enabled trustline, a merge that has to wait for the sequence guard, a pool derived from its id, or claimable balances that name the account as a claimant: "This account is a claimant of N claimable balances: ...; The merge does not touch them: they stay on the ledger, and after the merge this account can no longer claim them unless it is created again; any other claimant their predicates allow can still claim them." with how to keep them (`src/plan/claimable.ts`; matrix row X-03). Such balances block nothing, and the plan stays closable. |
 | `recovery` | `xlmToDestination` (the balance now plus the quoted proceeds of path payments), `nativeBalance`, `quotedProceedsXlm`, `reservesReturnedToSponsors`, `feesPaidByAccount` (always `"0"`). |
 | `fees` | `baseFeeStroops`, `basis`, `maxBaseFeeStroops`, `perTransactionStroops`, `totalStroops` (the bids), `budgetStroops`, `withinBudget`, `payer`. |
 | `sequenceGuard` | `ok`, `unblocksAtLedger`, `etaSeconds` for the merge; `null` when the plan has no merge. |
-| `planHash`, `snapshotHash` | The plan's structure (steps, order, grouping, rungs, blockers; no fees, no quotes, and none of the sequence guard's time-dependent fields, PRD decision D-10) and the account state it was made from. <!-- reconcile: A --> |
+| `planHash`, `snapshotHash` | The plan's structure (steps, order, grouping, rungs, blockers; no fees and no quotes; and not the sequence guard's `unblocksAtLedger`, its wait estimate or the regrouping of the merge they cause, PRD decision D-10) and the account state it was made from (the claimable balances naming the account are not part of it). |
 
 Amounts are decimal strings with seven decimals; fees are whole stroops.
 
@@ -149,7 +149,7 @@ if (report.status === "closed" && report.verification?.accountExists === false) 
 console.log(renderReport(report, { plans: [plan] })); // the text receipt the CLI prints
 ```
 
-`signal` is optional; section 6.3 says what an aborted signal does. <!-- reconcile: A -->
+`signal` is optional; section 6.2 says what an aborted signal does.
 
 ### 6.1 Signers
 
@@ -201,7 +201,7 @@ Before anything is read, `executeClose` checks that the account signer's key is 
 7. Failures are retried, rebuilt or planned again from the ledger as the [write-up](write-up.md) describes (sections 4 and 5).
 8. Horizon is asked for the account; after a merge the executor waits up to `verifyTimeoutMs` for the 404. It then reads the reserve sponsors again.
 
-When `signal` is aborted, the run stops before the next envelope is signed and returns its report with a stop that names the interruption; an envelope already posted keeps its hash in the report, and running the close again continues from the ledger (section 10). <!-- reconcile: A -->
+When `signal` is aborted, the run stops at the next safe point and posts nothing after it: an envelope already posted is looked up once more and settled, or recorded as `unknown`; a wait (for an outcome, for the sequence guard) ends at once. The report ends with the stop `INTERRUPTED` (verdict `replan`) and is returned, not thrown; its status is `aborted` when nothing was submitted, `failed` after a submission, or `closed` when a merge of the run had applied. When an envelope's outcome was still open, the stop names it with `hash` and `maxTime`, as for `OUTCOME_UNKNOWN`; a string reason such as `"SIGINT"` is named in the stop's detail. Running the close again continues from the ledger (section 10).
 
 ### 6.3 Options
 
@@ -212,7 +212,7 @@ When `signal` is aborted, the run stops before the next envelope is signed and r
 | `onDrift` | `"abort"` | What to do when the ledger differs from the approved plan: stop, or continue with the fresh plan (section 8). |
 | `onEvent` | none | Progress events (section 7). |
 | `onReport` | none | A copy of the report after every change (section 7). |
-| `signal` | none | An `AbortSignal`; aborting it ends the run with a report whose stop names the interruption. The CLI aborts it on SIGINT and SIGTERM. <!-- reconcile: A --> |
+| `signal` | none | An `AbortSignal`; aborting it ends the run at the next safe point with the stop `INTERRUPTED` (section 6.2). The CLI aborts it on SIGINT and SIGTERM. Anything but an `AbortSignal` is `CONFIG_INVALID`. |
 | `config`, `reader` | testnet defaults | As for `planClose`. |
 | `budgetStroops` | the plan's (5 XLM) | The sponsor's budget for this close. |
 | `maxBaseFeeStroops` | the plan's (1,000,000) | Cap on the bid per operation, also for fee escalation. |
@@ -231,20 +231,20 @@ Every numeric option is checked before anything is read or signed; a value out o
 
 ### 6.4 The report
 
-`executeClose` returns a `CloseReport` ([receipt-schema.json](receipt-schema.json)): <!-- reconcile: A -->
+`executeClose` returns a `CloseReport` ([receipt-schema.json](receipt-schema.json)):
 
 | Field | Meaning |
 |---|---|
 | `status` | `closed` (a merge of this run applied), `partial` (everything possible ran; the account still exists), `aborted` (nothing was submitted), `failed` (stopped after something was submitted, with no merge of this run applied; run again to continue). Copies published during a run carry `running`. |
 | `stop` | Why the run stopped or did not start: `code`, `stage`, `verdict`, `detail`, and where relevant `txIndex`, `hash`, `stepId`, `resultCodes`, `unblocksAtLedger`, `maxTime`, and `xlmToDestination` (`{ approved, fresh }`). `null` when the run did everything it could. |
 | `message` | The same in one sentence. |
-| `transactions[]` | Every envelope submitted: `hash` (the fee bump's, the one explorers show), `innerHash`, `sequence`, `baseFeeStroops`, `ledger`, `feeChargedStroops`, `feeAccount`, `result` (`pending`, `applied`, `failed`, `rejected`, `unknown`), `resultCodes`, `explanation`, both envelopes as XDR, `explorerUrl`, and a summary of its operations. An envelope whose outcome is `unknown` also carries `mayStillApply`, `sequenceUsed` and `lookupError`. <!-- reconcile: A --> |
+| `transactions[]` | Every envelope submitted: `hash` (the fee bump's, the one explorers show), `innerHash`, `sequence`, `baseFeeStroops`, `ledger`, `feeChargedStroops`, `feeAccount`, `result` (`pending`, `applied`, `failed`, `rejected`, `unknown`), `resultCodes`, `explanation`, both envelopes as XDR, `explorerUrl`, `horizonUrl` (`GET /transactions/{hash}` on the run's Horizon) and `operations`: one `OperationSummary` per operation, in the order of `stepIds`, with `stepId`, `kind`, `type` (the Stellar operation), `subject`, `summary` (the receipt's words) and, where they apply, `offerId`, `asset`, `dataName`, `poolId`, and for a disposal `amount`, `rung` and `to` (the merge's `to` is the destination). An envelope whose outcome is `unknown` also carries `mayStillApply`, `sequenceUsed` and `lookupError`. Reports written before story E4-S1, among them the ones committed under `evidence/runs/`, lack `horizonUrl`, `operations` and `links`. |
 | `steps[]` | Each step of the plan the run started with: `status` (`applied`, `failed`, `not_run`), `txHash`, and `rung` for a disposal, which after a fall down the ladder differs from the plan. |
 | `replans[]` | Each re-plan with its trigger, the assets demoted from the path payment and any drift. |
 | `unclosable[]`, `blockers[]` | What still keeps the account open, including `STEP_FAILED_TWICE` found during the run. |
 | `recovery` | `mergedXlm` (read from the merge result), `reservesReturnedToSponsors`, `feesPaidByAccount` (`"0"`), `feesPaidBySponsorStroops`, and `sponsorsObserved`: for each reserve sponsor the plans name, a `SponsorObservation` `{ sponsor, before, after }`, each side a `SponsorState` `{ numSponsoring, balance, minimumBalance, ledger }` as Horizon showed it, or null when that read failed. |
 | `verification` | `accountExists`, `horizonStatus`, `checkedAt`, `accountUrl`, `ledger`. |
-| Links | The explorer URLs of the account and the destination. <!-- reconcile: A --> |
+| `links` | `{ account, destination }`, each an `AccountLinks` `{ explorer, horizon }`: the account's explorer page and its Horizon resource; a muxed destination is linked through its G account. |
 
 A merge of this run that applied always gives `status: "closed"`:
 
@@ -275,7 +275,16 @@ What the live metric close of 2026-09-28 recorded ([report](../evidence/runs/202
 
 `index` is 0-based within the plan of its `round`.
 
-**The NDJSON form.** `dustin close --execute --json` writes exactly one JSON document to standard output (the close report, or the plan when the run was refused before the executor started) and, on standard error, one JSON object per line with a `type` field: each `CloseEvent` above as the SDK emits it, plus two lines of the CLI's own, `notice` (for example that `--yes` skipped the confirmation) and `error` (`code`, `message`, `remedy`, `exitCode`). A script can read standard error line by line and standard output as one document. With `--json` the command never asks for the confirmation: without `--yes` it exits 3 (`CONFIRMATION_REQUIRED`) and still prints one JSON document. <!-- reconcile: A -->
+**The NDJSON form.** With `--json`, `dustin plan` and `dustin close` are in machine mode (PRD section 6). Standard output carries exactly one JSON document once the plan was shown: the close report once the executor has one, otherwise the plan (for a dry run, and for a run refused or failed before the executor's first report). Standard error carries NDJSON only, one JSON object per line with a `type`, and never human text:
+
+| `type` | Fields |
+|---|---|
+| `drift`, `preflight`, `wait`, `tx:building`, `tx:submitted`, `tx:confirmed`, `tx:failed`, `verified`, `done` | The `CloseEvent` above, with the same names and fields |
+| `plan` | A compact form: `round`, `planHash`, `status`, `counts` (`steps`, `transactions`, `unclosable`, `blockers`); the whole plan is the standard output document when a run is refused, and the report names every round's hash |
+| `notice` | `message`: a note, among them the skipped confirmation, the `--report` file written or not, and a signal received |
+| `error` | `code`, `message`, `remedy`, `exitCode`: the error or the stop the command ends with. `code` is a `DustinErrorCode`, a `StopCode`, or one of the CLI's own `USAGE_ERROR` and `UNEXPECTED_ERROR`; with `--verbose` the line also has `stage`, `verdict`, `retryable`, `details`, `horizon` and `causes`. A run that ends with a stop ends with such a line (its `remedy` is the receipt's "Next" line), and so does a refusal before anything is signed; a partial close ends with the `done` line |
+
+Hashes and addresses are full in every line, and every line is redacted. `plan --json` and the dry-run `close --json` print no line on standard error unless there is a note or an error. Machine mode never asks anything: `close --execute --json` without `--yes` is refused with `CONFIRMATION_REQUIRED` (exit 3, the plan on standard output), and a secret that is in neither the environment nor `.env` is not prompted for (`MISSING_ACCOUNT_SECRET` or `MISSING_SPONSOR_SECRET`, exit 2). A script reads standard error line by line and standard output as one document.
 
 `onReport` receives a copy of the report whenever it changes: when it is created, before each post, after each outcome and re-plan, at the end, and right before an error is thrown. Save every copy. An envelope's hash is in the report before its POST starts, so a crash, a closed tab or a lost connection cannot lose a submitted hash. Copies of an unfinished run carry `running`; the last copy carries the final status. An observer that throws does not stop the run: its error becomes a warning in the report. `renderReport` on a copy saved while the run is going says "not run yet" for a step that has not run, "attributed when the run ends" for the reserves and "not read yet" for the sponsor reading after the run.
 
@@ -287,7 +296,7 @@ Drift is a difference between the ledger and the plan the user approved. Dustin 
 - at the start, when the fresh plan recovers less XLM than the approved plan: the account's balance plus the quoted proceeds of its sales (`recovery.nativeBalance` plus `recovery.quotedProceedsXlm`, compared in stroops). A higher amount is not drift;
 - after every mid-run re-plan, when the re-plan found a new offer, trustline, data entry or pool share, a larger balance, an asset moving up the ladder, or a merge the approved plan did not have.
 
-Steps that already applied disappearing, and balances falling down the ladder, are not drift. Nor is a sequence guard that clears while the user decides: its time-dependent fields are not part of the plan hash (PRD decision D-10). A plan that gains or loses its merge is drift. <!-- reconcile: A -->
+Steps that already applied disappearing, and balances falling down the ladder, are not drift. Nor is a sequence guard that clears, or starts to hold, while the user decides: its `unblocksAtLedger`, its wait estimate and the regrouping of the merge they cause are not part of the plan hash (PRD decision D-10), so the run follows the fresh plan and the report carries a warning that names the old and the new transaction of the merge. A plan that gains or loses its merge is drift.
 
 - `onDrift: "abort"` (default): the run stops with `PLAN_CHANGED`, or with `XLM_TO_DESTINATION_FELL` when only the amount fell; both amounts are in `stop.xlmToDestination` and on the `drift` event. A stop at the start has submitted nothing (`aborted`; the CLI exits 3). A stop mid-run leaves the transactions already applied on the ledger (`failed`; the CLI exits 5).
 - `onDrift: "replan"`: the run continues with the fresh plan without asking anyone; a fallen amount then adds a warning that names both amounts. A fresh plan without the merge goes on only with `allowPartial`.
@@ -315,14 +324,14 @@ Some stops say when to come back:
 | `RETRY_LIMIT`, `FEE_LIMIT`, `OVER_BUDGET` | Network fees fall, or with a larger `budgetStroops` or `maxBaseFeeStroops`. |
 | `STEP_FAILED_TWICE`, `OPERATION_FAILED`, `TRANSACTION_REJECTED`, `REPLAN_LIMIT` | The cause in `stop.detail` is resolved, or has settled. `allowPartial` does not skip a step that failed twice. |
 | `SEQUENCE_CONFLICT` | No other client is submitting for the account. |
-| The interruption (the `signal` was aborted) | At once: running again reads the ledger; an envelope that was posted before the interruption either applied or did not, and the new plan shows which. <!-- reconcile: A --> |
-| `ACCOUNT_MISSING` | Never: Horizon answered 404, so if an earlier run merged the account, the close is complete. The CLI records the 404 in the report and the receipt and exits 3. <!-- reconcile: A --> |
+| `INTERRUPTED` (the `signal` was aborted) | At once, unless the stop names `maxTime`: then only after a ledger has closed past it, since that envelope may still apply. |
+| `ACCOUNT_MISSING` | Never: Horizon answered 404, so if an earlier run merged the account, the close is complete. `verification` records the 404; the CLI asks nothing, signs nothing, says in the receipt that a close by an earlier run is complete, and exits 3. |
 
 Keep the reports of earlier runs: each holds the hashes of its own transactions.
 
 ## 11. Errors
 
-Every error and stop code, with its remedy, is listed in [docs/errors.md](errors.md). <!-- reconcile: A --> They fall in three classes:
+Every error and stop code, with its meaning, stage, exit code and remedy, is listed in [docs/errors.md](errors.md). They fall in three classes:
 
 1. **Blockers in the plan.** Returned as data, never thrown: `plan.blockers[]` and `plan.unclosable[]`, each with a `code`, a `reason` and a `remedy` (section 12). Nothing is submitted while they hold, unless a partial close was allowed.
 2. **Per-step failures.** A transaction failed on the ledger or was refused. The report records its `resultCodes` and an `explanation`, and the executor decides from the first failed operation's code whether to re-plan (for example `op_too_few_offers` moves the asset down the ladder), rebuild or stop ([write-up](write-up.md), section 4). The run ends with a `stop` whose `code` says what happened; the table in section 10 says when to run again.
@@ -330,7 +339,7 @@ Every error and stop code, with its remedy, is listed in [docs/errors.md](errors
 
 Expected outcomes are returned, not thrown ([ADR-0006](adr/ADR-0006-error-taxonomy.md)). `executeClose` throws a `DustinError` for configuration errors found before anything is read or signed, and for the unexpected. An error thrown after the report exists carries it in `error.report`, so no submitted hash is lost; check `error.report?.transactions` before treating a thrown error as "nothing happened".
 
-A `DustinError` has `code` (stable; branch on it, never on the message), `stage`, `retryable`, `verdict` (`retry-same`, `rebuild-same-sequence`, `replan`, `stop`), `remedy` (one sentence a person can act on), `details`, `horizon` (the result codes) and `report`. Every text field is redacted: nothing shaped like a secret key survives in it.
+A `DustinError` has `code` (stable; branch on it, never on the message), `stage`, `retryable`, `verdict` (`retry-same`, `rebuild-same-sequence`, `replan`, `stop`), `remedy` (one sentence a person can act on, where the raising code knows a specific one), `details`, `horizon` (the result codes), the underlying error as `cause`, and `report`. `remedyOf(error)` returns the error's own remedy or, when it has none, the default remedy of its code (`DEFAULT_REMEDIES`, both exported); the CLI prints it under every error. Every text field is redacted: nothing shaped like a secret key survives in it.
 
 | `DustinError` code | When | What to do |
 |---|---|---|
@@ -345,9 +354,9 @@ A `DustinError` has `code` (stable; branch on it, never on the message), `stage`
 | `SPONSOR_REFUSED`, `TOO_MANY_OPERATIONS` | Safety checks before signing; they indicate a bug | Report it with `error.report`. |
 | `EXECUTION_INTERRUPTED` | Any unexpected error during a run, wrapped with its cause | Read `error.report` and continue as in section 10. |
 
-The CLI adds its own codes for its input (`SECRET_IN_ARGV`, `MISSING_ACCOUNT_SECRET`, `MISSING_SPONSOR_SECRET`, `CONFIRMATION_DECLINED`) and the fixture commands theirs (`FRIENDBOT_FAILED`, `FIXTURE_STEP_FAILED`, `FIXTURE_INVALID`, `MANIFEST_INVALID`); `DustinErrorCode` in `src/errors/dustin-error.ts` is the full list.
+The CLI adds its own codes for its input (`SECRET_IN_ARGV`, `MISSING_ACCOUNT_SECRET`, `MISSING_SPONSOR_SECRET`, `CONFIRMATION_DECLINED`) and the fixture commands theirs (`FRIENDBOT_FAILED`, `FIXTURE_STEP_FAILED`, `FIXTURE_INVALID`, `MANIFEST_INVALID`, `RESET_SUSPECTED`); `DustinErrorCode` in `src/errors/dustin-error.ts` is the full list. Two more codes appear only in the CLI's output and are never thrown by the SDK: `USAGE_ERROR` (a command line that cannot be parsed, exit 2) and `UNEXPECTED_ERROR` (something that is not a `DustinError`, exit 1).
 
-The report's `stop.code` is one of `PLAN_CHANGED`, `XLM_TO_DESTINATION_FELL`, `PLAN_NOT_CLOSABLE`, `NOTHING_TO_EXECUTE`, `ACCOUNT_MISSING`, `OVER_BUDGET`, `OPERATION_FAILED`, `STEP_FAILED_TWICE`, `REPLAN_LIMIT`, `TRANSACTION_REJECTED`, `SEQUENCE_CONFLICT`, `FEE_LIMIT`, `RETRY_LIMIT`, `OUTCOME_UNKNOWN`, `MERGE_PREFLIGHT_FAILED`, `SEQNUM_TOO_FAR`, `ACCOUNT_STILL_EXISTS`, the stop of an interruption, or the code of the `DustinError` that interrupted the run (`StopCode` in `src/execute/report.ts`). <!-- reconcile: A --> Its `verdict` is `replan` when running the close again is the remedy and `stop` when something must change first.
+The report's `stop.code` is one of `PLAN_CHANGED`, `XLM_TO_DESTINATION_FELL`, `PLAN_NOT_CLOSABLE`, `NOTHING_TO_EXECUTE`, `ACCOUNT_MISSING`, `OVER_BUDGET`, `OPERATION_FAILED`, `STEP_FAILED_TWICE`, `REPLAN_LIMIT`, `TRANSACTION_REJECTED`, `SEQUENCE_CONFLICT`, `FEE_LIMIT`, `RETRY_LIMIT`, `OUTCOME_UNKNOWN`, `MERGE_PREFLIGHT_FAILED`, `SEQNUM_TOO_FAR`, `ACCOUNT_STILL_EXISTS`, `INTERRUPTED` (`StopCode` in `src/execute/report.ts`), or the code of the `DustinError` that interrupted a run which then threw. Its `verdict` is `replan` when running the close again is the remedy and `stop` when something must change first.
 
 ## 12. Unclosable and blocker codes
 
@@ -409,12 +418,12 @@ A run can add one more blocker, `STEP_FAILED_TWICE` (`RunBlocker` in the report)
 
 `dustin close <account> --to <destination> --execute` uses exactly the API above. What it does, in order:
 
-1. Checks the addresses, then reads the two secrets from the environment, else `.env` in the working directory, else a hidden prompt when standard input is a terminal (PRD decision D-11), and checks them: each must be a valid secret key, the account secret must belong to the account being closed, and the sponsor must be a different account. A missing, malformed or wrong secret stops the run with exit code 2; its value is never printed. <!-- reconcile: A -->
+1. Checks the addresses, then reads the two secrets from the environment, else `.env` in the working directory, else a hidden prompt (PRD decision D-11), and checks them: each must be a valid secret key, the account secret must belong to the account being closed, and the sponsor must be a different account. The hidden prompt is asked only when standard input and standard error are terminals and `--json` is not given; nothing typed is echoed, the account's secret is asked and checked first, and Ctrl-C or the end of input counts as a missing secret. A missing, malformed or wrong secret stops the run with exit code 2; its value is never printed.
 2. Asks Horizon which network it serves (`GET /`) and refuses anything but the testnet.
 3. Reads the account again and prints a fresh plan, with the sponsor as fee payer and the sponsor's per-close budget (5 XLM) next to the fee bid.
-4. Stops before anything is signed, with exit code 3, when there is nothing to execute, when an item cannot be disposed of and `--partial` is not given (with the reason and the remedy for each item), when the fee bid exceeds the budget, when the sponsor cannot spend at least the budget, or when the account no longer exists (Horizon's 404 is recorded in the report and the receipt). <!-- reconcile: A -->
-5. Shows what will happen and asks for the last four characters of the destination: the destination and the XLM it receives through the merge; the sponsor, the plan's bid and, on its own "at most" line, the close budget as the most the sponsor can pay; what the sponsor can spend, and the transactions and operations. The question is asked only when standard input, standard error and the stream that carried the plan are all terminals, and never with `--json`; otherwise the run ends unconfirmed with exit code 3. A wrong answer, an empty answer, the end of input or Ctrl-C also leave everything untouched (exit 3). `--yes` skips the question for scripts and says so loudly; it is honoured only with `--execute`. <!-- reconcile: A -->
-6. Runs the plan through `executeClose`, which plans again after the answer. If a quote got worse in the meantime and the close would recover less than the summary said, the run stops with exit code 3 and signs nothing (`XLM_TO_DESTINATION_FELL`). Each transaction prints its hash and explorer link when it is submitted, then its ledger and the fee charged to the sponsor when it is confirmed, or its result codes when it fails. A merge held back by the sequence guard prints the start and the end of its wait. A SIGINT or SIGTERM during execution ends the run: the receipt is printed, `--report` is written, and the command exits 5, or 3 when provably nothing was submitted. <!-- reconcile: A -->
+4. On an account Horizon answers 404 for (a run after a completed close), it asks nothing and signs nothing: the executor records the 404 in the report (`verification.accountExists === false`, `horizonStatus` 404), the receipt says a close by an earlier run is complete, and the command exits 3. Otherwise it stops before anything is signed, with exit code 3, when there is nothing to execute, when an item cannot be disposed of and `--partial` is not given (with the reason and the remedy for each item), when the fee bid exceeds the budget, or when the sponsor cannot spend at least the budget.
+5. Shows what will happen and asks for the last four characters of the destination: the destination and the XLM it receives through the merge; the sponsor, the plan's bid and, on its own "at most" line, the close budget as the most the sponsor can pay; what the sponsor can spend, and the transactions and operations. The question goes to standard error and is asked only when standard input, standard error and standard output (which carried the plan and the summary) are all terminals; otherwise the run ends unconfirmed (`CONFIRMATION_DECLINED`, exit 3) and the message names the stream that is not a terminal. With `--json` it is never asked: without `--yes` the run is refused with `CONFIRMATION_REQUIRED` (exit 3). A wrong answer, an empty answer, the end of input or Ctrl-C also leave everything untouched (exit 3). `--yes` skips the question for scripts and says so; it is honoured only with `--execute`.
+6. Runs the plan through `executeClose`, which plans again after the answer. If a quote got worse in the meantime and the close would recover less than the summary said, the run stops with exit code 3 and signs nothing (`XLM_TO_DESTINATION_FELL`). Each transaction prints its hash and explorer link when it is submitted, then its ledger and the fee charged to the sponsor when it is confirmed, or its result codes when it fails. A merge held back by the sequence guard prints the start and the end of its wait. A SIGINT or SIGTERM while the executor runs aborts its `signal`: the close stops at the next safe point and posts nothing after it, the receipt is printed and `--report` written, and the exit code follows the report: 3 when nothing was submitted, 5 when something was or may have been, 0 if the close had already completed. A second signal writes the latest copy of the report to `--report` at once and exits 5. The handlers exist only while the executor runs, so Ctrl-C at the typed confirmation is still "not confirmed" (exit 3).
 7. Checks the account on Horizon (404 means it no longer exists) and prints a receipt: every transaction with its outer and inner hash, ledger, fee and operations; the XLM merged into the destination; "Reserves released to sponsors" with each reserve sponsor's planned reserve and what Horizon showed before and after; the fees paid by the account (0) and by the sponsor; a Disposals section with what became of each leftover balance; a "Not closed" section with each unclosable item, the rungs ruled out and the remedy; explorer links for the account and the destination. After a partial or failed run a "Next" line says what is left and how to continue.
 
 Details of the options:
@@ -422,8 +431,9 @@ Details of the options:
 - Without `--execute`, `dustin close` prints the same plan as `dustin plan` and changes nothing; `--yes`, `--partial` and `--report` then have no effect, and a note on standard error says so.
 - `--sponsor <G...>`: with `--execute` it must be the owner of `DUSTIN_SPONSOR_SECRET` (otherwise `WRONG_SIGNER`, exit 2); leave it out and the sponsor is that owner.
 - `--base-fee <stroops>`: with `--execute` it is both the bid and the ceiling; without it, a retry after a fee surge may raise the bid up to the per-operation cap, never beyond the budget.
-- `--json`: exactly one JSON document on standard output, and NDJSON on standard error (section 7). The exit code stays that of the refusal or the error. <!-- reconcile: A -->
-- `--verbose`: the full detail of an error (its stage, details and Horizon result codes) instead of a one-line summary; secrets are still redacted. <!-- reconcile: A -->
+- `--json`: machine mode, exactly one JSON document on standard output and NDJSON only on standard error (section 7). The exit code stays that of the refusal or the error.
+- `--verbose` (a global option): an error's stage, verdict and whether it may be retried, Horizon's result codes, its details and its cause chain, after the one-line summary and the remedy; for an unexpected error, its stack. Secrets are still redacted.
+- Without `--json`, the plan, the progress and the receipt go to standard output, and errors and notes to standard error: one line, `dustin: CODE: message`, then the remedy. The output never uses colour, and human text wraps at 120 columns; hashes and URLs are never split.
 - `--report <file>`: the close report (JSON with public keys, hashes and envelopes; never a secret), rewritten after every change so a stopped run still has every hash. An existing file at that path is kept under a timestamped name; a file named `.env` in any letter case, or any path that is the working directory's `.env` through a link, is refused.
 - Standard output closed early (for example `dustin close ... | head`): the rest of the output goes to standard error after one notice, starting with the chunk that hit the broken pipe, so no hash, receipt or report is lost.
 
@@ -438,7 +448,7 @@ Details of the options:
 ## Sources
 
 - Exported API: `src/index.ts`; types in `src/plan/model.ts`, `src/execute/executor.ts`, `src/execute/report.ts`, `src/execute/events.ts`, `src/execute/verify.ts`, `src/sponsor/signer.ts`, `src/errors/dustin-error.ts`; the normative names: [PRD section 7](prd.md)
-- Every error and stop code: [errors.md](errors.md); the JSON schemas: [plan-schema.json](plan-schema.json), [receipt-schema.json](receipt-schema.json) <!-- reconcile: A -->
+- Every error and stop code: [errors.md](errors.md); the JSON schemas: [plan-schema.json](plan-schema.json), [receipt-schema.json](receipt-schema.json); the CLI's machine mode: [PRD section 6](prd.md)
 - Decisions: [canonical decisions](README.md); PRD decisions D-1 to D-13 in [prd.md](prd.md)
 - Error taxonomy: [ADR-0006](adr/ADR-0006-error-taxonomy.md); fee bumps: [ADR-0003](adr/ADR-0003-fee-bump-every-transaction.md)
 - Fee-bump transactions (fee account, validity, sequence number from the inner source): https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions

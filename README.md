@@ -53,12 +53,13 @@ dustin plan G<ACCOUNT> --to G<DESTINATION> --sponsor G<SPONSOR>
 dustin close G<ACCOUNT> --to G<DESTINATION> --execute
 ```
 
-`dustin close --execute` needs two secret keys: the account being closed (`DUSTIN_ACCOUNT_SECRET`) and a funded testnet account that pays every fee (`DUSTIN_SPONSOR_SECRET`). It reads them from the environment, else from a `.env` file in the working directory (copy [`.env.example`](.env.example); `.env` is gitignored), else it asks for a missing one with a hidden prompt when standard input is a terminal. A secret on the command line is refused. <!-- reconcile: A -->
+`dustin close --execute` needs two secret keys: the account being closed (`DUSTIN_ACCOUNT_SECRET`) and a funded testnet account that pays every fee (`DUSTIN_SPONSOR_SECRET`). It reads them from the environment, else from a `.env` file in the working directory (copy [`.env.example`](.env.example); `.env` is gitignored), else it asks for a missing one with a hidden prompt, but only when standard input and standard error are terminals and `--json` is not given (Ctrl-C or the end of input counts as missing: exit 2). A secret on the command line is refused.
 
 - `dustin plan`, and `dustin close` without `--execute`, only read from Horizon; nothing is signed or submitted.
 - `dustin close --execute` reads the account again, prints the fresh plan and a summary (the destination and what it receives, the sponsor and the most it can pay, the transactions), then asks for the last four characters of the destination. `--yes` skips the question for scripts. If the plan changed, or a quote got worse so the close would recover less than the summary said, it stops with exit code 3 and signs nothing.
 - Each transaction prints its hash and explorer link as it is submitted, then its ledger and the fee charged to the sponsor. A merge held back by the sequence-number guard prints the start and the end of its wait.
 - The receipt ends with Horizon's 404 for the account, what became of each leftover balance, each unclosable item with its reason and remedy, and the reserves released to reserve sponsors as observed on Horizon.
+- Ctrl-C (or SIGTERM) while the transactions run stops the close at the next safe point: nothing is posted after it, the receipt is printed and `--report` written; a second Ctrl-C writes the latest report at once. Running the same command again continues from the ledger, and on an account that is already gone it records Horizon's 404, signs nothing and exits 3.
 
 | Option of `dustin close` | Effect |
 |---|---|
@@ -70,11 +71,10 @@ dustin close G<ACCOUNT> --to G<DESTINATION> --execute
 | `--prefer-destination` | Try the transfer to the destination before the return to the issuer. |
 | `--sponsor <G...>` | The fee sponsor; with `--execute` it must own `DUSTIN_SPONSOR_SECRET`. |
 | `--base-fee <stroops>` | Bid per operation instead of the `fee_stats` estimate; with `--execute` also the highest bid. |
-| `--json` | Exactly one JSON document on standard output (the close report, or the plan when the run was refused before the executor started); standard error carries one JSON object per line (NDJSON) with a `type` field. `--execute --json` never asks: without `--yes` it exits 3. <!-- reconcile: A --> |
+| `--json` | Machine mode: exactly one JSON document on standard output (the close report, or the plan when the run was refused before the executor started; [plan-schema.json](docs/plan-schema.json), [receipt-schema.json](docs/receipt-schema.json)), and NDJSON only on standard error: one JSON object per line with a `type`, for the executor's events, `notice` and `error` ([integration notes](docs/integration-notes.md), section 7). It never asks anything: `--execute --json` without `--yes` exits 3 (`CONFIRMATION_REQUIRED`), and a missing secret exits 2. |
 | `--report <file>` | With `--execute`, keep the close report (JSON, no secrets) in this file as the run goes. |
-| `--verbose` | Full detail of an error instead of the one-line summary; secrets are still redacted. <!-- reconcile: A --> |
 
-`dustin plan` takes `--to`, `--sponsor`, `--prefer-destination`, `--memo`, `--base-fee` and `--json`. `dustin fixture create --profile messy|edge` builds a fixture account on testnet and `dustin fixture verify <manifest>` checks it against Horizon (section [Run the tests yourself](#run-the-tests-yourself)).
+`dustin plan` takes `--to`, `--sponsor`, `--prefer-destination`, `--memo`, `--base-fee` and `--json`. The global options are `--network testnet` (the only network accepted), `--verbose` (on an error, its stage, verdict, Horizon result codes, details and cause chain as well, with secrets redacted), `--help` and `--version`. The output is plain ASCII without colour, and human text wraps at 120 columns. Every error prints its code, one sentence and what to do; [docs/errors.md](docs/errors.md) lists every code. `dustin fixture create --profile messy|edge` builds a fixture account on testnet and `dustin fixture verify <manifest>` checks it against Horizon (section [Run the tests yourself](#run-the-tests-yourself)).
 
 ## Quick start: SDK
 
@@ -113,7 +113,8 @@ console.log(renderReport(report, { plans: [plan] }));
 
 - `keypairSigner()` keeps the keypair in a closure. Any object with `publicKey()` and `sign(tx)` is a `Signer`, so a wallet can sign with its own key store or a hardware device. The sponsor signs only the fee-bump envelopes.
 - Before signing, `executeClose()` re-reads the account and plans again. If the plan changed, it stops with status `aborted` and submits nothing; pass `onDrift: "replan"` to continue with the fresh plan.
-- Errors are `DustinError`s with a stable `code` and a `remedy`; every code is in [docs/errors.md](docs/errors.md). When a run stops on an error after something was submitted, the error carries the report so far in `error.report`. <!-- reconcile: A -->
+- Errors are `DustinError`s with a stable `code`; `remedyOf(error)` gives what to do, and every code is in [docs/errors.md](docs/errors.md). When a run stops on an error after something was submitted, the error carries the report so far in `error.report`.
+- Pass `signal` (an `AbortSignal`) to stop a run at the next safe point; the report then ends with the stop `INTERRUPTED`.
 - The SDK never reads environment variables or `.env`; the CLI does, for `dustin close --execute` only.
 
 The [integration notes](docs/integration-notes.md) cover the whole wallet flow: rendering the plan, approval, signers, events, drift, partial closes, continuing a stopped run, errors, and how to fund and protect a sponsor.
@@ -123,7 +124,7 @@ The [integration notes](docs/integration-notes.md) cover the whole wallet flow: 
 1. **Dry run by default.** `planClose()`, `dustin plan` and `dustin close` without `--execute` only read from Horizon; nothing is signed without `--execute` and the typed confirmation (or `--yes`).
 2. **The merge is last.** It is always the last operation and is submitted only after every pre-merge check passes: no subentries left, the sequence-number guard, the account sponsors nothing, the destination exists and gets any memo it requires.
 3. **Two signers, split duties.** The account being closed signs the inner transactions; the sponsor signs only the fee-bump envelopes and never an operation, within a per-close budget (default 5 XLM), so it cannot move the account's assets.
-4. **Secrets stay secret.** They are read only by `dustin close --execute`, from the environment, `.env` or a hidden prompt; they never appear in output, reports, `--report` files or `--json`, and a secret passed on the command line is refused. <!-- reconcile: A -->
+4. **Secrets stay secret.** They are read only by `dustin close --execute`, from the environment, `.env` or a hidden prompt that echoes nothing; they never appear in output, reports, `--report` files or `--json`, and a secret passed on the command line is refused.
 5. **Testnet only.** Any other network passphrase, and any Horizon that does not serve the testnet, is refused before the first read.
 
 ## Exit codes
@@ -135,9 +136,9 @@ The CLI's exit codes ([canonical decision 5](docs/README.md), `src/cli/exit-code
 | 0 | Plan printed, or account closed and verified gone (Horizon answers 404) |
 | 1 | Unexpected error |
 | 2 | Usage or validation error: bad address, secret on the command line, missing, malformed or wrong secret, a network other than testnet, a URL that is not a Horizon server |
-| 3 | Nothing executed: confirmation declined or impossible (no terminal and no `--yes`, or `--json` without `--yes`), unclosable items without `--partial`, nothing to execute, the account changed after the plan was shown, the account no longer exists (Horizon's 404 is recorded), a fee bid over the sponsor's budget, a sponsor that cannot cover it, or an interruption before anything was submitted <!-- reconcile: A --> |
+| 3 | Nothing executed: confirmation declined or impossible (no terminal and no `--yes`, or `--json` without `--yes`), unclosable items without `--partial`, nothing to execute, the account changed after the plan was shown, the account no longer exists (Horizon's 404 is recorded), a fee bid over the sponsor's budget, a sponsor that cannot cover it, or an interruption (SIGINT or SIGTERM) before anything was submitted |
 | 4 | Partial: everything possible was done and the account still exists |
-| 5 | Stopped or failed during execution, interrupted (SIGINT or SIGTERM) after something was submitted, or a merge that was not verified gone; run the same command again to continue <!-- reconcile: A --> |
+| 5 | Stopped or failed during execution, interrupted (SIGINT or SIGTERM) after something was or may have been submitted, a second signal, or a merge that was not verified gone; run the same command again to continue |
 | 6 | Horizon unreachable before anything was submitted |
 
 ## What is not handled
@@ -163,7 +164,7 @@ Every case with its code and remedy is in the [write-up](docs/write-up.md), sect
 
 ## Run the tests yourself
 
-On a fresh machine with Node.js 22.12 or newer and internet access. No key or secret is needed: every live test and every fixture funds its own throwaway accounts from Friendbot.
+On a fresh machine with Node.js 22.12 or newer and internet access. No key, no secret and no `.env` is needed: every live test and every fixture funds its own throwaway accounts from Friendbot.
 
 ```bash
 git clone https://github.com/0xsimoneth/dustin.git
@@ -173,9 +174,9 @@ npm test                                     # offline tier: no network at all
 DUSTIN_TESTNET=1 npm run test:testnet -- --reporter=verbose   # live tier on testnet
 ```
 
-- **Offline tier** (`npm test`): recorded Horizon JSON and a fake ledger, with the network blocked for the whole tier. On 2026-09-28: 89 files, 864 tests, 5.7 s.
-- **Live tier** (`DUSTIN_TESTNET=1 npm run test:testnet`): every file builds its own fixture accounts with fresh keys, so nothing is shared between runs and the builder's baseline fixture is never touched. On 2026-09-28: 10 files, 51 tests, 285 s locally and 321 s in the [testnet CI job](https://github.com/0xsimoneth/dustin/actions/runs/36424696971). `--reporter=verbose` shows every transaction hash the tests print.
-- **A fixture by hand**, then its check against SOW Appendix B:
+- **Offline tier** (`npm test`): recorded Horizon JSON and a fake ledger, with the network blocked for the whole tier. The committed green run, on commit `0da27eb` (2026-09-28): 96 files, 928 tests, 7.0 s ([`evidence/tests/offline.txt`](evidence/tests/offline.txt)).
+- **Live tier** (`DUSTIN_TESTNET=1 npm run test:testnet`): every file builds its own fixture accounts with fresh keys, so nothing is shared between runs and the builder's baseline fixture is never touched. The committed green run, on the same commit: 11 files, 58 tests, 304 s ([`evidence/tests/testnet.txt`](evidence/tests/testnet.txt)); the last run in the [testnet CI job](https://github.com/0xsimoneth/dustin/actions/runs/36424696971) passed 10 files and 51 tests in 321 s on `d0d711c`. `--reporter=verbose` shows every transaction hash the tests print.
+- **A fixture by hand**, then its check against SOW Appendix B. There is no `fixture:build` script; the fixture commands are part of the CLI:
 
 ```bash
 npm run build
@@ -183,9 +184,9 @@ node dist/cli/main.js fixture create --profile messy   # prints the account, the
 node dist/cli/main.js fixture verify .fixture/<id>/manifest.json   # exit 0 when every check passes
 ```
 
-`fixture create` writes the keys to `.fixture/<id>/keys.json` (mode 600, gitignored, testnet only) and the public manifest beside them; the recorded builds took seven transactions in consecutive ledgers. `dustin plan` and `dustin close` then run on that account like on any other ([docs/demo-video-script.md](docs/demo-video-script.md) walks through it).
+`fixture create` writes the keys to `.fixture/<id>/keys.json` (mode 600, gitignored, testnet only) and the public manifest beside them; the recorded builds took seven transactions in consecutive ledgers. `fixture verify` exits 3 when a check fails, and stops with `RESET_SUSPECTED` (also 3) when the testnet was reset since the fixture was built. `dustin plan` and `dustin close` then run on that account like on any other ([docs/demo-video-script.md](docs/demo-video-script.md) walks through it).
 
-The recorded durations of the two tiers and a fixture build add up to about six minutes; `npm ci` and `npm run build` come on top and depend on the machine and the network. The full output of both tiers is in [evidence/tests/](evidence/tests/), and every row of the D3 matrix with its tests is in [docs/test-matrix.md](docs/test-matrix.md). <!-- reconcile: B -->
+The timings committed for 2026-09-28 are about 6 s for `npm run build`, 7 s for the offline tier and 304 s for the live tier ([story E4-S3](docs/stories/4-3-test-evidence-reproducibility.md)); `npm ci` on a fresh machine has not been timed. Every row of the D3 matrix, with its tests and its last run, is in [docs/test-matrix.md](docs/test-matrix.md), and [evidence/tests/](evidence/tests/README.md) holds the complete output of both green runs with an image of each summary.
 
 ## Evidence
 
@@ -195,14 +196,14 @@ The evidence follows SOW section 6.1; the [evidence package](evidence/README.md)
 |---|---|---|
 | D1 `planClose()` | Public repo + CLI output | The committed dry-run plan of the messy fixture ([text](evidence/plan/fixture-plan.txt), [JSON](evidence/plan/fixture-plan.json)); `dustin plan` runs on any testnet account. |
 | D2 Live close on testnet | Transaction hashes (links) + 60-second video | The metric close of 2026-09-28 through the [CLI](evidence/runs/20260928T112252Z-e3-cli/summary.md) and the [SDK](evidence/runs/20260928T112239Z-e3/summary.md): zero-spendable messy accounts, every transaction a sponsor-paid fee bump, the account gone (Horizon 404). Pending: the video (`<pending: builder records the 60-second video>`). |
-| D3 Edge cases and tests | Test results screenshot + public repo + baseline recording | The [test matrix](docs/test-matrix.md) and the tests under `test/`; the test output in [evidence/tests/](evidence/tests/) <!-- reconcile: B -->; the [baseline protocol](evidence/baseline/README.md). Pending: the Demolisher recording (`<pending: builder records the baseline, matrix B-01 and B-02>`). |
+| D3 Edge cases and tests | Test results screenshot + public repo + baseline recording | The [test matrix](docs/test-matrix.md) and the tests under `test/`; the complete output and an image of a green run of each tier in [evidence/tests/](evidence/tests/README.md); the [baseline protocol](evidence/baseline/README.md). Pending: the Demolisher recording (`<pending: builder records the baseline, matrix B-01 and B-02>`). |
 | Documentation, demo and evidence | Public repo + write-up + 60-second video | The [write-up](docs/write-up.md), the [integration notes](docs/integration-notes.md) and the [evidence package](evidence/README.md). Pending: the video. |
 
 ## Configuration
 
 | Variable | Used by | Read from |
 |---|---|---|
-| `DUSTIN_ACCOUNT_SECRET` | `dustin close --execute` only: the secret key of the account being closed | the environment, else `.env` in the working directory, else a hidden prompt on a terminal <!-- reconcile: A --> |
+| `DUSTIN_ACCOUNT_SECRET` | `dustin close --execute` only: the secret key of the account being closed | the environment, else `.env` in the working directory, else a hidden prompt on a terminal (not with `--json`) |
 | `DUSTIN_SPONSOR_SECRET` | `dustin close --execute` only: the secret key of a funded testnet account that pays every fee | the same |
 | `DUSTIN_HORIZON_URL` | every command: the Horizon to use (default `https://horizon-testnet.stellar.org`); it must serve the testnet | the environment only |
 | `DUSTIN_EXPLORER_BASE` | every command: the base of explorer links (default `https://stellar.expert/explorer/testnet`) | the environment only |

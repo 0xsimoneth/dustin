@@ -66,6 +66,8 @@ The SOW (section 6) says evidence must be "easy to review by the Ambassador Chap
 
 Binary: `dustin`. Every command accepts `--network testnet` (the only network accepted in this scope; `--network public` is refused with exit code 2 and the sentence "Dustin is testnet-only in this release"), `--horizon <url>`, `--json`, `--no-color`, `--quiet`, `--verbose`, `--help`, `--version`.
 
+> As built (2026-09-28; `src/cli/program.ts`, PRD section 6): the commands are `dustin plan`, `dustin close`, `dustin fixture create` and `dustin fixture verify`; there is no `fixture show`, `baseline` or `report` command. The global options are `--network testnet`, `--verbose`, `--help` and `--version`. `--json` is an option of each command, not a global one. There is no `--horizon`, `--no-color`, `--quiet`, `--unicode` or `--wide`: the Horizon URL comes from `DUSTIN_HORIZON_URL`, and the output has no colour to switch off (section 2.10). `close` takes `--base-fee` in place of `--max-fee` and `--report <file>` in place of `--run-file`, and also `--sponsor` and `--memo`. The design below is kept as written.
+
 | Command | What it does | Secrets needed | Mutates the ledger |
 |---|---|---|---|
 | `dustin plan <G-account> [--to <G-destination>] [--sponsor <G-sponsor>]` | Inspects the account and prints the ordered close plan. `--to` is optional here (the destination rung of the disposal ladder shows as "needs --to" until given); `--sponsor` only affects the fee estimate line. | None | Never |
@@ -341,6 +343,8 @@ Event lines on stderr: `{"event":"tx:confirmed","tx":1,"hash":"3f9a...","ledger"
 Scripts can rely on: 0 means the success metric holds; 3 and 6 mean nothing happened; 4 and 5 mean look at the report.
 
 ### 2.10 Color, no-color and accessibility
+
+> As built (2026-09-28; story E4-S1, PRD section 6): the output never uses colour, so there is no `--no-color` and `NO_COLOR` changes nothing; every status is a word, as the first rule below asks. The output is plain ASCII with no `--unicode` option, and there is no `--wide`: addresses are shortened in step and operation lines and printed in full in the headers of the plan and the receipt, in the confirmation summary and in the JSON. Human text wraps at 120 columns (a documented deviation from 80: a full hash or URL is printed whole on its own line and is longer than 80).
 
 - Color is never the only carrier of meaning. Every status is a word (`confirmed`, `failed`, `unclosable`, `done`, `not done`, `waiting`). A colour-blind user, a screen reader and a log file all get the same information.
 - Colour is on only when stdout is a terminal, `NO_COLOR` is unset (the no-color.org convention) and `--no-color` is absent. Only four semantic colours exist: green for done/confirmed, yellow for waiting/partial, red for failed/unclosable, dim for hashes and URLs.
