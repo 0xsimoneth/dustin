@@ -262,6 +262,8 @@ class CloseRun {
   private readonly settledLate = new Set<string>();
   /** Assets whose strict-send sale failed on the market during this run. */
   private readonly demoted = new Set<string>();
+  /** The failing operation code of each failure of a step, in order (closing review CX-4). */
+  private readonly failureCodes = new Map<StepOutcome, string[]>();
   private sponsor: FeeSponsor | null = null;
   private stage: ErrorStage = "plan";
   private round = 0;
@@ -940,8 +942,14 @@ class CloseRun {
       stepOutcome.failures = (stepOutcome.failures ?? 0) + 1;
       stepOutcome.resultCodes = outcome.codes;
       stepOutcome.explanation = failure.explanation;
+      this.failureCodes.set(stepOutcome, [
+        ...(this.failureCodes.get(stepOutcome) ?? []),
+        failure.code,
+      ]);
       this.publish();
     }
+    // Every failure of this step in the run, this one last.
+    const codes = (stepOutcome && this.failureCodes.get(stepOutcome)) ?? [failure.code];
     const stepId = stepOutcome?.stepId;
     const where = `Step ${stepId ?? `${failure.index + 1} of transaction ${tx.index + 1}`} (${step?.kind.replaceAll("_", " ") ?? "operation"}) failed with ${failure.code}: ${failure.explanation}`;
     const stopWith = (stop: Omit<StopReason, "stage" | keyof typeof at>): AfterFailure => ({
@@ -970,7 +978,9 @@ class CloseRun {
       const maxWait =
         (this.roundPlans[this.round] ?? this.input.fresh).options?.maxWaitLedgers ??
         DEFAULT_MAX_WAIT_LEDGERS;
-      const twice = (stepOutcome?.failures ?? 0) >= 2;
+      // "This way" means op_seq_num_too_far: a failure of the merge with another code (a re-plan
+      // code such as op_has_sub_entries) is counted apart (closing review CX-4).
+      const twice = codes.filter((c) => c === "op_seq_num_too_far").length >= 2;
       const tooFar = unblocks !== undefined && unblocks - latest.sequence > maxWait;
       if (twice || tooFar) {
         const when =
@@ -1001,7 +1011,8 @@ class CloseRun {
       const subject = step ? describeSubject(step.subject) : "operation";
       this.report.blockers.push({
         code: "STEP_FAILED_TWICE",
-        reason: `Step ${stepOutcome.stepId} (${step?.kind.replaceAll("_", " ") ?? "operation"}, ${subject}) failed twice on the ledger with ${failure.code}: ${failure.explanation}`,
+        // Each code when they differ, in order (closing review CX-4).
+        reason: `Step ${stepOutcome.stepId} (${step?.kind.replaceAll("_", " ") ?? "operation"}, ${subject}) ${failedHow(codes)}: ${failure.explanation}`,
         // Review round 3, R3-5: --partial only lets a plan that cannot merge run; it is not an
         // input to the planner, so the next plan includes the same step again.
         remedy: `Look at the account's ${subject} on the explorer to find out why the step keeps failing, resolve that or wait until it settles, then run the close again, which plans from the ledger; --partial does not skip it, since the next plan includes the step again.`,
@@ -1009,10 +1020,15 @@ class CloseRun {
         stepId: stepOutcome.stepId,
         resultCodes: outcome.codes,
       });
+      const times = codes.length === 2 ? "twice" : `${codes.length} times`;
+      const before = codes.slice(0, -1);
+      const earlier = before.every((c) => c === failure.code)
+        ? ""
+        : ` (${before.length === 1 ? "first" : "before this"} with ${before.join(", then ")})`;
       return stopWith({
         code: "STEP_FAILED_TWICE",
         verdict: "stop",
-        detail: `${where} It failed twice, so the run stops here, before the merge.`,
+        detail: `${where} It failed ${times}${earlier}, so the run stops here, before the merge.`,
       });
     }
     if (failure.demoteRung1 && step?.subject.type === "trustline") {
@@ -1599,6 +1615,19 @@ export function recoveredXlmWords(approved: ClosePlan, fresh: ClosePlan): string
 function errorText(error: unknown): string {
   if (error instanceof DustinError) return `${error.code}: ${error.message}`;
   return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * How a step failed on the ledger, from the failing code of each of its failures in order: "failed
+ * twice on the ledger with X" when they share one code, otherwise each code in order, so that a
+ * STEP_FAILED_TWICE blocker never credits a failure to the wrong code (closing review CX-4).
+ */
+function failedHow(codes: string[]): string {
+  const times = codes.length === 2 ? "twice" : `${codes.length} times`;
+  if (new Set(codes).size <= 1) return `failed ${times} on the ledger with ${codes.at(-1) ?? ""}`;
+  return codes.length === 2
+    ? `failed twice on the ledger, first with ${codes[0]!}, then with ${codes[1]!}`
+    : `failed ${times} on the ledger, with ${codes.slice(0, -1).join(", ")} and then ${codes.at(-1)!}`;
 }
 
 /** A wait of `ledgers` ledgers in words, at the observed 5 s per ledger (src/plan/guard.ts). */

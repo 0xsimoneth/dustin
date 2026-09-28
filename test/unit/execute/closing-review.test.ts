@@ -3,7 +3,7 @@ import { exitCodeForReport } from "../../../src/cli/exit-codes.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
 import { messy } from "../../helpers/snapshots.js";
-import { harness, reply, signers, type TestClock } from "./harness.js";
+import { failedOps, harness, reply, signers, type TestClock } from "./harness.js";
 
 // Closing review of E3 (2026-09-28), executor half: the edge-case review's CX findings and the
 // acceptance audit's CA-13. Every test here failed on the code before its fix, and runs on the
@@ -240,5 +240,80 @@ describe("CX-3: a fresh plan that lost its merge is worded from the cause, and '
     const report = await executeClose(approved, signers(), { confirm: true, ...deps });
     expect(report.stop).toMatchObject({ code: "PLAN_CHANGED" });
     expect(report.stop!.detail).toMatch(/the fresh plan no longer merges \(status blocked\)/);
+  });
+});
+
+describe("CX-4: op_seq_num_too_far failures of the merge are counted on their own", () => {
+  it("re-plans and waits after op_has_sub_entries then op_seq_num_too_far within the bound", async () => {
+    const { ledger, clock, deps, plan } = harness();
+    let scripted = false;
+    let bumped = false;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      sleep: tickingSleep(ledger, clock),
+      onEvent: (e) => {
+        // Round 0: the merge fails on the ledger with a re-plan code.
+        if (e.type === "tx:building" && e.index === 2 && e.round === 0 && !scripted) {
+          scripted = true;
+          ledger.faults.push(failedOps("op_has_sub_entries"));
+        }
+        // Round 1: after the merge's preflight, another client bumps the sequence number a few
+        // ledgers ahead, well within the bound of 120.
+        if (
+          e.type === "preflight" &&
+          e.ok &&
+          scripted &&
+          !bumped &&
+          ledger.submissions.length >= 3
+        ) {
+          bumped = true;
+          bump(ledger, 3);
+        }
+      },
+    });
+    const merges = report.transactions.filter((t) => t.phase === "merge");
+    expect(merges.map((t) => [t.round, t.result, t.resultCodes?.operations])).toEqual([
+      [0, "failed", ["op_has_sub_entries"]],
+      [1, "failed", ["op_seq_num_too_far"]],
+      [2, "applied", undefined],
+    ]);
+    // Before the fix: SEQNUM_TOO_FAR "The merge failed this way twice" after one re-plan of three.
+    expect(report.replans).toHaveLength(2);
+    expect(report.status).toBe("closed");
+    expect(report.stop).toBeNull();
+  });
+
+  it("names both codes in STEP_FAILED_TWICE after op_seq_num_too_far then op_has_sub_entries", async () => {
+    const { ledger, clock, deps, plan } = harness();
+    let bumped = false;
+    let scripted = false;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      sleep: tickingSleep(ledger, clock),
+      onEvent: (e) => {
+        if (e.type === "preflight" && e.index === 2 && e.ok && !bumped) {
+          bumped = true;
+          bump(ledger, 4);
+        }
+        if (e.type === "tx:building" && e.round === 1 && !scripted) {
+          scripted = true;
+          ledger.faults.push(failedOps("op_has_sub_entries"));
+        }
+      },
+    });
+    const merges = report.transactions.filter((t) => t.phase === "merge");
+    expect(merges.map((t) => t.resultCodes?.operations)).toEqual([
+      ["op_seq_num_too_far"],
+      ["op_has_sub_entries"],
+    ]);
+    expect(report.stop).toMatchObject({ code: "STEP_FAILED_TWICE", stepId: "S12" });
+    const blocker = report.blockers.find((b) => b.code === "STEP_FAILED_TWICE")!;
+    // Before the fix: "failed twice on the ledger with op_has_sub_entries".
+    expect(blocker.reason).toMatch(
+      /failed twice on the ledger, first with op_seq_num_too_far, then with op_has_sub_entries:/,
+    );
+    expect(report.stop!.detail).toMatch(/It failed twice \(first with op_seq_num_too_far\)/);
   });
 });
