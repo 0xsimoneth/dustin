@@ -53,15 +53,17 @@ describe("the planner's sequence guard wiring (E3-S4)", () => {
     expect(at(10, 10).status).toBe("blocked");
   });
 
-  it("says the cleanup runs first when there is one", () => {
+  it("says the cleanup and the sale run first when there are both", () => {
+    // The messy fixture has a cleanup and the DUSTA sale; the wording names both (closing review
+    // CP-17).
     const s = copy(base);
     s.sequence = (BigInt(s.observed.ledger + 3) << 32n).toString();
     const plan = planFromSnapshot(s, opts());
     expect(plan.warnings.join(" ")).toMatch(
-      /The cleanup runs first; the executor waits before submitting the merge\./,
+      /The cleanup and the sale run first; the executor waits before submitting the merge\./,
     );
     expect(plan.transactions.at(-1)!.reason).toMatch(
-      /The merge runs alone after the cleanup because it must wait until ledger/,
+      /The merge runs alone after the cleanup and the sale because it must wait until ledger/,
     );
   });
 

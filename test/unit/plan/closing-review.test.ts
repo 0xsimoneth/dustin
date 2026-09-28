@@ -474,3 +474,52 @@ describe("CP-16: IS_SPONSOR speaks of a clawback only for a clawback-enabled ass
     );
   });
 });
+
+describe("CP-17: the sequence-guard wording names what runs before the merge", () => {
+  /** A sequence number 3 ledgers ahead: the merge waits, within the default bound. */
+  function guarded(s: ExistingAccountSnapshot): ClosePlan {
+    s.sequence = (BigInt(s.observed.ledger + 3) << 32n).toString();
+    return planFromSnapshot(s, opts());
+  }
+  const guardWarning = (plan: ClosePlan) => plan.warnings.find((w) => w.includes("sequence"))!;
+
+  it("a plan whose only earlier transaction is the DUSTA sale says the sale runs first", () => {
+    const s = copy(base);
+    s.trustlines = s.trustlines.filter((t) => t.asset.code === "DUSTA");
+    s.quotes = s.quotes.filter((q) => q.asset.code === "DUSTA");
+    s.offers = [];
+    s.data = [];
+    s.poolShares = [];
+    s.subentryCount = 1;
+    s.numSponsored = 0;
+    const plan = guarded(s);
+    expect(plan.transactions.map((t) => t.phase)).toEqual(["convert", "merge"]);
+    expect(guardWarning(plan)).toContain(
+      "The sale runs first; the executor waits before submitting the merge.",
+    );
+    expect(guardWarning(plan)).not.toMatch(/cleanup/);
+    expect(plan.transactions[1]!.reason).toMatch(
+      /^The merge runs alone after the sale because it must wait until ledger \d+ for the sequence guard\.$/,
+    );
+  });
+
+  it("the messy fixture runs its cleanup and its sale first", () => {
+    const plan = guarded(copy(base));
+    expect(plan.transactions.map((t) => t.phase)).toEqual(["cleanup", "convert", "merge"]);
+    expect(guardWarning(plan)).toContain("The cleanup and the sale run first;");
+    expect(plan.transactions.at(-1)!.reason).toMatch(
+      /^The merge runs alone after the cleanup and the sale because/,
+    );
+  });
+
+  it("a plan without a sale still says the cleanup runs first", () => {
+    const s = copy(base);
+    s.quotes = s.quotes.map((q) => ({ ...q, quote: null }));
+    const plan = guarded(s);
+    expect(plan.transactions.map((t) => t.phase)).toEqual(["cleanup", "merge"]);
+    expect(guardWarning(plan)).toContain("The cleanup runs first;");
+    expect(plan.transactions.at(-1)!.reason).toMatch(
+      /^The merge runs alone after the cleanup because/,
+    );
+  });
+});
