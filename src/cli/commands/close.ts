@@ -237,6 +237,11 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
   }
 
   const plans: ClosePlan[] = [plan];
+  // The receipt describes each transaction with the plan of its round. The executor's fresh plan
+  // can share the hash of the plan shown and still differ from it (a better quote, or the sequence
+  // guard's regrouping of the merge, review finding CA-11), so the plans the executor ran come
+  // first and the plan shown is only the fallback.
+  const receiptPlans = () => [...plans.slice(1), plans[0]!];
   let latest: CloseReport | null = null;
   let submitted = false;
   const progress = progressPrinter(say, plans, account, () => submitted);
@@ -294,7 +299,9 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
         : `dustin: unexpected error after a submission: ${redact(String(error))}\n`,
     );
     document(stopped);
-    say(`\n${renderReport(stopped, { plans, explorerBaseUrl: config.explorerBaseUrl })}`);
+    say(
+      `\n${renderReport(stopped, { plans: receiptPlans(), explorerBaseUrl: config.explorerBaseUrl })}`,
+    );
     if (receipt) say(receiptLine(receipt));
     return ExitCode.STOPPED;
   }
@@ -302,7 +309,9 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
   receipt?.write(report);
   const code = exitCodeForReport(report);
   document(report);
-  say(`\n${renderReport(report, { plans, explorerBaseUrl: config.explorerBaseUrl })}`);
+  say(
+    `\n${renderReport(report, { plans: receiptPlans(), explorerBaseUrl: config.explorerBaseUrl })}`,
+  );
   if (receipt) say(receiptLine(receipt));
   if (report.status === "closed" && code !== ExitCode.OK) {
     ctx.io.stderr(

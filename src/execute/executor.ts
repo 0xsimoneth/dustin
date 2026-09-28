@@ -521,6 +521,11 @@ class CloseRun {
     await this.observeSponsors("before");
     // Past every refusal before signing: only now has the run gone on with the fresh plan (CX-3).
     if (wentOn !== null) this.report.warnings.push(wentOn);
+    // Review finding CA-11, PRD decision D-10: the plan hash leaves out the regrouping of the merge
+    // that a near sequence guard causes, so a fresh plan with the approved hash may group the same
+    // steps differently. The run follows the fresh plan's grouping and says so.
+    const regrouped = !hashChanged ? regroupedWords(plan, fresh) : null;
+    if (regrouped !== null) this.report.warnings.push(regrouped);
     this.sponsor = new FeeSponsor(this.input.signers.feeSponsor, {
       networkPassphrase: fresh.network.passphrase,
       budgetStroops: fresh.fees.budgetStroops,
@@ -1665,6 +1670,30 @@ export function recoveredXlmWords(approved: ClosePlan, fresh: ClosePlan): string
     return "the XLM the account would keep (its balance plus the quoted sales; the plan does not merge)";
   }
   return "the XLM the close would recover (the account's balance plus the quoted sales)";
+}
+
+/**
+ * The warning for a fresh plan that has the approved plan's hash but groups its steps into other
+ * transactions, or null when the groupings are the same. The hash leaves out only the regrouping of
+ * the merge by a near sequence guard (review finding CA-11, PRD decision D-10): the guard cleared
+ * after the plan was approved, so the merge joins the cleanup, or it holds now, so the merge waits
+ * in a transaction of its own.
+ */
+function regroupedWords(approved: ClosePlan, fresh: ClosePlan): string | null {
+  const grouping = (p: ClosePlan) => JSON.stringify(p.transactions.map((t) => t.stepIds));
+  if (grouping(approved) === grouping(fresh)) return null;
+  const mergeTx = (p: ClosePlan) => p.steps.find((s) => s.kind === "merge")?.txIndex;
+  const before = mergeTx(approved);
+  const now = mergeTx(fresh);
+  if (before === undefined || now === undefined) return null;
+  const alone = (p: ClosePlan, index: number) => (p.transactions[index]?.stepIds.length ?? 0) === 1;
+  const was = `transaction ${before + 1} of ${approved.transactions.length}${alone(approved, before) ? ", alone" : ""}`;
+  const is = `transaction ${now + 1} of ${fresh.transactions.length}`;
+  const why =
+    fresh.sequenceGuard?.ok === false
+      ? `the sequence guard holds the merge until ledger ${fresh.sequenceGuard.unblocksAtLedger} now, so the merge waits alone in ${is}`
+      : `the sequence guard cleared after the plan was approved, so the merge runs in ${is} with the cleanup`;
+  return `The steps are the ones approved, but ${why} instead of in ${was}; the plan hash leaves this regrouping out (PRD decision D-10), and the run follows the fresh plan.`;
 }
 
 /** An error in a few words for a warning: its code and message when it is a DustinError. */
