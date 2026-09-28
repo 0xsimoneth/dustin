@@ -24,11 +24,13 @@ import { horizonJson, latestLedger, type FetchLike } from "../reader/horizon-jso
 import { horizonReader } from "../reader/ledger-reader.js";
 import { hashHex, wrapInFeeBump } from "../sponsor/fee-bump.js";
 import {
+  afterSubmission,
   awaitFunded,
   fixtureId,
   friendbot,
   pollAccount,
   stepError,
+  type BuildProgress,
   type RecordedResponse,
 } from "./builder.js";
 import {
@@ -45,7 +47,7 @@ import {
   type EdgeStep,
   type EdgeVariant,
 } from "./edge.js";
-import { loadEdgeVerifyInput, verifyEdgeFixture } from "./edge-verify.js";
+import { loadEdgeVerifyInput, verifyEdgeFixture, type EdgeVerifyInput } from "./edge-verify.js";
 import type { EdgeFixtureKeys, EdgeFixtureManifest, FixtureManifest } from "./manifest.js";
 import type { VerifyResult } from "./verify.js";
 
@@ -68,6 +70,14 @@ export interface EdgeBuildOptions {
    * anything is funded (closing review CP-12).
    */
   onKeys?: (keys: EdgeFixtureKeys) => void | Promise<void>;
+  /**
+   * Receives the manifest as soon as the last build transaction settled, before Horizon is read
+   * again for the final verification and the recording, so a failure of those reads cannot lose
+   * it (closing review CP-9). It has every transaction; its verification is still empty and its
+   * variants have no XLM position yet (the result's manifest completes both). The build waits for
+   * it.
+   */
+  onManifest?: (manifest: EdgeFixtureManifest) => void | Promise<void>;
 }
 
 export interface EdgeBuildResult {
@@ -75,9 +85,16 @@ export interface EdgeBuildResult {
   keys: EdgeFixtureKeys;
   /**
    * The Horizon JSON the planner reads for every variant, recorded right after the build (public
-   * data only), keyed by file name: the offline test vectors (test/fixtures/horizon/edge/).
+   * data only), keyed by file name: the offline test vectors (test/fixtures/horizon/edge/). After
+   * a failed read, what was recorded before it.
    */
   recorded: Record<string, RecordedResponse>;
+  /**
+   * Set when every build transaction applied but a Horizon read after the last one failed: the
+   * final verification (its failure is then the manifest's only check, and the variants have no
+   * XLM position) or the recording (closing review CP-9).
+   */
+  readFailure?: DustinError;
 }
 
 function invalid(detail: string): DustinError {
@@ -186,9 +203,23 @@ export function recordName(path: string, roleOf: ReadonlyMap<string, string>): s
  * Builds a fresh `edge` fixture on testnet from Friendbot funding alone: the fee sponsor creates the
  * helpers and one account per variant, every other transaction is fee-bumped by it, and each step
  * is followed by polling Horizon until the state it creates is visible. Every call creates new
- * keys, so it is repeatable after a testnet reset (docs/README.md canonical decision 12).
+ * keys, so it is repeatable after a testnet reset (docs/README.md canonical decision 12). An error
+ * after the first submission carries the transaction counts (`afterSubmission`); a failed read
+ * after the last transaction settled is returned in `readFailure` instead (closing review CP-9).
  */
 export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<EdgeBuildResult> {
+  const progress: BuildProgress = { submitted: 0, applied: 0 };
+  try {
+    return await buildEdge(options, progress);
+  } catch (error) {
+    throw afterSubmission(error, progress);
+  }
+}
+
+async function buildEdge(
+  options: EdgeBuildOptions,
+  progress: BuildProgress,
+): Promise<EdgeBuildResult> {
   const settleTimeoutMs = assertSettleTimeout(options.settleTimeoutMs);
   const config = resolveConfig(options.config);
   const log = options.log ?? (() => undefined);
@@ -264,6 +295,7 @@ export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<
       ? wrapInFeeBump(inner, keypairs.sponsor, baseFee, config.networkPassphrase)
       : inner;
     const hash = hashHex(envelope);
+    progress.submitted += 1;
     const outcome = await submitAndConfirm(
       submitter,
       { xdr: envelope.toXDR(), hash, maxTime: Number(inner.timeBounds?.maxTime ?? 0) },
@@ -290,6 +322,7 @@ export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<
       }
     }
     if (outcome.kind !== "applied") throw stepError(step.name, outcome);
+    progress.applied += 1;
     transactions.push({
       step: step.name,
       hash,
@@ -305,88 +338,140 @@ export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<
   log("Building the edge variants");
   for (const step of edgeSteps(roles, baseReserve)) await runStep(step);
 
-  const input = await loadEdgeVerifyInput(client, roles, pool.id);
-  const verification = verifyEdgeFixture(input);
-  const variants: readonly EdgeVariant[] = EDGE.variants;
-  const recorded = await recordHorizon(config.horizonUrl, doFetch, sleep, roles);
-  const shares =
-    input.accounts.poolShare?.balances.find((b) => b.liquidity_pool_id === pool.id)?.balance ??
-    "0.0000000";
-  const codes: EdgeAssetCode[] = ["FRZ", "MNT", "AUTH", "RVK", "CLAW", "ILQX", "LPA", "LPB"];
-  const manifest: EdgeFixtureManifest = {
-    schemaVersion: 1,
-    kind: "dustin-fixture",
-    profile: "edge",
-    id,
-    createdAt: createdAt.toISOString(),
-    network: {
-      passphrase: config.networkPassphrase,
-      horizonUrl: config.horizonUrl,
-      explorerBaseUrl: config.explorerBaseUrl,
-    },
-    createdAtLedger,
-    recipeHash: createHash("sha256").update(JSON.stringify(EDGE)).digest("hex"),
-    accounts: Object.fromEntries(EDGE_ACCOUNT_ROLES.map((r) => [r, roles[r]])) as Record<
-      EdgeAccountRole,
-      string
-    >,
-    multisigSigner: roles.multisigSigner,
-    issuerFlags: {
-      authIssuer: [...EDGE.issuerFlags.authIssuer],
-      clawbackIssuer: [...EDGE.issuerFlags.clawbackIssuer],
-      plainIssuer: [],
-    },
-    assets: codes.map((code) => ({
-      code,
-      issuer: roles[edgeIssuerOf(code)],
-      issuerRole: edgeIssuerOf(code),
-    })),
-    pool: {
-      id: pool.id,
-      assets: [pool.asset.assetA, pool.asset.assetB].map(
-        (a) => `${a.getCode()}:${a.getIssuer()}`,
-      ) as [string, string],
-      shares,
-    },
-    variants: variants.map((v) => {
-      const account = input.accounts[v.role];
-      const reserve = account ? reserveFromHorizon(account, input.baseReserve) : null;
-      return {
-        name: v.name,
-        role: v.role,
-        account: roles[v.role],
-        rows: [...v.rows],
-        summary: v.summary,
-        expected: v.expected,
-        balance: reserve ? formatStroops(reserve.balance) : "0.0000000",
-        minimumBalance: reserve ? formatStroops(reserve.minimum) : "0.0000000",
-        spendable: reserve ? formatStroops(reserve.spendable) : "0.0000000",
-      };
-    }),
-    transactions,
-    verification,
+  /** The manifest, with what the final read showed (`input`), or without it (null). */
+  const manifestOf = (
+    input: EdgeVerifyInput | null,
+    verification: VerifyResult,
+  ): EdgeFixtureManifest => {
+    const variants: readonly EdgeVariant[] = EDGE.variants;
+    const shares = input
+      ? (input.accounts.poolShare?.balances.find((b) => b.liquidity_pool_id === pool.id)?.balance ??
+        "0.0000000")
+      : undefined;
+    const codes: EdgeAssetCode[] = ["FRZ", "MNT", "AUTH", "RVK", "CLAW", "ILQX", "LPA", "LPB"];
+    return {
+      schemaVersion: 1,
+      kind: "dustin-fixture",
+      profile: "edge",
+      id,
+      createdAt: createdAt.toISOString(),
+      network: {
+        passphrase: config.networkPassphrase,
+        horizonUrl: config.horizonUrl,
+        explorerBaseUrl: config.explorerBaseUrl,
+      },
+      createdAtLedger,
+      recipeHash: createHash("sha256").update(JSON.stringify(EDGE)).digest("hex"),
+      accounts: Object.fromEntries(EDGE_ACCOUNT_ROLES.map((r) => [r, roles[r]])) as Record<
+        EdgeAccountRole,
+        string
+      >,
+      multisigSigner: roles.multisigSigner,
+      issuerFlags: {
+        authIssuer: [...EDGE.issuerFlags.authIssuer],
+        clawbackIssuer: [...EDGE.issuerFlags.clawbackIssuer],
+        plainIssuer: [],
+      },
+      assets: codes.map((code) => ({
+        code,
+        issuer: roles[edgeIssuerOf(code)],
+        issuerRole: edgeIssuerOf(code),
+      })),
+      pool: {
+        id: pool.id,
+        assets: [pool.asset.assetA, pool.asset.assetB].map(
+          (a) => `${a.getCode()}:${a.getIssuer()}`,
+        ) as [string, string],
+        ...(shares !== undefined ? { shares } : {}),
+      },
+      variants: variants.map((v) => {
+        const account = input?.accounts[v.role];
+        const reserve = account && input ? reserveFromHorizon(account, input.baseReserve) : null;
+        return {
+          name: v.name,
+          role: v.role,
+          account: roles[v.role],
+          rows: [...v.rows],
+          summary: v.summary,
+          expected: v.expected,
+          // The XLM position only as Horizon showed it after the build; absent otherwise.
+          ...(reserve
+            ? {
+                balance: formatStroops(reserve.balance),
+                minimumBalance: formatStroops(reserve.minimum),
+                spendable: formatStroops(reserve.spendable),
+              }
+            : {}),
+        };
+      }),
+      transactions: [...transactions],
+      verification,
+    };
   };
-  return { manifest, keys, recorded };
+
+  // Every build transaction applied and settled. The manifest is handed over before Horizon is
+  // read again, and a failed read from here on is recorded, never thrown, so the fixture built
+  // on the ledger keeps its manifest (closing review CP-9).
+  await options.onManifest?.(manifestOf(null, { pass: false, checks: [] }));
+  let input: EdgeVerifyInput | null = null;
+  let verification: VerifyResult;
+  let readFailure: DustinError | undefined;
+  try {
+    input = await loadEdgeVerifyInput(client, roles, pool.id);
+    verification = verifyEdgeFixture(input);
+  } catch (error) {
+    if (!(error instanceof DustinError)) throw error;
+    readFailure = error;
+    verification = {
+      pass: false,
+      checks: [
+        {
+          id: "build/final-read",
+          label: "Horizon answered the verification after the last build transaction",
+          appendixB: false,
+          pass: false,
+          observed: `${error.code}: ${error.message} Run \`dustin fixture verify\` on this manifest to check the fixture.`,
+          expected: "every read answered",
+        },
+      ],
+    };
+  }
+  const recording = await recordHorizon(config.horizonUrl, doFetch, sleep, roles);
+  readFailure ??= recording.failure;
+  return {
+    manifest: manifestOf(input, verification),
+    keys,
+    recorded: recording.recorded,
+    ...(readFailure ? { readFailure } : {}),
+  };
 }
 
 /**
  * Records what the planner reads for every variant by running the inspector through a recording
  * fetch, plus the fee sponsor's account (the offline executor tests pay fees from it). GET only.
+ * A read that fails ends the recording: what was recorded before it is kept, and the failure is
+ * returned (closing review CP-9).
  */
 async function recordHorizon(
   horizonUrl: string,
   doFetch: FetchLike,
   sleep: Sleep,
   roles: EdgeRoles,
-): Promise<Record<string, RecordedResponse>> {
+): Promise<{ recorded: Record<string, RecordedResponse>; failure?: DustinError }> {
   const recorder = recordingFetch(doFetch, horizonUrl);
   const client = horizonJson(horizonUrl, { fetch: recorder.fetch, sleep });
   const reader = horizonReader(client);
   const variants: readonly EdgeVariant[] = EDGE.variants;
-  for (const v of variants) {
-    await inspectAccount(roles[v.role], { destination: roles.destination, reader });
+  let failure: DustinError | undefined;
+  try {
+    for (const v of variants) {
+      await inspectAccount(roles[v.role], { destination: roles.destination, reader });
+    }
+    await client.get(`/accounts/${roles.sponsor}`);
+  } catch (error) {
+    if (!(error instanceof DustinError)) throw error;
+    failure = error;
   }
-  await client.get(`/accounts/${roles.sponsor}`);
   const roleOf = new Map(EDGE_ACCOUNT_ROLES.map((r) => [roles[r], r]));
   const recorded: Record<string, RecordedResponse> = {};
   for (const [path, response] of [...recorder.responses].sort(([a], [b]) => (a < b ? -1 : 1))) {
@@ -394,5 +479,5 @@ async function recordHorizon(
     for (let n = 2; name in recorded; n++) name = `${recordName(path, roleOf)}-${n}`;
     recorded[name] = { path, ...response };
   }
-  return recorded;
+  return failure ? { recorded, failure } : { recorded };
 }

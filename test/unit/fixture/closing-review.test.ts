@@ -1,22 +1,25 @@
-import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run } from "../../../src/cli/run.js";
 import { TESTNET_PASSPHRASE } from "../../../src/config/network.js";
 import { DustinError } from "../../../src/errors/dustin-error.js";
-import { buildMessyFixture, friendbot } from "../../../src/fixture/builder.js";
+import { afterSubmission, buildMessyFixture, friendbot } from "../../../src/fixture/builder.js";
 import { buildEdgeFixture, openSettleChecks } from "../../../src/fixture/edge-builder.js";
 import { edgeSteps, type EdgeAccountRole } from "../../../src/fixture/edge.js";
 import { verifyEdgeFixture, type EdgeVerifyInput } from "../../../src/fixture/edge-verify.js";
 import { readAnyManifest } from "../../../src/fixture/manifest.js";
 import type { HorizonAccount, HorizonOffer } from "../../../src/inspect/horizon-types.js";
+import { ExitCode, exitCodeFor } from "../../../src/cli/exit-codes.js";
+import type { EdgeFixtureManifest } from "../../../src/fixture/manifest.js";
 import {
   EDGE_DIR,
   badSequenceAnswer,
   edgeManifest,
   edgeRoles,
   rekeyedEdgeHorizon,
+  unavailableAnswer,
 } from "../../helpers/edge-ledger.js";
 import { noSleep } from "../../helpers/no-sleep.js";
 import { MESSY_DIR, loadRecorded } from "../../helpers/recorded-horizon.js";
@@ -405,7 +408,9 @@ describe("CP-10: the build reads through a Horizon that lags the ledger", () => 
     let sponsorReads = 0;
     const horizon = rekeyedEdgeHorizon({
       onGet: (path) => {
-        if (path !== `/accounts/${horizon.roles().sponsor}`) return undefined;
+        if (!path.startsWith("/accounts/") || path !== `/accounts/${horizon.roles().sponsor}`) {
+          return undefined;
+        }
         // The instance that answers has not ingested Friendbot's funding yet, twice.
         return ++sponsorReads <= 2
           ? Promise.resolve(new Response(JSON.stringify({ status: 404 }), { status: 404 }))
@@ -475,5 +480,165 @@ describe("CP-10: the build reads through a Horizon that lags the ledger", () => 
     expect((error as DustinError).message).toContain('"issuer-flags"');
     expect((error as DustinError).message).toContain("tx_bad_seq");
     expect(horizon.submissions).toHaveLength(3);
+  });
+});
+
+describe("CP-9: a Horizon failure after the build submitted keeps the manifest and exits 5", () => {
+  const STEPS = 7;
+
+  it("hands the manifest over once the last step settled; a failed final read is recorded in it", async () => {
+    let failing = false;
+    const handed: EdgeFixtureManifest[] = [];
+    const horizon = rekeyedEdgeHorizon({
+      onGet: () => (failing ? unavailableAnswer() : undefined),
+    });
+    const result = await buildEdgeFixture({
+      fetch: horizon.fetch,
+      sleep: noSleep,
+      onKeys: horizon.onKeys,
+      onManifest: (manifest) => {
+        expect(horizon.submissions).toHaveLength(STEPS);
+        handed.push(structuredClone(manifest));
+        // From here on Horizon fails: the final verification and the recording cannot read.
+        failing = true;
+      },
+    });
+    expect(handed).toHaveLength(1);
+    expect(handed[0]!.transactions).toHaveLength(STEPS);
+    expect(handed[0]!.variants.every((v) => v.balance === undefined)).toBe(true);
+
+    expect(result.readFailure?.code).toBe("HORIZON_UNAVAILABLE");
+    expect(result.manifest.transactions).toEqual(handed[0]!.transactions);
+    expect(result.manifest.verification.pass).toBe(false);
+    expect(result.manifest.verification.checks).toEqual([
+      expect.objectContaining({ id: "build/final-read", pass: false }),
+    ]);
+    expect(result.manifest.variants.every((v) => v.spendable === undefined)).toBe(true);
+    expect(result.recorded).toEqual({});
+  });
+
+  it("a failed recording keeps the verification and what was recorded before it", async () => {
+    let failing = false;
+    const horizon = rekeyedEdgeHorizon({
+      // The recording starts with the inspector's testnet check (GET /); nothing else reads it
+      // after the first submission.
+      onGet: (path) => {
+        if (horizon.submissions.length === STEPS && path === "/") failing = true;
+        return failing ? unavailableAnswer() : undefined;
+      },
+    });
+    const result = await buildEdgeFixture({
+      fetch: horizon.fetch,
+      sleep: noSleep,
+      onKeys: horizon.onKeys,
+    });
+    expect(result.readFailure?.code).toBe("HORIZON_UNAVAILABLE");
+    expect(result.manifest.verification.pass).toBe(true);
+    expect(result.manifest.variants.every((v) => v.spendable === "0.0000000")).toBe(true);
+    expect(result.recorded).toEqual({});
+  });
+
+  it("afterSubmission (both builders): the error keeps its code and gains the counts, once something was submitted", () => {
+    const original = new DustinError("FIXTURE_INVALID", "The fixture is not valid: x.", {
+      stage: "build",
+    });
+    expect(afterSubmission(original, { submitted: 0, applied: 0 })).toBe(original);
+    const plain = new TypeError("bug");
+    expect(afterSubmission(plain, { submitted: 3, applied: 3 })).toBe(plain);
+    const wrapped = afterSubmission(original, { submitted: 4, applied: 3 }) as DustinError;
+    expect(wrapped).toMatchObject({
+      code: "FIXTURE_INVALID",
+      message: original.message,
+      stage: "build",
+      details: { transactionsSubmitted: 4, transactionsApplied: 3 },
+    });
+    expect(wrapped.remedy).toContain("The build stopped after 3 of its transactions applied");
+    expect(exitCodeFor(wrapped)).toBe(ExitCode.STOPPED);
+  });
+
+  it("exitCodeFor: an error after a submission is 5, whatever its code or stage", () => {
+    const at = (code: "HORIZON_UNAVAILABLE" | "FIXTURE_STEP_FAILED", submitted?: number) =>
+      exitCodeFor(
+        new DustinError(code, "x", {
+          stage: "inspect",
+          ...(submitted !== undefined ? { details: { transactionsSubmitted: submitted } } : {}),
+        }),
+      );
+    expect(at("HORIZON_UNAVAILABLE", 3)).toBe(ExitCode.STOPPED);
+    expect(at("FIXTURE_STEP_FAILED", 1)).toBe(ExitCode.STOPPED);
+    // Unchanged before any submission.
+    expect(at("HORIZON_UNAVAILABLE", 0)).toBe(ExitCode.HORIZON_UNREACHABLE);
+    expect(at("HORIZON_UNAVAILABLE")).toBe(ExitCode.HORIZON_UNREACHABLE);
+    expect(at("FIXTURE_STEP_FAILED")).toBe(ExitCode.UNEXPECTED);
+  });
+
+  const cli = async (horizon: ReturnType<typeof rekeyedEdgeHorizon>, dir: string) => {
+    const c = capture();
+    const exit = await run(
+      ["node", "dustin", "fixture", "create", "--profile", "edge", "--dir", dir],
+      c.io,
+      "0.0.0",
+      { env: {}, fetch: horizon.fetch, horizon: { sleep: noSleep } },
+    );
+    return { exit, text: c.text() };
+  };
+  const created = (dir: string, file: string) =>
+    readdirSync(dir).flatMap((id) =>
+      existsSync(join(dir, id, file)) ? [join(dir, id, file)] : [],
+    );
+
+  it("CLI: a step that fails after earlier ones applied exits 5, not 1, and keeps the keys", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "dustin-"));
+    const horizon = rekeyedEdgeHorizon({
+      keysDir: dir,
+      onSubmit: (s) =>
+        s.n === 3
+          ? answer(400, {
+              extras: { result_codes: { transaction: "tx_failed", operations: ["op_no_issuer"] } },
+            })
+          : undefined,
+    });
+    const { exit, text } = await cli(horizon, dir);
+    expect(text).toContain("FIXTURE_STEP_FAILED");
+    expect(exit).toBe(5);
+    expect(created(dir, "keys.json")).toHaveLength(1);
+  });
+
+  it("CLI: Horizon unreachable before any submission still exits 6", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "dustin-"));
+    const horizon = rekeyedEdgeHorizon({
+      keysDir: dir,
+      onGet: (path) => (path.startsWith("/ledgers") ? unavailableAnswer() : undefined),
+    });
+    const { exit, text } = await cli(horizon, dir);
+    expect(text).toContain("HORIZON_UNAVAILABLE");
+    expect(horizon.submissions).toEqual([]);
+    expect(exit).toBe(6);
+  });
+
+  it("CLI: a failed read after the last step writes the manifest and exits 5", async () => {
+    const dir = mkdtempSync(join(tmpdir(), "dustin-"));
+    let ledgerReads = 0;
+    let failing = false;
+    const horizon = rekeyedEdgeHorizon({
+      keysDir: dir,
+      // After the last submission, the settle reads the ledger once; the final verification's
+      // read of it is the first to fail, and everything after.
+      onGet: (path) => {
+        if (horizon.submissions.length === STEPS && path.startsWith("/ledgers")) {
+          if (++ledgerReads >= 2) failing = true;
+        }
+        return failing ? unavailableAnswer() : undefined;
+      },
+    });
+    const { exit, text } = await cli(horizon, dir);
+    const [path] = created(dir, "manifest.json");
+    expect(path).toBeDefined();
+    const manifest = JSON.parse(readFileSync(path!, "utf8")) as EdgeFixtureManifest;
+    expect(manifest.transactions).toHaveLength(STEPS);
+    expect(manifest.verification.checks.map((c) => c.id)).toEqual(["build/final-read"]);
+    expect(text).toContain("HORIZON_UNAVAILABLE");
+    expect(text).toContain(`dustin fixture verify ${path}`);
+    expect(exit).toBe(5);
   });
 });

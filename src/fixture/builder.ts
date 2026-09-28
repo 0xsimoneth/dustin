@@ -135,12 +135,54 @@ export function stepError(
   );
 }
 
+/** How far a build got: its transactions submitted and applied. */
+export interface BuildProgress {
+  submitted: number;
+  applied: number;
+}
+
+/**
+ * The error of a build that had already submitted a transaction. The ledger changed, so the error
+ * must not read as "nothing was submitted" (exit 6) or as an unexpected error (exit 1): it keeps
+ * its code and message and gains the counts in `details`, which the CLI maps to exit 5 (closing
+ * review CP-9). An error before the first submission, or one that is not a DustinError, is
+ * returned as it is.
+ */
+export function afterSubmission(error: unknown, progress: BuildProgress): unknown {
+  if (progress.submitted === 0 || !(error instanceof DustinError)) return error;
+  return new DustinError(error.code, error.message, {
+    stage: error.stage,
+    retryable: error.retryable,
+    verdict: error.verdict,
+    remedy:
+      (error.remedy ? `${error.remedy} ` : "") +
+      `The build stopped after ${progress.applied} of its transactions applied (their hashes are in the build log); the keys are saved.`,
+    details: {
+      ...error.details,
+      transactionsSubmitted: progress.submitted,
+      transactionsApplied: progress.applied,
+    },
+    ...(error.horizon ? { horizon: error.horizon } : {}),
+    cause: error,
+  });
+}
+
 /**
  * Builds a fresh `messy` fixture on testnet from Friendbot funding alone, drains it to exactly its
  * minimum balance and verifies it. Every call creates new keys, so it is repeatable after a testnet
- * reset (docs/README.md canonical decision 12).
+ * reset (docs/README.md canonical decision 12). An error after the first submission carries the
+ * transaction counts (`afterSubmission`).
  */
 export async function buildMessyFixture(options: BuildOptions = {}): Promise<BuildResult> {
+  const progress: BuildProgress = { submitted: 0, applied: 0 };
+  try {
+    return await buildMessy(options, progress);
+  } catch (error) {
+    throw afterSubmission(error, progress);
+  }
+}
+
+async function buildMessy(options: BuildOptions, progress: BuildProgress): Promise<BuildResult> {
   const config = resolveConfig(options.config);
   const log = options.log ?? (() => undefined);
   const createdAt = (options.now ?? (() => new Date()))();
@@ -215,12 +257,14 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
     const envelope = step.feeBumped
       ? wrapInFeeBump(inner, keypairs.sponsor, baseFee, config.networkPassphrase)
       : inner;
+    progress.submitted += 1;
     const outcome = await submitAndConfirm(submitter, {
       xdr: envelope.toXDR(),
       hash: hashHex(envelope),
       maxTime: Number(inner.timeBounds?.maxTime ?? 0),
     });
     if (outcome.kind !== "applied") throw stepError(step.name, outcome);
+    progress.applied += 1;
     record(step.name, envelope, outcome.ledger, step.feeBumped ? inner : undefined);
   };
 

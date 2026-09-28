@@ -77,10 +77,14 @@ export interface EdgeManifestVariant {
   rows: string[];
   summary: string;
   expected: EdgeExpectation;
-  /** The account's XLM position when the build finished. */
-  balance: string;
-  minimumBalance: string;
-  spendable: string;
+  /**
+   * The account's XLM position when the build finished; absent when Horizon could not be read
+   * after the last build transaction (the manifest's verification then says why; closing review
+   * CP-9).
+   */
+  balance?: string;
+  minimumBalance?: string;
+  spendable?: string;
 }
 
 /**
@@ -102,7 +106,8 @@ export interface EdgeFixtureManifest {
   multisigSigner: string;
   issuerFlags: Record<EdgeIssuerRole, string[]>;
   assets: Array<{ code: string; issuer: string; issuerRole: EdgeIssuerRole }>;
-  pool: { id: string; assets: [string, string]; shares: string };
+  /** `shares` (held by the pool-share variant) is absent when Horizon could not be read (CP-9). */
+  pool: { id: string; assets: [string, string]; shares?: string };
   variants: EdgeManifestVariant[];
   transactions: FixtureManifest["transactions"];
   verification: VerifyResult;

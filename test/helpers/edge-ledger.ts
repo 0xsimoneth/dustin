@@ -138,6 +138,10 @@ export function rekeyedEdgeHorizon(
     if (!url.startsWith(TESTNET_HORIZON)) return json(200, { hash: "friendbot" });
     const path = url.slice(TESTNET_HORIZON.length);
     requests.push({ method, path });
+    if (method === "GET") {
+      const answer = options.onGet?.(path, (p) => current().get(p));
+      if (answer) return answer;
+    }
     if (path === "/") return json(200, { network_passphrase: TESTNET_PASSPHRASE });
     if (method === "POST" && path === "/transactions") {
       const body = typeof init?.body === "string" ? init.body : "";
@@ -161,10 +165,7 @@ export function rekeyedEdgeHorizon(
     }
     // Every submission is answered above, so none is ever found by hash.
     if (path.startsWith("/transactions/")) return json(404, { status: 404 });
-    const w = current();
-    const answer = options.onGet?.(path, (p) => w.get(p));
-    if (answer) return answer;
-    const body = w.get(path);
+    const body = current().get(path);
     return body === undefined ? json(404, { status: 404 }) : json(200, body);
   };
   return {
@@ -178,6 +179,11 @@ export function rekeyedEdgeHorizon(
       return roles!;
     },
   };
+}
+
+/** An answer of Horizon's that is not a result: a 503, retried by the read client and then given up. */
+export function unavailableAnswer(): Promise<Response> {
+  return json(503, { status: 503, title: "Service Unavailable" });
 }
 
 /** Horizon's answer to a transaction refused for its sequence number (a fee bump's inner one). */
