@@ -1,11 +1,10 @@
 #!/usr/bin/env node
-import { createRequire } from "node:module";
 import { guardedWriter } from "./output.js";
 import { hiddenPrompt, terminalPrompt } from "./prompt.js";
 import { run } from "./run.js";
+import { packageVersion } from "./version.js";
 
-const require = createRequire(import.meta.url);
-const { version } = require("../../package.json") as { version: string };
+const version = packageVersion();
 
 // No `.env` is loaded into the process here (review R7): only `dustin close --execute` reads it,
 // and it takes nothing from it but DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET.
