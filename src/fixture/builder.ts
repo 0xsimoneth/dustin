@@ -88,13 +88,20 @@ const ROLES: MessyRole[] = [
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/** `messy-<UTC second>-<6 hex>`: the suffix keeps two builds started in the same second apart. */
-export function fixtureId(createdAt: Date, suffix = randomBytes(3).toString("hex")): string {
+/**
+ * `<profile>-<UTC second>-<6 hex>` (`messy-...` by default): the suffix keeps two builds started in
+ * the same second apart.
+ */
+export function fixtureId(
+  createdAt: Date,
+  suffix = randomBytes(3).toString("hex"),
+  profile: "messy" | "edge" = "messy",
+): string {
   const second = createdAt
     .toISOString()
     .replace(/[-:]/g, "")
     .replace(/\.\d+Z$/, "Z");
-  return `messy-${second}-${suffix}`;
+  return `${profile}-${second}-${suffix}`;
 }
 
 /** The error for a fixture step whose transaction did not apply. */
@@ -334,10 +341,16 @@ async function mustGetAccount(client: HorizonJsonClient, id: string): Promise<Ho
   return account;
 }
 
-async function friendbot(url: string, publicKey: string, doFetch: FetchLike): Promise<void> {
+/** Funds a fresh testnet account from Friendbot, with three tries. `wait` pauses between tries. */
+export async function friendbot(
+  url: string,
+  publicKey: string,
+  doFetch: FetchLike,
+  wait: (ms: number) => Promise<unknown> = sleep,
+): Promise<void> {
   let problem = "";
   for (let attempt = 0; attempt < 3; attempt++) {
-    if (attempt > 0) await sleep(2000 * attempt);
+    if (attempt > 0) await wait(2000 * attempt);
     try {
       const response = await doFetch(`${url}/?addr=${encodeURIComponent(publicKey)}`, {
         signal: AbortSignal.timeout(30_000),

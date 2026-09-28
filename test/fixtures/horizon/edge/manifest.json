@@ -1,0 +1,807 @@
+{
+  "schemaVersion": 1,
+  "kind": "dustin-fixture",
+  "profile": "edge",
+  "id": "edge-20260928T095236Z-432c80",
+  "createdAt": "2026-09-28T09:52:36.552Z",
+  "network": {
+    "passphrase": "Test SDF Network ; September 2015",
+    "horizonUrl": "https://horizon-testnet.stellar.org",
+    "explorerBaseUrl": "https://stellar.expert/explorer/testnet"
+  },
+  "createdAtLedger": 4913115,
+  "recipeHash": "9adc45f542dd9c7f8d575c6b0a6b3a758cac7dfec4f9f830a8ba586a864e10b7",
+  "accounts": {
+    "sponsor": "GDYSJVGZRGCHRNZGMKBJLYRKGKLZIOKOAEGJNPKC6D7ATUGXWLJEOW4A",
+    "destination": "GA6B2IOCNM54LTPBH73RYS35LEJBDO7FEL63UM2P5BTGIPNMERGT4ZQ7",
+    "authIssuer": "GDIENBRWMSRWYOG7S5GZU6HQC3M6TKI4OPXGMXRWDSN4U2T4C53Y2XIC",
+    "clawbackIssuer": "GAKOUNY44YFNUPYYUCJIY6D7SEUSUPEERXA46QFNHDO3N4I3FCQMS64Y",
+    "plainIssuer": "GBSLUYY3AIKX232FVMHCBVMZW2GONUZVXMTC54D2DOERAQ2YNDHMORVC",
+    "authFrozen": "GAEWFBSSEKZHBCMHKGPLPEZUQQN3KLCKQXVFCZQRF3R7YSTB2FNMY2BV",
+    "authMaintain": "GCINM3EMWC7IUYVHDUQ52R4JIQ7OGLJRSB4K356FSVQ4RYXEMOPKCUJR",
+    "authAuthorized": "GCPZP4E4GXAUIDDYKW6BUCQRHUWTDXQM7M6GZ6O2Y75GYADVLQDUH6PE",
+    "authRevoke": "GCOD6P6OBVYHGEO5EPXX2B2GWJUU4M7NYKYWIKYYWBKX63YBUT5J6C2K",
+    "clawback": "GBZALRC2HDB5X3ES5375IGEZY3RWZH3CIVJUGDAOKJVFX3UFAEOH4BJC",
+    "clawbackDrift": "GAQ7BNQO4JJAYTHXNKKPN3GPKYV2HTTPMAQKGZGHBPC754QKT4CMVKTE",
+    "poolShare": "GC3X2LUL4QSQ4C3YXJMWBN2U44KMF4UJBCLE4E7ABYYYBIATIZWBCRWN",
+    "multisig": "GCE7TGWFON6Z5BOEB4N2VCOWZDI5FTEFTOSD7AHQ5BLTYPG6S7LXXQBQ",
+    "claimable": "GCM6A7KOKUEUO2JQWS35DVWWT3X2GNE6DJLYQDN5GYJ27PG5IIWGXOBB",
+    "immutable": "GDGPJOIM6JRBMYS7JYYNULYNA5APLU467V4CTS6R2KGJA4DFF4CPEWYS"
+  },
+  "multisigSigner": "GB2BYNTHELFRJIERNN7HDDLPMLZCQMHDN23PFKVM5NMA2DR7GZXBQY3T",
+  "issuerFlags": {
+    "authIssuer": ["AUTH_REQUIRED", "AUTH_REVOCABLE"],
+    "clawbackIssuer": ["AUTH_REVOCABLE", "AUTH_CLAWBACK_ENABLED"],
+    "plainIssuer": []
+  },
+  "assets": [
+    {
+      "code": "FRZ",
+      "issuer": "GDIENBRWMSRWYOG7S5GZU6HQC3M6TKI4OPXGMXRWDSN4U2T4C53Y2XIC",
+      "issuerRole": "authIssuer"
+    },
+    {
+      "code": "MNT",
+      "issuer": "GDIENBRWMSRWYOG7S5GZU6HQC3M6TKI4OPXGMXRWDSN4U2T4C53Y2XIC",
+      "issuerRole": "authIssuer"
+    },
+    {
+      "code": "AUTH",
+      "issuer": "GDIENBRWMSRWYOG7S5GZU6HQC3M6TKI4OPXGMXRWDSN4U2T4C53Y2XIC",
+      "issuerRole": "authIssuer"
+    },
+    {
+      "code": "RVK",
+      "issuer": "GDIENBRWMSRWYOG7S5GZU6HQC3M6TKI4OPXGMXRWDSN4U2T4C53Y2XIC",
+      "issuerRole": "authIssuer"
+    },
+    {
+      "code": "CLAW",
+      "issuer": "GAKOUNY44YFNUPYYUCJIY6D7SEUSUPEERXA46QFNHDO3N4I3FCQMS64Y",
+      "issuerRole": "clawbackIssuer"
+    },
+    {
+      "code": "ILQX",
+      "issuer": "GBSLUYY3AIKX232FVMHCBVMZW2GONUZVXMTC54D2DOERAQ2YNDHMORVC",
+      "issuerRole": "plainIssuer"
+    },
+    {
+      "code": "LPA",
+      "issuer": "GBSLUYY3AIKX232FVMHCBVMZW2GONUZVXMTC54D2DOERAQ2YNDHMORVC",
+      "issuerRole": "plainIssuer"
+    },
+    {
+      "code": "LPB",
+      "issuer": "GBSLUYY3AIKX232FVMHCBVMZW2GONUZVXMTC54D2DOERAQ2YNDHMORVC",
+      "issuerRole": "plainIssuer"
+    }
+  ],
+  "pool": {
+    "id": "8755c9c258e26ca464cae42bea30919a792c0286a209e2de71ee759b50ffcf62",
+    "assets": [
+      "LPA:GBSLUYY3AIKX232FVMHCBVMZW2GONUZVXMTC54D2DOERAQ2YNDHMORVC",
+      "LPB:GBSLUYY3AIKX232FVMHCBVMZW2GONUZVXMTC54D2DOERAQ2YNDHMORVC"
+    ],
+    "shares": "1.0000000"
+  },
+  "variants": [
+    {
+      "name": "auth-frozen",
+      "role": "authFrozen",
+      "account": "GAEWFBSSEKZHBCMHKGPLPEZUQQN3KLCKQXVFCZQRF3R7YSTB2FNMY2BV",
+      "rows": ["S-02", "S-01"],
+      "summary": "FRZ from an AUTH_REQUIRED + AUTH_REVOCABLE issuer: authorized, dust paid, then authorization cleared (frozen). Also illiquid ILQX dust with a live issuer and no market, and a data entry.",
+      "expected": {
+        "status": "partial",
+        "blockers": [],
+        "unclosable": ["TRUSTLINE_NOT_AUTHORIZED"],
+        "steps": ["dispose_balance", "remove_trustline", "remove_data"]
+      },
+      "balance": "2.5000000",
+      "minimumBalance": "2.5000000",
+      "spendable": "0.0000000"
+    },
+    {
+      "name": "auth-maintain",
+      "role": "authMaintain",
+      "account": "GCINM3EMWC7IUYVHDUQ52R4JIQ7OGLJRSB4K356FSVQ4RYXEMOPKCUJR",
+      "rows": ["S-06"],
+      "summary": "MNT authorized, dust paid, an open offer selling MNT, then reduced to AUTHORIZED_TO_MAINTAIN_LIABILITIES: the offer stays and is cancellable, the balance cannot move.",
+      "expected": {
+        "status": "partial",
+        "blockers": [],
+        "unclosable": ["MAINTAIN_LIABILITIES_ONLY"],
+        "steps": ["cancel_offer"]
+      },
+      "balance": "2.0000000",
+      "minimumBalance": "2.0000000",
+      "spendable": "0.0000000"
+    },
+    {
+      "name": "auth-authorized",
+      "role": "authAuthorized",
+      "account": "GCPZP4E4GXAUIDDYKW6BUCQRHUWTDXQM7M6GZ6O2Y75GYADVLQDUH6PE",
+      "rows": ["S-05"],
+      "summary": "AUTH from the AUTH_REQUIRED issuer, authorized, with dust: the ladder returns it to the issuer and the account closes.",
+      "expected": {
+        "status": "closable",
+        "blockers": [],
+        "unclosable": [],
+        "steps": ["dispose_balance", "remove_trustline", "merge"]
+      },
+      "balance": "1.5000000",
+      "minimumBalance": "1.5000000",
+      "spendable": "0.0000000"
+    },
+    {
+      "name": "auth-revoke",
+      "role": "authRevoke",
+      "account": "GCOD6P6OBVYHGEO5EPXX2B2GWJUU4M7NYKYWIKYYWBKX63YBUT5J6C2K",
+      "rows": ["S-02"],
+      "summary": "RVK authorized with dust and a data entry, closable when built; the live test revokes the trustline after planning, so the planned return to the issuer fails with op_src_not_authorized (AC-E3-S6-3).",
+      "expected": {
+        "status": "closable",
+        "blockers": [],
+        "unclosable": [],
+        "steps": ["dispose_balance", "remove_trustline", "remove_data", "merge"]
+      },
+      "balance": "2.0000000",
+      "minimumBalance": "2.0000000",
+      "spendable": "0.0000000"
+    },
+    {
+      "name": "clawback",
+      "role": "clawback",
+      "account": "GBZALRC2HDB5X3ES5375IGEZY3RWZH3CIVJUGDAOKJVFX3UFAEOH4BJC",
+      "rows": ["S-07"],
+      "summary": "CLAW from an AUTH_REVOCABLE + AUTH_CLAWBACK_ENABLED issuer, trusted after the flags were set (is_clawback_enabled), with dust: returned to the issuer, the account closes.",
+      "expected": {
+        "status": "closable",
+        "blockers": [],
+        "unclosable": [],
+        "steps": ["dispose_balance", "remove_trustline", "merge"]
+      },
+      "balance": "1.5000000",
+      "minimumBalance": "1.5000000",
+      "spendable": "0.0000000"
+    },
+    {
+      "name": "clawback-drift",
+      "role": "clawbackDrift",
+      "account": "GAQ7BNQO4JJAYTHXNKKPN3GPKYV2HTTPMAQKGZGHBPC754QKT4CMVKTE",
+      "rows": ["S-07"],
+      "summary": "A second CLAW holder for S-07b: the live test has the issuer claw the dust back after planning, so the return fails with op_underfunded and the executor re-plans.",
+      "expected": {
+        "status": "closable",
+        "blockers": [],
+        "unclosable": [],
+        "steps": ["dispose_balance", "remove_trustline", "merge"]
+      },
+      "balance": "1.5000000",
+      "minimumBalance": "1.5000000",
+      "spendable": "0.0000000"
+    },
+    {
+      "name": "pool-share",
+      "role": "poolShare",
+      "account": "GC3X2LUL4QSQ4C3YXJMWBN2U44KMF4UJBCLE4E7ABYYYBIATIZWBCRWN",
+      "rows": ["S-08"],
+      "summary": "Trustlines to LPA and LPB, the LPA/LPB pool-share trustline, a LiquidityPoolDeposit of all it holds, and a data entry.",
+      "expected": {
+        "status": "blocked",
+        "blockers": ["LIQUIDITY_POOL_SHARES"],
+        "unclosable": ["POOL_ASSET_TRUSTLINE", "POOL_ASSET_TRUSTLINE"],
+        "steps": ["remove_data"]
+      },
+      "balance": "3.5000000",
+      "minimumBalance": "3.5000000",
+      "spendable": "0.0000000"
+    },
+    {
+      "name": "multisig",
+      "role": "multisig",
+      "account": "GCE7TGWFON6Z5BOEB4N2VCOWZDI5FTEFTOSD7AHQ5BLTYPG6S7LXXQBQ",
+      "rows": ["S-09"],
+      "summary": "A second signer of weight 1 and a high threshold of 2 with master weight 1 (SetOptions), and a data entry.",
+      "expected": {
+        "status": "blocked",
+        "blockers": ["THRESHOLD_UNMET"],
+        "unclosable": [],
+        "steps": ["remove_data"]
+      },
+      "balance": "2.0000000",
+      "minimumBalance": "2.0000000",
+      "spendable": "0.0000000"
+    },
+    {
+      "name": "claimable",
+      "role": "claimable",
+      "account": "GCM6A7KOKUEUO2JQWS35DVWWT3X2GNE6DJLYQDN5GYJ27PG5IIWGXOBB",
+      "rows": ["X-01"],
+      "summary": "Created a claimable balance of 0.0000001 XLM for the destination, so it sponsors that entry's reserve.",
+      "expected": {
+        "status": "blocked",
+        "blockers": ["IS_SPONSOR"],
+        "unclosable": [],
+        "steps": []
+      },
+      "balance": "1.5000000",
+      "minimumBalance": "1.5000000",
+      "spendable": "0.0000000"
+    },
+    {
+      "name": "immutable",
+      "role": "immutable",
+      "account": "GDGPJOIM6JRBMYS7JYYNULYNA5APLU467V4CTS6R2KGJA4DFF4CPEWYS",
+      "rows": ["X-04"],
+      "summary": "AUTH_IMMUTABLE set with SetOptions: the account can never be merged.",
+      "expected": {
+        "status": "blocked",
+        "blockers": ["AUTH_IMMUTABLE_SET"],
+        "unclosable": [],
+        "steps": []
+      },
+      "balance": "1.0000000",
+      "minimumBalance": "1.0000000",
+      "spendable": "0.0000000"
+    }
+  ],
+  "transactions": [
+    {
+      "step": "create-accounts",
+      "hash": "0fec074b0455ea6a2e8f0e102b5131cf74f95d32778d7326864d449e6c9b77f0",
+      "ledger": 4913116,
+      "feeBumped": false,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/0fec074b0455ea6a2e8f0e102b5131cf74f95d32778d7326864d449e6c9b77f0"
+    },
+    {
+      "step": "issuer-flags",
+      "hash": "1509f2915c5ea9e08ae2ab28a6bf0873c2f6311791c89561f4eaeb161fdf21a7",
+      "innerHash": "2236c095c47630c620db02a9f3551f475838184aa5a1f12ddc08c8043335f5bd",
+      "ledger": 4913117,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/1509f2915c5ea9e08ae2ab28a6bf0873c2f6311791c89561f4eaeb161fdf21a7"
+    },
+    {
+      "step": "trustlines",
+      "hash": "62fbde00afc43879e20ea391be668065096efd833fd28b0c3c3a0464e5038083",
+      "innerHash": "49e89292b1230a175dd15eb01491f9aefb2054b2e65727235168b866075f2c51",
+      "ledger": 4913118,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/62fbde00afc43879e20ea391be668065096efd833fd28b0c3c3a0464e5038083"
+    },
+    {
+      "step": "authorize",
+      "hash": "f5c4db3d21f28c49a55b75597b1f453590de7e49b9a166b0359ba56c339f8dcb",
+      "innerHash": "88cc310f74f7adff227c1b5bcfd365a0a95a61a01966db06ccfd1dc2ee340710",
+      "ledger": 4913119,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/f5c4db3d21f28c49a55b75597b1f453590de7e49b9a166b0359ba56c339f8dcb"
+    },
+    {
+      "step": "dust-payments",
+      "hash": "e6ca6170329f17af1cfc2bfb8f76a0aedfa47f9b0d34db09301ef6d68e490fcb",
+      "innerHash": "ea572a26fa8c9ef068c07d45525d98cd623b9db6a67ff81045a2fd13a4a800c1",
+      "ledger": 4913120,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/e6ca6170329f17af1cfc2bfb8f76a0aedfa47f9b0d34db09301ef6d68e490fcb"
+    },
+    {
+      "step": "holder-state",
+      "hash": "49d4faca4743aa9327f59a4dfa5ead1b53f27d26d66616c81953bfad2febe296",
+      "innerHash": "c2b3c700dfee71959beac8a169a1800cccf684f5630470d3dff1d7a56878c000",
+      "ledger": 4913121,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/49d4faca4743aa9327f59a4dfa5ead1b53f27d26d66616c81953bfad2febe296"
+    },
+    {
+      "step": "restrict",
+      "hash": "5933ecdec314fa7b8e85714a96c353d764e86dad8daa03649b1f541063f38ba1",
+      "innerHash": "831614b5d47724154ff5673173d19be214762939af5ecb587827bf2c6a4a84b6",
+      "ledger": 4913122,
+      "feeBumped": true,
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/5933ecdec314fa7b8e85714a96c353d764e86dad8daa03649b1f541063f38ba1"
+    }
+  ],
+  "verification": {
+    "pass": true,
+    "checks": [
+      {
+        "id": "destination/exists",
+        "label": "destination exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authIssuer/exists",
+        "label": "authIssuer exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "clawbackIssuer/exists",
+        "label": "clawbackIssuer exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "plainIssuer/exists",
+        "label": "plainIssuer exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authIssuer/flags",
+        "label": "authIssuer account flags",
+        "appendixB": false,
+        "pass": true,
+        "observed": "AUTH_REQUIRED + AUTH_REVOCABLE",
+        "expected": "AUTH_REQUIRED + AUTH_REVOCABLE"
+      },
+      {
+        "id": "clawbackIssuer/flags",
+        "label": "clawbackIssuer account flags",
+        "appendixB": false,
+        "pass": true,
+        "observed": "AUTH_REVOCABLE + AUTH_CLAWBACK_ENABLED",
+        "expected": "AUTH_REVOCABLE + AUTH_CLAWBACK_ENABLED"
+      },
+      {
+        "id": "plainIssuer/flags",
+        "label": "plainIssuer account flags",
+        "appendixB": false,
+        "pass": true,
+        "observed": "none",
+        "expected": "none"
+      },
+      {
+        "id": "destination/no-edge-trustlines",
+        "label": "the destination holds no trustline for an edge asset (so no transfer to it is possible)",
+        "appendixB": false,
+        "pass": true,
+        "observed": "none",
+        "expected": "none"
+      },
+      {
+        "id": "authFrozen/exists",
+        "label": "auth-frozen exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authFrozen/zero-spendable",
+        "label": "auth-frozen holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 2.5000000, minimum 2.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "authFrozen/subentries",
+        "label": "auth-frozen subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 3, num_sponsoring 0",
+        "expected": "subentry_count 3, num_sponsoring 0"
+      },
+      {
+        "id": "authFrozen/frz-dust",
+        "label": "auth-frozen holds 0.0000005 FRZ",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities false",
+        "expected": "balance 0.0000005"
+      },
+      {
+        "id": "authFrozen/ilqx-dust",
+        "label": "auth-frozen holds 0.0000003 ILQX",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "balance 0.0000003"
+      },
+      {
+        "id": "authFrozen/data",
+        "label": "auth-frozen has the data entry dustin.fixture",
+        "appendixB": false,
+        "pass": true,
+        "observed": "present",
+        "expected": "present"
+      },
+      {
+        "id": "authMaintain/exists",
+        "label": "auth-maintain exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authMaintain/zero-spendable",
+        "label": "auth-maintain holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 2.0000000, minimum 2.0000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "authMaintain/subentries",
+        "label": "auth-maintain subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 2, num_sponsoring 0",
+        "expected": "subentry_count 2, num_sponsoring 0"
+      },
+      {
+        "id": "authMaintain/mnt-dust",
+        "label": "auth-maintain holds 0.0000005 MNT",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities true",
+        "expected": "balance 0.0000005"
+      },
+      {
+        "id": "authAuthorized/exists",
+        "label": "auth-authorized exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authAuthorized/zero-spendable",
+        "label": "auth-authorized holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 1.5000000, minimum 1.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "authAuthorized/subentries",
+        "label": "auth-authorized subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 1, num_sponsoring 0",
+        "expected": "subentry_count 1, num_sponsoring 0"
+      },
+      {
+        "id": "authAuthorized/auth-dust",
+        "label": "auth-authorized holds 0.0000003 AUTH",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "balance 0.0000003"
+      },
+      {
+        "id": "authRevoke/exists",
+        "label": "auth-revoke exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "authRevoke/zero-spendable",
+        "label": "auth-revoke holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 2.0000000, minimum 2.0000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "authRevoke/subentries",
+        "label": "auth-revoke subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 2, num_sponsoring 0",
+        "expected": "subentry_count 2, num_sponsoring 0"
+      },
+      {
+        "id": "authRevoke/rvk-dust",
+        "label": "auth-revoke holds 0.0000004 RVK",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "balance 0.0000004"
+      },
+      {
+        "id": "authRevoke/data",
+        "label": "auth-revoke has the data entry dustin.fixture",
+        "appendixB": false,
+        "pass": true,
+        "observed": "present",
+        "expected": "present"
+      },
+      {
+        "id": "clawback/exists",
+        "label": "clawback exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "clawback/zero-spendable",
+        "label": "clawback holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 1.5000000, minimum 1.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "clawback/subentries",
+        "label": "clawback subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 1, num_sponsoring 0",
+        "expected": "subentry_count 1, num_sponsoring 0"
+      },
+      {
+        "id": "clawback/claw-dust",
+        "label": "clawback holds 0.0000004 CLAW",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled true",
+        "expected": "balance 0.0000004"
+      },
+      {
+        "id": "clawbackDrift/exists",
+        "label": "clawback-drift exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "clawbackDrift/zero-spendable",
+        "label": "clawback-drift holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 1.5000000, minimum 1.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "clawbackDrift/subentries",
+        "label": "clawback-drift subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 1, num_sponsoring 0",
+        "expected": "subentry_count 1, num_sponsoring 0"
+      },
+      {
+        "id": "clawbackDrift/claw-dust",
+        "label": "clawback-drift holds 0.0000004 CLAW",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled true",
+        "expected": "balance 0.0000004"
+      },
+      {
+        "id": "poolShare/exists",
+        "label": "pool-share exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "poolShare/zero-spendable",
+        "label": "pool-share holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 3.5000000, minimum 3.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "poolShare/subentries",
+        "label": "pool-share subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 5, num_sponsoring 0",
+        "expected": "subentry_count 5, num_sponsoring 0"
+      },
+      {
+        "id": "poolShare/data",
+        "label": "pool-share has the data entry dustin.fixture",
+        "appendixB": false,
+        "pass": true,
+        "observed": "present",
+        "expected": "present"
+      },
+      {
+        "id": "multisig/exists",
+        "label": "multisig exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "multisig/zero-spendable",
+        "label": "multisig holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 2.0000000, minimum 2.0000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "multisig/subentries",
+        "label": "multisig subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 2, num_sponsoring 0",
+        "expected": "subentry_count 2, num_sponsoring 0"
+      },
+      {
+        "id": "multisig/data",
+        "label": "multisig has the data entry dustin.fixture",
+        "appendixB": false,
+        "pass": true,
+        "observed": "present",
+        "expected": "present"
+      },
+      {
+        "id": "claimable/exists",
+        "label": "claimable exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "claimable/zero-spendable",
+        "label": "claimable holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 1.5000000, minimum 1.5000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "claimable/subentries",
+        "label": "claimable subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 0, num_sponsoring 1",
+        "expected": "subentry_count 0, num_sponsoring 1"
+      },
+      {
+        "id": "immutable/exists",
+        "label": "immutable exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "exists"
+      },
+      {
+        "id": "immutable/zero-spendable",
+        "label": "immutable holds zero spendable XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 1.0000000, minimum 1.0000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "immutable/subentries",
+        "label": "immutable subentries and sponsored reserves",
+        "appendixB": false,
+        "pass": true,
+        "observed": "subentry_count 0, num_sponsoring 0",
+        "expected": "subentry_count 0, num_sponsoring 0"
+      },
+      {
+        "id": "authFrozen/frz-frozen",
+        "label": "auth-frozen: the FRZ trustline is not authorized (frozen)",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities false",
+        "expected": "is_authorized false, is_authorized_to_maintain_liabilities false"
+      },
+      {
+        "id": "authFrozen/ilqx-authorized",
+        "label": "auth-frozen: the ILQX trustline is authorized",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "is_authorized true"
+      },
+      {
+        "id": "authMaintain/mnt-maintain",
+        "label": "auth-maintain: the MNT trustline is authorized to maintain liabilities only",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000005, is_authorized false, is_authorized_to_maintain_liabilities true",
+        "expected": "is_authorized false, is_authorized_to_maintain_liabilities true"
+      },
+      {
+        "id": "authMaintain/offer",
+        "label": "auth-maintain: one open offer selling MNT for XLM",
+        "appendixB": false,
+        "pass": true,
+        "observed": "offer 828379 sells 0.0000002 MNT",
+        "expected": "one offer selling 0.0000002 MNT for XLM"
+      },
+      {
+        "id": "authAuthorized/auth-authorized",
+        "label": "authAuthorized: the AUTH trustline is authorized",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000003, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "is_authorized true"
+      },
+      {
+        "id": "authRevoke/rvk-authorized",
+        "label": "authRevoke: the RVK trustline is authorized",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true",
+        "expected": "is_authorized true"
+      },
+      {
+        "id": "clawback/claw-clawback-enabled",
+        "label": "clawback: Horizon shows is_clawback_enabled on the CLAW trustline",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled true",
+        "expected": "is_authorized true, is_clawback_enabled true"
+      },
+      {
+        "id": "clawbackDrift/claw-clawback-enabled",
+        "label": "clawbackDrift: Horizon shows is_clawback_enabled on the CLAW trustline",
+        "appendixB": false,
+        "pass": true,
+        "observed": "balance 0.0000004, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled true",
+        "expected": "is_authorized true, is_clawback_enabled true"
+      },
+      {
+        "id": "poolShare/shares",
+        "label": "pool-share: holds shares of pool 8755c9c258e26ca464cae42bea30919a792c0286a209e2de71ee759b50ffcf62",
+        "appendixB": false,
+        "pass": true,
+        "observed": "1.0000000 shares",
+        "expected": "a non-zero share balance"
+      },
+      {
+        "id": "poolShare/asset-lines",
+        "label": "pool-share: holds the pool's LPA and LPB trustlines",
+        "appendixB": false,
+        "pass": true,
+        "observed": "LPA, LPB",
+        "expected": "LPA, LPB"
+      },
+      {
+        "id": "multisig/thresholds",
+        "label": "multisig: master weight 1, a second signer of weight 1, high threshold 2",
+        "appendixB": false,
+        "pass": true,
+        "observed": "master weight 1, second signer weight 1, high threshold 2",
+        "expected": "master weight 1, second signer weight 1, high threshold 2"
+      },
+      {
+        "id": "claimable/sponsoring",
+        "label": "claimable: sponsors the claimable balance it created",
+        "appendixB": false,
+        "pass": true,
+        "observed": "num_sponsoring 1, claimable balances sponsored 1",
+        "expected": "num_sponsoring 1, claimable balances sponsored 1"
+      },
+      {
+        "id": "immutable/flag",
+        "label": "immutable: AUTH_IMMUTABLE is set",
+        "appendixB": false,
+        "pass": true,
+        "observed": "AUTH_IMMUTABLE",
+        "expected": "AUTH_IMMUTABLE"
+      }
+    ]
+  }
+}

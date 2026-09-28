@@ -23,7 +23,7 @@ Three people read the repository, and they read it in a different order.
 ```mermaid
 flowchart TD
     README[README.md<br/>what, why, 60s demo, quick start] --> INT[docs/integration-notes.md<br/>for wallet developers]
-    README --> WU[docs/ordering-rules-and-known-limits.md<br/>the write-up]
+    README --> WU[docs/write-up.md<br/>the write-up]
     README --> EV[docs/evidence/README.md<br/>the evidence package]
     README --> CH[CHANGELOG.md]
     README --> LIC[LICENSE]
@@ -78,11 +78,11 @@ export DUSTIN_ACCOUNT_SECRET=S...   # the account being closed
 dustin close G<ACCOUNT> --to G<DESTINATION>         # asks for confirmation, then executes
 ```
 
-Under the block, four bullets: `plan` never signs or submits anything; `close` prints one line per transaction with the hash and an explorer link; `--json` for machines, `--yes` to skip the confirmation; exit codes (copy the table from `docs/ux-design.md` section 2.9 verbatim once the numbering discrepancy noted in Assumptions is resolved).
+Under the block, four bullets: `plan` never signs or submits anything; `close` prints one line per transaction with the hash and an explorer link; `--json` for machines, `--yes` to skip the confirmation; exit codes (copy the table from `docs/ux-design.md` section 2.9 verbatim once the numbering discrepancy noted in Assumptions is resolved). Resolved: canonical decision 5 in `docs/README.md`, widened on 2026-09-28 by PRD decision D-6 (a sponsor or budget refusal is exit code 3); the README table follows `src/cli/exit-codes.ts`.
 
 ### 1.5 Quick start: SDK
 
-A single runnable snippet with `planClose` followed by `executeClose`, using the exact option names exported from `src/sdk` (the names in `docs/ux-design.md` section 3.1 are the working draft: `account`, `sponsor`, `destination`, `onEvent`). Show the plan being rendered before `executeClose` is called; never show a snippet that executes without a plan in between.
+A single runnable snippet with `planClose` followed by `executeClose`, using the exact option names exported from `src/sdk` (the names in `docs/ux-design.md` section 3.1 are the working draft: `account`, `sponsor`, `destination`, `onEvent`). As built, the names are those of PRD section 7, exported from `src/index.ts` (PRD decision D-2): `account`, `destination`, `feeSponsor` for `planClose`, and `confirm`, `onEvent`, `onReport` for `executeClose`. Show the plan being rendered before `executeClose` is called; never show a snippet that executes without a plan in between.
 
 ### 1.6 Safety model
 
@@ -112,19 +112,19 @@ Audience: a wallet developer who has ten minutes. Written as one flow, top to bo
 
 1. **Install and runtime.** `npm install dustin`; Node.js version pinned to what `@stellar/stellar-sdk` 17.x requires; ESM and CommonJS both supported; TypeScript types shipped.
 2. **The flow in one diagram.** A Mermaid sequence diagram: Wallet -> `planClose` -> Horizon (read) -> plan; Wallet renders plan; user confirms; Wallet -> `executeClose` -> inner tx signed by account, fee-bump signed by sponsor -> Horizon (submit) -> events -> receipt. This diagram earns its place because the two-signer split is the thing integrators get wrong.
-3. **Step 1: `planClose`.** Inputs (account, destination, optional Horizon URL), output shape (`ClosePlan`: ordered transactions, steps with `route` and `reason`, totals, `blockers[]`), and the rule that a plan with non-empty `blockers` will not fully close.
+3. **Step 1: `planClose`.** Inputs (account, destination, optional Horizon URL), output shape (`ClosePlan`: ordered transactions, steps with `disposal` (the rung) and `reason`, totals, `blockers[]`; names as in PRD section 7, decision D-2), and the rule that a plan with non-empty `blockers` will not fully close.
 4. **Step 2: render the plan.** What a wallet should show the user, in priority order: XLM arriving at the destination, reserves going to sponsors instead of the user, the count of unclosable items with reasons, the number of transactions. Guidance only, no UI component.
 5. **Step 3: confirm.** The confirmation must restate the destination address and the phrase "this cannot be undone". Dustin's CLI does this; a wallet must do the same.
 6. **Step 4: `executeClose` with a sponsor.** How the sponsor is supplied (a signer function, so custodial setups can plug in), what the sponsor pays (every fee-bump fee; the inner transactions carry a declared fee the sponsor covers), how much XLM the sponsor should hold, and that the sponsor's key never touches the account's assets.
-7. **Events.** The event union from `docs/ux-design.md` section 3.3: `tx:building`, `tx:signing`, `tx:submitting`, `tx:confirmed`, `tx:failed`. One table: event, when it fires, fields, what to show the user.
-8. **Error handling.** Three classes: blockers (returned in the plan, nothing submitted), per-step failures (a transaction failed; `resultCode` mapped to a message; whether Dustin retries), and transport errors (Horizon timeouts: Dustin polls the hash before resubmitting, so a wallet must not resubmit on its own). Resume: `executeClose` re-plans from live ledger state, so calling it again after a failure is safe.
-9. **Unclosable reasons.** The stable `blockers[].code` identifiers from `docs/ux-design.md` section 3.2 (`AUTH_IMMUTABLE`, `IS_SPONSOR`, `POOL_SHARES`, `THRESHOLD`, `TRUSTLINE_UNAUTHORIZED`, `ISSUER_GONE`, `DESTINATION_MISSING`, `DESTINATION_SAME`, `DESTINATION_FULL`, `SEQNUM_TOO_FAR`) plus the per-balance ladder exits, each with: what it means in one sentence, whether the user can fix it, and the suggested remedy text. Wallets localize from the code, not the message.
+7. **Events.** The event union of PRD section 7 as the code emits it (PRD decision D-2; it replaces the draft in `docs/ux-design.md` section 3.3): `plan`, `drift`, `preflight`, `tx:building`, `tx:submitted`, `tx:confirmed`, `tx:failed`, `verified`, `done`; there is no `tx:signing` or `tx:submitting`. One table: event, when it fires, fields, what to show the user.
+8. **Error handling.** Three classes: blockers (returned in the plan, nothing submitted), per-step failures (a transaction failed; `resultCode` mapped to a message; whether Dustin retries), and transport errors (Horizon timeouts: Dustin polls the hash before resubmitting, so a wallet must not resubmit on its own). Continuing after a stop: there is no resume option (PRD decision D-2); plan again and execute the new plan, which holds only what is left, because the ledger is the source of truth.
+9. **Unclosable reasons.** The stable codes: as built, the `BlockerCode` and `UnclosableCode` lists of PRD section 7 (PRD decision D-2), which replace the draft identifiers of `docs/ux-design.md` section 3.2; the draft's `ISSUER_GONE` does not exist, because a payment to an issuer that was merged away still burns the balance (day-1 experiment 4; `docs/README.md` open question 3). Also the per-balance ladder exits, each with: what it means in one sentence, whether the user can fix it, and the suggested remedy text. Wallets localize from the code, not the message.
 10. **Testnet only.** The passphrase check, the Horizon URL default (`https://horizon-testnet.stellar.org`), the friendbot funding note (10,000 XLM per new account), and the reminder that testnet resets 2 to 4 times a year, which deletes every account including fixtures.
 11. **Integration checklist.** Ten checkboxes a wallet team ticks before shipping a closure screen.
 
 ## 3. Write-up plan: "Ordering rules and known limits"
 
-File: `docs/ordering-rules-and-known-limits.md`. Skeleton with placeholders: `docs/write-up-outline.md`. The reviewer reads this without running code, so every rule is one sentence of plain language followed by the protocol fact that forces it, with a link.
+File: `docs/write-up.md` (the name in story E4-S5; first version 2026-09-28). Skeleton with placeholders: `docs/write-up-outline.md`. The reviewer reads this without running code, so every rule is one sentence of plain language followed by the protocol fact that forces it, with a link.
 
 ### 3.1 Section-by-section plan
 
@@ -163,7 +163,7 @@ File: `docs/ordering-rules-and-known-limits.md`. Skeleton with placeholders: `do
 ### 3.3 Known limits to state
 
 - By SOW: mainnet; contract (C) accounts; liquidity pool share withdrawal; multisig with raised thresholds; claimable balance cleanup; production key management; wallet UI; third-party wallet integration.
-- By protocol: deauthorized balances (R5); illiquid balances whose issuer no longer exists (`ISSUER_GONE`); accounts with `AUTH_IMMUTABLE` (R13); accounts that sponsor others (R12).
+- By protocol: deauthorized balances (R5); balances with no market whose issuer requires a memo that was not given and that the destination cannot take (`NO_DISPOSAL_ROUTE`); accounts with `AUTH_IMMUTABLE` (R13); accounts that sponsor others (R12). A missing issuer is not a limit: a payment to an issuer that was merged away still burns the balance (day-1 experiment 4; `docs/README.md` open question 3), so the draft code `ISSUER_GONE` does not exist.
 - By environment: testnet resets 2 to 4 times a year and delete every account, transaction and history record, so evidence links have a shelf life (see section 6 of `docs/evidence/evidence-package-template.md`).
 
 ## 4. CHANGELOG and versioning
@@ -217,7 +217,7 @@ This is the reviewer's copy of SOW section 6.2, expanded into plain-language che
 
 1. The public repository URL is `https://github.com/0xsimoneth/dustin` and the npm package name is `dustin`. Neither was verified as available; if `dustin` is taken on npm, a scoped name is used and every doc is updated in one pass.
 2. CLI command names (`dustin plan`, `dustin close`), option names, environment variable names (`DUSTIN_ACCOUNT_SECRET`, `DUSTIN_SPONSOR_SECRET`), event names and blocker codes are taken from `docs/epics-and-stories.md` and `docs/ux-design.md` as the working draft. No source code exists yet; the documents are corrected to match the implementation when it lands.
-3. `docs/epics-and-stories.md` (UX-DR4) gives exit code 2 for "blockers prevent a full close" while `docs/ux-design.md` section 2.9 gives exit code 4 for PARTIAL. The README copies whichever the implementation ships; this plan does not decide it.
+3. `docs/epics-and-stories.md` (UX-DR4) gives exit code 2 for "blockers prevent a full close" while `docs/ux-design.md` section 2.9 gives exit code 4 for PARTIAL. The README copies whichever the implementation ships; this plan does not decide it. Resolved by canonical decision 5 (blockers without `--partial` exit 3, a partial close exits 4), widened on 2026-09-28 by PRD decision D-6 (an over-budget refusal and an underfunded sponsor also exit 3).
 4. The SOW statement that the Demolisher's server "declines to co-sign a merge that pays out less than 1 XLM" is server-side behaviour and could not be verified from the public client source; the README states only what the client source shows (transactions sourced and paid by the account being closed, no fee-bump, no sponsorship handling). The baseline recording is what demonstrates the actual stop point.
 5. StellarExpert testnet URL patterns are used as verified by indexed examples; the site is client-rendered, so the reviewer walkthrough tells the reviewer what the page shows rather than quoting it.
 6. This session is non-interactive; no questions were asked of the builder, and no files other than the four planned documents were written.

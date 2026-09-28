@@ -522,6 +522,13 @@ export class FakeLedger {
           );
           if (!tl) throw new OpFailure("op_no_trust");
           if (!tl.is_authorized) throw new OpFailure("op_not_authorized");
+          // PAYMENT_LINE_FULL: the receiver's limit must hold the amount and still satisfy its
+          // buying liabilities (https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/payment).
+          const room =
+            toStroops(tl.limit ?? "922337203685.4775807") -
+            toStroops(tl.balance) -
+            toStroops(tl.buying_liabilities ?? "0");
+          if (amount > room) throw new OpFailure("op_line_full");
           tl.balance = formatStroops(toStroops(tl.balance) + amount);
         }
         // A payment to the issuer burns, even if the issuer account is gone (day-1 experiment 4).

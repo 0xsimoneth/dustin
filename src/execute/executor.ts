@@ -68,8 +68,10 @@ export interface ExecuteOptions {
   /** Run the cleanup even when the plan cannot end in a merge; default false. */
   allowPartial?: boolean;
   /**
-   * When the account changed since the plan, or a mid-run re-plan finds something the approved
-   * plan did not have: stop (default) or continue with the fresh plan.
+   * When the account changed since the plan, when the fresh plan made before signing sends less
+   * XLM to the destination than the approved plan (a worse quote; review BH-7), or when a mid-run
+   * re-plan finds something the approved plan did not have: stop (default) or continue with the
+   * fresh plan.
    */
   onDrift?: "abort" | "replan";
   onEvent?: (event: CloseEvent) => void;
@@ -127,7 +129,8 @@ export interface ExecuteOptions {
 /**
  * Executes a close plan (SOW Deliverable 2). Every transaction is an inner transaction signed by
  * the account and wrapped in a fee bump signed by the sponsor (ADR-0003). Before anything is signed
- * the account is re-inspected and re-planned; a changed plan aborts unless `onDrift: "replan"`.
+ * the account is re-inspected and re-planned; a changed plan, or one that sends less XLM to the
+ * destination than the approved plan (review BH-7), aborts unless `onDrift: "replan"`.
  * A merge in its own transaction runs only after a fresh preflight. Submissions are retried and
  * rebuilt safely, and operation failures re-plan from live state (E2-S3). The ledger is the source
  * of truth: running again after any stop continues from wherever the account is.
@@ -375,21 +378,47 @@ class CloseRun {
         detail: `The account ${plan.account} does not exist on the testnet ledger (Horizon answered 404); if an earlier run merged it, the close is complete. Nothing was submitted.`,
       });
     }
-    if (fresh.planHash !== plan.planHash) {
+    // Drift before anything is signed: a changed structure (plan hash), or less XLM for the
+    // destination than the caller approved. The plan hash leaves quotes and destMin out, so a
+    // sale quoted lower while the confirmation waited changes only the amount (review BH-7).
+    // Mid-run re-plans are judged by replanDrift() instead, where a failed sale may fall down the
+    // ladder and lower the proceeds by design.
+    const hashChanged = fresh.planHash !== plan.planHash;
+    const fell = xlmFell(plan, fresh);
+    if (hashChanged || fell) {
       const action = options.onDrift ?? "abort";
       this.emit({
         type: "drift",
         action,
         previousPlanHash: plan.planHash,
         planHash: fresh.planHash,
+        ...(fell ? { xlmToDestination: fell } : {}),
       });
+      const amounts = fell
+        ? `the XLM the destination would receive fell from ${fell.approved} XLM to ${fell.fresh} XLM`
+        : "";
       if (action === "abort") {
+        if (hashChanged) {
+          return this.abort({
+            code: "PLAN_CHANGED",
+            stage: "plan",
+            verdict: "replan",
+            detail: `The account changed since the plan was made (plan hash ${plan.planHash} is now ${fresh.planHash})${fell ? `, and ${amounts}` : ""}; nothing was submitted. Review the new plan and run again.`,
+            ...(fell ? { xlmToDestination: fell } : {}),
+          });
+        }
         return this.abort({
-          code: "PLAN_CHANGED",
+          code: "XLM_TO_DESTINATION_FELL",
           stage: "plan",
           verdict: "replan",
-          detail: `The account changed since the plan was made (plan hash ${plan.planHash} is now ${fresh.planHash}); nothing was submitted. Review the new plan and run again.`,
+          detail: `Since the plan was approved, ${amounts} (a worse quote for a sale, or a lower balance); nothing was signed or submitted. Review the new plan and run again.`,
+          xlmToDestination: fell!,
         });
+      }
+      if (fell) {
+        this.report.warnings.push(
+          `Since the plan was approved, ${amounts} (a worse quote for a sale, or a lower balance); the run went on with the fresh plan (onDrift "replan").`,
+        );
       }
     }
     if (fresh.status !== "closable" && !options.allowPartial) {
@@ -1253,6 +1282,20 @@ class CloseRun {
           report: this.report,
         });
   }
+}
+
+/**
+ * Both amounts when the fresh plan sends less XLM to the destination than the approved one
+ * (`recovery.xlmToDestination`, BigInt stroops); null when it sends as much or more, which is not
+ * drift (review BH-7).
+ */
+function xlmFell(
+  approved: ClosePlan,
+  fresh: ClosePlan,
+): { approved: string; fresh: string } | null {
+  const before = toStroops(approved.recovery.xlmToDestination);
+  const now = toStroops(fresh.recovery.xlmToDestination);
+  return now < before ? { approved: formatStroops(before), fresh: formatStroops(now) } : null;
 }
 
 /**

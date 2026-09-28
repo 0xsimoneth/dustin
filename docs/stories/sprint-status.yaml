@@ -47,12 +47,12 @@ development_status:
   2-6-live-simple-close: review
   epic-2-retrospective: optional
   epic-3: in-progress
-  3-1-ladder-path-payment: in-progress
-  3-2-ladder-issuer-destination-unclosable: in-progress
-  3-3-sponsored-trustline-unwind: backlog
-  3-4-seqnum-too-far-guard: backlog
-  3-5-detection-only-blockers: in-progress
-  3-6-edge-case-test-matrix: in-progress
+  3-1-ladder-path-payment: review
+  3-2-ladder-issuer-destination-unclosable: review
+  3-3-sponsored-trustline-unwind: in-progress
+  3-4-seqnum-too-far-guard: in-progress
+  3-5-detection-only-blockers: review
+  3-6-edge-case-test-matrix: review
   3-7-full-fixture-close: backlog
   epic-3-retrospective: optional
   epic-4: backlog
@@ -234,7 +234,7 @@ stories:
     title: Ladder execution, path-payment sale
     epic: E3
     week: 3
-    status: in-progress
+    status: review
     estimate_hours: 8
     deliverable: D2
   - key: 3-2-ladder-issuer-destination-unclosable
@@ -242,7 +242,7 @@ stories:
     title: Ladder execution, issuer return, destination transfer and unclosable reporting
     epic: E3
     week: 3
-    status: in-progress
+    status: review
     estimate_hours: 6
     deliverable: D2
   - key: 3-3-sponsored-trustline-unwind
@@ -250,7 +250,7 @@ stories:
     title: Sponsored trustline unwind with reserve attribution
     epic: E3
     week: 3
-    status: backlog
+    status: in-progress
     estimate_hours: 6
     deliverable: D2
   - key: 3-4-seqnum-too-far-guard
@@ -258,7 +258,7 @@ stories:
     title: ACCOUNT_MERGE_SEQNUM_TOO_FAR guard
     epic: E3
     week: 3
-    status: backlog
+    status: in-progress
     estimate_hours: 4
     deliverable: D2
   - key: 3-5-detection-only-blockers
@@ -266,7 +266,7 @@ stories:
     title: Detection-only blockers (pool shares, raised thresholds, AUTH_IMMUTABLE, active sponsoring)
     epic: E3
     week: 3
-    status: in-progress
+    status: review
     estimate_hours: 6
     deliverable: D3
   - key: 3-6-edge-case-test-matrix
@@ -274,7 +274,7 @@ stories:
     title: Edge-case test matrix
     epic: E3
     week: 3
-    status: in-progress
+    status: review
     estimate_hours: 18
     deliverable: D3
   - key: 3-7-full-fixture-close

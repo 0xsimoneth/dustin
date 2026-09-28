@@ -21,7 +21,12 @@ export type LadderResult =
 
 type Evaluation =
   | { viable: true; to: string; quotedXlm?: string; destMinXlm?: string }
-  | { viable: false; reason: string };
+  | {
+      viable: false;
+      reason: string;
+      /** What would make this rung possible, for the remedy of an item no rung can dispose of. */
+      fix?: string;
+    };
 
 export const LADDER_ORDERS: Record<LadderOrder, DisposalRung[]> = {
   // SOW order (canonical decision 8).
@@ -68,12 +73,20 @@ export function chooseRung(
   const viable = order.filter((rung) => evaluations[rung].viable);
   const chosen = viable[0];
   if (!chosen) {
+    // One fix per rung, in ladder order, each naming what blocks that rung (AC-E3-S2-4: a
+    // destination trustline without room names the limit to raise).
+    const fixes = order.flatMap((rung) => {
+      const e = evaluations[rung];
+      return !e.viable && e.fix ? [e.fix] : [];
+    });
     return {
       ok: false,
       code: "NO_DISPOSAL_ROUTE",
       reason: `No route disposes of ${line.balance} ${code}: ${ruledOut.map((r) => `${r.rung.replaceAll("_", " ")}: ${r.reason}`).join("; ")}.`,
       remedy:
-        "Make one route possible, then run the plan again: a market that buys the asset for XLM, a destination that holds an authorized trustline for it with room, or a memo if the issuer requires one.",
+        fixes.length > 0
+          ? `Make one route possible, then run the plan again: ${fixes.join("; or ")}.`
+          : "Make one route possible, then run the plan again: a market that buys the asset for XLM, a destination that holds an authorized trustline for it with room, or a memo if the issuer requires one.",
       ruledOut,
     };
   }
@@ -103,12 +116,15 @@ function evaluatePathPayment(
   line: TrustlineInfo,
   slippageBps: number,
 ): Evaluation {
+  const code = line.asset.code;
+  const noMarket = `wait for a market that buys ${code} for XLM`;
   const quote =
     snapshot.quotes.find((q) => assetKey(q.asset) === assetKey(line.asset))?.quote ?? null;
   if (!quote)
     return {
       viable: false,
       reason: "Horizon found no strict-send path to XLM for the full balance",
+      fix: noMarket,
     };
   const hops: AssetRef[] = [line.asset, ...quote.path, { type: "native" }];
   for (let i = 0; i + 1 < hops.length; i++) {
@@ -121,10 +137,21 @@ function evaluatePathPayment(
       return {
         viable: false,
         reason: `the quoted path may use this account's own offer ${own.id}, which the plan cancels first`,
+        fix: noMarket,
       };
     }
   }
   const quoted = toStroops(quote.destinationAmount);
+  // The protocol cannot deliver less than 1 stroop, so such a quote is no path (AC-E3-S1-3). The
+  // inspector already drops these quotes (src/inspect/inspect.ts, bestQuote); this keeps a snapshot
+  // built elsewhere and handed to planFromSnapshot from planning a sale that must fail.
+  if (quoted < 1n) {
+    return {
+      viable: false,
+      reason: "the best strict-send quote pays less than 1 stroop of XLM for the full balance",
+      fix: `wait for a market that pays at least 1 stroop of XLM for ${line.balance} ${code}`,
+    };
+  }
   // Round the slippage up: for dust a rounded-down 1% is 0 and destMin would equal the quote.
   const slipped = quoted - (quoted * BigInt(slippageBps) + 9_999n) / 10_000n;
   const destMin = slipped >= 1n ? slipped : 1n;
@@ -151,6 +178,7 @@ function evaluateIssuer(
     return {
       viable: false,
       reason: `issuer ${line.asset.issuer} requires a memo (SEP-29) and none was given`,
+      fix: `pass the memo that issuer ${line.asset.issuer} requires (--memo; SEP-29)`,
     };
   }
   return { viable: true, to: line.asset.issuer };
@@ -162,8 +190,14 @@ function evaluateDestination(
   line: TrustlineInfo,
   memo: string | null,
 ): Evaluation {
+  const code = line.asset.code;
   const d = snapshot.destination;
-  if (!d || !d.exists) return { viable: false, reason: "the destination account does not exist" };
+  if (!d || !d.exists)
+    return {
+      viable: false,
+      reason: "the destination account does not exist",
+      fix: "close into a destination account that exists",
+    };
   if (d.baseAccount === snapshot.account)
     return { viable: false, reason: "the destination is the account itself" };
   if (d.baseAccount === line.asset.issuer) {
@@ -173,19 +207,32 @@ function evaluateDestination(
     };
   }
   if (d.memoRequired && !memo)
-    return { viable: false, reason: "the destination requires a memo (SEP-29) and none was given" };
+    return {
+      viable: false,
+      reason: "the destination requires a memo (SEP-29) and none was given",
+      fix: "pass the memo the destination requires (--memo; SEP-29)",
+    };
   const t = d.trustlines.find((x) => assetKey(x.asset) === assetKey(line.asset));
-  if (!t) return { viable: false, reason: `the destination holds no ${line.asset.code} trustline` };
+  if (!t)
+    return {
+      viable: false,
+      reason: `the destination holds no ${code} trustline`,
+      fix: `open a ${code} trustline on the destination ${d.account}, or close into a destination that holds one`,
+    };
   if (!t.authorized)
     return {
       viable: false,
-      reason: `the destination's ${line.asset.code} trustline is not authorized`,
+      reason: `the destination's ${code} trustline is not authorized`,
+      fix: `ask issuer ${line.asset.issuer} to authorize the destination's ${code} trustline`,
     };
+  // PAYMENT_LINE_FULL: the receiver's limit must hold the amount and still satisfy its buying
+  // liabilities (https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/payment).
   const room = toStroops(t.limit) - toStroops(t.balance) - toStroops(t.buyingLiabilities);
   if (room < toStroops(line.balance)) {
     return {
       viable: false,
-      reason: `the destination's ${line.asset.code} trustline has no room for ${line.balance}`,
+      reason: `the destination's ${code} trustline has no room for ${line.balance}`,
+      fix: `raise the destination's trustline limit for ${code} (it has room for ${formatStroops(room > 0n ? room : 0n)} of the ${line.balance} to send)`,
     };
   }
   return { viable: true, to: d.account };

@@ -118,6 +118,12 @@ export interface RunBlocker {
 /** Machine-readable reasons a run stopped early or did not start. */
 export type StopCode =
   | "PLAN_CHANGED"
+  /**
+   * The fresh plan made before signing sends less XLM to the destination than the plan the caller
+   * approved (`recovery.xlmToDestination`), for example because a sale's quote got worse while the
+   * confirmation waited; the plan hash leaves quotes out, so it does not show this (review BH-7).
+   */
+  | "XLM_TO_DESTINATION_FELL"
   | "PLAN_NOT_CLOSABLE"
   | "NOTHING_TO_EXECUTE"
   | "ACCOUNT_MISSING"
@@ -152,6 +158,11 @@ export interface StopReason {
   resultCodes?: ResultCodes;
   /** For a sequence-number stop: the first ledger the merge can land in. */
   unblocksAtLedger?: number;
+  /**
+   * For a drift stop before anything was signed: the XLM the destination would receive in the
+   * approved plan and in the fresh plan, when the fresh amount is lower (review BH-7).
+   */
+  xlmToDestination?: { approved: string; fresh: string };
   /**
    * For OUTCOME_UNKNOWN: the upper time bound (Unix seconds) of the envelope `hash`, which may
    * still apply or may have applied. A re-run must wait until a ledger has closed after it: until
