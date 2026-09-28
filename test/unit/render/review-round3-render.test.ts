@@ -177,3 +177,22 @@ describe("R3-23: a copy saved while the run was going reads as a run in progress
     expect(next.replace(/\s+/g, " ")).toMatch(/Do not start the same close again/);
   });
 });
+
+describe("R3-36: the failed headline knows an applied merge without its merged amount", () => {
+  it("says the merge applied when its result gave no amount (with and without the plans)", async () => {
+    const { report, plans } = await closedRun();
+    // The fake ledger writes no result XDR, so the merged amount is not known.
+    expect(report.recovery.mergedXlm).toBeNull();
+    // A copy taken after the merge applied, marked failed when the run then stopped (the CLI
+    // does this with the last copy of a run interrupted without a report).
+    const stopped = structuredClone(report);
+    stopped.status = "failed";
+    stopped.verification = null;
+    for (const text of [renderReport(stopped, { plans }), renderReport(stopped)]) {
+      expect(text.split("\n")[0]).toContain(
+        "FAILED: the merge applied, but the account was not verified gone",
+      );
+      expect(text).not.toContain("stopped before the account was closed");
+    }
+  });
+});

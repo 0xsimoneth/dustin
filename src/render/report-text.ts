@@ -61,7 +61,7 @@ function field(label: string, value: string): string[] {
 const grouped = (n: number) => n.toLocaleString("en-US");
 const xlm = (stroops: number) => `${formatStroops(BigInt(stroops))} XLM`;
 
-function headline(report: CloseReport): string {
+function headline(report: CloseReport, appliedMerge: boolean): string {
   const submitted = report.transactions.length;
   switch (report.status) {
     case "closed":
@@ -78,7 +78,7 @@ function headline(report: CloseReport): string {
       // Only a copy saved while the run was going (--report, onReport) carries this status.
       return "RUNNING: this copy was saved while the run was in progress; it is not the final report";
     case "failed":
-      return report.recovery.mergedXlm !== null || report.stop?.code === "ACCOUNT_STILL_EXISTS"
+      return appliedMerge || report.stop?.code === "ACCOUNT_STILL_EXISTS"
         ? "FAILED: the merge applied, but the account was not verified gone"
         : "FAILED: the run stopped before the account was closed";
     default:
@@ -261,8 +261,26 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   };
   const steps = stepsOfRound(0);
   const out: string[] = [];
+  // A merge that applied, whether or not its result gave the merged amount (review round 3,
+  // R3-36): its step outcome, or an applied envelope that carried it. Without the plans only an
+  // envelope of the merge phase tells.
+  const isMerge = (round: number, id: string) => stepsOfRound(round).get(id)?.kind === "merge";
+  const appliedMerge =
+    report.recovery.mergedXlm !== null ||
+    report.steps.some((s) => {
+      const added = /^R(\d+)\.(.+)$/.exec(s.stepId);
+      return (
+        s.status === "applied" &&
+        (added ? isMerge(Number(added[1]), added[2]!) : isMerge(0, s.stepId))
+      );
+    }) ||
+    report.transactions.some(
+      (t) =>
+        t.result === "applied" &&
+        (t.phase === "merge" || t.stepIds.some((id) => isMerge(t.round, id))),
+    );
 
-  out.push(`Dustin close receipt   ${headline(report)}`);
+  out.push(`Dustin close receipt   ${headline(report, appliedMerge)}`);
   if (report.message) out.push(...field("Why", report.message));
   // The machine-readable stop reason (E2-S3): integrators branch on the code and the verdict.
   if (report.stop) {
@@ -324,7 +342,7 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   const merged = report.steps.some(
     (s) => s.status === "applied" && steps.get(s.stepId)?.kind === "merge",
   );
-  const mergeApplied = r.mergedXlm !== null || merged || report.status === "closed";
+  const mergeApplied = r.mergedXlm !== null || merged || appliedMerge || report.status === "closed";
   out.push("", "Result");
   if (r.mergedXlm !== null) {
     out.push(
