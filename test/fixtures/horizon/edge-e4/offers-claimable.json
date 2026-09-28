@@ -1,0 +1,20 @@
+{
+  "path": "/accounts/GDIWOYFOJ4EMZC6LHVXGRLLQY5ZKXE4VVE2HN2RCF76ILIW74EC5RHUI/offers?limit=200&order=asc",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GDIWOYFOJ4EMZC6LHVXGRLLQY5ZKXE4VVE2HN2RCF76ILIW74EC5RHUI/offers?cursor=&limit=200&order=asc"
+      },
+      "next": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GDIWOYFOJ4EMZC6LHVXGRLLQY5ZKXE4VVE2HN2RCF76ILIW74EC5RHUI/offers?cursor=&limit=200&order=asc"
+      },
+      "prev": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GDIWOYFOJ4EMZC6LHVXGRLLQY5ZKXE4VVE2HN2RCF76ILIW74EC5RHUI/offers?cursor=&limit=200&order=desc"
+      }
+    },
+    "_embedded": {
+      "records": []
+    }
+  }
+}

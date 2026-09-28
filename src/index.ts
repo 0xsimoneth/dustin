@@ -7,6 +7,8 @@ export type {
   HorizonFailure,
 } from "./errors/dustin-error.js";
 export { redact } from "./errors/redact.js";
+// What to do about each error code (AC-E4-S2-1, docs/errors.md).
+export { DEFAULT_REMEDIES, remedyOf } from "./errors/remedies.js";
 export { inspectAccount } from "./inspect/inspect.js";
 export { planClose } from "./plan/plan-close.js";
 export type { PlanCloseInput, PlanCloseOptions } from "./plan/plan-close.js";
@@ -32,8 +34,10 @@ export type { DustinConfig, ResolvedConfig } from "./config/network.js";
 export { executeClose } from "./execute/executor.js";
 export type { CloseEvent, ExecuteOptions, Signers } from "./execute/executor.js";
 export type {
+  AccountLinks,
   CloseReport,
   CloseStatus,
+  OperationSummary,
   ReplanRecord,
   RunBlocker,
   SponsorObservation,

@@ -48,7 +48,7 @@ describe("renderReport: Reserves released to sponsors (E3-S3)", () => {
       `    0.5000000 XLM reserve returned to sponsor ${sponsor}, never this account's (trustline SPTA)`,
       "      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),",
       "      XLM balance 10.0000000 -> 10.0000000 (unchanged)",
-      "  0 XLM in fees paid by the account",
+      "  0.0000000 XLM in fees paid by the account",
       "  0.0001500 XLM (1,500 stroops) in fees paid by the sponsor",
     ]);
     within120(text);

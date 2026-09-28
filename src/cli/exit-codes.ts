@@ -49,6 +49,7 @@ export function exitCodeFor(error: DustinError): ExitCode {
     case "CONFIRMATION_DECLINED":
     case "SPONSOR_UNDERFUNDED":
     case "SPONSOR_BUDGET_EXCEEDED":
+    case "RESET_SUSPECTED":
       return ExitCode.NOTHING_EXECUTED;
     case "EXECUTION_INTERRUPTED":
       // The rule above already returned 5 when something was submitted; an interruption before

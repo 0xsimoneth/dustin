@@ -36,6 +36,7 @@ import {
 import {
   EDGE,
   EDGE_ACCOUNT_ROLES,
+  EDGE_ASSET_CODES,
   EDGE_KEY_ROLES,
   edgeIssuerOf,
   edgePool,
@@ -189,6 +190,8 @@ export function recordName(path: string, roleOf: ReadonlyMap<string, string>): s
   if (offers) return `offers-${who(offers[1]!)}`;
   const claimable = /^\/claimable_balances\?sponsor=(G[A-Z2-7]{55})/.exec(path);
   if (claimable) return `claimable-balances-${who(claimable[1]!)}`;
+  const claimant = /^\/claimable_balances\?claimant=(G[A-Z2-7]{55})/.exec(path);
+  if (claimant) return `claimable-claimant-${who(claimant[1]!)}`;
   if (path.startsWith("/paths/strict-send")) {
     const q = new URLSearchParams(path.split("?")[1] ?? "");
     return `paths-strict-send-${q.get("source_asset_code") ?? "asset"}`;
@@ -348,7 +351,7 @@ async function buildEdge(
       ? (input.accounts.poolShare?.balances.find((b) => b.liquidity_pool_id === pool.id)?.balance ??
         "0.0000000")
       : undefined;
-    const codes: EdgeAssetCode[] = ["FRZ", "MNT", "AUTH", "RVK", "CLAW", "ILQX", "LPA", "LPB"];
+    const codes: readonly EdgeAssetCode[] = EDGE_ASSET_CODES;
     return {
       schemaVersion: 1,
       kind: "dustin-fixture",

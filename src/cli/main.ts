@@ -1,11 +1,10 @@
 #!/usr/bin/env node
-import { createRequire } from "node:module";
 import { guardedWriter } from "./output.js";
-import { terminalPrompt } from "./prompt.js";
+import { hiddenPrompt, terminalPrompt } from "./prompt.js";
 import { run } from "./run.js";
+import { packageVersion } from "./version.js";
 
-const require = createRequire(import.meta.url);
-const { version } = require("../../package.json") as { version: string };
+const version = packageVersion();
 
 // No `.env` is loaded into the process here (review R7): only `dustin close --execute` reads it,
 // and it takes nothing from it but DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET.
@@ -22,4 +21,11 @@ process.exitCode = await run(process.argv, { stdout, stderr }, version, {
   // The question goes to standard error; it is asked only when every stream it depends on is a
   // terminal, standard output included when the plan it confirms was printed there.
   prompt: terminalPrompt({ input: process.stdin, output: process.stderr, stdout: process.stdout }),
+  // Review finding CA-18: a secret missing from the environment and .env is asked for, hidden, on
+  // a terminal; the question goes to standard error.
+  secretPrompt: hiddenPrompt({ input: process.stdin, output: process.stderr }),
+  // Review finding CL-1: SIGINT and SIGTERM while the executor runs stop it at the next safe point;
+  // a second one exits at once with code 5 (https://nodejs.org/api/process.html#signal-events).
+  signals: process,
+  exit: (code) => process.exit(code),
 });

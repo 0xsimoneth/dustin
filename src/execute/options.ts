@@ -1,6 +1,7 @@
 import { MIN_BASE_FEE } from "../config/fees.js";
 import { MAX_PAUSE_MS, MIN_PAUSE_MS, isPause } from "../config/pauses.js";
 import { DustinError } from "../errors/dustin-error.js";
+import { isAbortSignal } from "./abort.js";
 
 /**
  * The longest validity window of an inner transaction, in seconds: one hour. An envelope whose
@@ -75,8 +76,19 @@ const RULES: Record<keyof NumericExecuteOptions, Rule> = {
 /**
  * Refuses a numeric execute option that would unbind a limit or a wait, before anything is read or
  * signed (edge case E11): `attempt > NaN` never holds, so a NaN limit would rebuild without end.
+ * A `signal` must be an AbortSignal (review finding CL-1): an object without `aborted` would read
+ * as never aborted, so a caller's cancellation would be lost without a word.
  */
-export function validateExecuteOptions(options: NumericExecuteOptions): void {
+export function validateExecuteOptions(
+  options: NumericExecuteOptions & { signal?: unknown },
+): void {
+  if (options.signal !== undefined && !isAbortSignal(options.signal)) {
+    throw new DustinError(
+      "CONFIG_INVALID",
+      "Invalid execute option: signal must be an AbortSignal (from an AbortController).",
+      { stage: "config" },
+    );
+  }
   for (const [name, rule] of Object.entries(RULES) as Array<[keyof NumericExecuteOptions, Rule]>) {
     const value = options[name];
     if (value === undefined) continue;

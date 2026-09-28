@@ -72,7 +72,7 @@ describe("renderReport", () => {
       "sell 0.0000007 DUSTA for XLM",
       "merge into",
       "0.5000000 XLM reserve returned to sponsor",
-      "0 XLM in fees paid by the account",
+      "0.0000000 XLM in fees paid by the account",
       "0.0001500 XLM (1,500 stroops) in fees paid by the sponsor",
       `https://stellar.expert/explorer/testnet/account/${messy.fixture}`,
       `https://stellar.expert/explorer/testnet/account/${messy.destination}`,

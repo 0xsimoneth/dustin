@@ -1,0 +1,9 @@
+{
+  "path": "/paths/strict-send?source_asset_type=credit_alphanum4&source_asset_code=CLAW&source_asset_issuer=GCNPCHHYGM3CGIVVL6NCKK37NXANXG6LNQ42HLCGHEGMWFORZFMHVF3K&source_amount=0.0000004&destination_assets=native",
+  "status": 200,
+  "body": {
+    "_embedded": {
+      "records": []
+    }
+  }
+}

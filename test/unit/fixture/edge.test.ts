@@ -62,10 +62,15 @@ describe("edge recipe", () => {
       "multisig",
       "claimable",
       "immutable",
+      "offer-types",
+      "offer-stale",
+      "claimant",
     ]);
     const rows = new Set(variants.flatMap((v) => v.rows));
     for (const row of ["S-01", "S-02", "S-05", "S-06", "S-07", "S-08", "S-09", "X-01", "X-04"])
       expect(rows.has(row)).toBe(true);
+    // Added in E4-S3 as new variants, the existing ones unchanged.
+    for (const row of ["X-03", "X-07", "X-08", "X-11"]) expect(rows.has(row)).toBe(true);
     expect(new Set(variants.map((v) => v.role)).size).toBe(variants.length);
   });
 
@@ -105,6 +110,10 @@ describe("edge recipe", () => {
     expect(starting("pool-share")).toBe("3.5000000");
     expect(starting("claimable")).toBe("1.5000001");
     expect(starting("immutable")).toBe("1.0000000");
+    // Its minimum (2 + 2 trustlines + 3 offers) x 0.5 plus the 0.0000010 XLM its offer sells.
+    expect(starting("offer-types")).toBe("3.5000010");
+    expect(starting("offer-stale")).toBe("2.0000000");
+    expect(starting("claimant")).toBe("1.0000000");
     const create = decoded()[0]!.ops;
     for (const v of variants) {
       const op = create.find(
@@ -125,7 +134,13 @@ describe("edge recipe", () => {
       for (const { op, source } of ops) {
         if (op.type === "changeTrust")
           bump(opened, source, op.line instanceof LiquidityPoolAsset ? 2 : 1);
-        if (op.type === "manageSellOffer" || op.type === "manageData") bump(opened, source);
+        if (
+          op.type === "manageSellOffer" ||
+          op.type === "manageBuyOffer" ||
+          op.type === "createPassiveSellOffer" ||
+          op.type === "manageData"
+        )
+          bump(opened, source);
         if (op.type === "setOptions" && op.signer) bump(opened, source);
         if (op.type === "createClaimableBalance") bump(sponsoring, source);
       }
@@ -142,9 +157,10 @@ describe("edge recipe", () => {
       ({ op }) => op.type === "setOptions" && ((op.setFlags ?? 0) & AuthImmutableFlag) !== 0,
     );
     expect(immutable.map((o) => o.source)).toEqual(["immutable"]);
+    // The claimant variant's balances are created for it by the plain issuer (X-03).
     expect(
       all.filter(({ op }) => op.type === "createClaimableBalance").map((o) => o.source),
-    ).toEqual(["claimable"]);
+    ).toEqual(["claimable", "plainIssuer", "plainIssuer"]);
     expect(all.filter(({ op }) => op.type === "liquidityPoolDeposit").map((o) => o.source)).toEqual(
       ["poolShare"],
     );
@@ -205,6 +221,9 @@ describe("edge recipe", () => {
       "CLAW 0.0000004",
       "LPA 1.0000000",
       "LPB 1.0000000",
+      "OFA 0.0000003",
+      "OFB 0.0000005",
+      "OFC 0.0000005",
     ]);
   });
 
@@ -214,5 +233,99 @@ describe("edge recipe", () => {
       .filter(({ op }) => op.type === "createAccount");
     expect(new Set(creates.map((o) => o.source))).toEqual(new Set(["sponsor"]));
     expect(creates).toHaveLength(4 + variants.length);
+  });
+});
+
+/** An offer operation as "SELLING>BUYING" with its amount and price, from the account's view. */
+function offerOf(op: ReturnType<typeof decoded>[number]["ops"][number]["op"]) {
+  const code = (a: { isNative(): boolean; getCode(): string }) =>
+    a.isNative() ? "XLM" : a.getCode();
+  if (op.type === "manageSellOffer" || op.type === "createPassiveSellOffer") {
+    return {
+      type: op.type,
+      pair: `${code(op.selling)}>${code(op.buying)}`,
+      amount: op.amount,
+      price: op.price,
+    };
+  }
+  if (op.type === "manageBuyOffer") {
+    return {
+      type: op.type,
+      pair: `${code(op.selling)}>${code(op.buying)}`,
+      amount: op.buyAmount,
+      price: op.price,
+    };
+  }
+  return null;
+}
+
+describe("edge recipe, the variants added for X-03, X-07, X-08 and X-11 (E4-S3)", () => {
+  const holderState = () => decoded().find((d) => d.step.name === "holder-state")!.ops;
+
+  it("offer-types holds a buy offer, a passive sell offer and an offer that sells XLM, and nothing else", () => {
+    const offers = holderState()
+      .filter((o) => o.source === "offerTypes")
+      .map((o) => offerOf(o.op));
+    expect(offers).toEqual([
+      // Sells XLM for OFA: the native selling liability, and the only liquidity for OFA -> XLM (X-11).
+      { type: "manageSellOffer", pair: "XLM>OFA", amount: "0.0000010", price: "1" },
+      // Buys 0.0000002 XLM with OFB at 2 OFB per XLM: Horizon lists it as selling 0.0000004 OFB.
+      { type: "manageBuyOffer", pair: "OFB>XLM", amount: "0.0000002", price: "2" },
+      { type: "createPassiveSellOffer", pair: "OFA>OFB", amount: "0.0000002", price: "1" },
+    ]);
+    const v = variants.find((x) => x.name === "offer-types")!;
+    expect(v.nativeSellingLiabilities).toBe("0.0000010");
+    // Every balance covers what its offers sell: OFA 0.0000003 >= 0.0000002, OFB 0.0000005 >= 0.0000004.
+    expect(v.dust).toEqual([
+      { code: "OFA", amount: "0.0000003" },
+      { code: "OFB", amount: "0.0000005" },
+    ]);
+  });
+
+  it("offer-stale holds one sell offer of its whole OFC balance, for a counterparty to take (X-08)", () => {
+    const offers = holderState()
+      .filter((o) => o.source === "offerStale")
+      .map((o) => offerOf(o.op));
+    expect(offers).toEqual([
+      { type: "manageSellOffer", pair: "OFC>XLM", amount: "0.0000005", price: "1" },
+    ]);
+    expect(variants.find((x) => x.name === "offer-stale")!.dust).toEqual([
+      { code: "OFC", amount: "0.0000005" },
+    ]);
+  });
+
+  it("the plain issuer creates two claimable balances that name the claimant variant (X-03): XLM for it alone, CBA for it and the issuer", () => {
+    const balances = holderState()
+      .filter(({ op }) => op.type === "createClaimableBalance")
+      .flatMap(({ op, source }) =>
+        op.type === "createClaimableBalance" && source === "plainIssuer"
+          ? [
+              {
+                asset: op.asset.isNative() ? "XLM" : op.asset.getCode(),
+                amount: op.amount,
+                claimants: op.claimants.map((c) => roleOf.get(c.destination)),
+              },
+            ]
+          : [],
+      );
+    expect(balances).toEqual([
+      { asset: "XLM", amount: "0.0000001", claimants: ["claimant"] },
+      { asset: "CBA", amount: "0.0000002", claimants: ["claimant", "plainIssuer"] },
+    ]);
+    // One base reserve per claimant, and the XLM the balance holds, come from the plain issuer
+    // (list-of-operations#create-claimable-balance): 2 + 3 reserves = 2.5 XLM, within its 3 XLM.
+    expect(EDGE.helperBalances.plainIssuer).toBe("3");
+  });
+
+  it("no two offers of the build cross: none sells what another buys at the same time", () => {
+    const offers = decoded()
+      .flatMap((d) => d.ops)
+      .map((o) => offerOf(o.op))
+      .filter((o) => o !== null);
+    const pairs = new Set(offers.map((o) => o.pair));
+    for (const o of offers) {
+      const [selling, buying] = o.pair.split(">");
+      expect(pairs.has(`${buying}>${selling}`), o.pair).toBe(false);
+    }
   });
 });

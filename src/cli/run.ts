@@ -1,14 +1,17 @@
 import { CommanderError } from "commander";
 import { DustinError } from "../errors/dustin-error.js";
-import { containsSecretSeed, redact } from "../errors/redact.js";
+import { containsSecretSeed } from "../errors/redact.js";
+import { USAGE_ERROR, channel, type Channel, type OutputMode } from "./channel.js";
 import { ExitCode, exitCodeFor } from "./exit-codes.js";
 import { buildProgram, type CliDeps, type CliIo, type CliState } from "./program.js";
 
 export type { CliIo } from "./program.js";
 
 /**
- * Runs the CLI and returns the exit code. Secrets are refused on argv before anything is parsed
- * (docs/README.md canonical decision 4): argv is visible in process listings and shell history.
+ * Runs the CLI and returns the exit code. It never rejects and never lets a rejection escape
+ * (AC-E4-S2-3): whatever is thrown, even a value whose conversion to text throws, ends as an exit
+ * code and one error message. Secrets are refused on argv before anything is parsed (docs/README.md
+ * canonical decision 4): argv is visible in process listings and shell history.
  */
 export async function run(
   argv: string[],
@@ -16,30 +19,87 @@ export async function run(
   version: string,
   deps: CliDeps = { env: {} },
 ): Promise<number> {
+  const mode = scanMode(argv);
+  const out = channel(io, mode);
+  try {
+    return await runCommand(argv, io, version, deps, mode, out);
+  } catch (error) {
+    // Only a failure of the error reporting itself lands here.
+    try {
+      out.error(error, ExitCode.UNEXPECTED);
+    } catch {
+      // Nothing is left to report with.
+    }
+    return ExitCode.UNEXPECTED;
+  }
+}
+
+async function runCommand(
+  argv: string[],
+  io: CliIo,
+  version: string,
+  deps: CliDeps,
+  mode: OutputMode,
+  out: Channel,
+): Promise<number> {
   const position = argv.slice(2).findIndex((arg) => containsSecretSeed(arg));
   if (position >= 0) {
-    io.stderr(
-      `dustin: SECRET_IN_ARGV: argument ${position + 1} looks like a secret key; it was not used and is not shown.\n` +
-        "  Put secrets in DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET instead, never on the command line.\n",
-    );
+    out.fail({
+      code: "SECRET_IN_ARGV",
+      message: `argument ${position + 1} looks like a secret key; it was not used and is not shown.`,
+      remedy:
+        "Put secrets in DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET instead, never on the command line.",
+      exitCode: ExitCode.USAGE,
+    });
     return ExitCode.USAGE;
   }
 
   const state: CliState = { exitCode: ExitCode.OK };
   try {
-    await buildProgram(version, io, deps, state).parseAsync(argv);
+    await buildProgram(version, io, deps, state, mode, out).parseAsync(argv);
     return state.exitCode;
   } catch (error) {
     if (error instanceof CommanderError) {
-      // Commander has already printed help, the version or the usage error.
-      return error.exitCode === 0 ? ExitCode.OK : ExitCode.USAGE;
+      // Commander has already printed help, the version or the usage error for people; in machine
+      // mode its text was held back and the error is one `error` line (review finding AA-10).
+      if (error.exitCode === 0) return ExitCode.OK;
+      if (mode.json) {
+        out.fail({
+          code: USAGE_ERROR,
+          message: error.message,
+          remedy: "Run dustin --help, or dustin <command> --help, for the usage.",
+          exitCode: ExitCode.USAGE,
+        });
+      }
+      return ExitCode.USAGE;
     }
-    if (error instanceof DustinError) {
-      io.stderr(`dustin: ${error.code}: ${error.message}\n`);
-      if (error.remedy) io.stderr(`  ${error.remedy}\n`);
-      return exitCodeFor(error);
-    }
-    io.stderr(`dustin: unexpected error: ${redact(String(error))}\n`);
-    return ExitCode.UNEXPECTED;
+    const code = error instanceof DustinError ? exitCodeFor(error) : ExitCode.UNEXPECTED;
+    out.error(error, code);
+    return code;
   }
+}
+
+/**
+ * The output mode from argv, before it is parsed, for what is printed before a command runs: a
+ * secret on argv, a usage error, a refused network. `--json` counts for `plan` and `close` only
+ * (the fixture commands keep their own output); the parsed options confirm both flags once the
+ * command runs (program.ts, the preAction hook).
+ */
+function scanMode(argv: string[]): OutputMode {
+  const words = argv.slice(2);
+  let command: string | undefined;
+  for (let i = 0; i < words.length; i++) {
+    const word = words[i]!;
+    if (word === "--network") {
+      i += 1;
+      continue;
+    }
+    if (word.startsWith("-")) continue;
+    command = word;
+    break;
+  }
+  return {
+    json: (command === "plan" || command === "close") && words.includes("--json"),
+    verbose: words.includes("--verbose"),
+  };
 }

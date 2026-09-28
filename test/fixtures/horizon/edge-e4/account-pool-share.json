@@ -1,0 +1,110 @@
+{
+  "path": "/accounts/GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD"
+      },
+      "transactions": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD/transactions{?cursor,limit,order}",
+        "templated": true
+      },
+      "operations": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD/operations{?cursor,limit,order}",
+        "templated": true
+      },
+      "payments": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD/payments{?cursor,limit,order}",
+        "templated": true
+      },
+      "effects": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD/effects{?cursor,limit,order}",
+        "templated": true
+      },
+      "offers": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD/offers{?cursor,limit,order}",
+        "templated": true
+      },
+      "trades": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD/trades{?cursor,limit,order}",
+        "templated": true
+      },
+      "data": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD/data/{key}",
+        "templated": true
+      }
+    },
+    "id": "GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD",
+    "account_id": "GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD",
+    "sequence": "21136045164724224",
+    "subentry_count": 5,
+    "last_modified_ledger": 4921124,
+    "last_modified_time": "2026-09-28T21:00:07Z",
+    "thresholds": {
+      "low_threshold": 0,
+      "med_threshold": 0,
+      "high_threshold": 0
+    },
+    "flags": {
+      "auth_required": false,
+      "auth_revocable": false,
+      "auth_immutable": false,
+      "auth_clawback_enabled": false
+    },
+    "balances": [
+      {
+        "balance": "1.0000000",
+        "liquidity_pool_id": "b66faf5305a443eef8eaabe7d68804e8fc91a53b1f2c29c7d82bafa56cd8888b",
+        "limit": "922337203685.4775807",
+        "last_modified_ledger": 4921124,
+        "is_authorized": false,
+        "is_authorized_to_maintain_liabilities": false,
+        "asset_type": "liquidity_pool_shares"
+      },
+      {
+        "balance": "0.0000000",
+        "limit": "922337203685.4775807",
+        "buying_liabilities": "0.0000000",
+        "selling_liabilities": "0.0000000",
+        "last_modified_ledger": 4921124,
+        "is_authorized": true,
+        "is_authorized_to_maintain_liabilities": true,
+        "asset_type": "credit_alphanum4",
+        "asset_code": "LPA",
+        "asset_issuer": "GCV3BS3E4PXEN3YCL5JTJJHRHMDR2U3NQVINTON2KUOPZ7PQKU5MMC3Q"
+      },
+      {
+        "balance": "0.0000000",
+        "limit": "922337203685.4775807",
+        "buying_liabilities": "0.0000000",
+        "selling_liabilities": "0.0000000",
+        "last_modified_ledger": 4921124,
+        "is_authorized": true,
+        "is_authorized_to_maintain_liabilities": true,
+        "asset_type": "credit_alphanum4",
+        "asset_code": "LPB",
+        "asset_issuer": "GCV3BS3E4PXEN3YCL5JTJJHRHMDR2U3NQVINTON2KUOPZ7PQKU5MMC3Q"
+      },
+      {
+        "balance": "3.5000000",
+        "buying_liabilities": "0.0000000",
+        "selling_liabilities": "0.0000000",
+        "asset_type": "native"
+      }
+    ],
+    "signers": [
+      {
+        "weight": 1,
+        "key": "GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD",
+        "type": "ed25519_public_key"
+      }
+    ],
+    "data": {
+      "dustin.fixture": "ZWRnZQ=="
+    },
+    "num_sponsoring": 0,
+    "num_sponsored": 0,
+    "paging_token": "GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD"
+  }
+}

@@ -1,0 +1,312 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0xsimoneth/dustin/blob/main/docs/receipt-schema.json",
+  "title": "Dustin close report",
+  "description": "The CloseReport that executeClose() returns, that `dustin close --execute --json` prints and that `--report` keeps (schemaVersion 1; PRD section 7, src/execute/report.ts). Copies published while a run is in progress carry the status \"running\". Amounts are decimal strings with 7 decimals; fees are whole stroops. A later minor version may add fields, so this schema allows unknown properties; the repository's tests validate the reports of the offline fixture runs against it in a strict mode that refuses them, so the schema lists every field the code writes (story E4-S1, AC-E4-S1-2). Plan types come from plan-schema.json.",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "kind",
+    "network",
+    "account",
+    "destination",
+    "feeSponsor",
+    "planHash",
+    "status",
+    "message",
+    "stop",
+    "startedAt",
+    "finishedAt",
+    "transactions",
+    "steps",
+    "replans",
+    "unclosable",
+    "blockers",
+    "warnings",
+    "recovery",
+    "verification"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "dustin-close-report" },
+    "network": { "$ref": "plan-schema.json#/$defs/Network" },
+    "account": { "$ref": "plan-schema.json#/$defs/AccountId" },
+    "destination": { "$ref": "plan-schema.json#/$defs/Destination" },
+    "feeSponsor": { "$ref": "plan-schema.json#/$defs/AccountId" },
+    "planHash": {
+      "description": "The hash of the plan the executor made again before signing (round 0).",
+      "$ref": "plan-schema.json#/$defs/Hash"
+    },
+    "links": {
+      "description": "The account and the destination on the explorer and on Horizon; a muxed destination through its G account (review AA-9). Absent in reports written before story E4-S1.",
+      "type": "object",
+      "required": ["account", "destination"],
+      "properties": {
+        "account": { "$ref": "#/$defs/AccountLinks" },
+        "destination": { "$ref": "#/$defs/AccountLinks" }
+      }
+    },
+    "status": { "enum": ["running", "closed", "partial", "aborted", "failed"] },
+    "message": { "type": ["string", "null"] },
+    "stop": { "anyOf": [{ "$ref": "#/$defs/StopReason" }, { "type": "null" }] },
+    "startedAt": { "type": "string" },
+    "finishedAt": { "type": ["string", "null"] },
+    "transactions": { "type": "array", "items": { "$ref": "#/$defs/SubmittedTransaction" } },
+    "steps": { "type": "array", "items": { "$ref": "#/$defs/StepOutcome" } },
+    "replans": { "type": "array", "items": { "$ref": "#/$defs/ReplanRecord" } },
+    "unclosable": {
+      "type": "array",
+      "items": { "$ref": "plan-schema.json#/$defs/UnclosableItem" }
+    },
+    "blockers": {
+      "type": "array",
+      "items": {
+        "anyOf": [{ "$ref": "plan-schema.json#/$defs/Blocker" }, { "$ref": "#/$defs/RunBlocker" }]
+      }
+    },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "recovery": {
+      "type": "object",
+      "required": [
+        "mergedXlm",
+        "reservesReturnedToSponsors",
+        "feesPaidByAccount",
+        "feesPaidBySponsorStroops"
+      ],
+      "properties": {
+        "mergedXlm": {
+          "description": "The merged balance read from the merge result; null if no merge applied or the result did not say.",
+          "anyOf": [{ "$ref": "plan-schema.json#/$defs/Amount" }, { "type": "null" }]
+        },
+        "reservesReturnedToSponsors": {
+          "type": "array",
+          "items": { "$ref": "plan-schema.json#/$defs/ReservesToSponsor" }
+        },
+        "feesPaidByAccount": { "const": "0" },
+        "feesPaidBySponsorStroops": { "type": "integer", "minimum": 0 },
+        "sponsorsObserved": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/SponsorObservation" }
+        }
+      }
+    },
+    "verification": {
+      "description": "The final check of the account on Horizon; null when it did not run.",
+      "anyOf": [{ "$ref": "#/$defs/Verification" }, { "type": "null" }]
+    }
+  },
+  "$defs": {
+    "AccountLinks": {
+      "type": "object",
+      "required": ["explorer", "horizon"],
+      "properties": {
+        "explorer": { "type": "string" },
+        "horizon": { "type": "string" }
+      }
+    },
+    "ResultCodes": {
+      "description": "Horizon's extras.result_codes, camel-cased.",
+      "type": "object",
+      "properties": {
+        "transaction": { "type": "string" },
+        "innerTransaction": { "type": "string" },
+        "operations": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "OperationSummary": {
+      "description": "What one operation of an envelope does (review AA-9).",
+      "type": "object",
+      "required": ["stepId", "kind", "type", "subject", "summary"],
+      "properties": {
+        "stepId": { "type": "string" },
+        "kind": { "$ref": "plan-schema.json#/$defs/StepKind" },
+        "type": {
+          "enum": [
+            "manageSellOffer",
+            "pathPaymentStrictSend",
+            "payment",
+            "changeTrust",
+            "manageData",
+            "accountMerge"
+          ]
+        },
+        "subject": { "type": "string" },
+        "offerId": { "type": "string" },
+        "asset": {
+          "description": "CODE:ISSUER",
+          "type": "string",
+          "pattern": "^[A-Za-z0-9]{1,12}:G[A-Z2-7]{55}$"
+        },
+        "dataName": { "type": "string" },
+        "poolId": { "$ref": "plan-schema.json#/$defs/Hash" },
+        "amount": { "$ref": "plan-schema.json#/$defs/Amount" },
+        "rung": { "$ref": "plan-schema.json#/$defs/Rung" },
+        "to": { "$ref": "plan-schema.json#/$defs/Destination" },
+        "summary": { "type": "string" }
+      }
+    },
+    "SubmittedTransaction": {
+      "type": "object",
+      "required": [
+        "index",
+        "phase",
+        "stepIds",
+        "attempts",
+        "attempt",
+        "round",
+        "sequence",
+        "baseFeeStroops",
+        "maxTime",
+        "hash",
+        "innerHash",
+        "result",
+        "ledger",
+        "feeChargedStroops",
+        "feeAccount",
+        "innerEnvelopeXdr",
+        "feeBumpEnvelopeXdr",
+        "explorerUrl"
+      ],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "phase": { "$ref": "plan-schema.json#/$defs/Phase" },
+        "stepIds": { "type": "array", "items": { "type": "string" } },
+        "attempts": { "type": "integer", "minimum": 0 },
+        "attempt": { "type": "integer", "minimum": 1 },
+        "round": { "type": "integer", "minimum": 0 },
+        "sequence": { "type": "string", "pattern": "^[0-9]+$" },
+        "baseFeeStroops": { "type": "number", "minimum": 0 },
+        "maxTime": { "type": "integer", "minimum": 0 },
+        "rebuiltBecause": { "type": "string" },
+        "hash": { "$ref": "plan-schema.json#/$defs/Hash" },
+        "innerHash": { "$ref": "plan-schema.json#/$defs/Hash" },
+        "result": { "enum": ["pending", "applied", "failed", "rejected", "unknown"] },
+        "mayStillApply": { "type": "boolean" },
+        "sequenceUsed": { "const": true },
+        "lookupError": { "type": "string" },
+        "ledger": { "type": ["integer", "null"] },
+        "feeChargedStroops": { "type": ["integer", "null"] },
+        "feeAccount": { "$ref": "plan-schema.json#/$defs/AccountId" },
+        "innerEnvelopeXdr": { "type": "string" },
+        "feeBumpEnvelopeXdr": { "type": "string" },
+        "explorerUrl": { "type": "string" },
+        "horizonUrl": { "type": "string" },
+        "operations": { "type": "array", "items": { "$ref": "#/$defs/OperationSummary" } },
+        "resultCodes": { "$ref": "#/$defs/ResultCodes" },
+        "explanation": { "type": "string" }
+      }
+    },
+    "StepOutcome": {
+      "type": "object",
+      "required": ["stepId", "status", "txIndex"],
+      "properties": {
+        "stepId": { "type": "string" },
+        "status": { "enum": ["applied", "failed", "not_run"] },
+        "txIndex": { "type": "integer", "minimum": 0 },
+        "txHash": { "$ref": "plan-schema.json#/$defs/Hash" },
+        "rung": { "$ref": "plan-schema.json#/$defs/Rung" },
+        "round": { "type": "integer", "minimum": 1 },
+        "failures": { "type": "integer", "minimum": 1 },
+        "resultCodes": { "$ref": "#/$defs/ResultCodes" },
+        "explanation": { "type": "string" }
+      }
+    },
+    "ReplanRecord": {
+      "type": "object",
+      "required": ["round", "at", "planHash", "trigger", "demoted", "drift", "transactions"],
+      "properties": {
+        "round": { "type": "integer", "minimum": 1 },
+        "at": { "type": "string" },
+        "planHash": { "$ref": "plan-schema.json#/$defs/Hash" },
+        "trigger": {
+          "type": "object",
+          "required": ["round", "txIndex", "hash", "stepId", "resultCodes", "explanation"],
+          "properties": {
+            "round": { "type": "integer", "minimum": 0 },
+            "txIndex": { "type": "integer", "minimum": 0 },
+            "hash": { "$ref": "plan-schema.json#/$defs/Hash" },
+            "stepId": { "type": ["string", "null"] },
+            "resultCodes": { "$ref": "#/$defs/ResultCodes" },
+            "explanation": { "type": "string" }
+          }
+        },
+        "demoted": { "type": "array", "items": { "type": "string" } },
+        "drift": { "type": "array", "items": { "type": "string" } },
+        "transactions": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "StopReason": {
+      "type": "object",
+      "required": ["code", "stage", "verdict", "detail"],
+      "properties": {
+        "code": {
+          "description": "A StopCode, or the code of the DustinError that interrupted the run (docs/errors.md).",
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9_]*$"
+        },
+        "stage": {
+          "enum": ["config", "inspect", "plan", "build", "sponsor", "submit", "confirm", "merge"]
+        },
+        "verdict": { "enum": ["retry-same", "rebuild-same-sequence", "replan", "stop"] },
+        "detail": { "type": "string" },
+        "round": { "type": "integer", "minimum": 0 },
+        "txIndex": { "type": "integer", "minimum": 0 },
+        "hash": { "$ref": "plan-schema.json#/$defs/Hash" },
+        "stepId": { "type": "string" },
+        "resultCodes": { "$ref": "#/$defs/ResultCodes" },
+        "unblocksAtLedger": { "type": "integer", "minimum": 0 },
+        "xlmToDestination": {
+          "type": "object",
+          "required": ["approved", "fresh"],
+          "properties": {
+            "approved": { "$ref": "plan-schema.json#/$defs/Amount" },
+            "fresh": { "$ref": "plan-schema.json#/$defs/Amount" }
+          }
+        },
+        "maxTime": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "RunBlocker": {
+      "type": "object",
+      "required": ["code", "reason", "remedy", "permanent", "stepId", "resultCodes"],
+      "properties": {
+        "code": { "const": "STEP_FAILED_TWICE" },
+        "reason": { "type": "string" },
+        "remedy": { "type": "string" },
+        "permanent": { "const": false },
+        "stepId": { "type": "string" },
+        "resultCodes": { "$ref": "#/$defs/ResultCodes" }
+      }
+    },
+    "SponsorState": {
+      "type": "object",
+      "required": ["numSponsoring", "balance", "minimumBalance", "ledger"],
+      "properties": {
+        "numSponsoring": { "type": "integer", "minimum": 0 },
+        "balance": { "$ref": "plan-schema.json#/$defs/Amount" },
+        "minimumBalance": { "$ref": "plan-schema.json#/$defs/Amount" },
+        "ledger": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "SponsorObservation": {
+      "type": "object",
+      "required": ["sponsor", "before", "after"],
+      "properties": {
+        "sponsor": { "$ref": "plan-schema.json#/$defs/AccountId" },
+        "before": { "anyOf": [{ "$ref": "#/$defs/SponsorState" }, { "type": "null" }] },
+        "after": { "anyOf": [{ "$ref": "#/$defs/SponsorState" }, { "type": "null" }] }
+      }
+    },
+    "Verification": {
+      "type": "object",
+      "required": ["accountExists", "horizonStatus", "checkedAt", "accountUrl"],
+      "properties": {
+        "accountExists": { "type": "boolean" },
+        "horizonStatus": { "enum": [200, 404] },
+        "checkedAt": { "type": "string" },
+        "accountUrl": { "type": "string" },
+        "ledger": { "type": "integer", "minimum": 0 }
+      }
+    }
+  }
+}
