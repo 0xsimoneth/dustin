@@ -111,3 +111,44 @@ Next:
    - E3-S5: the detection-only blockers;
    - E3-S6: the test matrix with the `edge` fixture;
    - E3-S7: the metric close of the baseline fixture, after the Demolisher recording.
+
+## 2026-09-28 (sprint day 7, week 1)
+
+### Session summary (2026-09-28)
+
+Done:
+
+- The builder's decisions of 2026-09-28 were applied in one commit before any parallel work (2e0d5cb; PRD "Decisions after review" D-2 to D-7): PRD section 7 follows the SDK as built, the CI seed scan uses lookarounds, the E2-S6 deviations are accepted, every pause is injected and at least 200 ms, sponsor and budget refusals exit 3, and the history rewrite is postponed.
+- E2-S5: story record and its two missing AC-3 tests (16c9e56); done.
+- E2-S3 and E2-S4: review round 3 over the second-round fixes found 37 findings, one major (a merge refused on the ledger still ended `closed` when another party removed the account); all fixed with failing-first tests (1e0cba9); both done.
+- Epic 3 was built by parallel agents in their own worktrees, on disjoint files, and merged in order with every gate green after each merge:
+  - E3-S1 and E3-S2 (df54ea7): the ladder live, with the sale through a market maker's bid, the burn, the transfer to the destination (`--prefer-destination`) and unclosable items with every rung ruled out and a remedy; BH-7 and AA-14 closed.
+  - E3-S5 and E3-S6 (a59f7e9): the detection-only blockers with their remedies; the `edge` fixture profile (ten variants from one Friendbot call), its recorded vectors, the live edge tests and `docs/test-matrix.md`.
+  - E3-S3 and E3-S4 (fe900e7): the report records each reserve sponsor's `num_sponsoring`, minimum balance and XLM balance before and after; the executor waits for the sequence guard within `maxWaitLedgers` (120 by default) and stops with `unblocksAtLedger` beyond it (review R8 closed).
+  - E3-S7 (562d542): the metric close of fresh messy fixtures through the SDK and the CLI, with `evidence/README.md` checking SOW Appendix B row by row.
+  - Documentation in three rounds (3556788, b6303b2, 7299895): the first write-up, the integration notes, the README to the documentation plan, and the PRD, architecture, UX and story records brought to the code.
+- The closing review of the whole session (`c7be815..562d542`, five layers) found 64 findings, none major. Every code finding was fixed with a failing-first test (c53d437 planner and fixture, d0d711c executor, CLI and receipt, fdcd050 evidence tooling). Findings, dispositions, deferred items and the decisions left to the builder are in `docs/reviews/2026-09-28-e3-review.md`.
+- Three more CLI runs on the final code (fa2755b): the sequence-guard wait (the merge applied in the unblocking ledger itself), the unclosable exit of the `edge` fixture's frozen trustline (exit 3, then 4 with `--partial`), and the partial-close receipt of a memo-required issuer.
+- Tests: the offline tier has 89 files and 864 tests (5.7 s). The live tier, 10 files and 51 tests, passed locally at 562d542 (285 s) and in the manual testnet CI job at d0d711c (run 36424696971, 321 s), which closes E2-S6. CI passed on Node 22 and 24 for every push.
+- Test matrix: 32 rows; 27 have an offline test and 16 a live test; 21 green, 1 planned (B-03), 8 not covered, 2 human action (B-01, B-02).
+- Tracker: Epic 2 done; Epic 3 done except E3-S6, which waits for the builder's acceptance of its AC-3 deviation.
+
+Traps recorded this session:
+
+- **Vitest's reporter in an agent shell.** Vitest picks its `minimal` reporter when it detects an AI agent and hides the console output of passing tests, so the hashes a live test prints are lost; run the live tier with `--reporter=verbose`.
+- **Node timers.** A `setTimeout` delay above 2^31 - 1 ms is replaced by 1 ms (https://nodejs.org/api/timers.html#settimeoutcallback-delay-args), so every pause is capped at `MAX_PAUSE_MS` (`src/config/pauses.ts`).
+- **The sequence guard on the ledger.** A merge with sequence number s applies from ledger (s >> 32) + 1 and fails with `op_seq_num_too_far` one ledger earlier, consuming its sequence number; live, the waited merge applied in the unblocking ledger itself (4915293).
+- **Dust and the path finder.** Horizon's strict-send path finder returns no record for dust below the order book's resolution, so the planner burns it; a sale forced by hand fails with `op_under_dest_min` (matrix X-10).
+- **An own offer that sells XLM.** A fixture held at its minimum balance cannot carry an offer that sells XLM (its selling liabilities need XLM above the minimum), so matrix row X-11 is covered offline only.
+- **Agent worktrees.** Inspect an agent's worktree with `git -C`; a `cd` into it from the main session moves the session's working directory there.
+
+Blocked (human actions):
+
+- **npm.** `npm login`, then `npm publish` of the 0.0.1 name placeholder with 2FA.
+- **Baseline recording.** E1-S2: record the Demolisher baseline on `messy-20260926T035942Z` per `evidence/baseline/README.md` (matrix B-01, B-02); then Dustin closes the rebuilt baseline fixtures (B-03).
+- **Video hosting** for the 60-second demo (E4-S6).
+- **Chapter lead.** The written acknowledgement of the two-fixture reading.
+- **History rewrite (R4, R5).** Postponed by decision D-7; still open.
+- **Decisions** listed in the review: accept the E3-S6 AC-3 deviation; CA-11 and CA-18 (fix in week 4 or accept); third-party names in the prior-art citations.
+
+Next: Epic 4, a week early: E4-S1 and E4-S2 (CLI output and error handling, with CA-11, CA-18, CL-1, AA-9, AA-10 and AA-13), E4-S3 (test evidence and reproducibility), E4-S4 (npm 0.1.0 prepared for the builder to publish; README and integration notes final), E4-S5 (the write-up final), E4-S6 (the demo script for the builder's recording), E4-S7 (the evidence package with every SOW 6.1 row).

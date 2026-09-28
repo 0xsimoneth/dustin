@@ -1,6 +1,6 @@
 # Story 3.4: `ACCOUNT_MERGE_SEQNUM_TOO_FAR` guard
 
-Status: review
+Status: done
 
 ## Story
 
@@ -284,3 +284,4 @@ dev-story workflow (AI developer agent)
 
 - 2026-09-28: the executor waits for the sequence guard within the plan's bound and stops with `SEQNUM_TOO_FAR` beyond it (review R8), the known gap of a merge-only plan closed, `op_seq_num_too_far` recovered within the bound, the CLI and receipt lines, offline and live tests. Status: review.
 - 2026-09-28: closing review of Epic 3 (record updated by the documentation pass): CX-4, CX-5, CX-7, CX-8, CP-2 and CP-17, with their commits in the section "Closing review (2026-09-28)"; CA-11 kept as the known limitation; the recorded CLI evidence of AC-E3-S4-2, `evidence/runs/20260928T125223Z-e3s4-wait/`.
+- 2026-09-28: Status: done (`docs/reviews/2026-09-28-e3-review.md`, verdicts). The AC-3 deviation, a run the guard stops part-way ends `failed` with exit 5, follows canonical decision 5.

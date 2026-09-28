@@ -1,6 +1,6 @@
 # Story 3.1: Ladder execution, path-payment sale
 
-Status: review
+Status: done
 
 ## Story
 
@@ -241,3 +241,4 @@ dev-story workflow (AI developer agent)
 
 - 2026-09-28: BH-7 closed; AA-14 settled in the epics; dust guard; receipt Disposals section; offline and live tests; two live runs. Status: review.
 - 2026-09-28: closing review of Epic 3 (record updated by the documentation pass): CX-2 and CX-3 in the BH-7 section, CC-8 in the receipt's Disposals line, CP-5 in AC-3 and CP-6, with their commits in the section "Closing review (2026-09-28)".
+- 2026-09-28: Status: done (`docs/reviews/2026-09-28-e3-review.md`, verdicts). The 1% default of `slippageBps` (AC-4) is listed there for the builder to confirm; it does not hold the story.

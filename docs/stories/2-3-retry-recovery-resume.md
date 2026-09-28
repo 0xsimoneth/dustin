@@ -1,6 +1,6 @@
 # Story 2.3: Retry, failure recovery and resumable execution
 
-Status: review
+Status: done
 
 ## Story
 
@@ -214,3 +214,4 @@ Blind review of the executor:
 - 2026-09-28: builder decision D-5 (PRD): `pollIntervalMs` and `backoffMs` are pauses of at least 200 ms, and 0 is refused (`src/config/pauses.ts`); the tests inject a sleep that returns at once instead of passing 0.
 - 2026-09-28: review round 3 (acceptance audit, edge-case review of the executor, blind review): R3-1 to R3-21, R3-33, R3-35 and R3-37, each code fix with a test that failed first (`test/unit/execute/review-round3.test.ts`). Behaviour changes: a merge of this run that applied while Horizon still returns the account is `closed` with stop ACCOUNT_STILL_EXISTS (it was `failed`; exit 5 either way), a refused or failed merge no longer proves a close, an included failure with no operation code re-plans, pauses are at most 2^31 - 1 ms and `timeoutSeconds` at most 3600, `FeeSponsor.release()` takes the fee bumps whose bids to take back, and report entries gain `lookupError` and `sequenceUsed`.
 - 2026-09-28: closing review of Epic 3, merged in `d0d711c` (record updated by the documentation pass): CX-1 (a merge envelope that can never apply proves no close; the run keeps its stop, exit 5), CX-4 (STEP_FAILED_TWICE names each code), CX-6 (a late observer rejection yields one more published copy), CX-8 (pauses clipped to the time left in their wait), CX-9 (upper bounds of the grace, the ledger wait and `verifyTimeoutMs`), CX-10, CX-11 and CA-13, with their commits in the section "Closing review (2026-09-28)".
+- 2026-09-28: Status: done: review round 3 fixed and the closing review's executor fixes merged (`docs/reviews/2026-09-28-e3-review.md`, verdicts).

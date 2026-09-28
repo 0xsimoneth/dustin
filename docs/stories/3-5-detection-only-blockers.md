@@ -1,6 +1,6 @@
 # Story 3.5: Detection-only blockers: pool shares, raised thresholds, AUTH_IMMUTABLE, active sponsoring
 
-Status: review
+Status: done
 
 ## Story
 
@@ -83,3 +83,4 @@ The closing review of Epic 3 (edge-case review of the planner CP, blind review C
 
 - 2026-09-28: blocker texts for pool shares, thresholds, `AUTH_IMMUTABLE_SET` and sponsoring, tests first; AC-5 pinned offline for each blocker and proved live on the multisig variant. Status: review (the deviations in AC-1 to AC-3 need the builder's acceptance).
 - 2026-09-28: closing review of Epic 3 (record updated by the documentation pass): CP-1, CP-2, CP-3, CP-4 and CP-16 in the blocker texts, with their commits in the section "Closing review (2026-09-28)"; the `edge` fixture built and verified live through the CLI, 62 of 62 checks (`evidence/runs/20260928T125414Z-edge-frozen/`).
+- 2026-09-28: Status: done (`docs/reviews/2026-09-28-e3-review.md`, verdicts). The deviations in AC-1 to AC-3 follow canonical decision 3 (the `edge` profile) and decision D-2 (the SDK's names), so they need no further acceptance.

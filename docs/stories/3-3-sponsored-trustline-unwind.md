@@ -1,6 +1,6 @@
 # Story 3.3: Sponsored trustline unwind with reserve attribution
 
-Status: review
+Status: done
 
 ## Story
 
@@ -182,3 +182,4 @@ dev-story workflow (AI developer agent)
 
 - 2026-09-28: observed reserve release to sponsors in the report, the receipt and the plan's summary; offline tests and a live run of S-03 (with its `tx_bad_auth_extra` control) and X-18. Status: review.
 - 2026-09-28: closing review of Epic 3 (record updated by the documentation pass): CC-9, the run-in-progress wording of the sponsor section in a running copy, with its commit in the section "Closing review (2026-09-28)"; the note on PRD section 7 brought up to date.
+- 2026-09-28: Status: done (`docs/reviews/2026-09-28-e3-review.md`, verdicts).

@@ -1,6 +1,6 @@
 # Story 3.7: Full messy fixture close on testnet, recorded
 
-Status: review
+Status: done
 
 ## Story
 
@@ -86,3 +86,4 @@ The closing review of Epic 3 (edge-case review of the CLI CC, acceptance audit C
 
 - 2026-09-28: SDK and CLI metric closes recorded with the complete Epic 3 code; evidence index. Status: review (the deviations in AC-1 and AC-3 need the builder's acceptance; the baseline fixture's own close waits for the Demolisher recording).
 - 2026-09-28: closing review of Epic 3 (record updated by the documentation pass): the CLI evidence script is now `scripts/evidence-cli.mjs` (case `metric`; CC-3 to CC-7, CA-19), the live close checks its label first (CC-11), with their commits in the section "Closing review (2026-09-28)". The recorded runs are unchanged.
+- 2026-09-28: Status: done (`docs/reviews/2026-09-28-e3-review.md`, verdicts). The deviations follow canonical decision 3 (AC-1) and the evidence layout the builder accepted in D-4 and PRD sections 12.1 and 12.2 (AC-3); the baseline fixture's own close is matrix row B-03, after the recording.

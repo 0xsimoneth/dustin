@@ -1,6 +1,6 @@
 # Story 2.4: Post-close verification and receipt with explorer links
 
-Status: review
+Status: done
 
 ## Story
 
@@ -147,3 +147,4 @@ dev-story workflow (AI developer agent)
 - 2026-09-28: builder decision D-6 (PRD): an over-budget refusal and `SPONSOR_UNDERFUNDED` exit 3, "nothing executed" (canonical decision 5 widened); this replaces the exit code 2 chosen for CL-4.
 - 2026-09-28: review round 3 (acceptance audit, edge-case review of the CLI, blind review): R3-22 to R3-32, R3-34 and R3-36, and the CLI side of the executor's R3-1, each code fix with a test that failed first. Behaviour changes: the confirmation names the close budget as the ceiling; it is asked only when the stream that carried the plan is a terminal, otherwise the run is unconfirmed (exit 3) with the cause named; `--report` refuses any case of `.env` and links to the working directory's `.env`; with `--json` the budget and sponsor refusals print the refused plan; the receipt labels unknown envelopes from what is known and renders a running copy as a run in progress.
 - 2026-09-28: closing review of Epic 3, merged in `d0d711c` (record updated by the documentation pass): CC-1 (the stdout fallback keeps the chunk that hit the broken pipe), CC-2 (`--json` prints exactly one document in every case once the plan was shown), CC-9 (running copies in Disposals and sponsors), CC-10 (an open merge in Disposals and the result) and the CLI side of CX-1 (exit 5, not a CLOSED receipt, when only a merge that can never apply was posted), with their commits in the section "Closing review (2026-09-28)".
+- 2026-09-28: Status: done: review round 3 fixed and the closing review's CLI and receipt fixes merged (`docs/reviews/2026-09-28-e3-review.md`, verdicts).
