@@ -15,7 +15,7 @@ import { SECONDS_PER_LEDGER, sequenceGuard } from "../plan/guard.js";
 import type { ClosePlan, CloseStep, PlannedTransaction } from "../plan/model.js";
 import { DEFAULT_MAX_WAIT_LEDGERS } from "../plan/plan.js";
 import { planClose, type PlanCloseInput } from "../plan/plan-close.js";
-import { horizonJson } from "../reader/horizon-json.js";
+import { horizonJson, type LedgerSummary } from "../reader/horizon-json.js";
 import { horizonReader, type LedgerReader } from "../reader/ledger-reader.js";
 import type { Signer } from "../sponsor/signer.js";
 import { FeeSponsor } from "../sponsor/sponsor.js";
@@ -41,6 +41,7 @@ import {
   mergeAmountFromResultXdr,
   type CloseReport,
   type CloseStatus,
+  type SponsorState,
   type StepOutcome,
   type StopReason,
   type SubmittedTransaction,
@@ -281,6 +282,7 @@ class CloseRun {
         reservesReturnedToSponsors: [],
         feesPaidByAccount: "0",
         feesPaidBySponsorStroops: 0,
+        sponsorsObserved: [],
       },
       verification: null,
     };
@@ -454,12 +456,78 @@ class CloseRun {
       );
     }
     await this.checkSponsorFunds();
+    // Story E3-S3: the reserve sponsors as they are before anything is submitted.
+    await this.observeSponsors("before");
     this.sponsor = new FeeSponsor(this.input.signers.feeSponsor, {
       networkPassphrase: fresh.network.passphrase,
       budgetStroops: fresh.fees.budgetStroops,
       maxBaseFeeStroops: fresh.fees.maxBaseFeeStroops,
     });
     return this.runPlans();
+  }
+
+  /**
+   * Story E3-S3: reads the reserve sponsors on Horizon and records their `num_sponsoring`, XLM
+   * balance and minimum balance in `recovery.sponsorsObserved`: "before" the first submission, the
+   * sponsors the executor's fresh plan names; "after" the final check, those and any a re-plan
+   * named. A read that fails becomes a warning and leaves that figure null, so observing never
+   * changes the outcome of a close.
+   */
+  private async observeSponsors(when: "before" | "after"): Promise<void> {
+    const observed = (this.report.recovery.sponsorsObserved ??= []);
+    const named = (plans: ClosePlan[]) =>
+      plans.flatMap((p) => p.recovery.reservesReturnedToSponsors.map((x) => x.sponsor));
+    const sponsors = [
+      ...new Set(
+        when === "before"
+          ? named([this.input.fresh])
+          : [...observed.map((o) => o.sponsor), ...named(this.roundPlans)],
+      ),
+    ];
+    if (sponsors.length === 0) return;
+    const moment = when === "before" ? "before the first submission" : "after the run";
+    const warn = (sponsor: string, why: string) =>
+      this.report.warnings.push(
+        `The reserve sponsor ${sponsor} could not be read ${moment} (${why}); the report has no observed figure for it there.`,
+      );
+    const record = (sponsor: string, state: SponsorState | null) => {
+      let entry = observed.find((o) => o.sponsor === sponsor);
+      if (!entry) {
+        entry = { sponsor, before: null, after: null };
+        observed.push(entry);
+      }
+      entry[when] = state;
+    };
+    let ledger: LedgerSummary;
+    try {
+      ledger = await this.input.reader.latestLedger();
+    } catch (error) {
+      for (const sponsor of sponsors) {
+        warn(sponsor, errorText(error));
+        record(sponsor, null);
+      }
+      return;
+    }
+    for (const sponsor of sponsors) {
+      try {
+        const account = await this.input.reader.account(sponsor);
+        if (!account) {
+          warn(sponsor, "Horizon answered 404");
+          record(sponsor, null);
+          continue;
+        }
+        const reserve = reserveFromHorizon(account, BigInt(ledger.base_reserve_in_stroops));
+        record(sponsor, {
+          numSponsoring: account.num_sponsoring,
+          balance: formatStroops(reserve.balance),
+          minimumBalance: formatStroops(reserve.minimum),
+          ledger: ledger.sequence,
+        });
+      } catch (error) {
+        warn(sponsor, errorText(error));
+        record(sponsor, null);
+      }
+    }
   }
 
   /** Canonical decision 7: refuse to start when the sponsor cannot cover the close budget. */
@@ -1163,6 +1231,8 @@ class CloseRun {
     });
     this.report.verification = v;
     this.emit({ type: "verified", accountExists: v.accountExists });
+    // Story E3-S3: the reserve sponsors as they are after the final check.
+    await this.observeSponsors("after");
     return v;
   }
 
@@ -1302,6 +1372,12 @@ function xlmFell(
   const before = toStroops(approved.recovery.xlmToDestination);
   const now = toStroops(fresh.recovery.xlmToDestination);
   return now < before ? { approved: formatStroops(before), fresh: formatStroops(now) } : null;
+}
+
+/** An error in a few words for a warning: its code and message when it is a DustinError. */
+function errorText(error: unknown): string {
+  if (error instanceof DustinError) return `${error.code}: ${error.message}`;
+  return error instanceof Error ? error.message : String(error);
 }
 
 /** A wait of `ledgers` ledgers in words, at the observed 5 s per ledger (src/plan/guard.ts). */

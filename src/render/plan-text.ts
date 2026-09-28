@@ -1,4 +1,4 @@
-import { formatStroops } from "../amounts.js";
+import { formatStroops, toStroops } from "../amounts.js";
 import type { AssetRef } from "../inspect/snapshot.js";
 import type { ClosePlan, CloseStep, StepSubject, UnclosableItem } from "../plan/model.js";
 
@@ -204,12 +204,23 @@ export function renderPlan(plan: ClosePlan, options: RenderPlanOptions = {}): st
       2,
     ),
   );
+  // UX-DR2 and AC-E3-S3-4: the reserves released to sponsors on a line of their own. A sponsored
+  // entry's reserve returns to its sponsor, so xlmToDestination leaves it out (story E3-S3).
+  const released = r.reservesReturnedToSponsors.reduce((sum, x) => sum + toStroops(x.xlm), 0n);
+  out.push(
+    ...wrap(
+      r.reservesReturnedToSponsors.length > 0
+        ? `Reserves released to sponsors: ${formatStroops(released)} XLM, never this account's`
+        : "Reserves released to sponsors: none",
+      2,
+    ),
+  );
   for (const x of r.reservesReturnedToSponsors) {
     out.push(
       ...wrap(
-        `${x.xlm} XLM reserve unlocked for sponsor ${short(x.sponsor)}, never this account's ` +
+        `${x.xlm} XLM reserve unlocked for sponsor ${short(x.sponsor)} ` +
           `(${x.entries.map(entry).join(", ")})`,
-        2,
+        4,
       ),
     );
   }
