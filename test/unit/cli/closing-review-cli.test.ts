@@ -131,15 +131,20 @@ describe("CC-2: with --json, stdout carries exactly one JSON document once the p
     ["a wrong answer", "nope"],
     ["the end of input or Ctrl-C", null],
     ["no prompt at all", undefined],
-  ] as const)("prints the plan when the confirmation gets %s (exit 3)", async (_case, answer) => {
-    const world = zeroSpendableWorld();
-    const r = await closeCli(world, executeArgs(world, "--json"), { answer });
-    expect(r.code).toBe(3);
-    expect(r.err).toContain("CONFIRMATION_DECLINED");
-    // Before the fix: nothing on standard output.
-    expect(onlyDocument(r.out)).toMatchObject({ kind: "dustin-close-plan", account: world.id });
-    expect(world.ledger.submissions).toHaveLength(0);
-  });
+  ] as const)(
+    "prints the plan when the confirmation, with a prompt that would get %s, is refused (exit 3)",
+    async (_case, answer) => {
+      const world = zeroSpendableWorld();
+      const r = await closeCli(world, executeArgs(world, "--json"), { answer });
+      expect(r.code).toBe(3);
+      // Since E4-S1 (review AA-10) --json never asks: without --yes the run is refused.
+      expect(r.prompts).toEqual([]);
+      expect(r.err).toContain("CONFIRMATION_REQUIRED");
+      // Before the fix: nothing on standard output.
+      expect(onlyDocument(r.out)).toMatchObject({ kind: "dustin-close-plan", account: world.id });
+      expect(world.ledger.submissions).toHaveLength(0);
+    },
+  );
 
   it("prints the plan when --report names a directory (exit 2)", async () => {
     const world = zeroSpendableWorld();
@@ -165,18 +170,18 @@ describe("CC-2: with --json, stdout carries exactly one JSON document once the p
 
   it("prints the plan when Horizon fails after the confirmation, before any report (exit 6)", async () => {
     const world = zeroSpendableWorld();
+    // Horizon goes down right after the CLI's last read (the sponsor), so the executor's first
+    // read fails; with --json the confirmation is --yes (review AA-10).
     let down = false;
-    const fetch: Fetch = (url, init) =>
-      down
-        ? Promise.resolve(new Response(JSON.stringify({ status: 503 }), { status: 503 }))
-        : world.ledger.fetch(url, init);
-    const r = await closeCli(world, executeArgs(world, "--json"), {
-      fetch,
-      answer: () => {
-        down = true;
-        return world.destination.slice(-4);
-      },
-    });
+    const sponsor = world.sponsor.publicKey();
+    const fetch: Fetch = (url, init) => {
+      if (down) {
+        return Promise.resolve(new Response(JSON.stringify({ status: 503 }), { status: 503 }));
+      }
+      if (url.endsWith(`/accounts/${sponsor}`)) down = true;
+      return world.ledger.fetch(url, init);
+    };
+    const r = await closeCli(world, executeArgs(world, "--json", "--yes"), { fetch });
     expect(r.code).toBe(6);
     expect(onlyDocument(r.out)).toMatchObject({ kind: "dustin-close-plan" });
     expect(world.ledger.submissions).toHaveLength(0);

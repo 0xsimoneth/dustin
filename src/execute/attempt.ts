@@ -12,6 +12,7 @@ import { explainCodes, rejectionAction } from "./classify.js";
 import type { CloseEvent } from "./events.js";
 import type { StopReason, SubmittedTransaction } from "./report.js";
 import type { ResultCodes } from "./result-codes.js";
+import { operationSummary } from "./summary.js";
 import {
   lookupTransaction,
   outcomeFromRecord,
@@ -35,7 +36,19 @@ export interface AttemptSettings {
   ledgerWaitSeconds: number;
   /** Local clock in milliseconds; it only measures how long waits last. */
   now: () => number;
+  /** The pause; the executor's ends early once the run is interrupted (review finding CL-1). */
   sleep: (ms: number) => Promise<void>;
+  /** True once the caller's signal is aborted (review finding CL-1); absent without a signal. */
+  aborted?: () => boolean;
+}
+
+/** Where an interrupted run stopped, for the INTERRUPTED stop (review finding CL-1). */
+export interface InterruptionPoint {
+  /** The safe point, as a clause: "before transaction 2 (merge) was built". */
+  where: string;
+  txIndex?: number;
+  /** The envelope whose outcome the stop concerns, when it may still apply. */
+  envelope?: SubmittedTransaction;
 }
 
 export interface AttemptContext {
@@ -54,6 +67,8 @@ export interface AttemptContext {
   /** The sponsor's cap on the bid per operation. */
   maxBaseFeeStroops: number;
   explorerBaseUrl: string;
+  /** The Horizon the run reads and submits to, for each envelope's `horizonUrl` (review AA-9). */
+  horizonUrl: string;
   settings: AttemptSettings;
   /** Adds an envelope to the report and publishes the report. */
   record(entry: SubmittedTransaction): void;
@@ -67,6 +82,12 @@ export interface AttemptContext {
    * (edge case E2). A stop means the rebuilt merge would fail; null means it may go.
    */
   preflight?: () => Promise<StopReason | null>;
+  /**
+   * The INTERRUPTED stop once the caller's signal is aborted, null before (review finding CL-1). It
+   * is asked at every safe point: before an envelope is rebuilt, and after one is refused or its
+   * outcome could not be settled, so no envelope is posted after the interruption.
+   */
+  interruption?: (at: InterruptionPoint) => StopReason | null;
 }
 
 export type TransactionOutcome =
@@ -120,6 +141,15 @@ function unknownMeaning(outcome: Extract<SubmitOutcome, { kind: "unknown" }>): s
   const bound = outcome.mayStillApply
     ? "no ledger has closed past its time bound yet, so it may still apply"
     : "its time bound has passed, so it cannot apply any more";
+  if (outcome.interrupted) {
+    // Review finding CL-1: the run stopped waiting for it when it was interrupted.
+    const seen = outcome.lookupError
+      ? `It could not be looked up by hash (${outcome.lookupError})`
+      : outcome.readError
+        ? `It could not be settled (${outcome.readError})`
+        : "It was not found by hash";
+    return `${seen} when the run was interrupted, so whether it applied is not known; ${bound}.`;
+  }
   if (outcome.lookupError) {
     return `It could not be looked up by hash (${outcome.lookupError}), so whether it applied is not known; ${bound}.`;
   }
@@ -214,6 +244,16 @@ export async function submitPlannedTransaction(
     );
 
   for (let attempt = 1; ; attempt++) {
+    // Review finding CL-1: nothing new is built or posted once the run is interrupted. The first
+    // envelope is guarded by the orchestrator, which asks before every planned transaction.
+    const halted =
+      attempt > 1
+        ? ctx.interruption?.({
+            where: `before ${label.toLowerCase()} was rebuilt`,
+            txIndex: tx.index,
+          })
+        : null;
+    if (halted) return { kind: "stopped", stop: halted };
     if (attempt > settings.maxAttempts) {
       return stop(
         "RETRY_LIMIT",
@@ -282,6 +322,10 @@ export async function submitPlannedTransaction(
       innerEnvelopeXdr: inner.toXDR(),
       feeBumpEnvelopeXdr: bump.toXDR(),
       explorerUrl: `${ctx.explorerBaseUrl}/tx/${hash}`,
+      // Review finding AA-9: the persisted report says what the envelope does and where Horizon has
+      // it, as the printed receipt does.
+      horizonUrl: `${ctx.horizonUrl}/transactions/${hash}`,
+      operations: steps.map(operationSummary),
     };
     envelopes.push(entry);
     feeBumps.set(entry, bump);
@@ -310,6 +354,18 @@ export async function submitPlannedTransaction(
       detail: entry.explanation ?? "",
     });
     if (outcome.kind === "failed") return { kind: "failed", entry, codes: outcome.codes };
+
+    // Review finding CL-1: an interrupted run neither rebuilds nor posts again; an envelope whose
+    // outcome is open is named in the stop with its time bound.
+    const interrupted = ctx.interruption?.({
+      where:
+        outcome.kind === "unknown"
+          ? `while envelope ${hash} of ${label.toLowerCase()} waited for its outcome`
+          : `after envelope ${hash} of ${label.toLowerCase()} was refused`,
+      txIndex: tx.index,
+      envelope: entry,
+    });
+    if (interrupted) return { kind: "stopped", stop: interrupted };
 
     if (outcome.kind === "unknown") {
       // Review finding 7: the stop names the envelope and its time bound, so a caller can wait for
@@ -532,11 +588,15 @@ async function postWithBackoff(
           return account === null || BigInt(account.sequence) >= BigInt(entry.sequence);
         },
         ledgerCloseTime: async () => Date.parse((await ctx.reader.latestLedger()).closed_at) / 1000,
+        ...(settings.aborted ? { aborted: settings.aborted } : {}),
       },
     );
     const limited = outcome.kind === "rejected" && outcome.status === 429;
     if (!limited || retry >= settings.maxRateLimitRetries) return outcome;
+    // An interrupted run posts nothing again, not even the same envelope after a 429 (CL-1).
+    if (settings.aborted?.()) return outcome;
     // Doubled each time, never beyond Node's timer limit (review round 3, R3-18).
     await settings.sleep(Math.min(settings.backoffMs * 2 ** retry, MAX_PAUSE_MS));
+    if (settings.aborted?.()) return outcome;
   }
 }

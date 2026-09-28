@@ -19,11 +19,13 @@ import { horizonJson, type LedgerSummary } from "../reader/horizon-json.js";
 import { horizonReader, type LedgerReader } from "../reader/ledger-reader.js";
 import type { Signer } from "../sponsor/signer.js";
 import { FeeSponsor } from "../sponsor/sponsor.js";
+import { abortReason, interruptibleSleep } from "./abort.js";
 import {
   recordOutcome,
   submitPlannedTransaction,
   type AttemptContext,
   type AttemptSettings,
+  type InterruptionPoint,
   type TransactionOutcome,
 } from "./attempt.js";
 import { operationFailure } from "./classify.js";
@@ -54,6 +56,7 @@ import {
   outcomeFromRecord,
   type Submitter,
 } from "./submit.js";
+import { reportLinks } from "./summary.js";
 import { verifyClosed } from "./verify.js";
 
 export type { CloseReport, CloseStatus } from "./report.js";
@@ -140,6 +143,17 @@ export interface ExecuteOptions {
    * whether a time bound has passed is judged by ledger close times. Default `Date.now`.
    */
   now?: () => number;
+  /**
+   * A standard AbortSignal (https://nodejs.org/api/globals.html#class-abortsignal) that stops the
+   * run at the next safe point (review finding CL-1, story E4-S2): no envelope is posted after the
+   * abort; one already posted is looked up once more and settled, or recorded as unknown; a wait
+   * (for an envelope's outcome, for the sequence guard) ends at once. The report is finished with
+   * the stop INTERRUPTED, published and returned like every other stop: `aborted` when nothing was
+   * posted, `failed` after a submission, `closed` when a merge of the run applied. A signal
+   * aborted after the last transaction changes nothing. A string reason (the CLI gives "SIGINT" or
+   * "SIGTERM") is named in the stop's detail.
+   */
+  signal?: AbortSignal;
   /**
    * How long to wait, beyond an unconfirmed envelope's time bound and the grace, for a ledger that
    * closed after the bound; after it the run stops with OUTCOME_UNKNOWN. Default 60 s, at most 3600
@@ -274,12 +288,16 @@ class CloseRun {
   /** The failing operation code of each failure of a step, in order (closing review CX-4). */
   private readonly failureCodes = new Map<StepOutcome, string[]>();
   private sponsor: FeeSponsor | null = null;
+  /** The injected pause as given; `settings.sleep` is the same pause, ended early by the signal. */
+  private readonly rawSleep: Sleep;
+  /** Where the run was interrupted, once it was (review finding CL-1). */
+  private interruptedAt: { where: string; reason: string } | null = null;
   private stage: ErrorStage = "plan";
   private round = 0;
   private merge: { hash: string; ledger: number } | null = null;
 
   constructor(private readonly input: RunInput) {
-    const { fresh, plan, sponsorKey, options } = input;
+    const { fresh, plan, sponsorKey, options, config } = input;
     this.report = {
       schemaVersion: 1,
       kind: "dustin-close-report",
@@ -288,6 +306,8 @@ class CloseRun {
       destination: plan.destination,
       feeSponsor: sponsorKey,
       planHash: fresh.planHash,
+      // Review finding AA-9: the receipt's "Verify it yourself" links, in the persisted report too.
+      links: reportLinks(config.explorerBaseUrl, config.horizonUrl, plan),
       // Until finish() sets the outcome, every published copy says the run is in progress.
       status: "running",
       message: null,
@@ -312,6 +332,8 @@ class CloseRun {
     };
     fresh.steps.forEach((step, i) => this.outcomes.set(stepIdentity(step), this.report.steps[i]!));
     this.roundPlans = [fresh];
+    this.rawSleep = options.sleep ?? timerSleep;
+    const { signal } = options;
     this.settings = {
       timeoutSeconds: options.timeoutSeconds ?? 120,
       pollIntervalMs: options.pollIntervalMs ?? 2000,
@@ -321,7 +343,10 @@ class CloseRun {
       maxRateLimitRetries: options.maxRateLimitRetries ?? 5,
       ledgerWaitSeconds: options.ledgerWaitSeconds ?? 60,
       now: options.now ?? (() => Date.now()),
-      sleep: options.sleep ?? timerSleep,
+      // Review finding CL-1: every wait of the run ends once the signal is aborted, and every loop
+      // that sleeps checks the signal after the pause, so the wait never becomes a tight loop.
+      sleep: interruptibleSleep(this.rawSleep, signal),
+      ...(signal ? { aborted: () => signal.aborted } : {}),
     };
   }
 
@@ -521,6 +546,11 @@ class CloseRun {
     await this.observeSponsors("before");
     // Past every refusal before signing: only now has the run gone on with the fresh plan (CX-3).
     if (wentOn !== null) this.report.warnings.push(wentOn);
+    // Review finding CA-11, PRD decision D-10: the plan hash leaves out the regrouping of the merge
+    // that a near sequence guard causes, so a fresh plan with the approved hash may group the same
+    // steps differently. The run follows the fresh plan's grouping and says so.
+    const regrouped = !hashChanged ? regroupedWords(plan, fresh) : null;
+    if (regrouped !== null) this.report.warnings.push(regrouped);
     this.sponsor = new FeeSponsor(this.input.signers.feeSponsor, {
       networkPassphrase: fresh.network.passphrase,
       budgetStroops: fresh.fees.budgetStroops,
@@ -628,6 +658,7 @@ class CloseRun {
       sponsor: this.sponsor!,
       maxBaseFeeStroops: this.input.fresh.fees.maxBaseFeeStroops,
       explorerBaseUrl: this.input.config.explorerBaseUrl,
+      horizonUrl: this.input.config.horizonUrl,
       settings: this.settings,
       record: (entry) => {
         this.envelopeSteps.set(entry.hash, steps);
@@ -639,6 +670,34 @@ class CloseRun {
       enter: (stage) => {
         this.stage = stage;
       },
+      interruption: (at) => this.interruption(at),
+    };
+  }
+
+  /**
+   * The stop of a run whose signal was aborted, or null while it is not (review finding CL-1). The
+   * run is at a safe point, which `at.where` names ("before transaction 2 (merge) was built"). An
+   * envelope whose outcome is open (it may still apply, or it could not be looked up) is named with
+   * its time bound, as for OUTCOME_UNKNOWN: a new envelope for its sequence number could only
+   * replace it after that bound.
+   */
+  private interruption(at: InterruptionPoint): StopReason | null {
+    const { signal } = this.input.options;
+    if (!signal?.aborted) return null;
+    const reason = abortReason(signal);
+    this.interruptedAt = { where: at.where, reason };
+    const open = at.envelope && outcomeOpen(at.envelope) ? at.envelope : undefined;
+    const wait = open
+      ? ` Its outcome is not known: run the close again only after a ledger has closed after ${new Date(open.maxTime * 1000).toISOString()} (its time bound, ${open.maxTime}); until then it may still apply, and a new envelope for the same sequence number could only replace it with a tenfold bid, which Dustin never relies on. The run then continues from the ledger.`
+      : " Run the close again to continue from the ledger.";
+    return {
+      code: "INTERRUPTED",
+      stage: this.stage,
+      verdict: "replan",
+      detail: `The run was interrupted (${reason}) ${at.where}; nothing was posted after the interruption.${wait}`,
+      round: this.round,
+      ...(at.txIndex !== undefined ? { txIndex: at.txIndex } : {}),
+      ...(open ? { hash: open.hash, maxTime: open.maxTime } : {}),
     };
   }
 
@@ -648,6 +707,12 @@ class CloseRun {
     rounds: for (;;) {
       const byId = new Map(current.steps.map((s) => [s.id, s]));
       for (const tx of current.transactions) {
+        // Review finding CL-1: the safe point before each planned transaction.
+        const interrupted = this.interruption({
+          where: `before transaction ${tx.index + 1} (${tx.phase})${this.round > 0 ? ` of round ${this.round}` : ""} was built`,
+          txIndex: tx.index,
+        });
+        if (interrupted) return this.stopped(interrupted);
         const steps = tx.stepIds.map((id) => byId.get(id)!);
         // A merge that follows anything already submitted in this run (a later transaction, or the
         // first one of a re-plan) runs only after fresh facts (architecture rule R7). So does one
@@ -718,7 +783,10 @@ class CloseRun {
         blocked.currentLedger ?? until - 1,
       );
       if ("stop" in waited) {
-        this.emit({ type: "preflight", index: tx.index, ok: false, detail: blocked.detail });
+        // An interrupted wait is no failed preflight (review finding CL-1).
+        if (waited.stop.code !== "INTERRUPTED") {
+          this.emit({ type: "preflight", index: tx.index, ok: false, detail: blocked.detail });
+        }
         return waited.stop;
       }
       preflight = await check(waited.ledger);
@@ -794,7 +862,15 @@ class CloseRun {
       sleep: this.settings.sleep,
       now: this.settings.now,
       knownLedger: currentLedger,
+      ...(this.settings.aborted ? { aborted: this.settings.aborted } : {}),
     });
+    if (waited.interrupted) {
+      const stop = this.interruption({
+        where: `while the merge waited for the sequence guard (it can land from ledger ${untilLedger}; the latest ledger was ${waited.ledger})`,
+        txIndex: tx.index,
+      });
+      if (stop) return { stop };
+    }
     if (!waited.reached) {
       const seconds = Math.round(waited.waitedMs / 1000);
       return {
@@ -1274,6 +1350,16 @@ class CloseRun {
       entry.result === "applied"
         ? `found applied in ledger ${entry.ledger ?? "?"}`
         : `found failed on the ledger (${entry.explanation ?? "no result codes"})`;
+    if (stop.code === "INTERRUPTED" && this.interruptedAt) {
+      // Review finding CL-1: the envelope the interruption left open is settled now, so its time
+      // bound no longer matters.
+      const { maxTime: _settled, ...rest } = stop;
+      const { where, reason } = this.interruptedAt;
+      return {
+        ...rest,
+        detail: `The run was interrupted (${reason}) ${where}; nothing was posted after the interruption. Looked up again before the final check, envelope ${entry.hash} was ${found}; no time bound needs to pass first: run the close again to continue from the ledger.`,
+      };
+    }
     if (stop.code !== "OUTCOME_UNKNOWN") {
       return {
         ...stop,
@@ -1427,7 +1513,9 @@ class CloseRun {
       config: this.input.config,
       timeoutMs: this.merge ? (this.input.options.verifyTimeoutMs ?? 30_000) : 0,
       intervalMs: this.settings.pollIntervalMs,
-      sleep: this.settings.sleep,
+      // The final check's own loop does not watch the signal, so it gets the pause as given; it
+      // waits only after a merge applied, when the run is complete anyway (review finding CL-1).
+      sleep: this.rawSleep,
       now: this.settings.now,
     });
     this.report.verification = v;
@@ -1625,6 +1713,17 @@ class CloseRun {
   }
 }
 
+/**
+ * True for an envelope whose outcome is open: posted and not settled, and it may still apply or
+ * could not be looked up. A new envelope for its sequence number must wait for its time bound.
+ */
+function outcomeOpen(t: SubmittedTransaction): boolean {
+  return (
+    t.result === "pending" ||
+    (t.result === "unknown" && (t.mayStillApply === true || t.lookupError !== undefined))
+  );
+}
+
 /** A promise, or anything else with a `then` method: what an async observer returns. */
 function isThenable(value: unknown): value is PromiseLike<unknown> {
   return (
@@ -1665,6 +1764,30 @@ export function recoveredXlmWords(approved: ClosePlan, fresh: ClosePlan): string
     return "the XLM the account would keep (its balance plus the quoted sales; the plan does not merge)";
   }
   return "the XLM the close would recover (the account's balance plus the quoted sales)";
+}
+
+/**
+ * The warning for a fresh plan that has the approved plan's hash but groups its steps into other
+ * transactions, or null when the groupings are the same. The hash leaves out only the regrouping of
+ * the merge by a near sequence guard (review finding CA-11, PRD decision D-10): the guard cleared
+ * after the plan was approved, so the merge joins the cleanup, or it holds now, so the merge waits
+ * in a transaction of its own.
+ */
+function regroupedWords(approved: ClosePlan, fresh: ClosePlan): string | null {
+  const grouping = (p: ClosePlan) => JSON.stringify(p.transactions.map((t) => t.stepIds));
+  if (grouping(approved) === grouping(fresh)) return null;
+  const mergeTx = (p: ClosePlan) => p.steps.find((s) => s.kind === "merge")?.txIndex;
+  const before = mergeTx(approved);
+  const now = mergeTx(fresh);
+  if (before === undefined || now === undefined) return null;
+  const alone = (p: ClosePlan, index: number) => (p.transactions[index]?.stepIds.length ?? 0) === 1;
+  const was = `transaction ${before + 1} of ${approved.transactions.length}${alone(approved, before) ? ", alone" : ""}`;
+  const is = `transaction ${now + 1} of ${fresh.transactions.length}`;
+  const why =
+    fresh.sequenceGuard?.ok === false
+      ? `the sequence guard holds the merge until ledger ${fresh.sequenceGuard.unblocksAtLedger} now, so the merge waits alone in ${is}`
+      : `the sequence guard cleared after the plan was approved, so the merge runs in ${is} with the cleanup`;
+  return `The steps are the ones approved, but ${why} instead of in ${was}; the plan hash leaves this regrouping out (PRD decision D-10), and the run follows the fresh plan.`;
 }
 
 /** An error in a few words for a warning: its code and message when it is a DustinError. */

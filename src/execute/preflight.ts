@@ -150,6 +150,8 @@ export interface LedgerWait {
   polls: number;
   /** Set when the last read of the latest ledger failed: why (closing review CX-7). */
   readError?: string;
+  /** Set when the wait ended because the run was interrupted (review finding CL-1). */
+  interrupted?: true;
 }
 
 /**
@@ -172,6 +174,11 @@ export async function waitForLedger(
     now: () => number;
     /** The latest ledger known before the wait, reported while no poll was answered. */
     knownLedger?: number;
+    /**
+     * True once the run is interrupted (review finding CL-1): the wait ends after the read in
+     * progress, not reached, with `interrupted`.
+     */
+    aborted?: () => boolean;
   },
 ): Promise<LedgerWait> {
   assertPause("pollIntervalMs", options.pollIntervalMs, "config");
@@ -191,6 +198,7 @@ export async function waitForLedger(
     }
     const waitedMs = options.now() - started;
     if (ledger >= target) return { reached: true, ledger, waitedMs, polls };
+    if (options.aborted?.()) return { reached: false, ledger, waitedMs, polls, interrupted: true };
     if (waitedMs >= options.limitMs) {
       return {
         reached: false,

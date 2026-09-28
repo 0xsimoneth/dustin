@@ -1,6 +1,13 @@
 import { xdr } from "@stellar/stellar-sdk";
 import type { DustinErrorCode, ErrorStage, ErrorVerdict } from "../errors/dustin-error.js";
-import type { Blocker, DisposalRung, TransactionPhase, UnclosableItem } from "../plan/model.js";
+import type {
+  Blocker,
+  CloseStepKind,
+  DisposalRung,
+  OperationDescriptor,
+  TransactionPhase,
+  UnclosableItem,
+} from "../plan/model.js";
 import type { ResultCodes, SubmitOutcome } from "./submit.js";
 
 /**
@@ -33,6 +40,47 @@ import type { ResultCodes, SubmitOutcome } from "./submit.js";
  *   applied; running the close again continues from the ledger.
  */
 export type CloseStatus = "running" | "closed" | "partial" | "aborted" | "failed";
+
+/**
+ * One operation of a submitted envelope, as the persisted report records it (review finding AA-9,
+ * story E4-S1): which step of the envelope's plan round it carries out, the Stellar operation, what
+ * it acts on and, for a disposal, the rung and the recipient. The printed receipt says the same in
+ * words (`summary`). Optional fields appear only where they apply.
+ */
+export interface OperationSummary {
+  /** The step of the envelope's plan round (`round`) that the operation carries out. */
+  stepId: string;
+  kind: CloseStepKind;
+  /** The Stellar operation, by its SDK name: manageSellOffer, pathPaymentStrictSend, ... */
+  type: OperationDescriptor["type"];
+  /**
+   * What it acts on: "offer <id>", "trustline CODE:ISSUER", "data entry <name>",
+   * "pool share <pool id>", or "account" for the merge.
+   */
+  subject: string;
+  /** cancel_offer: the offer. */
+  offerId?: string;
+  /** dispose_balance and remove_trustline of an asset: "CODE:ISSUER". */
+  asset?: string;
+  /** remove_data: the data entry's name. */
+  dataName?: string;
+  /** remove_trustline of a pool share: the pool. */
+  poolId?: string;
+  /** dispose_balance: the balance it moves. */
+  amount?: string;
+  /** dispose_balance: the rung of the ladder it applies with. */
+  rung?: DisposalRung;
+  /** dispose_balance: where the balance goes (the account itself, the issuer or the destination); merge: the destination. */
+  to?: string;
+  /** The operation in words, as the receipt prints it. */
+  summary: string;
+}
+
+/** Where to look an account up: the explorer page and the Horizon resource (review AA-9). */
+export interface AccountLinks {
+  explorer: string;
+  horizon: string;
+}
 
 /**
  * One submitted envelope. A planned transaction can have several: a rebuild after an expiry, a
@@ -89,6 +137,16 @@ export interface SubmittedTransaction {
   innerEnvelopeXdr: string;
   feeBumpEnvelopeXdr: string;
   explorerUrl: string;
+  /**
+   * `GET /transactions/{hash}` on the Horizon the run used (review finding AA-9). Absent in reports
+   * written before story E4-S1.
+   */
+  horizonUrl?: string;
+  /**
+   * What each operation of the envelope does, in the order of `stepIds` (review finding AA-9).
+   * Absent in reports written before story E4-S1.
+   */
+  operations?: OperationSummary[];
   resultCodes?: ResultCodes;
   /** What the result codes mean, when the envelope did not apply. */
   explanation?: string;
@@ -177,7 +235,14 @@ export type StopCode =
   | "OUTCOME_UNKNOWN"
   | "MERGE_PREFLIGHT_FAILED"
   | "SEQNUM_TOO_FAR"
-  | "ACCOUNT_STILL_EXISTS";
+  | "ACCOUNT_STILL_EXISTS"
+  /**
+   * The caller aborted `ExecuteOptions.signal` (the CLI does on SIGINT or SIGTERM; review finding
+   * CL-1, story E4-S2). The run stopped at the next safe point: no envelope was posted after the
+   * abort, and one posted before it was settled or recorded as unknown, in which case `hash` and
+   * `maxTime` name it. `aborted` when nothing was posted, `failed` otherwise.
+   */
+  | "INTERRUPTED";
 
 export interface StopReason {
   /** A run outcome, or the code of the DustinError that interrupted the run. */
@@ -205,8 +270,8 @@ export interface StopReason {
    */
   xlmToDestination?: { approved: string; fresh: string };
   /**
-   * For OUTCOME_UNKNOWN: the upper time bound (Unix seconds) of the envelope `hash`, which may
-   * still apply or may have applied. A re-run must wait until a ledger has closed after it: until
+   * For OUTCOME_UNKNOWN, and for INTERRUPTED while an envelope's outcome was open: the upper time
+   * bound (Unix seconds) of the envelope `hash`, which may still apply or may have applied. A re-run must wait until a ledger has closed after it: until
    * then a new envelope for the same sequence number could only replace it with a tenfold bid,
    * which Dustin never relies on (canonical decision 7).
    */
@@ -280,6 +345,12 @@ export interface CloseReport {
   destination: string;
   feeSponsor: string;
   planHash: string;
+  /**
+   * The account and the destination on the explorer and on Horizon, as the receipt's "Verify it
+   * yourself" block names them (review finding AA-9); a muxed destination is linked through its G
+   * account. Absent in reports written before story E4-S1.
+   */
+  links?: { account: AccountLinks; destination: AccountLinks };
   status: CloseStatus;
   /** Why the run stopped or did not start, in one sentence. */
   message: string | null;

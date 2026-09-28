@@ -402,11 +402,27 @@ The commands and options below are the ones that are built (decision D-13); noth
 | Command | Purpose | Secrets needed | Exit codes |
 |---|---|---|---|
 | `dustin plan <G...> --to <G...> [--sponsor <G...>] [--prefer-destination] [--memo <m>] [--base-fee <stroops>] [--json]` | Print the Close Plan (Dry Run) | none | canonical decision 5: 0 plan printed, 2 usage error, 6 Horizon unreachable, 1 error |
-| `dustin close <G...> --to <G...> [--execute] [--yes] [--partial] [--sponsor <G...>] [--prefer-destination] [--memo <m>] [--base-fee <stroops>] [--json] [--report <file>]` | Execute the close with fee-bumped transactions; without `--execute` it is `plan` | with `--execute`: `DUSTIN_ACCOUNT_SECRET`, `DUSTIN_SPONSOR_SECRET` | canonical decision 5: 0 closed and verified gone, 3 nothing executed, 4 partial, 5 stopped or failed, 2 usage error, 6 Horizon unreachable, 1 error |
+| `dustin close <G...> --to <G...> [--execute] [--yes] [--partial] [--sponsor <G...>] [--prefer-destination] [--memo <m>] [--base-fee <stroops>] [--json] [--report <file>]` | Execute the close with fee-bumped transactions; without `--execute` it is `plan` | with `--execute`: `DUSTIN_ACCOUNT_SECRET`, `DUSTIN_SPONSOR_SECRET`, from the environment, else `.env` in the working directory, else a hidden prompt (story E4-S2, decision D-11) | canonical decision 5: 0 closed and verified gone, 3 nothing executed, 4 partial, 5 stopped or failed, 2 usage error, 6 Horizon unreachable, 1 error |
 | `dustin fixture create [--profile messy\|edge] [--dir <path>] [--out <file>] [--json]` | Build a fixture on testnet from friendbot (FR-21) | none (creates its own keys) | 0 built and verified; 1 its verification failed, or an unexpected error before any submission; 2 usage error (an unknown profile); 5 the build stopped after a submission, or an `edge` build whose last Horizon read failed after every build transaction applied; 6 Horizon unreachable before any submission (closing review CP-9) |
 | `dustin fixture verify <manifest> [--snapshot <file>] [--json]` | Prove Appendix B preconditions with Horizon evidence (FR-22) | none | 0 pass, 3 fail; a malformed manifest is refused with `MANIFEST_INVALID` before any request (exit 1; closing review CP-14) |
 
-`--to` is canonical and `--destination` is its alias. `--yes`, `--partial` and `--report` take effect only with `--execute`; without it `close` prints a note that they have no effect. The global options are `--network testnet` (the only value accepted), `--help` and `--version`. The Horizon URL and the explorer base come from `DUSTIN_HORIZON_URL` and `DUSTIN_EXPLORER_BASE`, and every Horizon must serve the testnet. The plan, the progress and the receipt go to standard output, or to standard error with `--json`; then standard output carries exactly one JSON document once the plan was shown: the report once the executor has one, and otherwise the plan (closing review CC-2). The baseline recording follows `evidence/baseline/README.md`, the evidence runs are written by `scripts/evidence-cli.mjs` and `test/testnet/execute-close.test.ts`, and the SDK's `verifyClosed()` checks that an account is gone.
+`--to` is canonical and `--destination` is its alias. `--yes`, `--partial` and `--report` take effect only with `--execute`; without it `close` prints a note that they have no effect. The global options are `--network testnet` (the only value accepted), `--verbose`, `--help` and `--version` (the version of the package's `package.json`). The Horizon URL and the explorer base come from `DUSTIN_HORIZON_URL` and `DUSTIN_EXPLORER_BASE`, and every Horizon must serve the testnet. Output is plain ASCII without colour (`docs/ux-design.md` principle P6), so there is no `--no-color` and `NO_COLOR` changes nothing; human text wraps at 120 columns, hashes and URLs are never split, and every XLM amount has 7 decimals (story E4-S1). The plan, the progress and the receipt go to standard output, and errors and notes to standard error: one line, `dustin: CODE: message`, then the remedy (its own or its code's, `docs/errors.md`); `--verbose` adds the stage, the verdict, Horizon's result codes, the details and the cause chain, with every secret redacted (story E4-S2).
+
+Secrets of `close --execute` (canonical decision 4; decision D-11): `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` from the environment, else from `.env` in the working directory, else typed at a hidden prompt, which is asked only when standard input and standard error are both terminals and `--json` is not given; nothing typed is echoed or kept in a history, and Ctrl-C or the end of input counts as a missing secret (exit 2). The account's secret is asked and checked first.
+
+`--json` is machine mode (review finding AA-10; `docs/ux-design.md` section 2.8): standard output carries exactly one JSON document once the plan was shown, the report once the executor has one and otherwise the plan (closing review CC-2), matching `docs/plan-schema.json` and `docs/receipt-schema.json`. Nothing is ever asked: `close --execute --json` without `--yes` is refused with `CONFIRMATION_REQUIRED` (exit 3, the plan on standard output), and a missing secret is not prompted for. Standard error carries NDJSON only, one JSON object per line, each with a `type`:
+
+- the executor's events (`CloseEvent`, section 7) with their names and fields: `drift`, `preflight`, `wait`, `tx:building`, `tx:submitted`, `tx:confirmed`, `tx:failed`, `verified`, `done`; and `plan` in a compact form, `{"type":"plan","round":0,"planHash":...,"status":...,"counts":{"steps":...,"transactions":...,"unclosable":...,"blockers":...}}`;
+- `{"type":"notice","message":...}` for a note, among them the skipped confirmation, the `--report` file written or not, and a signal received;
+- `{"type":"error","code":...,"message":...,"remedy":...,"exitCode":...}` for the error or the stop the command ends with; `code` is a `DustinErrorCode`, a `StopCode`, or one of the CLI's own `USAGE_ERROR` and `UNEXPECTED_ERROR`; with `--verbose` the line also has `stage`, `verdict`, `retryable`, `details`, `horizon` and `causes`. A run that ends with a stop ends with such a line (its `remedy` is the receipt's "Next" line); a refusal before anything is signed is one (`PLAN_NOT_CLOSABLE`, `NOTHING_TO_EXECUTE`); a partial close ends with the `done` line.
+
+Hashes and addresses are full in every line, and every line is redacted. `plan --json` and the dry-run `close --json` print nothing on standard error but such lines (none in a run without a note or an error).
+
+Signals (review finding CL-1): while the executor runs, SIGINT or SIGTERM stops the close at the next safe point (`ExecuteOptions.signal`, section 7): nothing is posted after it, the receipt is printed and `--report` written, and the exit code follows the report: 3 when nothing was submitted, 5 when something was or may have been, 0 if the close had already completed. A second signal writes the latest copy of the report to `--report` at once and exits 5. The handlers exist only while the executor runs, so Ctrl-C at the typed confirmation is still "not confirmed" (exit 3).
+
+A run after a completed close, on an account Horizon answers 404 for, asks nothing and signs nothing: the executor records the 404 in the report (`verification.accountExists === false`, `horizonStatus` 404, the ledger, the account link), the receipt says a close by an earlier run is complete, `--report` and `--json` carry the report, and the exit code is 3 (review finding AA-13).
+
+The baseline recording follows `evidence/baseline/README.md`, the evidence runs are written by `scripts/evidence-cli.mjs` and `test/testnet/execute-close.test.ts`, and the SDK's `verifyClosed()` checks that an account is gone. Every error and stop code, with its stage, exit code and remedy, is in `docs/errors.md`.
 
 ## 7. SDK API surface
 
@@ -419,6 +435,12 @@ Updated later on 2026-09-28 for the Epic 3 code and the third review round:
 - `SubmittedTransaction.sequenceUsed` and `lookupError`, the upper bounds of the pauses and of `timeoutSeconds`, and the `closed` status rules (review round 3: R3-1, R3-10, R3-18, R3-22).
 
 Updated again on 2026-09-28 for the closing review of Epic 3: what the drift check compares (CX-2), the upper bounds of `graceSeconds`, `ledgerWaitSeconds` and `verifyTimeoutMs` (CX-9), and a merge envelope that can never apply no longer proving a close (CX-1). No name changed.
+
+Updated on 2026-09-29 for stories E4-S1 and E4-S2; every addition is optional or new, and no name changed:
+- `ExecuteOptions.signal`, a standard AbortSignal, and the stop code `INTERRUPTED` (review finding CL-1);
+- per envelope, `SubmittedTransaction.horizonUrl` and `operations` (`OperationSummary`), and per report `CloseReport.links` (`AccountLinks`), so the persisted report says what each operation did and where to look, as the receipt does (review finding AA-9);
+- `planHash` leaves out the sequence guard's timing and its regrouping of the merge (review finding CA-11, decision D-10);
+- `remedyOf()` and `DEFAULT_REMEDIES`, the remedy of every error code (`docs/errors.md`).
 
 ```ts
 import type { FeeBumpTransaction, Keypair, Transaction } from "@stellar/stellar-sdk";
@@ -536,7 +558,10 @@ export interface ClosePlan {
   observed: { ledger: number; closedAt: string };
   reserve: { balance: string; minimum: string; spendable: string; baseReserve: string };
   snapshotHash: string;
-  planHash: string;               // structural: steps, order, grouping, rungs, blockers; no fees or quotes
+  planHash: string;               // structural: steps, order, grouping, rungs, blockers; no fees or quotes,
+                                  // and no sequence-guard timing: the grouping it hashes is the one without
+                                  // the wait for a near guard, so a guard that clears is no drift, while a
+                                  // plan that gains or loses its merge is (decision D-10)
   status: PlanStatus;
   ladderOrder: LadderOrder;
   steps: CloseStep[];
@@ -577,6 +602,12 @@ export interface ExecuteOptions {
   verifyTimeoutMs?: number;               // default 30000, from 0 to 3,600,000 (one hour)
   sleep?: (ms: number) => Promise<void>;  // default a timer; tests inject one that returns at once
   now?: () => number;                     // default Date.now
+  signal?: AbortSignal;                   // stops the run at the next safe point (review CL-1): nothing is posted
+                                          // after the abort; an envelope already posted is looked up once more and
+                                          // settled or recorded as unknown; waits end at once; the report ends with
+                                          // the stop INTERRUPTED (aborted, failed, or closed if a merge applied) and
+                                          // is returned. A string reason ("SIGINT") is named in the stop's detail.
+                                          // Anything but an AbortSignal is CONFIG_INVALID.
 }
 // A custom `submitter` is also accepted; it is internal and undocumented until 0.1.0.
 // The numeric options are checked before anything is read or signed: a value out of its range is
@@ -614,6 +645,8 @@ export interface SubmittedTransaction {
   lookupError?: string;           // only while "unknown": why the outcome could not be settled (failed lookups or reads)
   ledger: number | null; feeChargedStroops: number | null; feeAccount: string;
   innerEnvelopeXdr: string; feeBumpEnvelopeXdr: string; explorerUrl: string;
+  horizonUrl?: string;            // GET /transactions/{hash} on the run's Horizon (AA-9; absent before E4-S1)
+  operations?: OperationSummary[]; // what each operation does, in the order of stepIds (AA-9; absent before E4-S1)
   resultCodes?: { transaction?: string; innerTransaction?: string; operations?: string[] };
   explanation?: string;
 }
@@ -631,7 +664,9 @@ export type StopCode =
   | "PLAN_CHANGED" | "XLM_TO_DESTINATION_FELL" | "PLAN_NOT_CLOSABLE" | "NOTHING_TO_EXECUTE"
   | "ACCOUNT_MISSING" | "OVER_BUDGET" | "OPERATION_FAILED" | "STEP_FAILED_TWICE" | "REPLAN_LIMIT"
   | "TRANSACTION_REJECTED" | "SEQUENCE_CONFLICT" | "FEE_LIMIT" | "RETRY_LIMIT" | "OUTCOME_UNKNOWN"
-  | "MERGE_PREFLIGHT_FAILED" | "SEQNUM_TOO_FAR" | "ACCOUNT_STILL_EXISTS";
+  | "MERGE_PREFLIGHT_FAILED" | "SEQNUM_TOO_FAR" | "ACCOUNT_STILL_EXISTS" | "INTERRUPTED";
+// INTERRUPTED (review CL-1): ExecuteOptions.signal was aborted; the run stopped at the next safe point. When
+// an envelope's outcome was open, `hash` and `maxTime` name it, as for OUTCOME_UNKNOWN.
 // XLM_TO_DESTINATION_FELL (review BH-7): the fresh plan made before signing recovers less XLM than
 // the approved plan: the Account's balance plus the quoted sales, which is the XLM the destination
 // would receive when the plan merges and the XLM the Account keeps when it does not (closing review
@@ -667,6 +702,8 @@ export interface CloseReport {
   schemaVersion: 1; kind: "dustin-close-report";
   network: { passphrase: string; horizon: string };
   account: string; destination: string; feeSponsor: string; planHash: string;
+  links?: { account: AccountLinks; destination: AccountLinks }; // explorer and Horizon; a muxed destination by
+                                  // its G account (AA-9; absent before E4-S1)
   status: CloseStatus;
   message: string | null;
   stop: StopReason | null;        // machine-readable reason a run stopped or did not start
@@ -723,6 +760,17 @@ export function verifyClosed(account: string, options?: VerifyClosedOptions): Pr
 export function renderPlan(plan: ClosePlan, options?: { next?: string; heading?: string }): string;
 export function renderReport(report: CloseReport, options?: { plans?: readonly ClosePlan[]; explorerBaseUrl?: string }): string;
 export function redact(text: string): string;
+export function remedyOf(error: Pick<DustinError, "code" | "remedy">): string; // its own, else its code's (docs/errors.md)
+export const DEFAULT_REMEDIES: Partial<Record<DustinErrorCode, string>>;
+
+export interface OperationSummary {  // one operation of an envelope (AA-9)
+  stepId: string; kind: CloseStepKind; type: OperationDescriptor["type"];
+  subject: string;                // "offer <id>", "trustline CODE:ISSUER", "data entry <name>", "pool share <id>", "account"
+  offerId?: string; asset?: string; dataName?: string; poolId?: string;
+  amount?: string; rung?: DisposalRung; to?: string; // a disposal's amount, rung and recipient; the merge's destination
+  summary: string;                // the receipt's words for it
+}
+export interface AccountLinks { explorer: string; horizon: string }
 export function resolveConfig(config?: DustinConfig): ResolvedConfig;
 export function verifyHorizonIsTestnet(horizonUrl: string, fetchImpl?: typeof fetch): Promise<void>;
 export const DEFAULT_HORIZON_URL: string, DEFAULT_EXPLORER_BASE: string, TESTNET_PASSPHRASE: string;

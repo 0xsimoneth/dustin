@@ -47,6 +47,12 @@ export type SubmitOutcome =
        * CX-11). The explanation names it.
        */
       sequenceUsedBy?: "tx_bad_seq";
+      /**
+       * The wait was cut short because the run was interrupted (`ConfirmOptions.aborted`; review
+       * finding CL-1): the envelope was not found by then, and `mayStillApply` says whether a
+       * ledger had closed past its time bound.
+       */
+      interrupted?: boolean;
     };
 
 export interface TransactionRecord {
@@ -289,6 +295,13 @@ export interface ConfirmOptions {
    * other is not verified; the check costs one account read.
    */
   sequenceUsed?: () => Promise<boolean>;
+  /**
+   * True once the run is interrupted (review finding CL-1, story E4-S2). The envelope was posted, so
+   * the wait is never abandoned before one more lookup by hash: after the pause, which an
+   * interruptible sleep ends at once, it is looked up again, and if it is still not found the wait
+   * ends as `unknown` with `interrupted`, `mayStillApply` unless a ledger closed past its bound.
+   */
+  aborted?: () => boolean;
 }
 
 /**
@@ -415,6 +428,16 @@ async function confirmByLocalClock(
         ? { kind: "unknown", hash: envelope.hash, lookupError: found.detail }
         : { kind: "unknown", hash: envelope.hash };
     }
+    // Interrupted (CL-1): looked up once more above, still not found, so it is left unknown.
+    if (options.aborted?.()) {
+      return {
+        kind: "unknown",
+        hash: envelope.hash,
+        mayStillApply: true,
+        interrupted: true,
+        ...(found.kind === "error" ? { lookupError: found.detail } : {}),
+      };
+    }
     await (options.sleep ?? timerSleep)(clippedPause(options.pollIntervalMs, deadline - now()));
   }
 }
@@ -533,13 +556,15 @@ async function confirmByLedgerClock(
       ),
       maxWait,
     );
-    if (waited > limit) {
+    if (waited > limit || options.aborted?.()) {
       return {
         kind: "unknown",
         hash: envelope.hash,
         ...(pastBound ? {} : { mayStillApply: true }),
         ...(found.kind === "error" ? { lookupError: found.detail } : {}),
         ...(readError !== null ? { readError } : {}),
+        // Interrupted (CL-1): looked up once more above, still not found, so it is left unknown.
+        ...(waited > limit ? {} : { interrupted: true }),
       };
     }
     await (options.sleep ?? timerSleep)(clippedPause(options.pollIntervalMs, limit - waited));
