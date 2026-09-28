@@ -186,3 +186,34 @@ describe("CP-2: a remedy offers --partial only for a cleanup the plan holds", ()
     );
   });
 });
+
+/** A second signer of the given weight next to the master key. */
+function withSecondSigner(s: ExistingAccountSnapshot, weight: number): ExistingAccountSnapshot {
+  s.signers.push({ key: messy.destination, weight, type: "ed25519_public_key", sponsor: null });
+  return s;
+}
+
+describe("CP-3: MASTER_KEY_DISABLED with no other signer", () => {
+  it("says no key can sign for the account, so it can never be cleaned up or merged", () => {
+    // "If the master key's weight is set at 0, it cannot be used to sign transactions, even for
+    // operations with a threshold value of 0"
+    // (https://developers.stellar.org/docs/learn/fundamentals/transactions/signatures-multisig#thresholds).
+    const plan = planFromSnapshot(onlySigner(copy(base), 0), opts());
+    const b = blocker(plan, "MASTER_KEY_DISABLED");
+    expect(b.reason).toContain("The account has no other signer.");
+    expect(b.remedy).toBe(
+      "None: no key can sign for this account (the master key has weight 0 and there is no other signer), so it can never be cleaned up or merged.",
+    );
+    expect(b.permanent).toBe(true);
+    expect(plan.steps).toEqual([]);
+  });
+
+  it("keeps the multisig remedy when other signers can sign", () => {
+    const s = withSecondSigner(onlySigner(copy(base), 0), 1);
+    s.thresholds = { low: 1, medium: 1, high: 1 };
+    const b = blocker(planFromSnapshot(s, opts()), "MASTER_KEY_DISABLED");
+    expect(b.remedy).toBe(
+      "Multisig closing is out of scope: sign with the account's other signers outside Dustin.",
+    );
+  });
+});

@@ -174,13 +174,18 @@ export function mergeBlockers(
     // "If the master key's weight is set at 0, it cannot be used to sign transactions, even for
     // operations with a threshold value of 0"
     // (https://developers.stellar.org/docs/learn/fundamentals/transactions/signatures-multisig#thresholds).
+    // With no other signer no key can ever sign for the account: it is locked for good
+    // (https://developers.stellar.org/docs/build/apps/wallet/stellar#modify-account; closing
+    // review CP-3).
     blockers.push({
       code: "MASTER_KEY_DISABLED",
       reason:
         "The master key has weight 0, so it cannot sign anything for this account, not even an operation whose threshold is 0." +
         signersSentence(s),
       remedy:
-        "Multisig closing is out of scope: sign with the account's other signers outside Dustin.",
+        otherSigners(s).length === 0
+          ? "None: no key can sign for this account (the master key has weight 0 and there is no other signer), so it can never be cleaned up or merged."
+          : "Multisig closing is out of scope: sign with the account's other signers outside Dustin.",
       permanent: true,
     });
   } else if (!signing.merge || cleanupBlocked(s)) {
