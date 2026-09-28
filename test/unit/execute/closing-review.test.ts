@@ -178,3 +178,67 @@ describe("CX-2: a worse quote in a plan without a merge is drift too (BH-7)", ()
     );
   });
 });
+
+describe("CX-3: a fresh plan that lost its merge is worded from the cause, and 'went on' only when it did", () => {
+  /** Approved with a merge; then another client bumps the sequence number beyond the bound. */
+  async function lostMerge(worseQuote: boolean) {
+    const h = harness();
+    const approved = await h.plan();
+    expect(approved.steps.some((s) => s.kind === "merge")).toBe(true);
+    bump(h.ledger, 720);
+    if (worseQuote) h.ledger.quotes.set([...h.ledger.quotes.keys()][0]!, "0.0000001");
+    return { ...h, approved };
+  }
+
+  it("adds no warning that the run went on when it then stops with PLAN_NOT_CLOSABLE", async () => {
+    const { ledger, deps, approved } = await lostMerge(true);
+    const report = await executeClose(approved, signers(), {
+      confirm: true,
+      ...deps,
+      onDrift: "replan",
+    });
+    expect(report.status).toBe("aborted");
+    expect(report.stop).toMatchObject({ code: "PLAN_NOT_CLOSABLE" });
+    expect(ledger.submissions).toHaveLength(0);
+    // Before the fix: "...fell from 4.0000007 XLM to 4.0000001 XLM ...; the run went on with the
+    // fresh plan (onDrift "replan")", next to a stop showing it did not.
+    expect(report.warnings.filter((w) => /the run went on/.test(w))).toEqual([]);
+  });
+
+  it("names the lost merge, not a worse quote, when only the merge was lost (the review's probe)", async () => {
+    const { deps, approved } = await lostMerge(false);
+    const report = await executeClose(approved, signers(), {
+      confirm: true,
+      ...deps,
+      onDrift: "replan",
+    });
+    expect(report.stop).toMatchObject({ code: "PLAN_NOT_CLOSABLE" });
+    expect(report.warnings.filter((w) => /worse quote|the run went on/.test(w))).toEqual([]);
+  });
+
+  it("says the fresh plan no longer merges when the run goes on as a partial close", async () => {
+    const { ledger, clock, deps, approved } = await lostMerge(true);
+    const report = await executeClose(approved, signers(), {
+      confirm: true,
+      ...deps,
+      sleep: tickingSleep(ledger, clock),
+      onDrift: "replan",
+      allowPartial: true,
+    });
+    expect(report.status).toBe("partial");
+    const warning = report.warnings.find((w) => /the run went on/.test(w));
+    expect(warning).toMatch(/the fresh plan no longer merges \(status blocked\)/);
+    expect(warning).toMatch(
+      /the XLM the close would recover \(the account's balance plus the quoted sales\) fell from 4\.0000007 XLM to 4\.0000001 XLM/,
+    );
+    expect(warning).not.toMatch(/destination would receive/);
+    expect(warning).toMatch(/as a partial close/);
+  });
+
+  it("names the lost merge in a PLAN_CHANGED stop too", async () => {
+    const { deps, approved } = await lostMerge(false);
+    const report = await executeClose(approved, signers(), { confirm: true, ...deps });
+    expect(report.stop).toMatchObject({ code: "PLAN_CHANGED" });
+    expect(report.stop!.detail).toMatch(/the fresh plan no longer merges \(status blocked\)/);
+  });
+});

@@ -412,6 +412,12 @@ class CloseRun {
     // ladder and lower the proceeds by design.
     const hashChanged = fresh.planHash !== plan.planHash;
     const fell = xlmFell(plan, fresh);
+    // Closing review CX-3: a fresh plan without the approved plan's merge is named for what it is.
+    const merges = (p: ClosePlan) => p.steps.some((s) => s.kind === "merge");
+    const lostMerge = merges(plan) && !merges(fresh);
+    // The warning for a run that goes on with the fresh plan: added only once every refusal below
+    // has passed, so no stopped run says it went on (closing review CX-3).
+    let wentOn: string | null = null;
     if (hashChanged || fell) {
       const action = options.onDrift ?? "abort";
       this.emit({
@@ -424,13 +430,23 @@ class CloseRun {
       const amounts = fell
         ? `${recoveredXlmWords(plan, fresh)} fell from ${fell.approved} XLM to ${fell.fresh} XLM`
         : "";
+      const noMerge = `the fresh plan no longer merges (status ${fresh.status})`;
       if (action === "abort") {
         if (hashChanged) {
+          const clauses = [
+            `The account changed since the plan was made (plan hash ${plan.planHash} is now ${fresh.planHash})`,
+            ...(lostMerge ? [noMerge] : []),
+            ...(fell ? [amounts] : []),
+          ];
+          const said =
+            clauses.length > 1
+              ? `${clauses.slice(0, -1).join(", ")}, and ${clauses.at(-1)!}`
+              : clauses[0]!;
           return this.abort({
             code: "PLAN_CHANGED",
             stage: "plan",
             verdict: "replan",
-            detail: `The account changed since the plan was made (plan hash ${plan.planHash} is now ${fresh.planHash})${fell ? `, and ${amounts}` : ""}; nothing was submitted. Review the new plan and run again.`,
+            detail: `${said}; nothing was submitted. Review the new plan and run again.`,
             ...(fell ? { xlmToDestination: fell } : {}),
           });
         }
@@ -442,10 +458,12 @@ class CloseRun {
           xlmToDestination: fell!,
         });
       }
-      if (fell) {
-        this.report.warnings.push(
-          `Since the plan was approved, ${amounts} (a worse quote for a sale, or a lower balance); the run went on with the fresh plan (onDrift "replan").`,
-        );
+      const causes = [
+        ...(lostMerge ? [noMerge] : []),
+        ...(fell ? [`${amounts} (a worse quote for a sale, or a lower balance)`] : []),
+      ];
+      if (causes.length > 0) {
+        wentOn = `Since the plan was approved, ${causes.join(", and ")}; the run went on with the fresh plan (onDrift "replan")${lostMerge ? " as a partial close (allowPartial): the account is not merged" : ""}.`;
       }
     }
     if (fresh.status !== "closable" && !options.allowPartial) {
@@ -483,6 +501,8 @@ class CloseRun {
     await this.checkSponsorFunds();
     // Story E3-S3: the reserve sponsors as they are before anything is submitted.
     await this.observeSponsors("before");
+    // Past every refusal before signing: only now has the run gone on with the fresh plan (CX-3).
+    if (wentOn !== null) this.report.warnings.push(wentOn);
     this.sponsor = new FeeSponsor(this.input.signers.feeSponsor, {
       networkPassphrase: fresh.network.passphrase,
       budgetStroops: fresh.fees.budgetStroops,
