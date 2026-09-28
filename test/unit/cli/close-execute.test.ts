@@ -124,12 +124,15 @@ describe("dustin close --execute: the typed confirmation", () => {
     });
   }
 
-  it("with --json still asks, on standard error, and keeps standard output empty when declined", async () => {
+  it("with --json still asks, on standard error, and prints only the refused plan on standard output when declined", async () => {
     const world = zeroSpendableWorld();
     const r = await closeCli(world, executeArgs(world, "--json"), { answer: "nope" });
     expect(r.code).toBe(3);
     expect(r.prompts).toHaveLength(1);
-    expect(r.out).toBe("");
+    // Closing review CC-2: standard output carries one JSON document, the refused plan; the human
+    // text stays on standard error.
+    expect(JSON.parse(r.out)).toMatchObject({ kind: "dustin-close-plan", account: world.id });
+    expect(r.out).not.toContain("You are about to close");
     expect(r.err).toContain("You are about to close");
   });
 });

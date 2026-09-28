@@ -6,7 +6,14 @@ import { Writable } from "node:stream";
 import ts from "typescript";
 import { describe, expect, it } from "vitest";
 import { guardedWriter } from "../../../src/cli/output.js";
-import { LEDGER, closeCli, executeArgs, zeroSpendableWorld } from "./close-world.js";
+import {
+  LEDGER,
+  closeCli,
+  emptyDir,
+  executeArgs,
+  zeroSpendableWorld,
+  type Fetch,
+} from "./close-world.js";
 
 // Closing review of E3 (2026-09-28), CLI half: `dustin close --execute` offline on the fake
 // ledger, and standard output after EPIPE. Every test here failed on the code before its fix.
@@ -106,5 +113,79 @@ describe("CC-1: stdout's EPIPE fallback keeps the chunk that hit the broken pipe
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }
+  });
+});
+
+describe("CC-2: with --json, stdout carries exactly one JSON document once the plan was shown", () => {
+  /** The one JSON document on standard output; JSON.parse fails on none or on several. */
+  const onlyDocument = (out: string) => JSON.parse(out) as { kind: string; account: string };
+
+  it("control: the refusal of a plan that cannot merge prints the plan (exit 3)", async () => {
+    const world = zeroSpendableWorld({ unauthorized: true });
+    const r = await closeCli(world, executeArgs(world, "--json", "--yes"));
+    expect(r.code).toBe(3);
+    expect(onlyDocument(r.out)).toMatchObject({ kind: "dustin-close-plan", account: world.id });
+  });
+
+  it.each([
+    ["a wrong answer", "nope"],
+    ["the end of input or Ctrl-C", null],
+    ["no prompt at all", undefined],
+  ] as const)("prints the plan when the confirmation gets %s (exit 3)", async (_case, answer) => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(world, executeArgs(world, "--json"), { answer });
+    expect(r.code).toBe(3);
+    expect(r.err).toContain("CONFIRMATION_DECLINED");
+    // Before the fix: nothing on standard output.
+    expect(onlyDocument(r.out)).toMatchObject({ kind: "dustin-close-plan", account: world.id });
+    expect(world.ledger.submissions).toHaveLength(0);
+  });
+
+  it("prints the plan when --report names a directory (exit 2)", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(world, executeArgs(world, "--json", "--yes", "--report", emptyDir()));
+    expect(r.code).toBe(2);
+    expect(r.err).toMatch(/Cannot write the report file .*it is a directory/);
+    expect(onlyDocument(r.out)).toMatchObject({ kind: "dustin-close-plan" });
+    expect(world.ledger.submissions).toHaveLength(0);
+  });
+
+  it("prints the plan when the sponsor cannot be read (exit 6)", async () => {
+    const world = zeroSpendableWorld();
+    const sponsor = world.sponsor.publicKey();
+    const fetch: Fetch = (url, init) =>
+      url.endsWith(`/accounts/${sponsor}`)
+        ? Promise.resolve(new Response(JSON.stringify({ status: 503 }), { status: 503 }))
+        : world.ledger.fetch(url, init);
+    const r = await closeCli(world, executeArgs(world, "--json", "--yes"), { fetch });
+    expect(r.code).toBe(6);
+    expect(r.err).toContain("HORIZON_UNAVAILABLE");
+    expect(onlyDocument(r.out)).toMatchObject({ kind: "dustin-close-plan" });
+  });
+
+  it("prints the plan when Horizon fails after the confirmation, before any report (exit 6)", async () => {
+    const world = zeroSpendableWorld();
+    let down = false;
+    const fetch: Fetch = (url, init) =>
+      down
+        ? Promise.resolve(new Response(JSON.stringify({ status: 503 }), { status: 503 }))
+        : world.ledger.fetch(url, init);
+    const r = await closeCli(world, executeArgs(world, "--json"), {
+      fetch,
+      answer: () => {
+        down = true;
+        return world.destination.slice(-4);
+      },
+    });
+    expect(r.code).toBe(6);
+    expect(onlyDocument(r.out)).toMatchObject({ kind: "dustin-close-plan" });
+    expect(world.ledger.submissions).toHaveLength(0);
+  });
+
+  it("still prints the report, and only the report, once the executor has one", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(world, executeArgs(world, "--json", "--yes"));
+    expect(r.code).toBe(0);
+    expect(onlyDocument(r.out)).toMatchObject({ kind: "dustin-close-report", status: "closed" });
   });
 });

@@ -11,7 +11,7 @@ import {
 import { randomBytes } from "node:crypto";
 import { basename, dirname, join } from "node:path";
 import { formatStroops } from "../../amounts.js";
-import { verifyHorizonIsTestnet } from "../../config/network.js";
+import { verifyHorizonIsTestnet, type ResolvedConfig } from "../../config/network.js";
 import type { Sleep } from "../../config/pauses.js";
 import { DustinError } from "../../errors/dustin-error.js";
 import { redact, redactValue } from "../../errors/redact.js";
@@ -27,7 +27,7 @@ import { horizonReader, type LedgerReader } from "../../reader/ledger-reader.js"
 import { renderPlan, short, unclosableLines } from "../../render/plan-text.js";
 import { renderReport } from "../../render/report-text.js";
 import { ExitCode, exitCodeForReport } from "../exit-codes.js";
-import { loadCloseSigners, type SecretSources } from "../secrets.js";
+import { loadCloseSigners, type CloseSigners, type SecretSources } from "../secrets.js";
 import type { CommandContext } from "./fixture.js";
 import { checkAddresses, destinationOf, parseBaseFee, type PlanCommandOptions } from "./plan.js";
 
@@ -81,9 +81,10 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  * Order: local checks, the two secrets (environment first, then `.env`), the network check, a
  * fresh plan shown again, refusals (nothing to do, unclosable without --partial, over budget,
  * underfunded sponsor), the typed confirmation or --yes, then the executor with streamed progress
- * and the receipt. Human text goes to stdout, or to stderr with --json so that stdout carries only
- * the final report. Every line printed here passes through redact(); no secret is ever read into
- * anything but the two signers.
+ * and the receipt. Human text goes to stdout, or to stderr with --json so that stdout carries one
+ * JSON document: the final report, or the plan when the run was refused or failed before the
+ * executor had a report (closing review CC-2). Every line printed here passes through redact(); no
+ * secret is ever read into anything but the two signers.
  */
 export async function closeExecute(
   account: string,
@@ -127,11 +128,66 @@ export async function closeExecute(
   );
   say(renderPlan(plan, { heading: EXECUTION_HEADING }));
 
-  // With --json, a refusal made here still prints one JSON document on stdout: the plan that was
-  // refused (kind "dustin-close-plan"), where an executed run prints its close report.
+  // With --json, standard output carries exactly one JSON document once the plan was shown: the
+  // close report once the executor has one, and otherwise the plan (kind "dustin-close-plan") that
+  // was refused or could not run, whatever stopped it: a refusal, the confirmation, the --report
+  // check, a failed read, or an executor that failed before its first copy (review round 3, R3-27;
+  // closing review CC-2). The exit code stays the one of the refusal or the error.
+  let printed = false;
+  const document = (value: ClosePlan | CloseReport) => {
+    if (!options.json || printed) return;
+    printed = true;
+    ctx.io.stdout(`${json(value)}\n`);
+  };
+  try {
+    return await executeShownPlan({
+      account,
+      destination,
+      baseFee,
+      signers,
+      sponsor,
+      config,
+      reader,
+      plan,
+      options,
+      ctx,
+      say,
+      document,
+    });
+  } catch (error) {
+    document(plan);
+    throw error;
+  }
+}
+
+/** What `close --execute` holds once the plan was shown, for the rest of the command. */
+interface ShownPlan {
+  account: string;
+  destination: string;
+  baseFee: number | undefined;
+  signers: CloseSigners;
+  sponsor: string;
+  config: ResolvedConfig;
+  reader: LedgerReader;
+  plan: ClosePlan;
+  options: CloseCommandOptions;
+  ctx: CloseContext;
+  say: (text: string) => void;
+  /** Prints the one JSON document of --json on standard output; later calls print nothing. */
+  document: (value: ClosePlan | CloseReport) => void;
+}
+
+/**
+ * The rest of `close --execute` once the plan was shown: the refusals, the typed confirmation or
+ * --yes, then the executor with streamed progress and the receipt. An error thrown from here
+ * before the executor has a report gets the plan printed by the caller (closing review CC-2).
+ */
+async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
+  const { account, destination, baseFee, signers, sponsor, config, reader, plan } = shown;
+  const { options, ctx, say, document } = shown;
   const refusedWith = (text: string) => {
     say(text);
-    if (options.json) ctx.io.stdout(`${json(plan)}\n`);
+    document(plan);
     return ExitCode.NOTHING_EXECUTED;
   };
   if (plan.transactions.length === 0) {
@@ -143,12 +199,9 @@ export async function closeExecute(
     return refusedWith(notClosable(plan));
   }
   // The two sponsor and budget refusals below are errors (exit 3 by code, canonical decision 5);
-  // with --json they print the refused plan too, like every refusal here (review round 3, R3-27).
-  const refusedPlan = () => {
-    if (options.json) ctx.io.stdout(`${json(plan)}\n`);
-  };
+  // with --json the caller prints the refused plan for them, as for every error here (review
+  // round 3, R3-27; closing review CC-2).
   if (!plan.fees.withinBudget) {
-    refusedPlan();
     throw new DustinError(
       "SPONSOR_BUDGET_EXCEEDED",
       `The plan bids up to ${xlm(plan.fees.totalStroops)} in fees, more than the sponsor's close budget of ${xlm(plan.fees.budgetStroops)}; nothing was signed.`,
@@ -160,7 +213,6 @@ export async function closeExecute(
   }
   const spendable = await sponsorSpendable(reader, sponsor);
   if (spendable < BigInt(plan.fees.budgetStroops)) {
-    refusedPlan();
     throw new DustinError(
       "SPONSOR_UNDERFUNDED",
       spendable < 0n
@@ -225,10 +277,11 @@ export async function closeExecute(
     const known = attached ?? latest;
     if (!submitted && (known?.transactions.length ?? 0) === 0) {
       // Nothing reached the network: the error's code decides (6 for an unreachable Horizon).
+      // Without a report from the executor, the caller prints the plan (closing review CC-2).
       if (known) {
         const refused = refusedReport(known, error);
         receipt?.write(refused);
-        if (options.json) ctx.io.stdout(`${json(refused)}\n`);
+        document(refused);
       }
       throw error;
     }
@@ -240,7 +293,7 @@ export async function closeExecute(
         ? `dustin: ${error.code}: ${error.message}\n${error.remedy ? `  ${error.remedy}\n` : ""}`
         : `dustin: unexpected error after a submission: ${redact(String(error))}\n`,
     );
-    if (options.json) ctx.io.stdout(`${json(stopped)}\n`);
+    document(stopped);
     say(`\n${renderReport(stopped, { plans, explorerBaseUrl: config.explorerBaseUrl })}`);
     if (receipt) say(receiptLine(receipt));
     return ExitCode.STOPPED;
@@ -248,7 +301,7 @@ export async function closeExecute(
 
   receipt?.write(report);
   const code = exitCodeForReport(report);
-  if (options.json) ctx.io.stdout(`${json(report)}\n`);
+  document(report);
   say(`\n${renderReport(report, { plans, explorerBaseUrl: config.explorerBaseUrl })}`);
   if (receipt) say(receiptLine(receipt));
   if (report.status === "closed" && code !== ExitCode.OK) {
