@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
 import { exitCodeForReport } from "../../../src/cli/exit-codes.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
+import { waitForLedger } from "../../../src/execute/preflight.js";
 import type { CloseReport } from "../../../src/execute/report.js";
+import { horizonJson, type FetchLike } from "../../../src/reader/horizon-json.js";
+import { horizonReader } from "../../../src/reader/ledger-reader.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
+import { noSleep } from "../../helpers/no-sleep.js";
+import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
-import { failedOps, harness, reply, signers, type TestClock } from "./harness.js";
+import { failedOps, harness, reply, signers, testClock, type TestClock } from "./harness.js";
 
 // Closing review of E3 (2026-09-28), executor half: the edge-case review's CX findings and the
 // acceptance audit's CA-13. Every test here failed on the code before its fix, and runs on the
@@ -428,5 +433,127 @@ describe("CX-6: a rejection of an async observer after the finish reaches a publ
     expect(report.warnings.some((w) => w.includes("slow observer failed"))).toBe(true);
     expect(copies.length).toBe(published + 1);
     expect(copies.at(-1)!.warnings.some((w) => w.includes("slow observer failed"))).toBe(true);
+  });
+});
+
+describe("CX-7: a failed ledger read during the sequence-guard wait is a poll that did not reach", () => {
+  /**
+   * The harness with the production read client (three retries, their pauses skipped) and a
+   * switch: while `failing` is above 0, every read of /ledgers answers 503 and counts it down.
+   */
+  function flakyLedgers() {
+    const state = { failing: 0 };
+    let wrapped: FetchLike | null = null;
+    const h = harness((_l, fetch) => {
+      wrapped = (url, init) => {
+        if (state.failing > 0 && url.includes("/ledgers")) {
+          state.failing -= 1;
+          return reply(503);
+        }
+        return fetch(url, init);
+      };
+      return wrapped;
+    });
+    const reader = horizonReader(
+      horizonJson(TESTNET_HORIZON, { fetch: wrapped!, retries: 3, sleep: noSleep }),
+    );
+    return { ...h, state, reader };
+  }
+
+  it("keeps waiting after one read failed past the client's retries, and merges (the review's probe)", async () => {
+    const { ledger, clock, deps, plan, state, reader } = flakyLedgers();
+    bump(ledger, 10);
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      reader,
+      sleep: tickingSleep(ledger, clock),
+      onEvent: (e) => {
+        // /ledgers answers 503 four times in a row once the wait has begun: one read fails.
+        if (e.type === "wait" && e.state === "start") state.failing = 4;
+      },
+    });
+    // Before the fix: HORIZON_UNAVAILABLE thrown out of the wait, the report failed, no merge.
+    expect(state.failing).toBe(0);
+    expect(report.status).toBe("closed");
+    expect(report.transactions.map((t) => [t.phase, t.result])).toEqual([
+      ["cleanup", "applied"],
+      ["convert", "applied"],
+      ["merge", "applied"],
+    ]);
+  });
+
+  it("stops with SEQNUM_TOO_FAR and the ledger when the reads fail until the wait's limit", async () => {
+    const { ledger, clock, deps, plan, state, reader } = flakyLedgers();
+    bump(ledger, 10);
+    const approved = await plan();
+    const until = approved.sequenceGuard!.unblocksAtLedger!;
+    const report = await executeClose(approved, signers(), {
+      confirm: true,
+      ...deps,
+      reader,
+      sleep: tickingSleep(ledger, clock),
+      onEvent: (e) => {
+        if (e.type === "wait" && e.state === "start") state.failing = Number.MAX_SAFE_INTEGER;
+        // Horizon answers again once the wait gave up, for the final check.
+        if (e.type === "preflight" && !e.ok) state.failing = 0;
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.stop).toMatchObject({
+      code: "SEQNUM_TOO_FAR",
+      verdict: "replan",
+      unblocksAtLedger: until,
+    });
+    expect(report.stop!.detail).toMatch(
+      /the last read of the latest ledger failed \(HORIZON_UNAVAILABLE: Horizon at .* answered HTTP 503/,
+    );
+    expect(report.transactions.map((t) => t.phase)).toEqual(["cleanup", "convert"]);
+  });
+
+  it("waitForLedger counts a failed read as a poll that did not reach the target", async () => {
+    const clock = testClock(0);
+    const answers: Array<number | Error> = [10, new Error("HTTP 503"), 12, 13];
+    let i = 0;
+    const reader = {
+      latestLedger: () => {
+        const next = answers[Math.min(i++, answers.length - 1)]!;
+        return next instanceof Error
+          ? Promise.reject(next)
+          : Promise.resolve({
+              sequence: next,
+              closed_at: "2026-09-28T12:00:00Z",
+              base_fee_in_stroops: 100,
+              base_reserve_in_stroops: 5_000_000,
+              protocol_version: 28,
+            });
+      },
+    };
+    const waited = await waitForLedger(reader, 13, {
+      pollIntervalMs: 2000,
+      limitMs: 60_000,
+      sleep: clock.sleep,
+      now: clock.now,
+    });
+    expect(waited).toEqual({ reached: true, ledger: 13, waitedMs: 6000, polls: 4 });
+  });
+
+  it("waitForLedger gives up at the limit with the read error and the ledger known before", async () => {
+    const clock = testClock(0);
+    const reader = { latestLedger: () => Promise.reject(new Error("socket hang up")) };
+    const waited = await waitForLedger(reader, 13, {
+      pollIntervalMs: 5000,
+      limitMs: 20_000,
+      sleep: clock.sleep,
+      now: clock.now,
+      knownLedger: 10,
+    });
+    expect(waited).toEqual({
+      reached: false,
+      ledger: 10,
+      waitedMs: 20_000,
+      polls: 5,
+      readError: "socket hang up",
+    });
   });
 });

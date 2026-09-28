@@ -1,4 +1,5 @@
 import { assertPause, type Sleep } from "../config/pauses.js";
+import { DustinError } from "../errors/dustin-error.js";
 import { destinationBaseAccount } from "../inspect/address.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
 import { SECONDS_PER_LEDGER, sequenceGuard } from "../plan/guard.js";
@@ -138,12 +139,17 @@ export function ledgerWaitLimitMs(ledgers: number): number {
 export interface LedgerWait {
   /** True when Horizon reported `target` or a later ledger before the limit passed. */
   reached: boolean;
-  /** The latest ledger Horizon reported at the last poll. */
+  /**
+   * The latest ledger Horizon reported at the last poll that it answered; `knownLedger` (or 0)
+   * while no poll was answered.
+   */
   ledger: number;
   /** How long the wait lasted by the local clock, in milliseconds. */
   waitedMs: number;
-  /** Reads of the latest ledger. */
+  /** Reads of the latest ledger, failed ones included. */
   polls: number;
+  /** Set when the last read of the latest ledger failed: why (closing review CX-7). */
+  readError?: string;
 }
 
 /**
@@ -151,19 +157,48 @@ export interface LedgerWait {
  * `GET /ledgers?order=desc&limit=1` and pauses `pollIntervalMs` between reads with the injected
  * `sleep`, never in a tight loop (pauses are at least 200 ms, src/config/pauses.ts). The ledger
  * decides when the wait is over; the local clock only bounds how long it may last (`limitMs`).
+ * A read that fails (after the read client's own retries) proves nothing about the ledger: it
+ * counts as a poll that did not reach the target, and the wait goes on until its limit; a wait
+ * that gives up after a failed last read says why in `readError` (closing review CX-7).
  */
 export async function waitForLedger(
   reader: Pick<LedgerReader, "latestLedger">,
   target: number,
-  options: { pollIntervalMs: number; limitMs: number; sleep: Sleep; now: () => number },
+  options: {
+    pollIntervalMs: number;
+    limitMs: number;
+    sleep: Sleep;
+    now: () => number;
+    /** The latest ledger known before the wait, reported while no poll was answered. */
+    knownLedger?: number;
+  },
 ): Promise<LedgerWait> {
   assertPause("pollIntervalMs", options.pollIntervalMs, "config");
   const started = options.now();
+  let ledger = options.knownLedger ?? 0;
   for (let polls = 1; ; polls++) {
-    const ledger = (await reader.latestLedger()).sequence;
+    let readError: string | null = null;
+    try {
+      ledger = (await reader.latestLedger()).sequence;
+    } catch (error) {
+      readError =
+        error instanceof DustinError
+          ? `${error.code}: ${error.message}`
+          : error instanceof Error
+            ? error.message
+            : String(error);
+    }
     const waitedMs = options.now() - started;
     if (ledger >= target) return { reached: true, ledger, waitedMs, polls };
-    if (waitedMs >= options.limitMs) return { reached: false, ledger, waitedMs, polls };
+    if (waitedMs >= options.limitMs) {
+      return {
+        reached: false,
+        ledger,
+        waitedMs,
+        polls,
+        ...(readError !== null ? { readError } : {}),
+      };
+    }
     await options.sleep(options.pollIntervalMs);
   }
 }

@@ -778,18 +778,24 @@ class CloseRun {
       untilLedger,
       currentLedger,
     });
+    // A read of the latest ledger that fails is a poll that did not reach the ledger: the wait
+    // goes on until its limit (closing review CX-7).
     const waited = await waitForLedger(this.input.reader, target, {
       pollIntervalMs: this.settings.pollIntervalMs,
       limitMs: ledgerWaitLimitMs(target - currentLedger),
       sleep: this.settings.sleep,
       now: this.settings.now,
+      knownLedger: currentLedger,
     });
     if (!waited.reached) {
+      const seconds = Math.round(waited.waitedMs / 1000);
       return {
         stop: this.sequenceStop(
           tx,
           untilLedger,
-          `the executor waited ${Math.round(waited.waitedMs / 1000)} s for ledger ${target} to close, but Horizon still reported ledger ${waited.ledger}: ledgers closed slower than the wait allows.`,
+          waited.readError !== undefined
+            ? `the executor waited ${seconds} s for ledger ${target} to close, but the last read of the latest ledger failed (${waited.readError}); the last ledger Horizon reported was ${waited.ledger}.`
+            : `the executor waited ${seconds} s for ledger ${target} to close, but Horizon still reported ledger ${waited.ledger}: ledgers closed slower than the wait allows.`,
         ),
       };
     }
