@@ -10,8 +10,16 @@ import type { ResultCodes, SubmitOutcome } from "./submit.js";
  * run that was killed says it never finished instead of claiming an outcome (blind review BH1).
  *
  * - `closed`: a merge of this run applied, seen by hash or proven by the account being gone after
- *   this run posted a merge envelope that could have applied (one whose outcome is unknown; not
- *   one refused or failed on the ledger). It does not by itself say the account was verified gone:
+ *   this run posted a merge envelope that could have applied: one `pending` mid-POST, or one
+ *   `unknown` that may still apply (`mayStillApply`), may have applied (`sequenceUsed`) or could
+ *   not be looked up (`lookupError`). Not one refused or failed on the ledger (review round 3,
+ *   R3-1), nor one the run itself found gone past its time bound with its sequence number unused
+ *   ("it can never apply", no flag; closing review CX-1): with only such envelopes the account's
+ *   removal is someone else's, and the run keeps its stop (`failed`, CLI exit 5). The price: a
+ *   merge that applied while a lagging account read showed its number unused, and whose record
+ *   Horizon never returns, is reported `failed`, not `closed`; running the close again then finds
+ *   the account gone (ACCOUNT_MISSING, nothing submitted). It does not by itself say the account
+ *   was verified gone:
  *   a verified close is `closed` with `verification.accountExists === false` and no `stop`.
  *   `closed` with `verification.accountExists === true` means Horizon still returned the account
  *   at the final check (`stop.code` ACCOUNT_STILL_EXISTS, and the message says so), and `closed`

@@ -1247,8 +1247,9 @@ class CloseRun {
    * close like any other. If none is confirmed the account is still verified gone, so the run is
    * reported closed with a message saying the merge was not confirmed, never failed. Null when the
    * account exists, or when no merge envelope of this run could have applied: none was posted, or
-   * every one was refused before inclusion or failed on the ledger. Then someone else removed the
-   * account, and the stop stands (review round 3, R3-1).
+   * every one was refused before inclusion, failed on the ledger (review round 3, R3-1) or was
+   * judged unable to apply by the run itself (closing review CX-1; `mergeCandidates`). Then
+   * someone else removed the account, and the stop stands.
    */
   private async closedUnseen(
     verification: NonNullable<CloseReport["verification"]>,
@@ -1451,15 +1452,22 @@ class CloseRun {
   }
 
   /**
-   * The merge-carrying envelopes this run posted whose outcome is not known: `unknown`, or
-   * `pending` in a run interrupted mid-POST. Only these could have removed the account; one
-   * refused before inclusion or failed on the ledger cannot have (review round 3, R3-1).
+   * The merge-carrying envelopes this run posted that may have applied unseen: `pending` in a run
+   * interrupted mid-POST, or `unknown` with a flag that leaves its fate open (`mayStillApply`,
+   * `lookupError`, `sequenceUsed`). Only these could have removed the account; one refused before
+   * inclusion or failed on the ledger cannot have (review round 3, R3-1), and neither can one the
+   * run itself found gone past its time bound with its sequence number unused, which it judged
+   * "can never apply" (closing review CX-1).
    */
   private mergeCandidates(): SubmittedTransaction[] {
+    const open = (t: SubmittedTransaction) =>
+      t.result === "pending" ||
+      (t.result === "unknown" &&
+        (t.mayStillApply === true || t.lookupError !== undefined || t.sequenceUsed === true));
     return this.report.transactions.filter(
       (t) =>
         t.attempts > 0 &&
-        (t.result === "unknown" || t.result === "pending") &&
+        open(t) &&
         (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
     );
   }
