@@ -703,3 +703,49 @@ describe("CX-9: the grace, the ledger wait and verifyTimeoutMs are bounded like 
     expect(ledger.submissions).toHaveLength(0);
   });
 });
+
+describe("CX-10: after a verified close, a step that failed and then applied unseen is applied", () => {
+  it("marks S03 applied by the unseen round-1 envelope and keeps its failure count", async () => {
+    let hidden: string | null = null;
+    const h = harness(
+      (_l, fetch) => (url, init) =>
+        hidden && url.endsWith(`/transactions/${hidden}`) ? reply(404) : fetch(url, init),
+    );
+    // Round 0: step S03 (the DUSTB balance) fails on the ledger with op_underfunded.
+    h.ledger.faults.push(
+      failedOps(
+        "op_success",
+        "op_success",
+        "op_underfunded",
+        ...Array.from({ length: 6 }, () => "op_success"),
+      ),
+    );
+    const report = await executeClose(await h.plan(), signers(), {
+      confirm: true,
+      ...h.deps,
+      onEvent: (e) => {
+        // Round 1: the cleanup, S03 included, applies, but Horizon answers 504 and never finds
+        // its hash; the account shows its sequence number used, so the run re-plans (E5).
+        if (e.type === "tx:building" && e.round === 1 && e.index === 0 && e.attempt === 1) {
+          h.ledger.faults.push("504-applied");
+        }
+        if (e.type === "tx:submitted" && e.round === 1 && e.index === 0 && e.attempt === 1) {
+          hidden = e.hash;
+        }
+      },
+    });
+    expect(report.status).toBe("closed");
+    expect(report.verification).toMatchObject({ accountExists: false });
+    const unseen = report.transactions.find((t) => t.hash === hidden)!;
+    expect(unseen).toMatchObject({ result: "unknown", sequenceUsed: true, round: 1 });
+    expect(unseen.stepIds).toContain("S03");
+    // Before the fix: S03 stayed "failed" (failures 1) while the rest of the envelope was applied.
+    expect(report.steps.find((s) => s.stepId === "S03")).toMatchObject({
+      status: "applied",
+      txHash: hidden,
+      round: 1,
+      failures: 1,
+      explanation: expect.stringMatching(/^Not confirmed by hash/) as string,
+    });
+  });
+});

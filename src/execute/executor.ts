@@ -1516,15 +1516,23 @@ class CloseRun {
    * With the account verified gone after this run's merge every entry of it is gone, so the steps
    * of an envelope that may have applied unseen count as applied, not confirmed by hash (review
    * round 3, R3-12): those of the unconfirmed merge, and those of an envelope whose sequence number
-   * is known used. Only steps still `not_run` are marked; one another envelope applied keeps it.
+   * is known used. A step still `not_run` is marked, and so is one that failed in an envelope
+   * before the unseen one, which carried it again; it keeps its failure count (closing review
+   * CX-10). One that another envelope applied, or that failed later, keeps its status.
    */
   private markGoneSteps(unconfirmed: SubmittedTransaction | null): void {
+    const order = new Map(this.report.transactions.map((t, i) => [t.hash, i]));
     for (const entry of this.report.transactions) {
       const unseen = entry.result === "unknown" && entry.sequenceUsed === true;
       if (entry !== unconfirmed && !unseen) continue;
+      const at = order.get(entry.hash)!;
       for (const step of this.envelopeSteps.get(entry.hash) ?? []) {
         const outcome = this.outcomes.get(stepIdentity(step));
-        if (outcome?.status !== "not_run") continue;
+        if (!outcome || outcome.status === "applied") continue;
+        // A failed step is marked only when it failed before this envelope carried it again.
+        if (outcome.status === "failed" && (order.get(outcome.txHash ?? "") ?? Infinity) >= at) {
+          continue;
+        }
         outcome.status = "applied";
         outcome.txHash = entry.hash;
         if (entry.round > 0) outcome.round = entry.round;
