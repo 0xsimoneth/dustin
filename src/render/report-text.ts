@@ -1,10 +1,11 @@
 import { formatStroops, toStroops } from "../amounts.js";
 import { DEFAULT_EXPLORER_BASE } from "../config/network.js";
-import type {
-  CloseReport,
-  SponsorObservation,
-  SponsorState,
-  SubmittedTransaction,
+import {
+  mayHaveApplied,
+  type CloseReport,
+  type SponsorObservation,
+  type SponsorState,
+  type SubmittedTransaction,
 } from "../execute/report.js";
 import { destinationBaseAccount } from "../inspect/address.js";
 import type { ClosePlan, CloseStep, DisposalRung } from "../plan/model.js";
@@ -486,20 +487,15 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
     (s) => s.status === "applied" && steps.get(s.stepId)?.kind === "merge",
   );
   const mergeApplied = r.mergedXlm !== null || merged || appliedMerge || report.status === "closed";
-  // Without an applied merge, the last merge envelope whose fate is open: pending mid-POST, or
-  // unknown while it may still apply, may have applied (its number used) or could not be looked
-  // up; not one found gone past its time bound with its number unused, which can never apply (the
-  // executor's rule, closing review CX-1). The account's XLM goes with it if it applies (CC-10).
+  // Without an applied merge, the last merge envelope whose fate is open (`mayHaveApplied`, the
+  // executor's own rule since closing review CX-1): the account's XLM goes with it if it applies
+  // (CC-10).
   const openMerge = mergeApplied
     ? undefined
     : report.transactions
         .filter(
           (t) =>
-            (t.result === "pending" ||
-              (t.result === "unknown" &&
-                (t.mayStillApply === true ||
-                  t.lookupError !== undefined ||
-                  t.sequenceUsed === true))) &&
+            mayHaveApplied(t) &&
             (t.phase === "merge" || t.stepIds.some((id) => isMerge(t.round, id))),
         )
         .at(-1);

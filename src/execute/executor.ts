@@ -38,6 +38,7 @@ import {
   withPathsOnlyFor,
 } from "./replan.js";
 import {
+  mayHaveApplied,
   mergeAmountFromResultXdr,
   type CloseReport,
   type CloseStatus,
@@ -1557,14 +1558,10 @@ class CloseRun {
    * "can never apply" (closing review CX-1).
    */
   private mergeCandidates(): SubmittedTransaction[] {
-    const open = (t: SubmittedTransaction) =>
-      t.result === "pending" ||
-      (t.result === "unknown" &&
-        (t.mayStillApply === true || t.lookupError !== undefined || t.sequenceUsed === true));
     return this.report.transactions.filter(
       (t) =>
         t.attempts > 0 &&
-        open(t) &&
+        mayHaveApplied(t) &&
         (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
     );
   }

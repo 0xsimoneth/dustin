@@ -94,6 +94,23 @@ export interface SubmittedTransaction {
   explanation?: string;
 }
 
+/**
+ * True for an envelope that may have applied although the run never saw it apply: `pending` (its
+ * POST was in flight when the run stopped), or `unknown` while it may still apply
+ * (`mayStillApply`), may have applied (`sequenceUsed`) or could not be looked up (`lookupError`).
+ * False for one refused before inclusion or failed on the ledger (review round 3, R3-1), and for
+ * one found gone past its time bound with its sequence number unused, which can never apply
+ * (closing review CX-1). The executor's proof of a close by the account being gone and the
+ * receipt's words about a merge whose fate is open (CC-10) follow the same rule.
+ */
+export function mayHaveApplied(t: SubmittedTransaction): boolean {
+  return (
+    t.result === "pending" ||
+    (t.result === "unknown" &&
+      (t.mayStillApply === true || t.lookupError !== undefined || t.sequenceUsed === true))
+  );
+}
+
 /** A step of the plan the run started with, and what became of it. */
 export interface StepOutcome {
   stepId: string;
