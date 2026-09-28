@@ -99,3 +99,17 @@ describe("R3-25: the confirmation names the close budget as the most the sponsor
     expect(r.err).not.toMatch(/may bid up to|every fee, at most 0\.0000800/);
   });
 });
+
+describe("R3-32: the memo line names the merge only when a merge is planned", () => {
+  it("leaves the merge out of a partial close's memo line", async () => {
+    const world = zeroSpendableWorld({ unauthorized: true });
+    const r = await closeCli(
+      world,
+      executeArgs(world, "--partial", "--yes", "--memo", "HELLOMEMO42"),
+    );
+    expect(r.code).toBe(4);
+    expect(r.out).toContain("PARTIAL close");
+    expect(r.out).toContain('  memo         "HELLOMEMO42" (on every transaction)\n');
+    expect(r.out).not.toContain("the merge included");
+  });
+});

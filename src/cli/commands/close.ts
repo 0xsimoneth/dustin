@@ -324,7 +324,10 @@ function summary(
       : "  receives     nothing through a merge: the account is not merged and stays open",
     `  sponsor      ${plan.feeSponsor ?? ""}`,
     ...(plan.memo !== null
-      ? [`  memo         ${JSON.stringify(plan.memo)} (on every transaction, the merge included)`]
+      ? [
+          // The merge is named only when one is planned (review round 3, R3-32).
+          `  memo         ${JSON.stringify(plan.memo)} (on every transaction${merge >= 0 ? ", the merge included" : ""})`,
+        ]
       : []),
     `  pays         every fee; the plan bids ${bid}`,
     `  at most      ${xlm(plan.fees.budgetStroops)}, the close budget; retries and re-plans can bid more than the plan, never more`,
