@@ -57,6 +57,7 @@ An error or a stop after something was submitted is always 5, whatever its code.
 | `SPONSOR_UNDERFUNDED` | The fee sponsor does not exist, or cannot spend the close budget | sponsor | 3 | Fund the fee sponsor (on testnet, from Friendbot) and run the close again. |
 | `WRONG_SIGNER` | A secret belongs to another account than the one it signs for, or `--sponsor` names another account | config | 2 | Use the secret key of the account being closed for `DUSTIN_ACCOUNT_SECRET`, and the fee sponsor's for `DUSTIN_SPONSOR_SECRET`. |
 | `ACCOUNT_NOT_FOUND` | Declared for an account Horizon does not have; not raised in this release, where a missing account is the plan's `ACCOUNT_MISSING` blocker and the stop of the same name | inspect | 1 | Check the address; if an earlier close merged the account, there is nothing left to close. |
+| `RESET_SUSPECTED` | `fixture verify` found signs of a testnet reset before any check: the manifest records a ledger beyond Horizon's latest one, or one of its accounts answers 404 while Horizon holds no operation for it (an account whose own `account_merge` is still on Horizon was closed, not reset, and fails its check instead; matrix row X-15) | inspect | 3 | A testnet reset deletes every account a fixture had: build a new one with `dustin fixture create --profile <profile>` (new keys, new manifest). |
 
 ## Stop codes (`StopCode`)
 

@@ -46,6 +46,8 @@ export const DEFAULT_REMEDIES: Partial<Readonly<Record<DustinErrorCode, string>>
     "Use the secret key of the account being closed for DUSTIN_ACCOUNT_SECRET, and the fee sponsor's for DUSTIN_SPONSOR_SECRET.",
   ACCOUNT_NOT_FOUND:
     "Check the address; if an earlier close merged the account, there is nothing left to close.",
+  RESET_SUSPECTED:
+    "A testnet reset deletes every account a fixture had: build a new one with dustin fixture create (new keys, new manifest).",
 };
 
 /** The fallback for a code without an entry. */
