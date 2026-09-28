@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
+import type { CloseReport } from "../../../src/execute/report.js";
 import type { ClosePlan } from "../../../src/plan/model.js";
 import { renderReport } from "../../../src/render/report-text.js";
 import { messy } from "../../helpers/snapshots.js";
@@ -103,5 +104,62 @@ describe("CC-8: Disposals names the rung that actually failed", () => {
     expect(text).toMatch(/DUSTA 0\.0000007 burned: returned to its issuer/);
     // Before the fix: ", after the sale by path payment failed with op_underfunded".
     expect(text).not.toMatch(/after the sale by path payment failed/);
+  });
+});
+
+describe("CC-9: a copy saved while the run is going reads as a run in progress", () => {
+  /** The copies a --report file holds during a close of the messy fixture, with its plans. */
+  async function copies() {
+    const saved: CloseReport[] = [];
+    const h = harness();
+    const plans: ClosePlan[] = [];
+    await executeClose(await h.plan(), signers(), {
+      confirm: true,
+      ...h.deps,
+      onEvent: (e) => {
+        if (e.type === "plan") plans.push(e.plan);
+      },
+      onReport: (copy) => saved.push(copy),
+    });
+    return { saved, plans };
+  }
+
+  it("says not run yet, attributed when the run ends and not read yet (the review's probe)", async () => {
+    const { saved, plans } = await copies();
+    // After tx 1 applied the sponsored SPTA removal, while tx 2's POST is in flight.
+    const copy = saved.find(
+      (c) =>
+        c.transactions.length === 2 &&
+        c.transactions[1]!.result === "pending" &&
+        c.transactions[1]!.attempts === 1,
+    )!;
+    expect(copy.status).toBe("running");
+    const text = renderReport(copy, { plans });
+    const disposals = section(text, "Disposals");
+    // Before the fix: "not disposed of: the run stopped before this step".
+    expect(disposals).toContain("DUSTA 0.0000007 not run yet");
+    expect(disposals).not.toMatch(/the run stopped before this step/);
+    const result = section(text, "Result");
+    // Before the fix: "Reserves released to sponsors: none", "nothing returned to sponsor ...",
+    // "not read after the run".
+    expect(result).toContain("Reserves released to sponsors: attributed when the run ends");
+    expect(result).toMatch(/reserve of sponsor \S+: attributed when the run ends/);
+    expect(result).toMatch(/observed on Horizon before the first submission: .*; not read yet/);
+    expect(result).not.toMatch(
+      /Reserves released to sponsors: none|nothing returned|not read after/,
+    );
+  });
+
+  it("does not say a sale's XLM stays on the account while the run goes on", async () => {
+    const { saved, plans } = await copies();
+    // Right after the sale (tx 2) applied, before the merge was built.
+    const copy = saved.find(
+      (c) => c.transactions.length === 2 && c.transactions[1]!.result === "applied",
+    )!;
+    expect(copy.status).toBe("running");
+    const disposals = section(renderReport(copy, { plans }), "Disposals");
+    expect(disposals).toMatch(/DUSTA 0\.0000007 sold for XLM by path payment/);
+    expect(disposals).not.toMatch(/the XLM stays on the account/);
+    expect(disposals).toContain("the XLM is on the account while the run goes on");
   });
 });

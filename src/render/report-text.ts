@@ -260,9 +260,15 @@ function disposalLines(
       const where = tx
         ? ` in tx ${tx.index + 1}${tx.round > 0 ? ` of round ${tx.round}` : ""}`
         : "";
+      // A copy saved while the run is going has no final word on the XLM yet (closing review CC-9).
+      const xlmNow = merged
+        ? "the XLM left with the merge"
+        : report.status === "running"
+          ? "the XLM is on the account while the run goes on"
+          : "the XLM stays on the account";
       text =
         rung === "path_payment"
-          ? `sold for XLM by path payment to the account itself${where}; ${merged ? "the XLM left with the merge" : "the XLM stays on the account"}`
+          ? `sold for XLM by path payment to the account itself${where}; ${xlmNow}`
           : rung === "return_to_issuer"
             ? `burned: returned to its issuer ${short(issuer)}${where}`
             : `sent to the destination ${short(report.destination)}${where}`;
@@ -276,7 +282,10 @@ function disposalLines(
           ? `not disposed of: ${failedRungs(failures)}`
           : `not disposed of: the ${planned ? RUNG_ATTEMPT[planned] : "disposal"} failed with ${firstCode(outcome.resultCodes)}`;
     } else {
-      text = "not disposed of: the run stopped before this step";
+      text =
+        report.status === "running"
+          ? "not run yet"
+          : "not disposed of: the run stopped before this step";
     }
     lines.push(...wrap(text, 4, `  ${code} ${step.subject.balance}  `));
   }
@@ -290,15 +299,20 @@ function disposalLines(
  * check. Removing a sponsored entry moves no XLM: it lowers the sponsor's num_sponsoring, and so
  * its minimum balance
  * (https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves#effect-on-minimum-balance).
+ * The executor attributes the reserves when the run ends, so a copy saved while the run is going
+ * says so instead of "none" (closing review CC-9).
  */
 function sponsorLines(report: CloseReport): string[] {
   const planned = report.recovery.reservesReturnedToSponsors;
   const observed = report.recovery.sponsorsObserved ?? [];
   const total = planned.reduce((sum, x) => sum + toStroops(x.xlm), 0n);
+  const running = report.status === "running";
   const lines = wrap(
     planned.length > 0
       ? `Reserves released to sponsors: ${formatStroops(total)} XLM, never this account's`
-      : "Reserves released to sponsors: none",
+      : running
+        ? "Reserves released to sponsors: attributed when the run ends"
+        : "Reserves released to sponsors: none",
     4,
     "  ",
   );
@@ -309,19 +323,24 @@ function sponsorLines(report: CloseReport): string[] {
       ...wrap(
         x
           ? `${x.xlm} XLM reserve returned to sponsor ${short(sponsor)}, never this account's (${x.entries.map(entryName).join(", ")})`
-          : `nothing returned to sponsor ${short(sponsor)} by this run`,
+          : running
+            ? `reserve of sponsor ${short(sponsor)}: attributed when the run ends`
+            : `nothing returned to sponsor ${short(sponsor)} by this run`,
         6,
         "    ",
       ),
     );
     const o = observed.find((s) => s.sponsor === sponsor);
-    if (o) lines.push(...wrap(observedText(o), 6, "      "));
+    if (o) lines.push(...wrap(observedText(o, running), 6, "      "));
   }
   return lines;
 }
 
-/** What Horizon showed for one reserve sponsor before and after the run, in one sentence. */
-function observedText(o: SponsorObservation): string {
+/**
+ * What Horizon showed for one reserve sponsor before and after the run, in one sentence; in a copy
+ * saved while the run is going, the reading after the run is not taken yet (CC-9).
+ */
+function observedText(o: SponsorObservation, running = false): string {
   const state = (s: SponsorState) =>
     `num_sponsoring ${s.numSponsoring}, minimum balance ${s.minimumBalance} XLM, XLM balance ${s.balance}`;
   const { before, after } = o;
@@ -345,7 +364,7 @@ function observedText(o: SponsorObservation): string {
     );
   }
   if (before) {
-    return `observed on Horizon before the first submission: ${state(before)}; not read after the run`;
+    return `observed on Horizon before the first submission: ${state(before)}; ${running ? "not read yet" : "not read after the run"}`;
   }
   if (after) {
     return `observed on Horizon after the run: ${state(after)}; not read before the first submission`;
