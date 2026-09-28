@@ -230,7 +230,7 @@ describe("plan and the dry-run close never read .env", () => {
       ["node", "dustin", ...args],
       { stdout: (s) => void out.push(s), stderr: (s) => void err.push(s) },
       "0.0.0",
-      { env: {}, cwd, fetch: recordedFetch(recorded).fetch, horizon: { retries: 0, backoffMs: 0 } },
+      { env: {}, cwd, fetch: recordedFetch(recorded).fetch, horizon: { retries: 0 } },
     );
     return { code, out: out.join(""), err: err.join("") };
   }

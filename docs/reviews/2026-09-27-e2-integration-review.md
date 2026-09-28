@@ -170,6 +170,17 @@ Duplicates are merged under the first ID.
 5. **Zero pauses.** `pollIntervalMs`, `backoffMs` and similar options accept 0. The tests rely on that, but a real caller passing 0 polls Horizon without a pause. Choose between a floor and documentation.
 6. **Exit code of an over-budget refusal.** It is 2, chosen for consistency with `SPONSOR_UNDERFUNDED`; canonical decision 5 names neither 2 nor 3 for it.
 
+### Builder decisions of 2026-09-28
+
+The builder settled the six decisions above; the PRD records them as D-2 to D-7 under "Decisions after review".
+
+1. History rewrite (R4, R5): postponed. The rest of the work goes on without it; it stays on the list of human actions.
+2. SDK names (AA-11): the code's names are kept and PRD section 7 was rewritten to match them. The `resume` option and the `fallback` step status are removed from the PRD: running a close again is how it resumes, and the rung a disposal used is on its step outcome.
+3. CI seed scan (CL-12, BH-14): `.github/workflows/ci.yml` now runs `git grep -P '(?<![A-Z2-7])S[A-Z2-7]{55}(?![A-Z2-7])'`. A probe in a scratch repository confirmed the difference: the old pattern flagged a muxed address that contains a seed-shaped run, the new one flags only the standalone seed.
+4. E2-S6 deviations: accepted. `evidence/runs/` and `test/testnet/execute-close.test.ts` stay; the story record, Story 2.6 in the epics and the PRD (T-18, week 2, section 12) say so.
+5. Zero pauses: a floor. Pauses between requests to Horizon (`pollIntervalMs`, `backoffMs`, `verifyClosed`'s `intervalMs`, the read client's retry backoff, `submitAndConfirm`'s poll) are at least 200 ms; 0 is refused with `CONFIG_INVALID` before anything is read or signed (`src/config/pauses.ts`). The pause function is injected (`sleep`, a timer by default), and the tests inject one that returns at once (`test/helpers/no-sleep.ts`) instead of passing 0.
+6. Exit code of an over-budget refusal: 3, and the same for `SPONSOR_UNDERFUNDED`. Canonical decision 5 now reads "3 = nothing executed: no confirmation, blockers without `--partial`, or a sponsor or budget precondition failed"; `src/cli/exit-codes.ts`, its tests and the README follow. This supersedes the "both 2" of CL-4 and BH-9 above.
+
 ## Evidence
 
 - `evidence/runs/20260926T125350Z/`: SDK close of a fresh zero-spendable messy fixture.

@@ -29,7 +29,7 @@ async function plan(overrides: Record<string, unknown> = {}): Promise<ClosePlan>
       feeSponsor: manifest.accounts.sponsor,
       baseFeeStroops: 100,
     },
-    { reader: horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 })) },
+    { reader: horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 })) },
   );
 }
 

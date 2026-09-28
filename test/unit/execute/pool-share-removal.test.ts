@@ -17,6 +17,7 @@ import { FakeLedger } from "../../helpers/fake-ledger.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
 import { submitToFakeLedger } from "../../helpers/submit-ops.js";
+import { noSleep } from "../../helpers/no-sleep.js";
 
 // Review finding R14: execution coverage for the removal of empty pool-share trustlines. The fake
 // ledger applies the pool rules of CAP-38 and stellar-core ChangeTrustOpFrame
@@ -60,13 +61,11 @@ function poolHolder(options: HolderOptions = {}) {
     ...(options.shares ? { balance: options.shares } : {}),
   });
   if (options.unlisted) ledger.unlistedPools.add(poolId);
-  const reader = horizonReader(
-    horizonJson(TESTNET_HORIZON, { fetch: ledger.fetch, retries: 0, backoffMs: 0 }),
-  );
+  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch: ledger.fetch, retries: 0 }));
   const deps = {
     reader,
     submitter: horizonSubmitter(TESTNET_HORIZON, { fetch: ledger.fetch }),
-    pollIntervalMs: 0,
+    sleep: noSleep,
   };
   const plan = () =>
     planClose(

@@ -6,6 +6,7 @@ import { run } from "../../../src/cli/run.js";
 import type { executeClose } from "../../../src/execute/executor.js";
 import type { HorizonBalance } from "../../../src/inspect/horizon-types.js";
 import { FakeLedger } from "../../helpers/fake-ledger.js";
+import { noSleep } from "../../helpers/no-sleep.js";
 
 export type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -130,9 +131,9 @@ export async function closeCli(
       env: deps.env ?? world.env,
       cwd: deps.cwd ?? emptyDir(),
       fetch: deps.fetch ?? world.ledger.fetch,
-      horizon: { retries: 0, backoffMs: 0 },
+      horizon: { retries: 0 },
       execute: {
-        pollIntervalMs: 0,
+        sleep: noSleep,
         ...(deps.executeClose ? { executeClose: deps.executeClose } : {}),
       },
       ...(answer === undefined

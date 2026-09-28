@@ -162,3 +162,4 @@ Blind review of the executor:
 
 - 2026-09-26: Retry, rebuild and re-plan rules, result-code decoding, per-sequence budget, verification helper, report survives errors (R1), and the review findings R2, R6, R9-R12 and R18 of E2-S1/E2-S2. Status: review.
 - 2026-09-27: Review follow-up: the independent review's findings 1-8, audit items (a) and (b) (AC-4 blocker; AC-2, AC-3 and AC-6 marked as documented deviations), the edge-case review's E1-E11 (E3, E4 and E9 fixed; E10 decided: keep `closed`) and the blind review's BH1, BH3, BH11 and BH16. Status: review.
+- 2026-09-28: builder decision D-5 (PRD): `pollIntervalMs` and `backoffMs` are pauses of at least 200 ms, and 0 is refused (`src/config/pauses.ts`); the tests inject a sleep that returns at once instead of passing 0.

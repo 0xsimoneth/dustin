@@ -17,7 +17,7 @@ const m = messyManifest().accounts;
 function reader(overrides: Record<string, unknown> = {}) {
   const { fetch, requests } = recordedFetch(recorded, overrides);
   return {
-    reader: horizonReader(horizonJson(TESTNET_HORIZON, { fetch, backoffMs: 0, retries: 0 })),
+    reader: horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 })),
     requests,
   };
 }

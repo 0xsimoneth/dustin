@@ -12,6 +12,7 @@ import { FakeLedger } from "../../helpers/fake-ledger.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
 import { failedOps, recordIncludedFaults } from "../execute/harness.js";
+import { noSleep } from "../../helpers/no-sleep.js";
 
 // The fake ledger does not verify signatures, so signers only need the right public keys.
 const signerFor = (publicKey: string): Signer => ({
@@ -27,7 +28,7 @@ async function run(
   mutate(ledger);
   // Faults marked included are recorded on the fake ledger, as Horizon would (edge case E6).
   const fetch = recordIncludedFaults(ledger, ledger.fetch);
-  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 }));
+  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 }));
   const plan = await planClose(
     { account: messy.fixture, destination: messy.destination, feeSponsor: messy.sponsor },
     { reader },
@@ -40,7 +41,7 @@ async function run(
       confirm: true,
       reader,
       submitter: horizonSubmitter(TESTNET_HORIZON, { fetch }),
-      pollIntervalMs: 0,
+      sleep: noSleep,
       ...(options.allowPartial ? { allowPartial: true } : {}),
       onEvent: (e) => {
         if (e.type === "plan") plans.push(e.plan);

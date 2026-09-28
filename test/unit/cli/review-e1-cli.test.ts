@@ -25,7 +25,7 @@ async function cli(
     ["node", "dustin", ...args],
     { stdout: (s) => void out.push(s), stderr: (s) => void err.push(s) },
     "0.0.0",
-    { env, fetch: recordedFetch(recorded, overrides).fetch, horizon: { retries: 0, backoffMs: 0 } },
+    { env, fetch: recordedFetch(recorded, overrides).fetch, horizon: { retries: 0 } },
   );
   return { code, out: out.join(""), err: err.join("") };
 }

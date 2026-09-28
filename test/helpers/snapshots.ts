@@ -15,7 +15,7 @@ export const messy = messyManifest().accounts;
 /** The recorded live messy fixture as an inspector snapshot (offline). */
 export async function messySnapshot(): Promise<ExistingAccountSnapshot> {
   const { fetch } = recordedFetch(loadRecorded(MESSY_DIR));
-  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 }));
+  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 }));
   const s = await inspectAccount(messy.fixture, { destination: messy.destination, reader });
   if (!s.exists) throw new Error("recorded fixture missing");
   return s;

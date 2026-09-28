@@ -116,7 +116,7 @@ describe("argv secret guard (review findings)", () => {
     // --memo parses (not a usage error); with the unit tier offline the run stops at Horizon (exit 6).
     const planned = await run([...node, "plan", acct, "--to", dest, "--memo", "m"], a.io, "1.2.3", {
       env: {},
-      horizon: { retries: 0, backoffMs: 0 },
+      horizon: { retries: 0 },
     });
     expect(planned).toBe(6);
     const b = capture();

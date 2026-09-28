@@ -11,6 +11,7 @@ import { FakeLedger } from "../../helpers/fake-ledger.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
 import { included, recordIncludedFaults } from "./harness.js";
+import { noSleep } from "../../helpers/no-sleep.js";
 
 // The fake ledger does not verify signatures, so signers only need the right public keys.
 const signerFor = (publicKey: string): Signer => ({
@@ -23,9 +24,9 @@ function setup() {
   const ledger = FakeLedger.messy();
   // Scripted failures marked `included` are recorded as on the ledger (edge case E6).
   const fetch = recordIncludedFaults(ledger, ledger.fetch);
-  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 }));
+  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 }));
   const submitter = horizonSubmitter(TESTNET_HORIZON, { fetch });
-  const deps = { reader, submitter, pollIntervalMs: 0 };
+  const deps = { reader, submitter, sleep: noSleep };
   const plan = () =>
     planClose(
       { account: messy.fixture, destination: messy.destination, feeSponsor: messy.sponsor },
@@ -412,7 +413,7 @@ describe("checks before anything is signed (review findings R2, R6)", () => {
     vi.stubGlobal("fetch", mainnetRoot);
     const { calls, signers: counting } = countingSigners();
     await expect(
-      executeClose(p, counting, { confirm: true, reader: deps.reader, pollIntervalMs: 0 }),
+      executeClose(p, counting, { confirm: true, reader: deps.reader, sleep: noSleep }),
     ).rejects.toMatchObject({ code: "MAINNET_REFUSED" });
     expect(calls).toEqual({ account: 0, sponsor: 0 });
     expect(ledger.submissions).toHaveLength(0);
@@ -425,7 +426,7 @@ describe("checks before anything is signed (review findings R2, R6)", () => {
     const report = await executeClose(p, signers(), {
       confirm: true,
       reader: deps.reader,
-      pollIntervalMs: 0,
+      sleep: noSleep,
     });
     expect(report.status).toBe("closed");
     expect(ledger.submissions).toHaveLength(3);

@@ -6,6 +6,7 @@ import {
   type DustinConfig,
   type ResolvedConfig,
 } from "../config/network.js";
+import { timerSleep, type Sleep } from "../config/pauses.js";
 import { DustinError, type ErrorStage } from "../errors/dustin-error.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
@@ -92,7 +93,7 @@ export interface ExecuteOptions {
   maxBaseFeeStroops?: number;
   /** Seconds of validity for each inner transaction; default 120. */
   timeoutSeconds?: number;
-  /** Pause between lookups by hash and between the final checks; default 2000 ms. */
+  /** Pause between lookups by hash and between the final checks; default 2000 ms, at least 200. */
   pollIntervalMs?: number;
   /** How long to keep looking for an unconfirmed envelope after its time bound; default 10 s. */
   graceSeconds?: number;
@@ -102,12 +103,15 @@ export interface ExecuteOptions {
   maxAttemptsPerTransaction?: number;
   /** Posts of one envelope after HTTP 429; default 5. */
   maxRateLimitRetries?: number;
-  /** First pause after a 429, doubled each time; default 1000 ms. */
+  /** First pause after a 429, doubled each time; default 1000 ms, at least 200. */
   backoffMs?: number;
   /** How long the final check waits for Horizon to answer 404 after a merge; default 30 s. */
   verifyTimeoutMs?: number;
-  /** Waits between lookups and retries; injectable for tests and custom schedulers. */
-  sleep?: (ms: number) => Promise<void>;
+  /**
+   * Waits between lookups and retries; default a timer. Pauses are at least 200 ms and never 0
+   * (src/config/pauses.ts), so tests that must not wait inject a sleep that returns at once.
+   */
+  sleep?: Sleep;
   /**
    * Local clock in milliseconds, for report timestamps and for measuring how long a wait lasts;
    * whether a time bound has passed is judged by ledger close times. Default `Date.now`.
@@ -286,7 +290,7 @@ class CloseRun {
       maxRateLimitRetries: options.maxRateLimitRetries ?? 5,
       ledgerWaitSeconds: options.ledgerWaitSeconds ?? 60,
       now: options.now ?? (() => Date.now()),
-      sleep: options.sleep ?? ((ms) => new Promise<void>((resolve) => setTimeout(resolve, ms))),
+      sleep: options.sleep ?? timerSleep,
     };
   }
 

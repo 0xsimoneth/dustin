@@ -1,5 +1,6 @@
 import { Command, Option } from "commander";
 import { configFromEnv, resolveConfig } from "../config/network.js";
+import type { Sleep } from "../config/pauses.js";
 import { DustinError } from "../errors/dustin-error.js";
 import { redact } from "../errors/redact.js";
 import type { executeClose } from "../execute/executor.js";
@@ -28,14 +29,17 @@ export interface CliDeps {
    */
   cwd?: string;
   fetch?: FetchLike;
-  horizon?: { retries?: number; backoffMs?: number };
+  horizon?: { retries?: number; backoffMs?: number; sleep?: Sleep };
   /**
    * Asks the typed confirmation of `close --execute` and resolves with the answer, or with null
    * on EOF or a non-interactive input. Without it the input counts as non-interactive.
    */
   prompt?: Prompt;
-  /** Executor overrides for tests: the poll interval after a timeout, or the executor itself. */
-  execute?: { pollIntervalMs?: number; executeClose?: typeof executeClose };
+  /**
+   * Executor overrides for tests: the pause function (pauses are at least 200 ms, so a test that
+   * must not wait injects one that returns at once), or the executor itself.
+   */
+  execute?: { sleep?: Sleep; executeClose?: typeof executeClose };
 }
 
 /** Commands report their exit code here; `run()` returns it. */

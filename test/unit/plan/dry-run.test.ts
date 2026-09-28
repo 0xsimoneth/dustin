@@ -17,7 +17,7 @@ import { messy } from "../../helpers/snapshots.js";
 function recordedReader() {
   const { fetch, requests } = recordedFetch(loadRecorded(MESSY_DIR));
   return {
-    reader: horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 })),
+    reader: horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 })),
     requests,
   };
 }

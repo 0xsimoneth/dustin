@@ -9,7 +9,11 @@ export const ExitCode = {
   UNEXPECTED: 1,
   /** Usage or validation error: bad address, secret on argv, wrong key, mainnet, missing secrets. */
   USAGE: 2,
-  /** Nothing executed: confirmation missing or declined, or blockers without --partial. */
+  /**
+   * Nothing executed: confirmation missing or declined, blockers without --partial, or a sponsor or
+   * budget precondition failed (the fee bids exceed the close budget, or the sponsor cannot cover
+   * it).
+   */
   NOTHING_EXECUTED: 3,
   /** Partial: the run completed what it could and the account still exists. */
   PARTIAL: 4,
@@ -34,11 +38,13 @@ export function exitCodeFor(error: DustinError): ExitCode {
     case "INVALID_ADDRESS":
     case "CONTRACT_ACCOUNT":
     case "WRONG_SIGNER":
-    case "SPONSOR_UNDERFUNDED":
-    case "SPONSOR_BUDGET_EXCEEDED":
       return ExitCode.USAGE;
+    // Nothing was signed: no confirmation, or a sponsor or budget precondition failed (canonical
+    // decision 5, widened by the builder on 2026-09-28).
     case "CONFIRMATION_REQUIRED":
     case "CONFIRMATION_DECLINED":
+    case "SPONSOR_UNDERFUNDED":
+    case "SPONSOR_BUDGET_EXCEEDED":
       return ExitCode.NOTHING_EXECUTED;
     case "EXECUTION_INTERRUPTED":
       // The rule above already returned 5 when something was submitted; an interruption before
@@ -56,9 +62,10 @@ export function exitCodeFor(error: DustinError): ExitCode {
 
 /**
  * The exit code of a finished `close --execute` (docs/README.md canonical decision 5): 0 only when
- * the account was closed and Horizon no longer has it; 3 when nothing was submitted; 4 for a
- * partial close; 5 when the run stopped or failed after something was submitted, or when a merge
- * was reported applied but the account was not verified gone.
+ * the account was closed and Horizon no longer has it; 3 when nothing was submitted, whatever the
+ * reason (an over-budget refusal included); 4 for a partial close; 5 when the run stopped or failed
+ * after something was submitted, or when a merge was reported applied but the account was not
+ * verified gone.
  */
 export function exitCodeForReport(
   report: Pick<CloseReport, "status" | "verification" | "transactions"> &
@@ -70,10 +77,9 @@ export function exitCodeForReport(
     case "partial":
       return ExitCode.PARTIAL;
     case "aborted":
-      if (report.transactions.length > 0) return ExitCode.STOPPED;
-      // Fees that rose past the budget after the confirmation: the same refusal as the CLI's own
-      // budget check before the question, so the same exit code.
-      return report.stop?.code === "OVER_BUDGET" ? ExitCode.USAGE : ExitCode.NOTHING_EXECUTED;
+      // Fees that rose past the budget after the confirmation are the same refusal as the CLI's
+      // own budget check before the question, and both exit 3: nothing was signed.
+      return report.transactions.length > 0 ? ExitCode.STOPPED : ExitCode.NOTHING_EXECUTED;
     default:
       return ExitCode.STOPPED;
   }

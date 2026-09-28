@@ -15,9 +15,7 @@ const muxed = (g: string) => new MuxedAccount(new Account(g, "0"), "42").account
 /** The fake ledger after the cleanup and the sale: only the merge is left to run. */
 async function readyToMerge(destination = messy.destination, memo?: string) {
   const ledger = FakeLedger.messy();
-  const reader = horizonReader(
-    horizonJson(TESTNET_HORIZON, { fetch: ledger.fetch, retries: 0, backoffMs: 0 }),
-  );
+  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch: ledger.fetch, retries: 0 }));
   const plan: ClosePlan = await planClose(
     {
       account: messy.fixture,

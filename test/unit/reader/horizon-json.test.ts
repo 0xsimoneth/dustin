@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { accountOffers, horizonJson, latestLedger } from "../../../src/reader/horizon-json.js";
+import { noSleep } from "../../helpers/no-sleep.js";
 
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
 
@@ -8,7 +9,7 @@ describe("horizonJson", () => {
     const fetch = vi.fn((url: string) =>
       Promise.resolve(url.endsWith("/missing") ? json({ status: 404 }, 404) : json({ ok: 1 })),
     );
-    const client = horizonJson("https://h.example", { fetch, backoffMs: 0 });
+    const client = horizonJson("https://h.example", { fetch, sleep: noSleep });
     await expect(client.get("/present")).resolves.toEqual({ ok: 1 });
     await expect(client.get("/missing")).resolves.toBeNull();
     expect(fetch).toHaveBeenCalledWith("https://h.example/present", expect.anything());
@@ -21,13 +22,13 @@ describe("horizonJson", () => {
       .mockResolvedValueOnce(json({}, 429))
       .mockResolvedValueOnce(json({}, 503))
       .mockResolvedValueOnce(json({ ok: 2 }));
-    const client = horizonJson("https://h.example", { fetch, backoffMs: 0 });
+    const client = horizonJson("https://h.example", { fetch, sleep: noSleep });
     await expect(client.get("/x")).resolves.toEqual({ ok: 2 });
 
     const down = horizonJson("https://h.example", {
       fetch: () => Promise.resolve(json({}, 503)),
       retries: 2,
-      backoffMs: 0,
+      sleep: noSleep,
     });
     await expect(down.get("/x")).rejects.toMatchObject({
       code: "HORIZON_UNAVAILABLE",
@@ -35,10 +36,36 @@ describe("horizonJson", () => {
     });
   });
 
+  it("refuses a retry pause below 200 ms, and waits with the pauses it is given", async () => {
+    const fetch = vi.fn(() => Promise.resolve(json({ ok: 1 })));
+    for (const backoffMs of [0, 199, Number.NaN]) {
+      expect(() => horizonJson("https://h.example", { fetch, backoffMs })).toThrow(
+        expect.objectContaining({ code: "CONFIG_INVALID" }),
+      );
+    }
+    expect(fetch).not.toHaveBeenCalled();
+    const waits: number[] = [];
+    const flaky = vi
+      .fn<(url: string) => Promise<Response>>()
+      .mockResolvedValueOnce(json({}, 503))
+      .mockResolvedValueOnce(json({}, 503))
+      .mockResolvedValueOnce(json({ ok: 3 }));
+    const client = horizonJson("https://h.example", {
+      fetch: flaky,
+      backoffMs: 200,
+      sleep: (ms) => {
+        waits.push(ms);
+        return Promise.resolve();
+      },
+    });
+    await expect(client.get("/x")).resolves.toEqual({ ok: 3 });
+    expect(waits).toEqual([200, 400]);
+  });
+
   it("does not retry other client errors", async () => {
     const fetch = vi.fn(() => Promise.resolve(json({}, 400)));
     await expect(
-      horizonJson("https://h.example", { fetch, backoffMs: 0 }).get("/x"),
+      horizonJson("https://h.example", { fetch, sleep: noSleep }).get("/x"),
     ).rejects.toMatchObject({
       code: "HORIZON_UNAVAILABLE",
     });
@@ -55,7 +82,7 @@ describe("accountOffers", () => {
       return Promise.resolve(json({ _embedded: { records: page } }));
     });
     const offers = await accountOffers(
-      horizonJson("https://h.example", { fetch, backoffMs: 0 }),
+      horizonJson("https://h.example", { fetch, sleep: noSleep }),
       "GABC",
     );
     expect(offers).toHaveLength(201);
@@ -93,7 +120,7 @@ describe("horizonJson robustness", () => {
       return Promise.resolve(new Response("<html>", { status: 200 }));
     });
     await expect(
-      horizonJson("https://h.example", { fetch, retries: 1, backoffMs: 0 }).get("/x"),
+      horizonJson("https://h.example", { fetch, retries: 1, sleep: noSleep }).get("/x"),
     ).rejects.toMatchObject({ code: "HORIZON_UNAVAILABLE" });
     expect(fetch).toHaveBeenCalledTimes(2);
   });

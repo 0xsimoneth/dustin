@@ -25,9 +25,7 @@ vi.mock("../../../src/plan/guard.js", async (importOriginal) => {
 describe("blind review BH11: the merge preflight fails on any guard that is not ok", () => {
   it("refuses the merge when the guard is not ok and names no ledger", async () => {
     const ledger = FakeLedger.messy();
-    const reader = horizonReader(
-      horizonJson(TESTNET_HORIZON, { fetch: ledger.fetch, retries: 0, backoffMs: 0 }),
-    );
+    const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch: ledger.fetch, retries: 0 }));
     const plan = await planClose(
       { account: messy.fixture, destination: messy.destination, feeSponsor: messy.sponsor },
       { reader },

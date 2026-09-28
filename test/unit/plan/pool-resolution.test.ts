@@ -264,7 +264,7 @@ describe("a pool whose Horizon lookup returned null", () => {
     const { fetch, requests } = recordedFetch(recorded, {
       [`/accounts/${messy.fixture}`]: account,
     });
-    const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 }));
+    const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 }));
     const plan = await planClose(
       { account: messy.fixture, destination: messy.destination, baseFeeStroops: 100 },
       { reader },

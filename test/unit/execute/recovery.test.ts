@@ -52,7 +52,7 @@ const failedOps = (...operations: string[]) => ({
 function setup(wrap?: (ledger: FakeLedger) => FetchLike) {
   const ledger = FakeLedger.messy();
   const fetch = recordIncludedFaults(ledger, wrap ? wrap(ledger) : ledger.fetch);
-  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 }));
+  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 }));
   const submitter = horizonSubmitter(TESTNET_HORIZON, { fetch });
   const sleeps: number[] = [];
   const deps = {

@@ -12,6 +12,7 @@ import { randomBytes } from "node:crypto";
 import { basename, dirname } from "node:path";
 import { formatStroops } from "../../amounts.js";
 import { verifyHorizonIsTestnet } from "../../config/network.js";
+import type { Sleep } from "../../config/pauses.js";
 import { DustinError } from "../../errors/dustin-error.js";
 import { redact, redactValue } from "../../errors/redact.js";
 import { executeClose, type CloseEvent } from "../../execute/executor.js";
@@ -44,8 +45,11 @@ export interface CloseContext extends CommandContext {
   secrets: SecretSources;
   /** The typed confirmation; without it the input counts as non-interactive. */
   prompt?: Prompt;
-  /** Executor overrides (tests): the poll interval, or the executor itself. */
-  execute?: { pollIntervalMs?: number; executeClose?: typeof executeClose };
+  /**
+   * Executor overrides (tests): the pause function, so a test never waits real time (pauses are at
+   * least 200 ms, src/config/pauses.ts), or the executor itself.
+   */
+  execute?: { sleep?: Sleep; executeClose?: typeof executeClose };
 }
 
 const EXECUTION_HEADING =
@@ -179,9 +183,7 @@ export async function closeExecute(
       // --base-fee is recorded in the plan as an override, which every re-plan keeps (review
       // R12); as the cap it also stops fee escalation from bidding above what the plan showed.
       ...(baseFee !== undefined ? { maxBaseFeeStroops: baseFee } : {}),
-      ...(ctx.execute?.pollIntervalMs !== undefined
-        ? { pollIntervalMs: ctx.execute.pollIntervalMs }
-        : {}),
+      ...(ctx.execute?.sleep ? { sleep: ctx.execute.sleep } : {}),
       onEvent: (event) => {
         const fresh = planOf(event);
         if (fresh) plans.push(fresh);

@@ -4,7 +4,7 @@ document: Product Requirements Document
 status: draft
 version: 0.1
 created: 2026-09-25
-updated: 2026-09-25
+updated: 2026-09-28
 source_of_truth: SUCCESSFUL_SOW.md (accepted Statement of Work, Stellar Instawards, $5,000, 30 days)
 companion: docs/product-brief.md
 ---
@@ -199,7 +199,7 @@ At execution time each `dispose_balance` step is attempted on its planned Rung. 
 Acceptance:
 - Recorded-response test: a `PATH_PAYMENT_STRICT_SEND_TOO_FEW_OFFERS` result on A1 causes a rebuild in which A1 is on `return_to_issuer`, and the second submission succeeds.
 - Fixture B: A5 ends as `unclosable` with `TRUSTLINE_NOT_AUTHORIZED`; every other subentry is removed; no merge is attempted; Close Status is `partial`.
-- The Close Report's `steps[]` show `fallback` outcomes with the Rung actually applied.
+- The Close Report's `steps[]` record the Rung each disposal actually applied with (`rung`); a disposal that fell down the ladder shows the later Rung, and `replans[]` shows the re-plan that moved it with the triggering result codes. There is no separate `fallback` status (decision of 2026-09-28, section 7).
 
 #### FR-13: Sponsored trustline unwinding
 
@@ -225,7 +225,7 @@ Transactions are submitted one at a time (the Account performs one transaction a
 Acceptance:
 - Recorded-response tests cover each branch above and assert the number of submissions, the final Close Status, and that the report carries `resultCodes` for failures.
 - A 504 followed by a successful hash lookup produces no second submission.
-- After `maxRetriesPerTransaction` failures the run ends `failed` with the last result codes and the state can be resumed (FR-17).
+- After `maxAttemptsPerTransaction` envelopes of one planned transaction the run ends `failed` with the last result codes, and running the close again continues from the ledger (FR-17).
 
 #### FR-16: Pre-flight verification and Drift handling
 
@@ -237,11 +237,11 @@ Acceptance:
 
 #### FR-17: Idempotency and resumability
 
-The Close Report is written incrementally by the CLI (`--report <path>`) and can be passed back as `options.resume`. On resume, the executor re-inspects the Account, re-plans the remainder, skips steps whose subentries no longer exist, and continues. Running `executeClose()` on a partially closed account without a report also produces a plan for the remainder.
+The Close Report is written incrementally by the CLI (`--report <path>`) and published to SDK callers through `onReport`. There is no resume option: the ledger is the source of truth, so resuming is running the close again. The executor re-inspects the Account, re-plans the remainder, skips steps whose subentries no longer exist, and continues (decision of 2026-09-28, section 7; story E2-S3 AC-5).
 
 Acceptance:
-- Interrupting a two-transaction close after the first transaction and re-running with `--resume` completes the close with exactly one further transaction.
-- Re-running a completed close reports `verification.accountExists === false` and submits nothing.
+- Interrupting a close after its first transaction and running the same close again completes it with exactly the remaining transactions.
+- Re-running a completed close through `executeClose()` records Horizon's 404 (`verification.accountExists === false`) and submits nothing. The CLI stops such a re-run before the executor with exit code 3; recording the 404 there is deferred review finding AA-13 (E4-S2).
 
 #### FR-18: Close Report
 
@@ -254,11 +254,11 @@ Acceptance:
 
 #### FR-19: CLI `dustin close`
 
-`dustin close <G...> --to <G...> [--yes] [--partial] [--json] [--report <path>] [--resume <path>]` loads `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` from the environment, prints the plan, requires interactive confirmation or `--yes`, refuses to start when Plan Status is not `closable` unless `--partial` is given, streams progress (one line per transaction with hash and explorer link; NDJSON with `--json`), and exits 0 for `closed`, 3 for `partial`, 4 for `failed`, 2 for refused, 5 for missing secrets.
+`dustin close <G...> --to <G...> --execute [--yes] [--partial] [--json] [--memo <m>] [--prefer-destination] [--base-fee <stroops>] [--report <path>]` loads `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` from the environment (or `.env`), prints the plan, requires the typed confirmation of the destination's last four characters or `--yes`, refuses to start when Plan Status is not `closable` unless `--partial` is given, streams progress (one line per transaction with hash and explorer link; NDJSON with `--json` is deferred review finding AA-10, E4-S1), and exits with the codes of canonical decision 5 in `docs/README.md`: 0 closed and verified gone, 1 unexpected error, 2 usage or validation error, 3 nothing executed (no confirmation, blockers without `--partial`, or a failed sponsor or budget precondition), 4 partial, 5 stopped or failed during execution, 6 Horizon unreachable before any submission. There is no `--resume`: running the same command again continues from the ledger.
 
 Acceptance:
-- Closing Fixture A from the CLI prints the plan, the confirmation prompt, one hash line, and "account G... no longer exists", exit code 0.
-- Running without `--partial` against Fixture B refuses with exit code 2 and prints the unclosable reason; with `--partial` it exits 3 after removing everything else.
+- Closing Fixture A from the CLI prints the plan, the confirmation prompt, one hash line per transaction, and "account G... no longer exists", exit code 0.
+- Running without `--partial` against Fixture B refuses with exit code 3 and prints the unclosable reason; with `--partial` it exits 4 after removing everything else.
 - `--network mainnet` or a public network passphrase is refused with a clear message (NFR-01).
 
 #### FR-20: Fee Sponsor prerequisites
@@ -322,7 +322,7 @@ Acceptance:
 
 #### FR-26: README and integration notes
 
-`README.md` covers installation, the testnet-only scope, CLI quickstart (`plan`, `close`, `fixture`, `baseline`, `evidence`), SDK quickstart (`planClose`, `executeClose`, signer callback, options), environment variables, exit codes, and how to run the tests. `docs/integration-notes.md` covers embedding the plan preview, confirmation, the signer interface, sponsor operation, error and `UnclosableCode` handling, Drift and resume, and JSON schemas.
+`README.md` covers installation, the testnet-only scope, CLI quickstart (`plan`, `close`, `fixture`, `baseline`, `evidence`), SDK quickstart (`planClose`, `executeClose`, signer callback, options), environment variables, exit codes, and how to run the tests. `docs/integration-notes.md` covers embedding the plan preview, confirmation, the signer interface, sponsor operation, error and `UnclosableCode` handling, Drift and re-running a stopped close (there is no separate resume), and JSON schemas.
 
 Acceptance:
 - A developer following the README on a clean machine reaches a printed plan for a testnet account within the documented steps, with no undocumented step.
@@ -364,7 +364,7 @@ Acceptance:
 ## 5. Non-functional requirements
 
 - **NFR-01 Safety and dry-run guarantee.** `planClose()` never mutates state (FR-07). `executeClose()` requires `confirm: true`, refuses Plan Status other than `closable` unless `allowPartial`, refuses when Account, Destination and Fee Sponsor are not three distinct accounts, and refuses any network passphrase other than testnet in v1. Acceptance: tests T-01, T-21; a public-network passphrase yields `DustinError` before any request.
-- **NFR-02 Idempotency and resumability.** Re-running a close never re-applies a completed step or submits a duplicate transaction; a partially closed account can be resumed with or without the earlier report (FR-17). Acceptance: T-17.
+- **NFR-02 Idempotency and resumability.** Re-running a close never re-applies a completed step or submits a duplicate transaction; a partially closed account is resumed by running the close again, with no report needed (FR-17). Acceptance: T-17.
 - **NFR-03 Observability of transaction hashes.** Every submitted transaction's hash is emitted as an event and a log line with its Explorer URL before the next submission starts, and appears in the Close Report even when the run later fails. Acceptance: in T-16 the hash of a transaction that later times out is present in the report.
 - **NFR-04 No secret key logging.** Secret keys are read only from environment variables or the `Signers` object, never accepted as CLI flags, never included in plans, reports, events, logs, or error messages; a redaction filter replaces any `S`-prefixed 56-character key that appears in a string with `S...REDACTED`. Acceptance: T-20 greps all outputs of a full CLI run for the secret and finds nothing.
 - **NFR-05 Deterministic plan output.** Same snapshot, same options, same structural plan and `planHash`; stable ordering (rule R9); canonical JSON. Acceptance: T-19.
@@ -380,8 +380,8 @@ Acceptance:
 
 | Command | Purpose | Secrets needed | Exit codes |
 |---|---|---|---|
-| `dustin plan <G...> --to <G...> [--sponsor <G...>] [--json] [--base-fee <stroops>]` | Print the Close Plan (Dry Run) | none | 0 closable, 3 partial, 2 blocked, 1 error |
-| `dustin close <G...> --to <G...> [--yes] [--partial] [--json] [--report <path>] [--resume <path>]` | Execute the close with fee-bumped transactions | `DUSTIN_ACCOUNT_SECRET`, `DUSTIN_SPONSOR_SECRET` | 0 closed, 3 partial, 4 failed, 2 refused, 5 missing secrets, 1 error |
+| `dustin plan <G...> --to <G...> [--sponsor <G...>] [--json] [--base-fee <stroops>]` | Print the Close Plan (Dry Run) | none | canonical decision 5: 0 plan printed, 2 usage error, 6 Horizon unreachable, 1 error |
+| `dustin close <G...> --to <G...> --execute [--yes] [--partial] [--json] [--memo <m>] [--prefer-destination] [--base-fee <stroops>] [--report <path>]` | Execute the close with fee-bumped transactions; without `--execute` it is `plan` | `DUSTIN_ACCOUNT_SECRET`, `DUSTIN_SPONSOR_SECRET` | canonical decision 5: 0 closed and verified gone, 3 nothing executed, 4 partial, 5 stopped or failed, 2 usage error, 6 Horizon unreachable, 1 error |
 | `dustin fixture create [--variant <name>] [--out <manifest>] [--secrets <path>]` | Build a fixture on testnet from friendbot | none (creates its own keys) | 0 built, 1 error |
 | `dustin fixture verify <manifest>` | Prove Appendix B preconditions with Horizon evidence | none | 0 pass, 3 fail |
 | `dustin baseline <G...> --out <dir>` | Snapshot the Account and print the baseline recording protocol | none | 0 |
@@ -392,127 +392,126 @@ Global options: `--network testnet` (only value accepted in v1), `--horizon <url
 
 ## 7. SDK API surface
 
-Package exports (TypeScript). Names are normative; option defaults are stated inline.
+Package exports (TypeScript), as implemented in `src/index.ts`. Names are normative. This section was rewritten on 2026-09-28 to match the code before the 0.1.0 publish freezes the API (builder decision on review finding AA-11): the code's names were kept, the earlier draft names (`verifyClosed(account, config)` returning `{ exists }`, `maxRetriesPerTransaction`, `submitTimeoutSeconds`, `tx_*` events) are gone, and so are the `resume` option and the `fallback` step status. Running a close again is how it resumes, because the ledger is the source of truth; the rung a disposal actually used is recorded on its step outcome (`rung`). Option defaults are stated inline.
 
 ```ts
-import type { Keypair, Transaction, FeeBumpTransaction } from "@stellar/stellar-sdk";
+import type { FeeBumpTransaction, Keypair, Transaction } from "@stellar/stellar-sdk";
 
+// Configuration (src/config/network.ts). Only the testnet is accepted in this release.
 export interface DustinConfig {
-  horizonUrl?: string;            // default "https://horizon-testnet.stellar.org"
-  networkPassphrase?: string;     // default Networks.TESTNET; anything else is refused in v1
-  baseFeeStroops?: number;        // override; default derived from GET /fee_stats, floor 100
-  maxBaseFeeStroops?: number;     // default 10_000
-  explorerBaseUrl?: string;       // default "https://stellar.expert/explorer/testnet"
-  logger?: DustinLogger;          // structured, secret-free
+  horizonUrl?: string;         // default "https://horizon-testnet.stellar.org"; must serve the testnet
+  networkPassphrase?: string;  // only the testnet passphrase is accepted
+  explorerBaseUrl?: string;    // default "https://stellar.expert/explorer/testnet"
 }
 
-export interface PlanInput {
-  account: string;                // G... to close
-  destination: string;            // G... or M...; must exist
-  feeSponsor?: string;            // G...; fee attribution in the plan
-  options?: PlanOptions;
-}
-
+// Planning (src/plan/model.ts, src/plan/plan-close.ts). Read-only: no secret, no signature.
 export interface PlanOptions {
-  maxOpsPerTransaction?: number;  // default 100 (protocol maximum)
-  disposal?: {
-    allowPathPayment?: boolean;       // default true
-    allowReturnToIssuer?: boolean;    // default true (SOW ladder)
-    allowSendToDestination?: boolean; // default true
-    slippageBps?: number;             // default 100 (1%) applied to path-payment destMin
-  };
-  seqnumGuard?: { maxWaitLedgers?: number }; // default 60
+  destination: string;         // G... or M...; must exist
+  feeSponsor?: string;         // G...; named as the fee payer in the plan
+  memo?: string;               // at most 28 bytes; needed for a SEP-29 memo-required destination
+  preferDestination?: boolean; // default false: SOW ladder order (canonical decision 8)
+  slippageBps?: number;        // default 100 (1%); sets each path payment's destMin
+  baseFeeStroops?: number;     // override of the bid per operation; default from GET /fee_stats (p80), at least 100
+  maxBaseFeeStroops?: number;  // default 1,000,000: cap on the bid per operation
+  budgetStroops?: number;      // default 50,000,000 (5 XLM): the sponsor's budget per close
+  maxWaitLedgers?: number;     // default 120: longest sequence-guard wait absorbed by a separate merge
+  maxOpsPerTransaction?: number; // default and maximum 100
 }
+export interface PlanCloseInput extends PlanOptions { account: string }   // the G... to close
+export interface PlanCloseOptions { config?: DustinConfig; reader?: LedgerReader }
 
 export type PlanStatus = "closable" | "partial" | "blocked";
 export type CloseStepKind =
-  | "cancel_offer" | "dispose_balance" | "remove_trustline"
-  | "remove_data" | "wait_for_ledger" | "merge";
-export type DisposalRung =
-  | "path_payment" | "return_to_issuer" | "send_to_destination" | "unclosable";
+  | "cancel_offer" | "dispose_balance" | "remove_trustline" | "remove_data" | "merge";
+export type DisposalRung = "path_payment" | "return_to_issuer" | "send_to_destination";
+export type LadderOrder = "sow" | "prefer-destination";
+export type UnclosableCode =
+  | "TRUSTLINE_NOT_AUTHORIZED" | "MAINTAIN_LIABILITIES_ONLY" | "NO_DISPOSAL_ROUTE"
+  | "LIQUIDITY_POOL_SHARES" | "POOL_ASSET_TRUSTLINE";
+export type BlockerCode =
+  | "ACCOUNT_MISSING" | "AUTH_IMMUTABLE_SET" | "IS_SPONSOR" | "MASTER_KEY_DISABLED"
+  | "THRESHOLD_UNMET" | "DESTINATION_MISSING" | "DESTINATION_IS_SELF"
+  | "DESTINATION_REQUIRES_MEMO" | "SEQNUM_TOO_FAR" | "LIQUIDITY_POOL_SHARES";
 
-export enum UnclosableCode {
-  NO_DISPOSAL_ROUTE = "NO_DISPOSAL_ROUTE",
-  TRUSTLINE_NOT_AUTHORIZED = "TRUSTLINE_NOT_AUTHORIZED",
-  ISSUER_ACCOUNT_MISSING = "ISSUER_ACCOUNT_MISSING",
-  LIQUIDITY_POOL_SHARES = "LIQUIDITY_POOL_SHARES",
-  ACCOUNT_IS_SPONSORING = "ACCOUNT_IS_SPONSORING",
-  THRESHOLD_UNMET = "THRESHOLD_UNMET",
-  MASTER_KEY_DISABLED = "MASTER_KEY_DISABLED",
-  SEQNUM_TOO_FAR = "SEQNUM_TOO_FAR",
-  AUTH_IMMUTABLE = "AUTH_IMMUTABLE",
-  DESTINATION_MISSING = "DESTINATION_MISSING",
-  DESTINATION_FULL = "DESTINATION_FULL",
-  CONTRACT_ACCOUNT = "CONTRACT_ACCOUNT",
-  ACCOUNT_MISSING = "ACCOUNT_MISSING",
-}
-
-export interface StepSubject {
-  kind: "offer" | "asset" | "data" | "account";
-  offerId?: string;
-  asset?: { code: string; issuer: string } | "native";
-  dataKey?: string;
-}
+export type StepSubject =
+  | { type: "offer"; offerId: string; selling: AssetRef; buying: AssetRef; amount: string }
+  | { type: "trustline"; asset: CreditAssetRef; balance: string; sponsor: string | null }
+  | { type: "data"; name: string }
+  | { type: "pool_share"; poolId: string; balance: string; sponsor: string | null }
+  | { type: "account"; destination: string };
 
 export interface DisposalDecision {
   rung: DisposalRung;
   amount: string;
-  path?: Array<{ code: string; issuer: string } | "native">; // path_payment
-  estimatedXlmOut?: string;                                  // path_payment
-  destMinXlm?: string;                                       // path_payment
-  fallbackRungs: DisposalRung[];
-  reasonCode?: UnclosableCode;                               // when rung === "unclosable"
+  to: string;                     // the account itself (rung 1), the issuer or the destination
+  quotedXlm?: string;             // path_payment only
+  destMinXlm?: string;            // path_payment only; never below 1 stroop
+  fallbackRungs: DisposalRung[];  // later rungs that were viable in the snapshot
+  ruledOut: Array<{ rung: DisposalRung; reason: string }>;
 }
 
 export interface CloseStep {
-  id: string;                     // "S01", "S02", ...
+  id: string;                     // "S01", "S02", ... in execution order
   kind: CloseStepKind;
-  txIndex: number;                // -1 for wait_for_ledger
-  opIndex?: number;
+  txIndex: number;
   subject: StepSubject;
-  reason: string;                 // human-readable: what, why, why this rung
-  dependsOn: string[];            // step ids
-  feeEstimateStroops: number;     // 0 for wait_for_ledger
-  disposal?: DisposalDecision;    // only for dispose_balance
-  operation?: OperationDescriptor; // serializable descriptor, never a signed envelope
+  reason: string;                 // what it does, why it is needed, why this rung
+  dependsOn: string[];
+  threshold: "medium" | "high";
+  operation: OperationDescriptor; // serializable descriptor, never a signed envelope
+  disposal?: DisposalDecision;    // dispose_balance only
+  reserveReleasedTo?: { to: "account" } | { to: "sponsor"; sponsor: string };
+  feeEstimateStroops: number;
 }
 
 export interface PlannedTransaction {
   index: number;
+  phase: "cleanup" | "convert" | "merge";
   stepIds: string[];
   opCount: number;                // 1..100
-  innerFeeStroops: number;        // opCount x base fee
-  feeBumpFeeStroops: number;      // (opCount + 1) x base fee
-  feeSource: "fee_sponsor";
+  innerFeeStroops: 0;             // the closing account never pays a fee
+  feeBumpFeeStroops: number;      // the sponsor's bid: base fee x (opCount + 1)
+  reason: string;
 }
 
 export interface UnclosableItem {
-  code: UnclosableCode; subject: StepSubject; reason: string; remedy: string; blocksMerge: boolean;
+  code: UnclosableCode; subject: StepSubject; reason: string; remedy: string; blocksMerge: true;
+  rungsRuledOut?: Array<{ rung: DisposalRung; reason: string }>;
 }
-export interface Blocker { code: UnclosableCode; reason: string; remedy: string; }
+export interface Blocker { code: BlockerCode; reason: string; remedy: string; permanent: boolean }
+
+export interface SequenceGuard {
+  sequenceAtMerge: string; earliestLedger: number; ok: boolean;
+  unblocksAtLedger: number | null; etaSeconds: number | null;
+}
 
 export interface RecoverySummary {
-  xlmToDestination: string;
-  xlmFromDisposals: string;
-  reservesReleasedToAccount: string;
+  xlmToDestination: string;       // native balance now plus quoted path-payment proceeds
+  nativeBalance: string;
+  quotedProceedsXlm: string;
   reservesReturnedToSponsors: Array<{ sponsor: string; xlm: string; entries: string[] }>;
   feesPaidByAccount: "0";
 }
 
 export interface FeeSummary {
-  baseFeeStroops: number;
-  baseFeeSource: "fee_stats" | "override";
-  perTransactionStroops: number[];
-  totalStroops: number;
-  payer: string | "fee_sponsor";
+  baseFeeStroops: number; basis: "fee_stats" | "override"; maxBaseFeeStroops: number;
+  perTransactionStroops: number[]; totalStroops: number;
+  budgetStroops: number; withinBudget: boolean;
+  payer: string;                  // the fee sponsor's public key, or "fee_sponsor" when not given
 }
 
 export interface ClosePlan {
-  schemaVersion: "1";
-  network: { passphrase: string; horizonUrl: string };
-  account: string; destination: string; feeSponsor?: string;
-  snapshot: AccountSnapshot; snapshotHash: string; planHash: string;
+  schemaVersion: 1;
+  kind: "dustin-close-plan";
+  network: { passphrase: string; horizon: string };
+  account: string; destination: string; feeSponsor: string | null; memo: string | null;
+  options?: { slippageBps: number; maxOpsPerTransaction: number; maxWaitLedgers: number };
+  observed: { ledger: number; closedAt: string };
+  reserve: { balance: string; minimum: string; spendable: string; baseReserve: string };
+  snapshotHash: string;
+  planHash: string;               // structural: steps, order, grouping, rungs, blockers; no fees or quotes
   status: PlanStatus;
+  ladderOrder: LadderOrder;
   steps: CloseStep[];
   transactions: PlannedTransaction[];
   unclosable: UnclosableItem[];
@@ -520,69 +519,132 @@ export interface ClosePlan {
   warnings: string[];
   recovery: RecoverySummary;
   fees: FeeSummary;
-  createdAt: string;              // ISO-8601
+  sequenceGuard: SequenceGuard | null;
 }
 
-export type SignerLike =
-  | Keypair
-  | { publicKey(): string; sign(tx: Transaction | FeeBumpTransaction): void | Promise<void> };
-export interface Signers { account: SignerLike; feeSponsor: SignerLike; }
+// Execution (src/execute/*, src/sponsor/signer.ts).
+export interface Signer { publicKey(): string; sign(tx: Transaction | FeeBumpTransaction): void | Promise<void> }
+export function keypairSigner(keypair: Keypair): Signer;
+export interface Signers { account: Signer; feeSponsor: Signer }
 
 export interface ExecuteOptions {
   confirm: true;                          // literal true is required
   allowPartial?: boolean;                 // default false
   onDrift?: "abort" | "replan";           // default "abort"
-  resume?: CloseReport;
-  maxRetriesPerTransaction?: number;      // default 5
-  submitTimeoutSeconds?: number;          // default 60 (transaction timebounds)
   onEvent?: (event: CloseEvent) => void;
+  onReport?: (report: CloseReport) => void; // a copy after every change; status "running" until the end
+  config?: DustinConfig;
+  reader?: LedgerReader;
+  budgetStroops?: number;                 // overrides the plan's (default 5 XLM)
+  maxBaseFeeStroops?: number;             // overrides the plan's (default 1,000,000)
+  timeoutSeconds?: number;                // default 120: validity of each inner transaction
+  maxAttemptsPerTransaction?: number;     // default 5: envelopes per planned transaction
+  maxReplans?: number;                    // default 3
+  maxRateLimitRetries?: number;           // default 5: posts of one envelope after HTTP 429
+  pollIntervalMs?: number;                // default 2000; a pause: at least 200, never 0
+  backoffMs?: number;                     // default 1000; a pause: at least 200, never 0
+  graceSeconds?: number;                  // default 10
+  ledgerWaitSeconds?: number;             // default 60
+  verifyTimeoutMs?: number;               // default 30000
+  sleep?: (ms: number) => Promise<void>;  // default a timer; tests inject one that returns at once
+  now?: () => number;                     // default Date.now
 }
+// A custom `submitter` is also accepted; it is internal and undocumented until 0.1.0.
 
-export type CloseStatus = "closed" | "partial" | "aborted" | "failed" | "running"; // "running" only on copies published while a run is in progress (2026-09-27)
+export type CloseStatus = "closed" | "partial" | "aborted" | "failed" | "running";
+// "running" appears only on copies published while a run is in progress (2026-09-27). "closed"
+// means this run's merge applied; a verified close is "closed" with verification.accountExists === false.
 
 export interface SubmittedTransaction {
-  index: number; hash: string; ledger?: number;
-  feeChargedStroops?: number; feeAccount: string;
-  innerEnvelopeXdr: string; feeBumpEnvelopeXdr: string;
-  explorerUrl: string; attempts: number;
-  result: "success" | "failed" | "unknown";
-  resultCodes?: { transaction?: string; operations?: string[] };
+  index: number; phase: "cleanup" | "convert" | "merge"; stepIds: string[];
+  attempts: number;               // posts of this envelope (a 429 posts it again)
+  attempt: number;                // which envelope of the planned transaction (a rebuild adds one)
+  round: number;                  // 0 for the plan the run started with, n for the n-th re-plan
+  sequence: string; baseFeeStroops: number; maxTime: number; rebuiltBecause?: string;
+  hash: string; innerHash: string;
+  result: "pending" | "applied" | "failed" | "rejected" | "unknown";
+  mayStillApply?: boolean;        // only while result is "unknown"
+  ledger: number | null; feeChargedStroops: number | null; feeAccount: string;
+  innerEnvelopeXdr: string; feeBumpEnvelopeXdr: string; explorerUrl: string;
+  resultCodes?: { transaction?: string; innerTransaction?: string; operations?: string[] };
+  explanation?: string;
 }
+
 export interface StepOutcome {
-  stepId: string; status: "applied" | "skipped" | "failed" | "fallback" | "unclosable";
-  txHash?: string; rungApplied?: DisposalRung; note?: string;
+  stepId: string;
+  status: "applied" | "failed" | "not_run";
+  txIndex: number; txHash?: string;
+  rung?: DisposalRung;            // the rung the disposal applied with; after a fall down the ladder it differs from the plan
+  round?: number;                 // the plan round that applied the step, when not the first
+  failures?: number; resultCodes?: SubmittedTransaction["resultCodes"]; explanation?: string;
 }
+
 export interface CloseReport {
-  schemaVersion: "1"; planHash: string;
-  account: string; destination: string; feeSponsor: string;
+  schemaVersion: 1; kind: "dustin-close-report";
+  network: { passphrase: string; horizon: string };
+  account: string; destination: string; feeSponsor: string; planHash: string;
   status: CloseStatus;
+  message: string | null;
+  stop: StopReason | null;        // machine-readable reason a run stopped or did not start
+  startedAt: string; finishedAt: string | null;
   transactions: SubmittedTransaction[];
   steps: StepOutcome[];
+  replans: ReplanRecord[];        // each re-plan with its trigger, demoted assets and drift
   unclosable: UnclosableItem[];
-  recovery: RecoverySummary;      // actual figures
-  verification: { accountExists: boolean; horizonStatus: number; checkedAt: string };
-  startedAt: string; finishedAt: string;
+  blockers: Array<Blocker | RunBlocker>; // RunBlocker: a step that failed twice (STEP_FAILED_TWICE)
+  warnings: string[];
+  recovery: {
+    mergedXlm: string | null;     // read from the merge result
+    reservesReturnedToSponsors: Array<{ sponsor: string; xlm: string; entries: string[] }>;
+    feesPaidByAccount: "0"; feesPaidBySponsorStroops: number;
+  };
+  verification: {
+    accountExists: boolean; horizonStatus: 200 | 404; checkedAt: string; accountUrl: string; ledger?: number;
+  } | null;
 }
 
 export type CloseEvent =
-  | { type: "plan"; plan: ClosePlan }
-  | { type: "drift"; action: "abort" | "replan" }
-  | { type: "wait_for_ledger"; targetLedger: number; currentLedger: number }
-  | { type: "tx_built"; index: number; opCount: number }
-  | { type: "tx_submitted"; index: number; hash: string; explorerUrl: string }
-  | { type: "tx_confirmed"; index: number; hash: string; ledger: number }
-  | { type: "tx_failed"; index: number; hash?: string; resultCodes?: SubmittedTransaction["resultCodes"] }
-  | { type: "fallback"; stepId: string; from: DisposalRung; to: DisposalRung }
+  | { type: "plan"; plan: ClosePlan; round?: number }
+  | { type: "drift"; action: "abort" | "replan"; previousPlanHash: string; planHash: string }
+  | { type: "preflight"; index: number; ok: boolean; detail: string }
+  | { type: "tx:building"; index: number; phase: PlannedTransaction["phase"]; opCount: number; attempt?: number; round?: number }
+  | { type: "tx:submitted"; index: number; hash: string; explorerUrl: string; attempt?: number; round?: number }
+  | { type: "tx:confirmed"; index: number; hash: string; ledger: number; feeChargedStroops: number }
+  | { type: "tx:failed"; index: number; hash: string; result: string; detail: string }
   | { type: "verified"; accountExists: boolean }
   | { type: "done"; status: CloseStatus };
 
-export function inspectAccount(account: string, config?: DustinConfig): Promise<AccountSnapshot>;
-export function planClose(input: PlanInput, config?: DustinConfig): Promise<ClosePlan>;
-export function executeClose(plan: ClosePlan, signers: Signers, options: ExecuteOptions, config?: DustinConfig): Promise<CloseReport>;
-export function verifyClosed(account: string, config?: DustinConfig): Promise<{ exists: boolean; horizonStatus: number }>;
-export function renderPlan(plan: ClosePlan, format?: "text" | "json"): string;
-export class DustinError extends Error { code: string; details?: unknown; } // never carries secrets
+export interface VerifyClosedOptions {
+  config?: DustinConfig; reader?: LedgerReader;
+  timeoutMs?: number;             // default 30000; 0 checks once
+  intervalMs?: number;            // default 2000; a pause: at least 200, never 0
+  now?: () => number; sleep?: (ms: number) => Promise<void>;
+}
+export interface ClosedVerification {
+  accountExists: boolean; horizonStatus: 200 | 404; checkedAt: string;
+  ledger: number;                 // Horizon had ingested at least this ledger when it answered
+  accountUrl: string;
+}
+
+export function inspectAccount(account: string, options?: { destination?: string; config?: DustinConfig; reader?: LedgerReader }): Promise<AccountSnapshot>;
+export function planClose(input: PlanCloseInput, options?: PlanCloseOptions): Promise<ClosePlan>;
+export function planFromSnapshot(snapshot: AccountSnapshot, options: PlanOptions): ClosePlan; // pure
+export function executeClose(plan: ClosePlan, signers: Signers, options: ExecuteOptions): Promise<CloseReport>;
+export function verifyClosed(account: string, options?: VerifyClosedOptions): Promise<ClosedVerification>;
+export function renderPlan(plan: ClosePlan, options?: { next?: string; heading?: string }): string;
+export function renderReport(report: CloseReport, options?: { plans?: readonly ClosePlan[]; explorerBaseUrl?: string }): string;
+export function redact(text: string): string;
+export function resolveConfig(config?: DustinConfig): ResolvedConfig;
+export function verifyHorizonIsTestnet(horizonUrl: string, fetchImpl?: typeof fetch): Promise<void>;
+export const DEFAULT_HORIZON_URL: string, DEFAULT_EXPLORER_BASE: string, TESTNET_PASSPHRASE: string;
+export class DustinError extends Error {
+  code: DustinErrorCode; stage: ErrorStage; retryable: boolean; verdict: ErrorVerdict;
+  remedy?: string; details?: Record<string, string | number | boolean | null>;
+  horizon?: HorizonFailure; report?: CloseReport;   // never carries a secret
+}
 ```
+
+Expected outcomes are returned, not thrown (ADR-0006): `executeClose()` returns a report whose `status` and `stop` say what happened, and throws only for configuration errors before anything is read or signed and for the unexpected; an error thrown after the report exists carries it in `error.report`, so no submitted hash is lost (review finding R1).
 
 Implementation binds to `@stellar/stellar-sdk`: `Horizon.Server` for reads and submission; `TransactionBuilder` with `fee`, `networkPassphrase`, `setTimeout`; `TransactionBuilder.buildFeeBumpTransaction(feeSource, baseFee, innerTx, networkPassphrase)`; `Operation.manageSellOffer` / `Operation.manageBuyOffer` (amount `"0"` deletes), `Operation.pathPaymentStrictSend`, `Operation.changeTrust` (limit `"0"` deletes), `Operation.manageData` (value `null` deletes), `Operation.accountMerge`; fixture building additionally uses `Operation.beginSponsoringFutureReserves`, `Operation.endSponsoringFutureReserves`, `Operation.setTrustLineFlags`, `Operation.bumpSequence`, and `Operation.liquidityPoolWithdraw` only in tests. Tech choices beyond these bindings belong to the architecture document.
 
@@ -629,7 +691,7 @@ Fixture A plus Trustline A5: asset `FRZ` from issuer I3 with `AUTH_REQUIRED` and
 | Variant | Shape | Expected |
 |---|---|---|
 | A0 | Account created inside a sponsorship sandwich so its base reserve is sponsored; literal balance 0 XLM; otherwise as A | `closable`; plan shows the base reserve returning to the Reserve Sponsor |
-| SIMPLE | 2 offers, 2 zero-balance trustlines, 1 data entry, zero spendable XLM | `closable`; Week 2 milestone account |
+| SIMPLE | 2 offers, 2 zero-balance trustlines, 1 data entry, zero spendable XLM | `closable`; Week 2 milestone account. Not built: the Week 2 close used fresh Fixture A (`messy`) accounts instead, a harder account, and the builder accepted the substitution on 2026-09-28 (story E2-S6) |
 | SEQ-NEAR | A plus `BumpSequence` to `(currentLedger + 3) << 32` | `wait_for_ledger` step, then merge succeeds |
 | SEQ-FAR | A plus `BumpSequence` to `(currentLedger + 100000) << 32` | `blocked`, `SEQNUM_TOO_FAR` with earliest ledger |
 | LP | A plus a pool share trustline with a deposit | `partial`, `LIQUIDITY_POOL_SHARES` |
@@ -659,7 +721,7 @@ Fixture A plus Trustline A5: asset `FRZ` from issuer I3 with `AUTH_REQUIRED` and
 | T-15 | Fee-bump invariant: every transaction's fee account is the Fee Sponsor; Account never pays | live | FR-11 |
 | T-16 | Retry and recovery branches: 504 then hash lookup, `tx_bad_seq`, `tx_too_late`, `tx_insufficient_fee`, operation failure with fallback | offline | FR-15, NFR-03, NFR-11 |
 | T-17 | Resume after interruption; re-run of a completed close submits nothing | offline and live | FR-17, NFR-02 |
-| T-18 | Zero-XLM simple close end to end (SIMPLE) | live | FR-11, FR-18 |
+| T-18 | Zero-XLM close end to end: a fresh Fixture A closed by `test/testnet/execute-close.test.ts`, evidence in `evidence/runs/<UTC stamp>/` (replaces the SIMPLE variant, decision of 2026-09-28) | live | FR-11, FR-18 |
 | T-19 | Deterministic plan and `planHash` | offline | FR-10, NFR-05 |
 | T-20 | Secret redaction across logs, events, reports, errors | offline | NFR-04 |
 | T-21 | Testnet-only guard | offline | NFR-01, NFR-09 |
@@ -713,7 +775,7 @@ Anything else is stretch (section 14).
 | SOW deliverable | Requirements | Evidence artifact (SOW 6.1) |
 |---|---|---|
 | D1 `planClose()` read-only planner, CLI dry run | FR-01, FR-02, FR-03, FR-04, FR-05, FR-06, FR-07, FR-08, FR-09, FR-10; NFR-01, NFR-05, NFR-10 | Public repo; `dustin plan` runnable against any testnet account (FR-09); committed plan output for Fixture A in `evidence/plan/` (FR-29) |
-| D2 `executeClose()` live on testnet, fee-sponsored, ladder, sponsored unwinding, seqnum guard, retry and recovery | FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20; NFR-02, NFR-03, NFR-04, NFR-09, NFR-11 | Transaction hashes with Explorer links and the Horizon 404 for the Account in `evidence/close/` (FR-18, FR-29); 60-second video (FR-28) |
+| D2 `executeClose()` live on testnet, fee-sponsored, ladder, sponsored unwinding, seqnum guard, retry and recovery | FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20; NFR-02, NFR-03, NFR-04, NFR-09, NFR-11 | Transaction hashes with Explorer links and the Horizon 404 for the Account in `evidence/runs/<UTC stamp>/` (FR-18, FR-29; the layout is `evidence/runs/README.md`); 60-second video (FR-28) |
 | D3 Edge cases, fixture, baseline recording, test matrix | FR-21, FR-22, FR-23, FR-24, FR-25 | Test results screenshot and text in `evidence/tests/` (FR-24); public repo with `npm test` and `npm run test:live` (FR-24, FR-26); baseline recording and snapshots in `evidence/baseline/` (FR-25) |
 | D4 README, integration notes, write-up, 60-second demo, evidence package, npm package | FR-26, FR-27, FR-28, FR-29, FR-30; NFR-06, NFR-07, NFR-08, NFR-12 | Public repo (FR-30); write-up `docs/ordering-rules-and-limits.md` (FR-27); video (FR-28); `evidence/README.md` (FR-29) |
 
@@ -725,8 +787,8 @@ Anything else is stretch (section 14).
 | At least 3 trustlines with non-zero balances | FR-21, FR-22 | same |
 | At least 1 open offer | FR-21, FR-22 | same |
 | At least 1 data entry | FR-21, FR-22 | same |
-| Every transaction fee-bumped by the sponsor | FR-11, FR-18 | `evidence/close/horizon-tx-<hash>.json` (fee account), `evidence/close/report.json` |
-| Account no longer exists on a public testnet explorer | FR-18, `dustin verify-closed` | `evidence/close/account-after-404.json`, Explorer link |
+| Every transaction fee-bumped by the sponsor | FR-11, FR-18 | `evidence/runs/<UTC stamp>/tx-<n>.json` (fee account), `evidence/runs/<UTC stamp>/report.json` |
+| Account no longer exists on a public testnet explorer | FR-18, `verifyClosed()` | `evidence/runs/<UTC stamp>/account-after.json`, Explorer link |
 | Full transaction chain linkable from the evidence package | FR-18, FR-29 | `evidence/README.md` |
 
 ## 13. Release plan
@@ -743,9 +805,9 @@ Definition of done (SOW): "`planClose()` returns a correct ordered plan for the 
 
 ### Week 2 (2026-09-29 to 2026-10-05) — Simple close, end to end
 
-Work: fee-bumped submission (FR-11), submission and retry basics (FR-15), pre-flight and Drift (FR-16), Close Report (FR-18), `dustin close` (FR-19), Fee Sponsor checks (FR-20); variant SIMPLE closed end to end.
+Work: fee-bumped submission (FR-11), submission and retry basics (FR-15), pre-flight and Drift (FR-16), Close Report (FR-18), `dustin close` (FR-19), Fee Sponsor checks (FR-20); a zero-spendable Fixture A closed end to end (the SIMPLE variant was replaced by the harder Fixture A, decision of 2026-09-28).
 
-Definition of done (SOW): "A zero-XLM account is closed end to end on testnet with sponsored fees, with verifiable transaction hashes and the account gone from the explorer." Verification: T-15 and T-18 passing; the SIMPLE close report with hashes and Explorer links archived under `evidence/close-simple/` together with the Horizon transaction record showing the Fee Sponsor as fee account and the Horizon 404 for the account.
+Definition of done (SOW): "A zero-XLM account is closed end to end on testnet with sponsored fees, with verifiable transaction hashes and the account gone from the explorer." Verification: T-15 and T-18 passing; the close report with hashes and Explorer links archived under `evidence/runs/<UTC stamp>/` together with the Horizon transaction record showing the Fee Sponsor as fee account and the Horizon 404 for the account (met on 2026-09-26 and 2026-09-27: `evidence/runs/20260926T125350Z/`, SDK run, and `evidence/runs/20260927T200015Z-cli/`, CLI run with transcript).
 
 ### Week 3 (2026-10-06 to 2026-10-12) — The leftover balance ladder
 
@@ -787,6 +849,12 @@ Candidates only; none is committed, scheduled, or budgeted.
 ## Decisions after review
 
 - D-1 (2026-09-25, approved by the builder): the disposal ladder keeps the SOW order by default. A CLI flag `--prefer-destination` and an SDK option `preferDestination: true` try the destination transfer (rung 3) before the return to issuer (rung 2) and fall back to the burn when the destination cannot receive the asset. The plan states which order was used per balance. The messy fixture close, the demo and the evidence package use the default order. Effort: about 1 to 2 hours inside D2; no change to the SOW scope.
+- D-2 (2026-09-28, builder, review finding AA-11): the SDK keeps the names it was built with. Section 7 was rewritten to match the code: `verifyClosed(account, options)` returning `{ accountExists, horizonStatus, checkedAt, ledger, accountUrl }`, `maxAttemptsPerTransaction`, `timeoutSeconds`, `tx:*` events. The `resume` option and the `fallback` step status are removed: running a close again is how it resumes, and the rung actually used is on the step outcome.
+- D-3 (2026-09-28, builder, review findings CL-12 and BH-14): the CI seed scan uses the standalone pattern `(?<![A-Z2-7])S[A-Z2-7]{55}(?![A-Z2-7])` (`git grep -P`), so a muxed address that contains a seed-shaped run no longer fails CI.
+- D-4 (2026-09-28, builder): the E2-S6 deviations are accepted: live closes of fresh Fixture A (`messy`) accounts instead of a SIMPLE variant, evidence in `evidence/runs/<UTC stamp>/` instead of `evidence/closes/`, and `test/testnet/execute-close.test.ts` instead of `simple-close.test.ts`.
+- D-5 (2026-09-28, builder, review decision 5 of 2026-09-27): pauses between requests to Horizon (`pollIntervalMs`, `backoffMs`, `verifyClosed`'s `intervalMs`, the read client's retry backoff) are at least 200 ms and never 0; the pause function is injected (`sleep`), a timer by default, and tests inject one that returns at once.
+- D-6 (2026-09-28, builder): an over-budget refusal and `SPONSOR_UNDERFUNDED` exit with code 3, "nothing executed"; canonical decision 5 in `docs/README.md` now reads "3 = nothing executed: no confirmation, blockers without `--partial`, or a sponsor or budget precondition failed".
+- D-7 (2026-09-28, builder): the history rewrite for review findings R4 and R5 is postponed; the rest of the work goes on without it.
 
 ## Assumptions
 

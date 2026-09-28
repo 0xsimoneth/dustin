@@ -40,12 +40,13 @@ describe("exitCodeForReport (canonical decision 5)", () => {
       exitCodeFor(new DustinError(c, "x", { stage: "config" }));
     expect(code("MISSING_ACCOUNT_SECRET")).toBe(2);
     expect(code("MISSING_SPONSOR_SECRET")).toBe(2);
-    expect(code("SPONSOR_BUDGET_EXCEEDED")).toBe(2);
+    expect(code("SPONSOR_BUDGET_EXCEEDED")).toBe(3);
+    expect(code("SPONSOR_UNDERFUNDED")).toBe(3);
     expect(code("CONFIRMATION_DECLINED")).toBe(3);
     expect(code("EXECUTION_INTERRUPTED")).toBe(5);
   });
 
-  it("maps an interruption before any submission to 1, and an over-budget refusal to 2", () => {
+  it("maps an interruption before any submission to 1, and an over-budget refusal to 3", () => {
     const interrupted = new DustinError("EXECUTION_INTERRUPTED", "signer threw", {
       stage: "build",
     }).withReport({ transactions: [] } as unknown as CloseReport);
@@ -56,7 +57,9 @@ describe("exitCodeForReport (canonical decision 5)", () => {
       transactions: [],
       stop: { code: "OVER_BUDGET", stage: "sponsor", verdict: "stop", detail: "fees rose" },
     };
-    expect(exitCodeForReport(overBudget)).toBe(ExitCode.USAGE);
+    // Canonical decision 5 as widened on 2026-09-28: a failed sponsor or budget precondition is
+    // "nothing executed", like the CLI's own budget check before the question.
+    expect(exitCodeForReport(overBudget)).toBe(ExitCode.NOTHING_EXECUTED);
     expect(exitCodeForReport({ ...overBudget, stop: null })).toBe(ExitCode.NOTHING_EXECUTED);
   });
 

@@ -21,13 +21,17 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Scan tracked files for secret seeds
-        # A Stellar secret seed is "S" followed by 55 base32 characters (review R17). CI logs are
-        # public, so only the names of matching files are printed (git grep -l), never the text.
-        # git grep exits 0 when something matches, 1 when nothing does, and above 1 on an error.
+        # A Stellar secret seed is "S" followed by 55 base32 characters (review R17), standing alone:
+        # the lookarounds skip such a run inside a longer base32 string, which about a third of
+        # muxed M... addresses contain (review CL-12 and BH-14; the standalone rule of
+        # containsSecretSeed in src/errors/redact.ts, which can also check a StrKey checksum). CI
+        # logs are public, so only the names of matching files are
+        # printed (git grep -l), never the text. git grep exits 0 when something matches, 1 when
+        # nothing does, and above 1 on an error.
         shell: bash
         run: |
           status=0
-          files="$(git grep -l -E 'S[A-Z2-7]{55}')" || status=$?
+          files="$(git grep -l -P '(?<![A-Z2-7])S[A-Z2-7]{55}(?![A-Z2-7])')" || status=$?
           if [ "$status" -eq 1 ]; then
             echo "No secret-seed-shaped string in the tracked files."
           elif [ "$status" -eq 0 ]; then

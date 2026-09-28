@@ -1,3 +1,4 @@
+import { assertPause, timerSleep, type Sleep } from "../config/pauses.js";
 import type { FetchLike } from "../reader/horizon-json.js";
 import { feeChargedFromResultXdr, resultCodesFromXdr, type ResultCodes } from "./result-codes.js";
 
@@ -152,8 +153,6 @@ function includedFailure(codes: ResultCodes): boolean {
   return codes.transaction === "tx_fee_bump_inner_failed" && codes.innerTransaction === "tx_failed";
 }
 
-const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
-
 interface HorizonSubmitBody {
   successful?: boolean;
   ledger?: number;
@@ -241,13 +240,14 @@ function fromResponse(hash: string, status: number, raw: unknown): SubmitOutcome
 }
 
 export interface ConfirmOptions {
-  /** Pause between lookups by hash; default 2000 ms. */
+  /** Pause between lookups by hash; default 2000 ms, at least 200 (src/config/pauses.ts). */
   pollIntervalMs?: number;
   /** How long to keep looking after the upper time bound; default 10 s. */
   graceSeconds?: number;
   /** Local clock in Unix seconds. With `ledgerCloseTime` it only measures how long the wait lasts. */
   now?: () => number;
-  sleep?: (ms: number) => Promise<void>;
+  /** Default a timer; tests that must not wait pass one that returns at once. */
+  sleep?: Sleep;
   /**
    * Close time (Unix seconds) of the latest ledger Horizon has ingested. When given, the deadline
    * comes from the ledger's clock: an envelope is reported gone only once a ledger closed after its
@@ -285,6 +285,7 @@ export async function submitAndConfirm(
   envelope: { xdr: string; hash: string; maxTime: number },
   options: ConfirmOptions = {},
 ): Promise<SubmitOutcome> {
+  assertPause("pollIntervalMs", options.pollIntervalMs, "config");
   const response = await submitter.submit(envelope.xdr);
   if ("status" in response) {
     const known = fromResponse(envelope.hash, response.status, response.body);
@@ -360,7 +361,7 @@ async function confirmByLocalClock(
         ? { kind: "unknown", hash: envelope.hash, lookupError: found.detail }
         : { kind: "unknown", hash: envelope.hash };
     }
-    await (options.sleep ?? defaultSleep)(options.pollIntervalMs ?? 2000);
+    await (options.sleep ?? timerSleep)(options.pollIntervalMs ?? 2000);
   }
 }
 
@@ -416,6 +417,6 @@ async function confirmByLedgerClock(
         ...(found.kind === "error" ? { lookupError: found.detail } : {}),
       };
     }
-    await (options.sleep ?? defaultSleep)(options.pollIntervalMs ?? 2000);
+    await (options.sleep ?? timerSleep)(options.pollIntervalMs ?? 2000);
   }
 }

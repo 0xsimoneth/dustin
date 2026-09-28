@@ -5,6 +5,7 @@ import {
   verifyHorizonIsTestnet,
   type ResolvedConfig,
 } from "../../config/network.js";
+import type { Sleep } from "../../config/pauses.js";
 import { DustinError } from "../../errors/dustin-error.js";
 import { buildMessyFixture } from "../../fixture/builder.js";
 import { readManifest, type FixtureKeys } from "../../fixture/manifest.js";
@@ -23,7 +24,7 @@ export interface CommandContext {
   config: () => ResolvedConfig;
   fetch?: FetchLike;
   /** Horizon retry tuning (tests); defaults apply otherwise. */
-  horizon?: { retries?: number; backoffMs?: number };
+  horizon?: { retries?: number; backoffMs?: number; sleep?: Sleep };
 }
 
 const json = (value: unknown) => `${JSON.stringify(value, null, 2)}\n`;

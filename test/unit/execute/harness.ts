@@ -71,7 +71,7 @@ export function harness(wrap?: (ledger: FakeLedger, fetch: FetchLike) => FetchLi
   const clock = testClock();
   const base = recordIncludedFaults(ledger, withLedgerClock(ledger.fetch, clock));
   const fetch = wrap ? wrap(ledger, base) : base;
-  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0, backoffMs: 0 }));
+  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 }));
   const submitter = horizonSubmitter(TESTNET_HORIZON, { fetch });
   const deps = {
     reader,

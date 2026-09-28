@@ -176,22 +176,22 @@ describe("dustin close --execute: refusals before anything is signed", () => {
     expect(world.ledger.submissions).toHaveLength(0);
   });
 
-  it("refuses a bid over the sponsor's budget before asking (exit 2)", async () => {
+  it("refuses a bid over the sponsor's budget before asking (exit 3)", async () => {
     const world = zeroSpendableWorld({ dataEntries: 60 });
     const r = await closeCli(world, executeArgs(world, "--base-fee", "1000000"), {
       answer: world.destination.slice(-4),
     });
-    expect(r.code).toBe(2);
+    expect(r.code).toBe(3);
     expect(r.err).toContain("SPONSOR_BUDGET_EXCEEDED");
     expect(r.prompts).toEqual([]);
     expect(world.ledger.submissions).toHaveLength(0);
   });
 
-  it("refuses a sponsor that cannot cover the budget before asking (exit 2)", async () => {
+  it("refuses a sponsor that cannot cover the budget before asking (exit 3)", async () => {
     const world = zeroSpendableWorld();
     world.ledger.accounts.get(world.sponsor.publicKey())!.balances[0]!.balance = "3.0000000";
     const r = await closeCli(world, executeArgs(world), { answer: world.destination.slice(-4) });
-    expect(r.code).toBe(2);
+    expect(r.code).toBe(3);
     expect(r.err).toContain("SPONSOR_UNDERFUNDED");
     expect(r.prompts).toEqual([]);
     expect(world.ledger.submissions).toHaveLength(0);

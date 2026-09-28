@@ -22,7 +22,7 @@ async function cli(
     {
       env: deps.env ?? {},
       fetch: deps.fetch ?? recordedFetch(recorded).fetch,
-      horizon: { retries: 0, backoffMs: 0 },
+      horizon: { retries: 0 },
     },
   );
   return { code, out: out.join(""), err: err.join("") };

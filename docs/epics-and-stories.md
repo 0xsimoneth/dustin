@@ -473,6 +473,8 @@ So that the user can read what happens to their dust before they sign anything.
 
 ### Story 2.6 (E2-S6): First live end-to-end simple close on testnet with evidence (`2-6-live-simple-close`)
 
+> Decision (2026-09-28, builder): the deviations recorded in `docs/stories/2-6-live-simple-close.md` are accepted. Fresh `messy` fixtures replace the `simple` profile, `evidence/runs/<UTC stamp>/` replaces `evidence/closes/simple-<date>/`, and `test/testnet/execute-close.test.ts` replaces `simple-close.test.ts` (PRD decision D-4).
+
 As the builder,
 I want a recorded, verifiable simple close on testnet,
 So that Week 2's expected output is met and the D2 evidence chain starts.

@@ -123,8 +123,8 @@ describe("close --execute exit codes, whatever the executor does inside", () => 
     const world = zeroSpendableWorld();
     const cases: Array<[DustinError["code"], DustinError["stage"], number]> = [
       ["HORIZON_UNAVAILABLE", "inspect", 6],
-      ["SPONSOR_UNDERFUNDED", "sponsor", 2],
-      ["SPONSOR_BUDGET_EXCEEDED", "sponsor", 2],
+      ["SPONSOR_UNDERFUNDED", "sponsor", 3],
+      ["SPONSOR_BUDGET_EXCEEDED", "sponsor", 3],
       // Nothing reached the network, so an interruption is an unexpected error, not a stopped run.
       ["EXECUTION_INTERRUPTED", "submit", 1],
       ["TOO_MANY_OPERATIONS", "build", 1],
@@ -149,7 +149,7 @@ describe("close --execute exit codes, whatever the executor does inside", () => 
       );
     };
     const r = await withStub(world, stub, "--json", "--report", path);
-    expect(r.code).toBe(2);
+    expect(r.code).toBe(3);
     const printed = JSON.parse(r.out) as CloseReport;
     const saved = JSON.parse(readFileSync(path, "utf8")) as CloseReport;
     for (const x of [printed, saved]) {

@@ -1,3 +1,4 @@
+import { assertPause, timerSleep, type Sleep } from "../config/pauses.js";
 import { DustinError } from "../errors/dustin-error.js";
 import type { HorizonOffer } from "../inspect/horizon-types.js";
 
@@ -16,19 +17,23 @@ export interface HorizonJsonClient {
 export interface HorizonJsonOptions {
   fetch?: FetchLike;
   retries?: number;
+  /** First pause before a retry, doubled each time; default 1000 ms, at least 200. */
   backoffMs?: number;
   timeoutMs?: number;
+  /** Default a timer; tests that must not wait pass one that returns at once. */
+  sleep?: Sleep;
 }
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export function horizonJson(
   horizonUrl: string,
   options: HorizonJsonOptions = {},
 ): HorizonJsonClient {
   const doFetch: FetchLike = options.fetch ?? ((url, init) => fetch(url, init));
+  // A pause of 0 would retry Horizon in a tight loop (src/config/pauses.ts).
+  assertPause("backoffMs", options.backoffMs, "config");
   const retries = options.retries ?? 3;
   const backoffMs = options.backoffMs ?? 1000;
+  const sleep = options.sleep ?? timerSleep;
   const timeoutMs = options.timeoutMs ?? 30_000;
 
   async function get<T>(path: string): Promise<T | null> {

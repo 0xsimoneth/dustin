@@ -9,6 +9,7 @@ import { FeeSponsor } from "../../src/sponsor/sponsor.js";
 import { buildInnerTransaction } from "../../src/tx/build-inner.js";
 import type { FakeLedger } from "./fake-ledger.js";
 import { TESTNET_HORIZON } from "./recorded-horizon.js";
+import { noSleep } from "./no-sleep.js";
 
 const TESTNET = "Test SDF Network ; September 2015";
 
@@ -40,6 +41,6 @@ export async function submitToFakeLedger(
   return submitAndConfirm(
     horizonSubmitter(TESTNET_HORIZON, { fetch: ledger.fetch }),
     { xdr: bump.toXDR(), hash: hashHex(bump), maxTime },
-    { pollIntervalMs: 0 },
+    { sleep: noSleep },
   );
 }

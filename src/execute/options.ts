@@ -1,4 +1,5 @@
 import { MIN_BASE_FEE } from "../config/fees.js";
+import { MIN_PAUSE_MS, isPause } from "../config/pauses.js";
 import { DustinError } from "../errors/dustin-error.js";
 
 /** The numeric execute options, as `validateExecuteOptions` reads them. */
@@ -22,19 +23,25 @@ const count = (least: number): Rule => ({
   test: (n) => Number.isSafeInteger(n) && n >= least,
   expected: `a whole number of at least ${least}`,
 });
-// Zero is a pause like any other: every wait stays bounded by ledger close times and by limits
-// measured on the local clock, and tests and callers pass 0 to wait for nothing.
+// A bound (how long to keep trying) may be 0, meaning "look once".
 const duration: Rule = {
   test: (n) => Number.isFinite(n) && n >= 0,
   expected: "a finite number of at least 0",
+};
+// A pause (the time slept between two requests to Horizon) is at least 200 ms and never 0, so no
+// caller can make the executor poll Horizon in a tight loop (src/config/pauses.ts). Tests skip real
+// waiting by injecting `sleep`, never by passing 0.
+const pause: Rule = {
+  test: isPause,
+  expected: `a pause of at least ${MIN_PAUSE_MS} ms (inject \`sleep\` to skip waiting)`,
 };
 
 const RULES: Record<keyof NumericExecuteOptions, Rule> = {
   maxAttemptsPerTransaction: count(1),
   maxReplans: count(0),
   maxRateLimitRetries: count(0),
-  pollIntervalMs: duration,
-  backoffMs: duration,
+  pollIntervalMs: pause,
+  backoffMs: pause,
   verifyTimeoutMs: duration,
   graceSeconds: duration,
   ledgerWaitSeconds: duration,

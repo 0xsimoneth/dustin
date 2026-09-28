@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import { renderReport } from "../../../src/render/report-text.js";
 import type { FakeLedger } from "../../helpers/fake-ledger.js";
+import { noSleep } from "../../helpers/no-sleep.js";
 import { messy } from "../../helpers/snapshots.js";
 import {
   answer,
@@ -692,6 +693,10 @@ describe("edge case E11: numeric execute options are checked before anything is 
     ["maxRateLimitRetries", -1],
     ["pollIntervalMs", Number.NaN],
     ["pollIntervalMs", -5],
+    // Pauses are at least 200 ms and never 0 (builder decision of 2026-09-28).
+    ["pollIntervalMs", 0],
+    ["pollIntervalMs", 199],
+    ["backoffMs", 0],
     ["backoffMs", Number.POSITIVE_INFINITY],
     ["verifyTimeoutMs", -1],
     ["graceSeconds", Number.NaN],
@@ -722,13 +727,14 @@ describe("edge case E11: numeric execute options are checked before anything is 
     expect(ledger.submissions).toHaveLength(0);
   });
 
-  it("keeps the zero pauses that tests and callers use", async () => {
+  it("accepts the 200 ms floor and zero bounds; tests skip waiting with an injected sleep", async () => {
     const { deps, plan } = harness();
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
-      pollIntervalMs: 0,
-      backoffMs: 0,
+      sleep: noSleep,
+      pollIntervalMs: 200,
+      backoffMs: 200,
       graceSeconds: 0,
       verifyTimeoutMs: 0,
       maxReplans: 0,

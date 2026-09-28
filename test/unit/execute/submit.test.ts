@@ -4,6 +4,7 @@ import {
   lookupTransaction,
   submitAndConfirm,
 } from "../../../src/execute/submit.js";
+import { noSleep } from "../../helpers/no-sleep.js";
 
 const HASH = "ab".repeat(32);
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status });
@@ -32,12 +33,20 @@ function fake(responses: Array<Response | Error>, record: unknown = null) {
 }
 
 describe("submitAndConfirm", () => {
+  it("refuses a poll interval below 200 ms before posting anything", async () => {
+    const { submitter, calls } = fake([json(applied)]);
+    await expect(
+      submitAndConfirm(submitter, { xdr: "ENV", hash: HASH, maxTime: 0 }, { pollIntervalMs: 0 }),
+    ).rejects.toMatchObject({ code: "CONFIG_INVALID", stage: "config" });
+    expect(calls).toEqual([]);
+  });
+
   it("returns the applied transaction", async () => {
     const { submitter, calls } = fake([json(applied)]);
     const r = await submitAndConfirm(
       submitter,
       { xdr: "ENV", hash: HASH, maxTime: 0 },
-      { pollIntervalMs: 0 },
+      { sleep: noSleep },
     );
     expect(r).toEqual({
       kind: "applied",
@@ -66,7 +75,7 @@ describe("submitAndConfirm", () => {
     const r = await submitAndConfirm(
       submitter,
       { xdr: "ENV", hash: HASH, maxTime: 0 },
-      { pollIntervalMs: 0 },
+      { sleep: noSleep },
     );
     expect(r).toEqual({
       kind: "failed",
@@ -84,18 +93,13 @@ describe("submitAndConfirm", () => {
     // The same answer without a record was refused at validation (edge case E6).
     const { submitter: refused } = fake([json(body, 400)]);
     expect(
-      await submitAndConfirm(
-        refused,
-        { xdr: "ENV", hash: HASH, maxTime: 0 },
-        { pollIntervalMs: 0 },
-      ),
+      await submitAndConfirm(refused, { xdr: "ENV", hash: HASH, maxTime: 0 }, { sleep: noSleep }),
     ).toMatchObject({ kind: "rejected", status: 400, codes: { innerTransaction: "tx_failed" } });
     const { submitter: s2 } = fake([
       json({ status: 400, extras: { result_codes: { transaction: "tx_bad_seq" } } }, 400),
     ]);
     expect(
-      (await submitAndConfirm(s2, { xdr: "ENV", hash: HASH, maxTime: 0 }, { pollIntervalMs: 0 }))
-        .kind,
+      (await submitAndConfirm(s2, { xdr: "ENV", hash: HASH, maxTime: 0 }, { sleep: noSleep })).kind,
     ).toBe("rejected");
   });
 
@@ -104,7 +108,7 @@ describe("submitAndConfirm", () => {
     const r = await submitAndConfirm(
       submitter,
       { xdr: "ENV", hash: HASH, maxTime: 9_999_999_999 },
-      { pollIntervalMs: 0 },
+      { sleep: noSleep },
     );
     expect(r.kind).toBe("applied");
     expect(calls.filter((c) => c.method === "POST")).toHaveLength(1);
@@ -117,7 +121,7 @@ describe("submitAndConfirm", () => {
     const r = await submitAndConfirm(
       submitter,
       { xdr: "ENV", hash: HASH, maxTime: past },
-      { pollIntervalMs: 0 },
+      { sleep: noSleep },
     );
     expect(r).toEqual({ kind: "unknown", hash: HASH });
     expect(calls.filter((c) => c.method === "GET").length).toBeGreaterThanOrEqual(1);

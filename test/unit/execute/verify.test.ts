@@ -8,9 +8,7 @@ import { messy } from "../../helpers/snapshots.js";
 
 function setup() {
   const ledger = FakeLedger.messy();
-  const reader = horizonReader(
-    horizonJson(TESTNET_HORIZON, { fetch: ledger.fetch, retries: 0, backoffMs: 0 }),
-  );
+  const reader = horizonReader(horizonJson(TESTNET_HORIZON, { fetch: ledger.fetch, retries: 0 }));
   const reads = { account: 0 };
   const counting: LedgerReader = {
     ...reader,
@@ -77,6 +75,24 @@ describe("verifyClosed", () => {
     });
     expect(v).toMatchObject({ accountExists: true, horizonStatus: 200 });
     expect(reads.account).toBe(6);
+  });
+
+  it("refuses a pause below 200 ms and a negative time limit before reading anything", async () => {
+    const { reader, reads, clock } = setup();
+    for (const bad of [
+      { intervalMs: 0 },
+      { intervalMs: 199 },
+      { timeoutMs: -1 },
+      { timeoutMs: Number.NaN },
+    ]) {
+      await expect(verifyClosed(messy.fixture, { reader, ...clock, ...bad })).rejects.toMatchObject(
+        {
+          code: "CONFIG_INVALID",
+          stage: "config",
+        },
+      );
+    }
+    expect(reads.account).toBe(0);
   });
 
   it("checks once when the time limit is 0", async () => {

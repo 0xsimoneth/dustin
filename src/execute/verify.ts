@@ -1,4 +1,6 @@
 import { assertTestnetPassphrase, resolveConfig, type DustinConfig } from "../config/network.js";
+import { assertPause, timerSleep, type Sleep } from "../config/pauses.js";
+import { DustinError } from "../errors/dustin-error.js";
 import { assertAccountAddress } from "../inspect/address.js";
 import { horizonJson } from "../reader/horizon-json.js";
 import { horizonReader, type LedgerReader } from "../reader/ledger-reader.js";
@@ -9,11 +11,14 @@ export interface VerifyClosedOptions {
   reader?: LedgerReader;
   /** Keep looking until Horizon answers 404 for at most this long; default 30 s, 0 checks once. */
   timeoutMs?: number;
-  /** Pause between looks; default 2 s. */
+  /** Pause between looks; default 2 s, at least 200 ms (src/config/pauses.ts). */
   intervalMs?: number;
-  /** Clock in milliseconds and the wait between looks, for tests and custom schedulers. */
+  /**
+   * Clock in milliseconds and the wait between looks, for tests and custom schedulers; tests that
+   * must not wait inject a sleep that returns at once.
+   */
   now?: () => number;
-  sleep?: (ms: number) => Promise<void>;
+  sleep?: Sleep;
 }
 
 export interface ClosedVerification {
@@ -24,8 +29,6 @@ export interface ClosedVerification {
   ledger: number;
   accountUrl: string;
 }
-
-const defaultSleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
 /**
  * The final proof of a close (PRD FR-18, AC-E2-S4-1): `GET /accounts/{id}` answers 404 once the
@@ -38,11 +41,22 @@ export async function verifyClosed(
   options: VerifyClosedOptions = {},
 ): Promise<ClosedVerification> {
   assertAccountAddress(account);
+  assertPause("intervalMs", options.intervalMs, "config");
+  if (
+    options.timeoutMs !== undefined &&
+    !(Number.isFinite(options.timeoutMs) && options.timeoutMs >= 0)
+  ) {
+    throw new DustinError(
+      "CONFIG_INVALID",
+      `Invalid option: timeoutMs must be a finite number of at least 0; got ${String(options.timeoutMs)}.`,
+      { stage: "config" },
+    );
+  }
   const config = resolveConfig(options.config);
   const reader = options.reader ?? horizonReader(horizonJson(config.horizonUrl));
   if (!options.reader) assertTestnetPassphrase(await reader.networkPassphrase());
   const now = options.now ?? (() => Date.now());
-  const sleep = options.sleep ?? defaultSleep;
+  const sleep = options.sleep ?? timerSleep;
   const deadline = now() + (options.timeoutMs ?? 30_000);
   for (;;) {
     const ledger = await reader.latestLedger();

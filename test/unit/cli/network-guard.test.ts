@@ -17,7 +17,7 @@ async function cli(args: string[], fetch: Fetch) {
     ["node", "dustin", ...args],
     { stdout: (s) => void out.push(s), stderr: (s) => void err.push(s) },
     "0.0.0",
-    { env: {}, fetch, horizon: { retries: 0, backoffMs: 0 } },
+    { env: {}, fetch, horizon: { retries: 0 } },
   );
   return { code, out: out.join(""), err: err.join("") };
 }

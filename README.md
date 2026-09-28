@@ -38,7 +38,7 @@ Typing `export DUSTIN_ACCOUNT_SECRET=S...` at a prompt stores the secret in your
 1. Checks the addresses, then reads the two secrets (see [Configuration](#configuration)) and checks them: each must be a valid secret key, the account secret must belong to the account being closed, and the sponsor must be a different account. A missing, malformed or wrong secret stops the run with exit code 2; its value is never printed.
 2. Asks Horizon which network it serves (`GET /`) and refuses anything but the testnet.
 3. Re-reads the account and prints a fresh plan, with the sponsor as fee payer and the sponsor's per-close budget (5 XLM) next to the fee bid.
-4. Stops before anything is signed when there is nothing to execute (exit 3), when an item cannot be disposed of and `--partial` is not given (exit 3, with the reason and the remedy for each item), when the fee bid exceeds the budget, or when the sponsor cannot spend at least the budget (exit 2).
+4. Stops before anything is signed, with exit code 3, when there is nothing to execute, when an item cannot be disposed of and `--partial` is not given (with the reason and the remedy for each item), when the fee bid exceeds the budget, or when the sponsor cannot spend at least the budget.
 5. Shows what will happen (the destination, the XLM it receives through the merge, the sponsor and what it can spend, the transactions and operations) and asks you to type the **last four characters of the destination**. Anything else, an empty answer, the end of input, Ctrl-C, or a standard input that is not a terminal leaves everything untouched (exit 3). `--yes` skips the question for scripts and says so loudly; it is honoured only with `--execute`.
 6. Runs the plan. Every transaction is signed by the account and fee-bumped by the sponsor. Each one prints its hash and explorer link when it is submitted, then its ledger and the fee charged to the sponsor when it is confirmed, or its result codes when it fails.
 7. Checks the account on Horizon (`404` means it no longer exists) and prints a receipt: every transaction with its outer and inner hash, ledger, fee and the operations it carried; the XLM merged into the destination; reserves returned to reserve sponsors; fees paid by the account (0) and by the sponsor; explorer links for the account and the destination. After a partial or failed run it says what is left and how to continue: run the same command again, and Dustin re-reads the account and plans only what is left.
@@ -63,8 +63,8 @@ Exit codes:
 |---|---|
 | 0 | Plan printed, or account closed and verified gone (Horizon answers 404) |
 | 1 | Unexpected error |
-| 2 | Usage or validation error: bad address, secret on the command line, missing, malformed or wrong secret, a network other than testnet, a URL that is not a Horizon server, a fee bid over the sponsor's budget, or a sponsor that cannot cover it |
-| 3 | Nothing executed: confirmation declined or impossible (no terminal and no `--yes`), unclosable items without `--partial`, nothing to execute, or the account changed after the plan was shown |
+| 2 | Usage or validation error: bad address, secret on the command line, missing, malformed or wrong secret, a network other than testnet, a URL that is not a Horizon server |
+| 3 | Nothing executed: confirmation declined or impossible (no terminal and no `--yes`), unclosable items without `--partial`, nothing to execute, the account changed after the plan was shown, a fee bid over the sponsor's budget, or a sponsor that cannot cover it |
 | 4 | Partial: everything possible was done and the account still exists |
 | 5 | Stopped or failed during execution, or a merge that was not verified gone; run the same command again to continue |
 | 6 | Horizon unreachable before anything was submitted |
