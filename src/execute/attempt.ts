@@ -130,7 +130,12 @@ function unknownMeaning(outcome: Extract<SubmitOutcome, { kind: "unknown" }>): s
     return `It could not be settled: ${outcome.readError}, so whether it applied is not known; ${unjudged}.`;
   }
   if (outcome.sequenceUsed) {
-    return "Not found by hash, but the account shows its sequence number used: it applied where Horizon has not caught up yet, or another transaction used the number. Either way it cannot apply any more.";
+    // Closing review CX-11: said from what proved the number used, the account or a refusal.
+    const proof =
+      outcome.sequenceUsedBy === "tx_bad_seq"
+        ? "a later envelope for the same sequence number was refused with tx_bad_seq, which shows its sequence number used"
+        : "the account shows its sequence number used";
+    return `Not found by hash, but ${proof}: it applied where Horizon has not caught up yet, or another transaction used the number. Either way it cannot apply any more.`;
   }
   return outcome.mayStillApply
     ? "Not found by hash, and no ledger has closed past its time bound yet, so it may still apply."
@@ -407,7 +412,12 @@ export async function submitPlannedTransaction(
           // or by another transaction), which the report records (review round 3, R3-11).
           for (const e of unseen) {
             if (e.sequence === entry.sequence) {
-              recordOutcome(e, { kind: "unknown", hash: e.hash, sequenceUsed: true });
+              recordOutcome(e, {
+                kind: "unknown",
+                hash: e.hash,
+                sequenceUsed: true,
+                sequenceUsedBy: "tx_bad_seq",
+              });
             }
           }
           ctx.changed();

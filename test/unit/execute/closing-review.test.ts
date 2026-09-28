@@ -17,7 +17,15 @@ import type { FakeLedger } from "../../helpers/fake-ledger.js";
 import { noSleep } from "../../helpers/no-sleep.js";
 import { TESTNET_HORIZON } from "../../helpers/recorded-horizon.js";
 import { messy } from "../../helpers/snapshots.js";
-import { failedOps, harness, reply, signers, testClock, type TestClock } from "./harness.js";
+import {
+  failedOps,
+  harness,
+  reply,
+  signers,
+  staleAccountOnce,
+  testClock,
+  type TestClock,
+} from "./harness.js";
 
 // Closing review of E3 (2026-09-28), executor half: the edge-case review's CX findings and the
 // acceptance audit's CA-13. Every test here failed on the code before its fix, and runs on the
@@ -747,5 +755,42 @@ describe("CX-10: after a verified close, a step that failed and then applied uns
       failures: 1,
       explanation: expect.stringMatching(/^Not confirmed by hash/) as string,
     });
+  });
+});
+
+describe("CX-11: a number proven used by tx_bad_seq is explained by that refusal", () => {
+  it("says a later envelope was refused with tx_bad_seq, not that the account shows it used", async () => {
+    let lost: string | null = null;
+    const stale = staleAccountOnce(messy.fixture);
+    const { ledger, deps, plan } = harness((_l, fetch) =>
+      stale.wrap((url, init) =>
+        lost && url.endsWith(`/transactions/${lost}`) ? reply(404) : fetch(url, init),
+      ),
+    );
+    ledger.faults.push("504-applied");
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.round === 0 && e.index === 0 && e.attempt === 1) {
+          lost = e.hash;
+          // The account read that checks the 404 lags: it shows the number unused.
+          stale.arm(ledger);
+        }
+      },
+    });
+    const [first, second] = report.transactions;
+    // The confirm loop judged the first envelope from the lagging read, so it was rebuilt.
+    expect(second).toMatchObject({ index: 0, attempt: 2, result: "rejected" });
+    expect(second!.resultCodes).toMatchObject({ innerTransaction: "tx_bad_seq" });
+    expect(second!.rebuiltBecause).toMatch(/can never apply/);
+    // Only the refusal proved the number used (review round 3, R3-11).
+    expect(first).toMatchObject({ result: "unknown", sequenceUsed: true });
+    // Before the fix: "Not found by hash, but the account shows its sequence number used".
+    expect(first!.explanation).not.toMatch(/the account shows/);
+    expect(first!.explanation).toMatch(
+      /a later envelope for the same sequence number was refused with tx_bad_seq/,
+    );
+    expect(first!.explanation).toMatch(/cannot apply any more/);
   });
 });

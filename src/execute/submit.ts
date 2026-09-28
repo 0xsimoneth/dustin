@@ -41,6 +41,12 @@ export type SubmitOutcome =
       readError?: string;
       /** Horizon answered 404, but the account shows the envelope's sequence number used. */
       sequenceUsed?: boolean;
+      /**
+       * What proved the number used, when it was not the account read: a later envelope for the
+       * same sequence number refused with `tx_bad_seq` (review round 3, R3-11; closing review
+       * CX-11). The explanation names it.
+       */
+      sequenceUsedBy?: "tx_bad_seq";
     };
 
 export interface TransactionRecord {
