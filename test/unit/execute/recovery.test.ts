@@ -554,12 +554,20 @@ describe("E2-S3: operations that fail on the ledger", () => {
 
   it("keeps op_seq_num_too_far a stop that names the ledger the merge can land in", async () => {
     const { ledger, deps, plan } = setup();
+    let bumped = false;
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
       onEvent: (e) => {
-        if (e.type === "tx:confirmed" && e.index === 1)
-          ledger.faults.push(failedOps("op_seq_num_too_far"));
+        // After the merge's preflight passed, another client bumps the sequence number 500
+        // ledgers ahead: the merge fails on the ledger, and the wait it would now need is beyond
+        // the plan's bound of 120 ledgers, so the run stops (story E3-S4 waits within the bound).
+        if (e.type === "preflight" && e.ok && !bumped) {
+          bumped = true;
+          ledger.accounts.get(messy.fixture)!.sequence = (
+            BigInt(ledger.ledgerSeq + 500) << 32n
+          ).toString();
+        }
       },
     });
     const sequence = BigInt(ledger.accounts.get(messy.fixture)!.sequence);

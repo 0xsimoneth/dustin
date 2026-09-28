@@ -1,6 +1,7 @@
+import { assertPause, type Sleep } from "../config/pauses.js";
 import { destinationBaseAccount } from "../inspect/address.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
-import { sequenceGuard } from "../plan/guard.js";
+import { SECONDS_PER_LEDGER, sequenceGuard } from "../plan/guard.js";
 import type { ClosePlan } from "../plan/model.js";
 import type { LedgerReader } from "../reader/ledger-reader.js";
 
@@ -9,6 +10,11 @@ export interface PreflightResult {
   detail: string;
   /** Set when the sequence guard blocks the merge: the first ledger it can land in. */
   unblocksAtLedger?: number;
+  /**
+   * Set with `unblocksAtLedger`: the latest ledger the check went by (story E3-S4). Every other
+   * check passed then, so waiting for the ledger is all the merge needs.
+   */
+  currentLedger?: number;
 }
 
 /**
@@ -30,6 +36,9 @@ function memoRequired(account: HorizonAccount): boolean {
  * holds. Leftover subentries are checked only when the merge runs alone (`mergeOnly`): when it
  * shares a transaction with removals, those run first and clear them, and anything else left makes
  * the whole transaction fail atomically with op_has_sub_entries.
+ *
+ * The sequence guard is checked last, so a result that names `unblocksAtLedger` means every other
+ * check passed and only the ledger has to move on (story E3-S4).
  */
 export async function mergePreflight(
   reader: LedgerReader,
@@ -38,13 +47,20 @@ export async function mergePreflight(
     mergeOnly: boolean;
     /** Reads the account; the executor waits out a Horizon behind its own transactions (E4). */
     readAccount?: () => Promise<HorizonAccount | null>;
+    /**
+     * A ledger already seen closed, for instance at the end of a wait for the sequence guard.
+     * Ledgers only grow, so the guard goes by the later of this and Horizon's answer: a Horizon
+     * behind the one that answered the wait cannot hold the merge back again.
+     */
+    knownLedger?: number;
   },
 ): Promise<PreflightResult> {
-  const [account, destination, ledger] = await Promise.all([
+  const [account, destination, latest] = await Promise.all([
     options.readAccount ? options.readAccount() : reader.account(plan.account),
     reader.account(destinationBaseAccount(plan.destination)),
     reader.latestLedger(),
   ]);
+  const ledger = Math.max(latest.sequence, options.knownLedger ?? 0);
   if (!account) return { ok: false, detail: "the account no longer exists" };
   if (options.mergeOnly) {
     const left = leftovers(account);
@@ -63,7 +79,7 @@ export async function mergePreflight(
   }
   const guard = sequenceGuard({
     sequence: account.sequence,
-    observedLedger: ledger.sequence,
+    observedLedger: ledger,
     mergeTxIndex: 0,
   });
   // Blind review BH11: any guard that is not ok blocks the merge, whether or not it names the
@@ -75,6 +91,7 @@ export async function mergePreflight(
           ok: false,
           detail: `the sequence guard blocks the merge until ledger ${guard.unblocksAtLedger}`,
           unblocksAtLedger: guard.unblocksAtLedger,
+          currentLedger: ledger,
         };
   }
   return {
@@ -103,4 +120,50 @@ export function leftovers(account: HorizonAccount): string[] {
     ...(offers ? [`${offers} offer(s)`] : []),
     ...(data ? [`${data} data entr${data === 1 ? "y" : "ies"}`] : []),
   ];
+}
+
+/** Slack beyond the ledgers to wait for, in ledgers, before a wait for the sequence guard gives up. */
+const WAIT_SLACK_LEDGERS = 2;
+
+/**
+ * The local-clock limit of a wait for `ledgers` more ledgers to close (story E3-S4): twice their
+ * time at the observed pace of about 5 s per ledger (`SECONDS_PER_LEDGER`), plus two ledgers. The
+ * ledgers decide when the wait is over; this limit only ends a wait on a network that closes
+ * ledgers far slower than usual, so it can never last without end.
+ */
+export function ledgerWaitLimitMs(ledgers: number): number {
+  return 2 * (Math.max(0, ledgers) + WAIT_SLACK_LEDGERS) * SECONDS_PER_LEDGER * 1000;
+}
+
+export interface LedgerWait {
+  /** True when Horizon reported `target` or a later ledger before the limit passed. */
+  reached: boolean;
+  /** The latest ledger Horizon reported at the last poll. */
+  ledger: number;
+  /** How long the wait lasted by the local clock, in milliseconds. */
+  waitedMs: number;
+  /** Reads of the latest ledger. */
+  polls: number;
+}
+
+/**
+ * Waits until Horizon reports `target` or a later ledger as its latest one (story E3-S4). It reads
+ * `GET /ledgers?order=desc&limit=1` and pauses `pollIntervalMs` between reads with the injected
+ * `sleep`, never in a tight loop (pauses are at least 200 ms, src/config/pauses.ts). The ledger
+ * decides when the wait is over; the local clock only bounds how long it may last (`limitMs`).
+ */
+export async function waitForLedger(
+  reader: Pick<LedgerReader, "latestLedger">,
+  target: number,
+  options: { pollIntervalMs: number; limitMs: number; sleep: Sleep; now: () => number },
+): Promise<LedgerWait> {
+  assertPause("pollIntervalMs", options.pollIntervalMs, "config");
+  const started = options.now();
+  for (let polls = 1; ; polls++) {
+    const ledger = (await reader.latestLedger()).sequence;
+    const waitedMs = options.now() - started;
+    if (ledger >= target) return { reached: true, ledger, waitedMs, polls };
+    if (waitedMs >= options.limitMs) return { reached: false, ledger, waitedMs, polls };
+    await options.sleep(options.pollIntervalMs);
+  }
 }
