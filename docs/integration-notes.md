@@ -345,8 +345,10 @@ The plan's `unclosable` and `blockers` codes, with their meaning and remedy, are
 6. Runs the plan. Every transaction is signed by the account and fee-bumped by the sponsor. Each one prints its hash and explorer link when it is submitted, then its ledger and the fee charged to the sponsor when it is confirmed, or its result codes when it fails.
 7. Checks the account on Horizon (404 means it no longer exists) and prints a receipt: every transaction with its outer and inner hash, ledger, fee and operations; the XLM merged into the destination; reserves returned to reserve sponsors; fees paid by the account (0) and by the sponsor; explorer links for the account and the destination. After a partial or failed run it says what is left and how to continue: run the same command again, and Dustin reads the account again and plans only what is left.
 
-Details of three options:
+Details of the options:
 
+- Without `--execute`, `dustin close` prints the same plan as `dustin plan` and changes nothing; `--yes`, `--partial` and `--report` then have no effect, and a note on standard error says so.
+- `--sponsor <G...>`: with `--execute` it must be the owner of `DUSTIN_SPONSOR_SECRET` (otherwise `WRONG_SIGNER`, exit 2); leave it out and the sponsor is that owner.
 - `--base-fee <stroops>`: with `--execute` it is both the bid and the ceiling: every re-plan keeps it, and a retry after `tx_insufficient_fee` cannot bid above it, so the run stops instead. Without it, a retry after a fee surge may raise the bid up to the per-operation cap, never beyond the 5 XLM budget.
 - `--json`: one JSON document on standard output, the plan or, with `--execute`, the final close report; the plan, the question, the progress and the receipt go to standard error. Progress as newline-delimited JSON events, and a non-interactive `--json`, are deferred to story E4-S1 (review finding AA-10).
 - `--report <file>`: the close report (JSON with public keys, hashes and envelopes; never a secret), rewritten after every change so a stopped run still has every hash. An earlier file at that path is kept under a timestamped name. A path whose name is `.env` is refused.

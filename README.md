@@ -4,21 +4,31 @@
 
 Dustin closes messy Stellar testnet accounts: it cancels offers, disposes of leftover balances, removes trustlines and data entries, and merges the account into a destination you choose. Every transaction is fee-bumped by a sponsor, so an account holding zero spendable XLM, which cannot pay for its own teardown, can still be closed. `planClose()` shows the whole ordered plan before anything is signed, so a wallet can offer account closure without sending its users to a web form.
 
-The existing StellarExpert Account Demolisher builds every transaction with the account being closed as both source and fee payer, and has no fee-bump or sponsored-reserve handling ([client source](https://github.com/stellar-expert/stellar-expert-explorer/blob/master/business-logic/demolisher/demolisher-tx-builder.js)). An account sitting at its minimum reserve therefore cannot even start. That is the gap Dustin fills.
+The existing StellarExpert Account Demolisher builds every transaction with the account being closed as both source and fee payer, and has no fee-bump or sponsored-reserve handling ([client source](https://github.com/stellar-expert/stellar-expert-explorer/blob/master/business-logic/demolisher/demolisher-tx-builder.js)). An account sitting at its minimum reserve therefore cannot even start. That is the gap Dustin fills. Other tools, including the two funded under SCF #44, and how Dustin differs from each are in the [write-up](docs/write-up.md) (section 9, prior art).
 
-> **Status: pre-release.** Dustin is being built during a 30-day Stellar Instaward sprint (2026-09-22 to 2026-10-22). `planClose()`, `executeClose()`, `dustin plan` and `dustin close --execute` are implemented and covered by the offline test tier, and a zero-spendable messy account was closed on testnet with sponsored fees ([evidence](evidence/runs/20260926T125350Z/summary.md)); the npm release, the demo and the evidence package follow. See [Status](#status).
+> **Status: pre-release.** Dustin is being built during a 30-day Stellar Instaward sprint (2026-09-22 to 2026-10-22). `planClose()`, `executeClose()`, `dustin plan` and `dustin close --execute` are implemented and covered by the offline test tier, and two zero-spendable messy accounts were closed on testnet with sponsored fees ([SDK close](evidence/runs/20260926T125350Z/summary.md), [CLI close](evidence/runs/20260927T200015Z-cli/summary.md)). Not done yet: the npm release, the demo video, the test matrix and the evidence package. See [Status](#status).
 
 ## Demo
 
-The 60-second demo of a full close from the CLI is recorded in week 4 and linked here.
+The 60-second demo of a full close from the CLI is recorded in week 4 and will be linked here (pending, story E4-S6). Until then, a CLI close you can check in a browser (the links stop resolving at the testnet reset of 2026-12-16):
+
+- the closed account: [explorer](https://stellar.expert/explorer/testnet/account/GBBF5QVZJKGOUSK57AUHJ6I2DCT4EDRWIHAN4BJRHOVILN7P3XEMNYA7), and [Horizon](https://horizon-testnet.stellar.org/accounts/GBBF5QVZJKGOUSK57AUHJ6I2DCT4EDRWIHAN4BJRHOVILN7P3XEMNYA7), which answers 404;
+- its first fee-bump transaction, paid by the sponsor: [explorer](https://stellar.expert/explorer/testnet/tx/7a995eee92b92a79b67f19bbc35456946fa76566601370c662ce40cdb0159da2);
+- the destination, which received 4.0000007 XLM: [explorer](https://stellar.expert/explorer/testnet/account/GAH2NP3B2L4YKKHX5DEDRUC7VLOX5L43IPJRB2LLSYOAMJYGZ4MPUJJY).
 
 ## Quick start: CLI
 
-Requires Node.js 22.12 or newer.
+Requires Node.js 22.12 or newer. The npm package `stellar-dustin` is not published yet (0.1.0 is planned for week 4); until then, build it from source:
 
 ```bash
-npm install -g stellar-dustin
+git clone https://github.com/0xsimoneth/dustin.git
+cd dustin
+npm ci
+npm run build
+npm link   # optional: puts `dustin` on your PATH; without it, use `node dist/cli/main.js` in place of `dustin`
+```
 
+```bash
 # Read-only: prints the ordered close plan. Needs no secret.
 dustin plan G<ACCOUNT> --to G<DESTINATION>
 
@@ -29,33 +39,24 @@ dustin plan G<ACCOUNT> --to G<DESTINATION>
 dustin close G<ACCOUNT> --to G<DESTINATION> --execute
 ```
 
-Typing `export DUSTIN_ACCOUNT_SECRET=S...` at a prompt stores the secret in your shell history; if you prefer the environment, read it without echo (`read -rs DUSTIN_ACCOUNT_SECRET && export DUSTIN_ACCOUNT_SECRET`) or load it from a secrets manager.
+Typing `export DUSTIN_ACCOUNT_SECRET=S...` at a prompt stores the secret in your shell history; read it without echo (`read -rs DUSTIN_ACCOUNT_SECRET && export DUSTIN_ACCOUNT_SECRET`) instead.
 
-`dustin close` without `--execute` prints the same plan as `dustin plan` and changes nothing; `--yes`, `--partial` and `--report` have no effect there, and a note on standard error says so.
+- `dustin plan`, and `dustin close` without `--execute`, only read from Horizon; nothing is signed or submitted.
+- `dustin close --execute` reads the account again, prints the fresh plan and what the sponsor may pay, and asks you to type the last four characters of the destination (`--yes` skips this for scripts). It prints each transaction's hash and explorer link as it is submitted and ends with a receipt and Horizon's 404 for the account; the full sequence is in the [integration notes](docs/integration-notes.md) (appendix).
+- Exit code 0 means the plan was printed, or the account is closed and verified gone.
 
-### What `dustin close --execute` does
-
-1. Checks the addresses, then reads the two secrets (see [Configuration](#configuration)) and checks them: each must be a valid secret key, the account secret must belong to the account being closed, and the sponsor must be a different account. A missing, malformed or wrong secret stops the run with exit code 2; its value is never printed.
-2. Asks Horizon which network it serves (`GET /`) and refuses anything but the testnet.
-3. Re-reads the account and prints a fresh plan, with the sponsor as fee payer and the sponsor's per-close budget (5 XLM) next to the fee bid.
-4. Stops before anything is signed, with exit code 3, when there is nothing to execute, when an item cannot be disposed of and `--partial` is not given (with the reason and the remedy for each item), when the fee bid exceeds the budget, or when the sponsor cannot spend at least the budget.
-5. Shows what will happen (the destination, the XLM it receives through the merge, the sponsor and what it can spend, the transactions and operations) and asks you to type the **last four characters of the destination**. Anything else, an empty answer, the end of input, Ctrl-C, or a standard input that is not a terminal leaves everything untouched (exit 3). `--yes` skips the question for scripts and says so loudly; it is honoured only with `--execute`.
-6. Runs the plan. Every transaction is signed by the account and fee-bumped by the sponsor. Each one prints its hash and explorer link when it is submitted, then its ledger and the fee charged to the sponsor when it is confirmed, or its result codes when it fails.
-7. Checks the account on Horizon (`404` means it no longer exists) and prints a receipt: every transaction with its outer and inner hash, ledger, fee and the operations it carried; the XLM merged into the destination; reserves returned to reserve sponsors; fees paid by the account (0) and by the sponsor; explorer links for the account and the destination. After a partial or failed run it says what is left and how to continue: run the same command again, and Dustin re-reads the account and plans only what is left.
-
-Options of `dustin close`:
-
-| Option | Effect |
+| Option of `dustin close` | Effect |
 |---|---|
 | `--to <G...>` | Destination of the merge (`--destination` is an alias). |
-| `--execute` | Sign and submit after the typed confirmation. Without it, `close` is a dry run. |
-| `--yes` | Skip the typed confirmation. Only honoured with `--execute`. |
-| `--partial` | Run everything that can run even when an item cannot be disposed of; the account is not merged (exit 4). |
+| `--execute` | Sign and submit after the typed confirmation; without it, `close` is a dry run. |
+| `--yes` | Skip the typed confirmation; only with `--execute`. |
+| `--partial` | Run everything that can run when an item cannot be disposed of; no merge (exit 4). |
 | `--memo <text>` | Memo for a destination that requires one (SEP-29), at most 28 bytes. |
 | `--prefer-destination` | Try the transfer to the destination before the return to the issuer. |
-| `--base-fee <stroops>` | Fee bid per operation instead of the `fee_stats` estimate. With `--execute` it is both the bid and the ceiling: every re-plan keeps it, and a retry after `tx_insufficient_fee` cannot bid above it, so the run stops instead. Without it, a retry after a fee surge may raise the bid up to the per-operation cap, never beyond the 5 XLM per-close budget. |
-| `--json` | Print one JSON document on standard output: the plan, or with `--execute` the final close report. The plan, the question, the progress and the receipt then go to standard error. |
-| `--report <file>` | With `--execute`, keep the close report in this file (JSON with public keys, hashes and envelopes; never a secret), rewritten after every change so that a stopped run still has every hash. |
+| `--sponsor <G...>` | The fee sponsor; with `--execute` it must own `DUSTIN_SPONSOR_SECRET`. |
+| `--base-fee <stroops>` | Bid per operation instead of the `fee_stats` estimate; with `--execute` also the highest bid. |
+| `--json` | One JSON document on standard output (the plan, or the close report); the rest on standard error. |
+| `--report <file>` | With `--execute`, keep the close report (JSON, no secrets) in this file as the run goes. |
 
 Exit codes:
 
@@ -70,6 +71,8 @@ Exit codes:
 | 6 | Horizon unreachable before anything was submitted |
 
 ## Quick start: SDK
+
+Until the npm release, build a tarball from a clone with `npm pack` and install it in your project ([integration notes](docs/integration-notes.md), section 1).
 
 ```ts
 import { Keypair } from "@stellar/stellar-sdk";
@@ -107,6 +110,8 @@ console.log(renderReport(report, { plans: [plan] }));
 - Errors are `DustinError`s with a stable `code`. When a run stops on an error after something was submitted, the error can carry the report so far in `error.report`.
 - The SDK never reads environment variables or `.env`; the CLI does, for `dustin close --execute` only.
 
+The [integration notes](docs/integration-notes.md) cover the whole wallet flow: rendering the plan, approval, signers, events, drift, partial closes, continuing a stopped run, errors and how to fund and protect a sponsor.
+
 ## Configuration
 
 | Variable | Used by | Read from |
@@ -116,9 +121,7 @@ console.log(renderReport(report, { plans: [plan] }));
 | `DUSTIN_HORIZON_URL` | every command: the Horizon to use (default `https://horizon-testnet.stellar.org`); it must serve the testnet | the environment only |
 | `DUSTIN_EXPLORER_BASE` | every command: the base of explorer links (default `https://stellar.expert/explorer/testnet`) | the environment only |
 
-- `.env` supplies only the two secrets, and only to `dustin close --execute`. `plan`, the dry-run `close` and `fixture` never open it; every other line in it is ignored; nothing from it is copied into the process environment. Set `DUSTIN_HORIZON_URL` and `DUSTIN_EXPLORER_BASE` in the environment.
-- A non-empty value in the process environment takes precedence over the same variable in `.env`.
-- Copy `.env.example` to `.env` to start; `.env` is gitignored. Never pass a secret on the command line: an argument that looks like a secret key is refused (exit 2) without being echoed.
+Copy `.env.example` to `.env` (gitignored) to start. `.env` supplies only the two secrets, only to `dustin close --execute`, and the environment takes precedence.
 
 ## Safety model
 
@@ -142,18 +145,21 @@ Out of scope for this release:
 
 Limits set by the protocol:
 
-- A balance on a trustline its issuer has deauthorized (or authorized to maintain liabilities only) cannot be moved by the holder. Dustin reports it as unclosable; only the issuer can re-authorize it or claw it back.
+- A balance on a trustline its issuer has deauthorized (or authorized to maintain liabilities only) cannot be moved by the holder; Dustin reports it as unclosable, and only the issuer can re-authorize it or claw it back. A balance with no market whose issuer requires a memo needs `--memo`. A merged-away issuer is no obstacle: paying the balance back still burns it.
 - An account that sponsors reserves for other accounts (including claimable balances it created), an account with the `AUTH_IMMUTABLE` flag, and an account whose sequence number is ahead of the ledger cannot be merged. Dustin detects each case and says what to do.
+
+Every case with its code and remedy is in the [write-up](docs/write-up.md), section 8.
 
 ## Evidence
 
-Evidence is committed under `evidence/` as each deliverable is produced (the package template is `docs/evidence/evidence-package-template.md`):
+The evidence follows SOW section 6.1. Explorer links stop resolving at the next testnet reset (scheduled for 2026-12-16); the JSON and XDR files committed under `evidence/` are the durable record.
 
-- `evidence/plan/`: the dry-run plan of the messy fixture, as text and JSON (Deliverable 1).
-- `evidence/runs/20260926T125350Z/`: the first live close of a zero-spendable messy account on testnet, with the close report, both envelopes of every transaction, Horizon's records showing the sponsor as fee account, and Horizon's 404 for the closed account afterwards (Deliverable 2). `evidence/runs/README.md` explains the layout and how to reproduce a run.
-- `evidence/baseline/`: the recording protocol for the StellarExpert Demolisher baseline (Deliverable 3); the recording itself is pending.
-
-Explorer links stop resolving at the next testnet reset (scheduled for 2026-12-16); the JSON and XDR files are the durable record.
+| Deliverable | Evidence type (SOW 6.1) | Where |
+|---|---|---|
+| D1 `planClose()` | Public repo + CLI output | The committed dry-run plan of the messy fixture ([text](evidence/plan/fixture-plan.txt), [JSON](evidence/plan/fixture-plan.json)); `dustin plan` runs on any testnet account. |
+| D2 Live close on testnet | Transaction hashes (links) + 60-second video | Zero-spendable messy accounts closed with sponsor-paid fee bumps through the [SDK](evidence/runs/20260926T125350Z/summary.md) and the [CLI](evidence/runs/20260927T200015Z-cli/summary.md): reports, envelopes, Horizon records and the 404 ([layout](evidence/runs/README.md)). Pending: the close of the baseline fixture (E3-S7), the video (E4-S6). |
+| D3 Edge cases and tests | Test results screenshot + public repo + baseline recording | Tests under `test/` ([Development](#development)); the [baseline protocol](evidence/baseline/README.md). Pending: the test matrix and its screenshot (E3-S6, E4-S3), the Demolisher recording (E1-S2). |
+| Documentation, demo and evidence | Public repo + write-up + 60-second video | The [write-up](docs/write-up.md) and the [integration notes](docs/integration-notes.md), first versions. Pending: the video (E4-S6), the evidence index `evidence/README.md` (E4-S7). |
 
 ## Development
 
@@ -172,8 +178,16 @@ DUSTIN_TESTNET=1 npm run test:testnet   # live tests against the public testnet
 |---|---|---|---|
 | Week 1 | 2026-09-22 to 2026-09-28 | Fixture built, Demolisher baseline recorded, `planClose()` dry run printed | fixture built and dry run committed (`evidence/plan/`); the Demolisher baseline recording is pending |
 | Week 2 | 2026-09-29 to 2026-10-05 | Zero-XLM account closed end to end with sponsored fees | met early on 2026-09-26: [transaction chain and 404](evidence/runs/20260926T125350Z/summary.md) |
-| Week 3 | 2026-10-06 to 2026-10-12 | Disposal ladder, sponsored unwind, sequence guard, test matrix, messy fixture closed | in progress: the ladder and the sponsored unwind ran in the live close; the sequence-guard wait, the test matrix and the metric close of the baseline fixture remain |
-| Week 4 | 2026-10-13 to 2026-10-19 | npm publish, 60-second demo, evidence package, write-up | not started |
+| Week 3 | 2026-10-06 to 2026-10-12 | Disposal ladder, sponsored unwind, sequence guard, test matrix, messy fixture closed | in progress: the ladder and the sponsored unwind ran in the live closes; the sequence-guard wait, the `edge` fixture, the test matrix and the close of the baseline fixture remain |
+| Week 4 | 2026-10-13 to 2026-10-19 | npm publish, 60-second demo, evidence package, write-up | started early: first versions of the write-up and the integration notes; the npm release, the demo and the evidence package are pending |
+
+## More
+
+- [Integration notes](docs/integration-notes.md), for wallet developers.
+- [Ordering rules and known limits](docs/write-up.md), the write-up.
+- [Planning documents and canonical decisions](docs/README.md).
+- [Statement of Work](SUCCESSFUL_SOW.md): scope, success metric and evidence plan.
+- A changelog and contributing notes: pending, with the 0.1.0 release.
 
 ## License
 
