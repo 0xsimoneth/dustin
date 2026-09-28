@@ -67,7 +67,7 @@ How each is met, and the test that proves it:
 
 ### Completion Notes List
 
-- Offline tier on the final code of this story: 106 files, 992 tests, about 7 s; lint, format, typecheck, build and `check:package` pass.
+- Offline tier on the final code of this story: 106 files, 993 tests, about 7 s; lint, format, typecheck, build and `check:package` pass.
 - Nothing was run on the testnet for this story; the signal, prompt and 404 paths are offline, with injected signal sources, fake terminal streams and the fake ledger.
 
 ### File List
