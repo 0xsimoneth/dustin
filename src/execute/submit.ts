@@ -70,13 +70,17 @@ export interface Submitter {
   lookup?(hash: string): Promise<TransactionLookup>;
 }
 
-/** Looks a transaction up by hash with whatever the submitter offers (review finding 1). */
+/**
+ * Looks a transaction up by hash with whatever the submitter offers (review finding 1). A lookup
+ * that throws or rejects, the three-state one of an injected submitter included, is a failed
+ * lookup: it proves nothing and never escapes as an exception (review round 3, R3-16).
+ */
 export async function lookupTransaction(
   submitter: Submitter,
   hash: string,
 ): Promise<TransactionLookup> {
-  if (submitter.lookup) return submitter.lookup(hash);
   try {
+    if (submitter.lookup) return await submitter.lookup(hash);
     const record = await submitter.transaction(hash);
     return record
       ? { kind: "found", record }

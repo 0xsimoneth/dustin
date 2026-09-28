@@ -2,6 +2,12 @@ import { describe, expect, it } from "vitest";
 import type { DustinError } from "../../../src/errors/dustin-error.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import type { CloseReport } from "../../../src/execute/report.js";
+import {
+  lookupTransaction,
+  submitAndConfirm,
+  type ConfirmOptions,
+  type Submitter,
+} from "../../../src/execute/submit.js";
 import { messy } from "../../helpers/snapshots.js";
 import {
   answer,
@@ -623,5 +629,75 @@ describe("R3-13: an interrupted run still attributes the reserves its removals r
         entries: [`trustline SPTA:${messy.issuer}`],
       },
     ]);
+  });
+});
+
+const HASH = "ab".repeat(32);
+
+/**
+ * A POST that always answers 504, confirmed on a clock that moves only when the loop sleeps: `t`
+ * is the local clock in Unix seconds, and the ledger's close time is `closeTime()`.
+ */
+function confirmLoop(
+  submitter: Partial<Submitter>,
+  closeTime: (t: number) => Promise<number> = () => Promise.resolve(1_000_000),
+  extra: Partial<ConfirmOptions> = {},
+) {
+  let t = 1_000_000;
+  let sleeps = 0;
+  const run = submitAndConfirm(
+    {
+      submit: () => Promise.resolve({ status: 504, body: null }),
+      transaction: () => Promise.resolve(null),
+      ...submitter,
+    },
+    { xdr: "ENV", hash: HASH, maxTime: 1_000_120 },
+    {
+      pollIntervalMs: 5000,
+      now: () => t,
+      sleep: (ms) => {
+        sleeps += 1;
+        t += ms / 1000;
+        return sleeps > 5000
+          ? Promise.reject(new Error("the wait never ended"))
+          : Promise.resolve();
+      },
+      ledgerCloseTime: () => closeTime(t),
+      ...extra,
+    },
+  );
+  return { run, sleeps: () => sleeps, waited: () => t - 1_000_000 };
+}
+
+describe("R3-16: a submitter whose lookup throws is a failed lookup, not an exception", () => {
+  it("reads a thrown or rejected lookup as an error", async () => {
+    const rejects: Submitter = {
+      submit: () => Promise.resolve({ status: 504, body: null }),
+      transaction: () => Promise.resolve(null),
+      lookup: () => Promise.reject(new Error("socket hang up")),
+    };
+    await expect(lookupTransaction(rejects, HASH)).resolves.toEqual({
+      kind: "error",
+      detail: "socket hang up",
+    });
+    const throws: Submitter = {
+      ...rejects,
+      lookup: () => {
+        throw new Error("not connected");
+      },
+    };
+    await expect(lookupTransaction(throws, HASH)).resolves.toEqual({
+      kind: "error",
+      detail: "not connected",
+    });
+  });
+
+  it("ends the wait as unknown with the error, so the run can stop with OUTCOME_UNKNOWN", async () => {
+    const { run } = confirmLoop({ lookup: () => Promise.reject(new Error("socket hang up")) });
+    await expect(run).resolves.toMatchObject({
+      kind: "unknown",
+      mayStillApply: true,
+      lookupError: "socket hang up",
+    });
   });
 });
