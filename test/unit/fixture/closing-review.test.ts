@@ -90,3 +90,37 @@ describe("CP-12: an async onKeys has stored the keys before any account is funde
     expect(w.friendbotCalls()).toBe(0);
   });
 });
+
+describe("CP-13: settleTimeoutMs is a finite number of milliseconds, at least 0", () => {
+  it("refuses NaN, Infinity and a negative bound before any request", async () => {
+    // With NaN, `Date.now() > deadline` is never true, so a check that never passes would poll
+    // Horizon forever.
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+      const seen: string[] = [];
+      const error = await buildEdgeFixture({
+        fetch: (url) => {
+          seen.push(url);
+          return passphrase();
+        },
+        settleTimeoutMs: bad,
+        sleep: noSleep,
+      }).catch((e: unknown) => e);
+      expect((error as DustinError).code, String(bad)).toBe("CONFIG_INVALID");
+      expect((error as DustinError).message).toContain("settleTimeoutMs");
+      expect(seen, String(bad)).toEqual([]);
+    }
+  });
+
+  it("accepts 0, a bound rather than a pause: the build goes on to the testnet check", async () => {
+    const seen: string[] = [];
+    await buildEdgeFixture({
+      fetch: (url) => {
+        seen.push(url);
+        return answer(400, { status: 400 });
+      },
+      settleTimeoutMs: 0,
+      sleep: noSleep,
+    }).catch((e: unknown) => e);
+    expect(seen[0]).toBe(`${HORIZON}/`);
+  });
+});

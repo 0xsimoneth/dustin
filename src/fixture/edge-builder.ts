@@ -80,6 +80,27 @@ function invalid(detail: string): DustinError {
 
 const kebab = (role: string) => role.replace(/[A-Z]/g, (c) => `-${c.toLowerCase()}`);
 
+/** Default bound on the polls for a step's expected state. */
+const DEFAULT_SETTLE_TIMEOUT_MS = 30_000;
+
+/**
+ * `settleTimeoutMs` is a bound, not a pause, so 0 is allowed; NaN or Infinity would keep a check
+ * that never passes polling Horizon forever, so anything but a finite number of at least 0 is
+ * refused before any request (closing review CP-13).
+ */
+function assertSettleTimeout(value: number | undefined): number {
+  if (value === undefined) return DEFAULT_SETTLE_TIMEOUT_MS;
+  if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value;
+  throw new DustinError(
+    "CONFIG_INVALID",
+    `Invalid option: settleTimeoutMs must be a finite number of milliseconds of at least 0; got ${String(value)}.`,
+    {
+      stage: "config",
+      remedy: `Leave settleTimeoutMs out to use the default of ${DEFAULT_SETTLE_TIMEOUT_MS / 1000} s.`,
+    },
+  );
+}
+
 /**
  * A fetch that keeps every JSON answer Horizon gives to a GET, keyed by path, so the build can hand
  * over exactly what the planner read. The testnet check (`/`) is left out: the offline reader
@@ -134,6 +155,7 @@ export function recordName(path: string, roleOf: ReadonlyMap<string, string>): s
  * keys, so it is repeatable after a testnet reset (docs/README.md canonical decision 12).
  */
 export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<EdgeBuildResult> {
+  const settleTimeoutMs = assertSettleTimeout(options.settleTimeoutMs);
   const config = resolveConfig(options.config);
   const log = options.log ?? (() => undefined);
   const sleep = options.sleep ?? timerSleep;
@@ -177,7 +199,7 @@ export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<
 
   const transactions: FixtureManifest["transactions"] = [];
   const settle = async (step: EdgeStep): Promise<void> => {
-    const deadline = Date.now() + (options.settleTimeoutMs ?? 30_000);
+    const deadline = Date.now() + settleTimeoutMs;
     for (;;) {
       const result = verifyEdgeFixture(await loadEdgeVerifyInput(client, roles, pool.id));
       const open = result.checks.filter((c) => step.settles.includes(c.id) && !c.pass);
