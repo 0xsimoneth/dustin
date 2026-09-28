@@ -224,11 +224,16 @@ export async function inspectAccount(
   return snapshot;
 }
 
+/**
+ * The strict-send answer that pays the most XLM for the full balance, or null when Horizon found
+ * no path. An answer below 1 stroop is kept (it is the best only when every answer is), so the
+ * ladder rules the sale out and says why: the path pays less than 1 stroop, not that there is no
+ * path (closing review CP-5).
+ */
 async function bestQuote(reader: LedgerReader, t: TrustlineInfo): Promise<Quote | null> {
   const records = await reader.strictSendPathsToNative(t.asset, t.balance);
   let best: Quote | null = null;
   for (const r of records) {
-    if (toStroops(r.destination_amount) < 1n) continue;
     if (!best || toStroops(r.destination_amount) > toStroops(best.destinationAmount)) {
       best = {
         sourceAmount: amount(r.source_amount),

@@ -143,8 +143,8 @@ function evaluatePathPayment(
   }
   const quoted = toStroops(quote.destinationAmount);
   // The protocol cannot deliver less than 1 stroop, so such a quote is no path (AC-E3-S1-3). The
-  // inspector already drops these quotes (src/inspect/inspect.ts, bestQuote); this keeps a snapshot
-  // built elsewhere and handed to planFromSnapshot from planning a sale that must fail.
+  // inspector keeps it (src/inspect/inspect.ts, bestQuote) so that this branch decides and the
+  // plan says why (closing review CP-5).
   if (quoted < 1n) {
     return {
       viable: false,

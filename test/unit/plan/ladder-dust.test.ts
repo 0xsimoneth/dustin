@@ -43,8 +43,9 @@ const DUSTA = {
 describe("AC-E3-S1-3: a balance too small to buy 1 stroop of XLM goes to the issuer", () => {
   it("AC-E3-S1-3, X-10 (planner): a strict-send answer of 0.0000000 XLM plans the burn, not a sale", async () => {
     // Horizon answers with a path whose destination amount rounds to zero (dust below the
-    // resolution of the book). The inspector drops quotes below 1 stroop (src/inspect/inspect.ts,
-    // bestQuote), so the ladder sees no path and returns the balance to its issuer.
+    // resolution of the book). The inspector keeps the quote (src/inspect/inspect.ts, bestQuote),
+    // and the ladder rules the sale out because it pays less than 1 stroop (closing review CP-5),
+    // then returns the balance to its issuer.
     const { fetch } = recordedFetch(loadRecorded(MESSY_DIR), {
       [strictSendToNativePath(DUSTA, "0.0000007")]: {
         _embedded: {
@@ -62,7 +63,7 @@ describe("AC-E3-S1-3: a balance too small to buy 1 stroop of XLM goes to the iss
     });
     expect(
       sale(plan, "DUSTA").disposal!.ruledOut.find((r) => r.rung === "path_payment")?.reason,
-    ).toMatch(/no strict-send path/);
+    ).toBe("the best strict-send quote pays less than 1 stroop of XLM for the full balance");
     expect(sale(plan, "DUSTA").operation).toMatchObject({
       type: "payment",
       destination: messy.issuer,

@@ -124,7 +124,10 @@ export interface ExistingAccountSnapshot extends SnapshotBase {
   /** Claimable balances this account sponsors; null when `numSponsoring` is 0 and nothing was asked. */
   claimableBalancesSponsored: number | null;
   issuers: IssuerInfo[];
-  /** Best strict-send quote to XLM for each trustline's full balance; null when none or not asked. */
+  /**
+   * Best strict-send quote to XLM for each trustline's full balance, one below 1 stroop included
+   * (the ladder rules it out); null when Horizon found no path or none was asked.
+   */
   quotes: Array<{ asset: CreditAssetRef; quote: Quote | null }>;
 }
 

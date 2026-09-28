@@ -1,9 +1,19 @@
 import { beforeAll, describe, expect, it } from "vitest";
+import type { HorizonAccount } from "../../../src/inspect/horizon-types.js";
+import { inspectAccount } from "../../../src/inspect/inspect.js";
 import type { ExistingAccountSnapshot } from "../../../src/inspect/snapshot.js";
-import type { Blocker, BlockerCode, ClosePlan } from "../../../src/plan/model.js";
+import type { Blocker, BlockerCode, ClosePlan, UnclosableItem } from "../../../src/plan/model.js";
 import { planClose } from "../../../src/plan/plan-close.js";
 import { planFromSnapshot } from "../../../src/plan/plan.js";
+import { horizonJson } from "../../../src/reader/horizon-json.js";
+import { horizonReader, strictSendToNativePath } from "../../../src/reader/ledger-reader.js";
 import { edgeManifest, edgeRecordedReader } from "../../helpers/edge-ledger.js";
+import {
+  MESSY_DIR,
+  TESTNET_HORIZON,
+  loadRecorded,
+  recordedFetch,
+} from "../../helpers/recorded-horizon.js";
 import { copy, messy, messySnapshot } from "../../helpers/snapshots.js";
 
 // The closing review of 2026-09-28, planner half (findings CP-1 to CP-7 and CP-15 to CP-17 of the
@@ -39,6 +49,34 @@ function blocker(plan: ClosePlan, code: BlockerCode): Blocker {
   const found = plan.blockers.find((b) => b.code === code);
   if (!found) throw new Error(`no ${code} blocker in ${plan.blockers.map((b) => b.code).join()}`);
   return found;
+}
+
+function item(plan: ClosePlan, code: string): UnclosableItem {
+  const found = plan.unclosable.find(
+    (u) => u.subject.type === "trustline" && u.subject.asset.code === code,
+  );
+  if (!found) throw new Error(`no unclosable ${code}`);
+  return found;
+}
+
+const DUSTA = { type: "credit_alphanum12" as const, code: "DUSTA", issuer: messy.issuer };
+
+/**
+ * The recorded messy fixture read through Horizon, with responses replaced: `memoIssuer` makes the
+ * issuer SEP-29 memo-required, so without a memo the return to the issuer is ruled out too.
+ */
+function messyReader(
+  overrides: Record<string, unknown>,
+  { memoIssuer = false }: { memoIssuer?: boolean } = {},
+) {
+  const issuerPath = `/accounts/${messy.issuer}`;
+  const issuer = structuredClone(loadRecorded(MESSY_DIR).get(issuerPath)) as HorizonAccount;
+  issuer.data["config.memo_required"] = Buffer.from("1").toString("base64");
+  const { fetch } = recordedFetch(loadRecorded(MESSY_DIR), {
+    ...(memoIssuer ? { [issuerPath]: issuer } : {}),
+    ...overrides,
+  });
+  return horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 }));
 }
 
 describe("CP-1: the cleanup's threshold counts only when there is a cleanup", () => {
@@ -270,6 +308,57 @@ describe("CP-4: a threshold the signers together can never reach", () => {
     const { remedy } = blocker(planFromSnapshot(s, opts()), "MASTER_KEY_DISABLED");
     expect(remedy).toBe(
       `None: the account's total signing weight is 1 (the master key has weight 0), less than the 2 the merge needs, and SetOptions, which could lower the thresholds or add a signer, needs that weight too (the high threshold), so ${never}.`,
+    );
+  });
+});
+
+describe("CP-5: a strict-send path that pays less than a stroop, as Horizon returns it", () => {
+  // Horizon finds a path for the full 0.0000007 DUSTA, but it pays 0.0000000 XLM.
+  const dustQuote = {
+    [strictSendToNativePath(DUSTA, "0.0000007")]: {
+      _embedded: {
+        records: [{ source_amount: "0.0000007", destination_amount: "0.0000000", path: [] }],
+      },
+    },
+  };
+
+  it("the inspector keeps the best answer, even below a stroop", async () => {
+    const s = await inspectAccount(messy.fixture, {
+      destination: messy.destination,
+      reader: messyReader(dustQuote),
+    });
+    if (!s.exists) throw new Error("recorded fixture missing");
+    expect(s.quotes.find((q) => q.asset.code === "DUSTA")?.quote).toEqual({
+      sourceAmount: "0.0000007",
+      destinationAmount: "0.0000000",
+      path: [],
+    });
+  });
+
+  it("planClose: the plan says the path pays less than 1 stroop, not that Horizon found none", async () => {
+    const reader = messyReader(dustQuote, { memoIssuer: true });
+    const plan = await planClose({ account: messy.fixture, ...opts() }, { reader });
+    const dusta = item(plan, "DUSTA");
+    expect(dusta.code).toBe("NO_DISPOSAL_ROUTE");
+    expect(dusta.rungsRuledOut![0]).toEqual({
+      rung: "path_payment",
+      reason: "the best strict-send quote pays less than 1 stroop of XLM for the full balance",
+    });
+    expect(dusta.reason).not.toContain("Horizon found no strict-send path");
+    expect(dusta.remedy).toContain(
+      "wait for a market that pays at least 1 stroop of XLM for 0.0000007 DUSTA",
+    );
+    expect(dusta.remedy).not.toContain("wait for a market that buys DUSTA for XLM");
+  });
+
+  it("with no path at all, the plan still says Horizon found none", async () => {
+    const none = { [strictSendToNativePath(DUSTA, "0.0000007")]: { _embedded: { records: [] } } };
+    const plan = await planClose(
+      { account: messy.fixture, ...opts() },
+      { reader: messyReader(none, { memoIssuer: true }) },
+    );
+    expect(item(plan, "DUSTA").rungsRuledOut![0]!.reason).toBe(
+      "Horizon found no strict-send path to XLM for the full balance",
     );
   });
 });
