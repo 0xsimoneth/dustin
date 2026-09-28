@@ -242,6 +242,8 @@ class CloseRun {
   /** The steps each envelope carried, by hash: tells which envelopes carried the merge. */
   private readonly envelopeSteps = new Map<string, CloseStep[]>();
   private readonly failedObservers = new Set<string>();
+  /** Envelopes whose outcome was not known during the run and that a later lookup settled. */
+  private readonly settledLate = new Set<string>();
   /** Assets whose strict-send sale failed on the market during this run. */
   private readonly demoted = new Set<string>();
   private sponsor: FeeSponsor | null = null;
@@ -870,11 +872,41 @@ class CloseRun {
     const closed = verification ? await this.closedUnseen(verification) : null;
     if (closed) return closed;
     this.recoverReserves();
+    const known = this.settledStop(stop);
     return this.finish(
       "failed",
-      `${stop.detail}${stop.verdict === "replan" && !/run the close again/i.test(stop.detail) ? " Run the close again to continue from the current state." : ""}`,
-      stop,
+      `${known.detail}${known.verdict === "replan" && !/run the close again/i.test(known.detail) ? " Run the close again to continue from the current state." : ""}`,
+      known,
     );
+  }
+
+  /**
+   * A stop that names an envelope whose outcome was not known, once `settleUnknown` found it on
+   * the ledger (review round 3, R3-35; blind review BH-11): the trigger stays (code, round,
+   * transaction, hash), and the detail says what is known now. For OUTCOME_UNKNOWN the time bound
+   * a re-run had to wait for no longer matters, so `maxTime` goes and the detail is rewritten;
+   * another stop keeps its detail and gains a sentence.
+   */
+  private settledStop(stop: StopReason): StopReason {
+    const entry = this.report.transactions.find((t) => t.hash === stop.hash);
+    if (!entry || !this.settledLate.has(entry.hash)) return stop;
+    const found =
+      entry.result === "applied"
+        ? `found applied in ledger ${entry.ledger ?? "?"}`
+        : `found failed on the ledger (${entry.explanation ?? "no result codes"})`;
+    if (stop.code !== "OUTCOME_UNKNOWN") {
+      return {
+        ...stop,
+        detail: `${stop.detail} Looked up again before the final check, envelope ${entry.hash} was ${found}.`,
+      };
+    }
+    const { maxTime: _passed, ...rest } = stop;
+    const label = `Transaction ${entry.index + 1} (${entry.phase})${entry.round > 0 ? ` of round ${entry.round}` : ""}`;
+    return {
+      ...rest,
+      verdict: "replan",
+      detail: `${label} (${entry.hash}) had no known outcome when the run stopped, so nothing was rebuilt; looked up again before the final check, it was ${found}. No time bound needs to pass first: run the close again to continue from the ledger.`,
+    };
   }
 
   /** Every planned transaction ran. */
@@ -993,6 +1025,7 @@ class CloseRun {
       if (lookup.kind !== "found") continue;
       const found = outcomeFromRecord(entry.hash, lookup.record);
       recordOutcome(entry, found);
+      this.settledLate.add(entry.hash);
       if (found.kind === "applied") {
         this.applied(this.envelopeSteps.get(entry.hash) ?? [], {
           kind: "applied",

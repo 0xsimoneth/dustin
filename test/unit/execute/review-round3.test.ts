@@ -429,3 +429,47 @@ describe("R3-10: a merge of this run that applied makes the run closed, verified
     expect(report.message).toMatch(/Horizon still returned the account at the final check/);
   });
 });
+
+/**
+ * The first transaction's envelope gets a 504 while its lookups answer 503, so the run stops with
+ * OUTCOME_UNKNOWN; after the stop its lookups work. With `fail`, the envelope failed on the ledger.
+ */
+function unknownSettledLate(fail = false) {
+  let hash: string | null = null;
+  let settled = false;
+  const h = harness(
+    (_l, fetch) => (url, init) =>
+      hash && !settled && url.endsWith(`/transactions/${hash}`) ? reply(503) : fetch(url, init),
+  );
+  h.ledger.faults.push("504-applied");
+  const onEvent = (e: CloseEvent) => {
+    if (e.type === "tx:building" && e.index === 0 && fail) h.ledger.offers.set(messy.fixture, []);
+    if (e.type === "tx:submitted" && e.index === 0) hash = e.hash;
+    if (e.type === "tx:failed" && e.index === 0) settled = true;
+  };
+  return { ...h, onEvent, hash: () => hash };
+}
+
+describe("R3-35: a stop whose envelope settled later says what is known now", () => {
+  it("drops the time bound to wait for once the envelope is found applied", async () => {
+    const { deps, plan, onEvent, hash } = unknownSettledLate();
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps, onEvent });
+    expect(report.transactions[0]).toMatchObject({ result: "applied" });
+    expect(report.status).toBe("failed");
+    // The trigger stays: the code and the envelope that stopped the run.
+    expect(report.stop).toMatchObject({ code: "OUTCOME_UNKNOWN", hash: hash(), verdict: "replan" });
+    expect(report.stop).not.toHaveProperty("maxTime");
+    expect(report.message).toMatch(/found applied in ledger/);
+    expect(report.message).not.toMatch(/only after a ledger has closed/);
+    expect(report.message).toMatch(/run the close again/i);
+  });
+
+  it("says so when the envelope is found failed on the ledger", async () => {
+    const { deps, plan, onEvent } = unknownSettledLate(true);
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps, onEvent });
+    expect(report.transactions[0]).toMatchObject({ result: "failed" });
+    expect(report.stop).toMatchObject({ code: "OUTCOME_UNKNOWN" });
+    expect(report.stop).not.toHaveProperty("maxTime");
+    expect(report.message).toMatch(/found failed on the ledger/);
+  });
+});
