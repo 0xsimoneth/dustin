@@ -110,6 +110,20 @@ describe("error output with and without --verbose (AC-E4-S2-2)", () => {
     expect(Object.keys(error).sort()).toEqual(["code", "exitCode", "message", "remedy", "type"]);
   });
 
+  it("prints the remedy of the error's code when the error names none (AC-E4-S2-1)", async () => {
+    const world = zeroSpendableWorld();
+    const stub: typeof executeClose = () =>
+      Promise.reject(
+        new DustinError("TOO_MANY_OPERATIONS", "A transaction needs 1 to 100.", { stage: "build" }),
+      );
+    const r = await closeCli(world, executeArgs(world, "--yes"), { executeClose: stub });
+    expect(r.code).toBe(1);
+    expect(r.err).toBe(
+      "dustin: TOO_MANY_OPERATIONS: A transaction needs 1 to 100.\n" +
+        "  The planner never groups more than 100 operations, so this is a bug; report it with the plan.\n",
+    );
+  });
+
   it("prints the stack of an unexpected error only with --verbose, redacted", async () => {
     const world = zeroSpendableWorld();
     const seed = Keypair.random().secret();

@@ -1,5 +1,6 @@
 import { DustinError } from "../errors/dustin-error.js";
 import { redact, redactValue } from "../errors/redact.js";
+import { remedyOf } from "../errors/remedies.js";
 import type { CloseEvent } from "../execute/events.js";
 
 /**
@@ -168,7 +169,8 @@ export function textOf(value: unknown): string {
 /** The code, message and remedy of a caught error; a non-DustinError is UNEXPECTED_ERROR. */
 export function failureOf(error: unknown, exitCode: number): Failure {
   if (error instanceof DustinError) {
-    return { code: error.code, message: error.message, remedy: error.remedy ?? null, exitCode };
+    // Every error is printed with a remedy: its own, else its code's (AC-E4-S2-1, docs/errors.md).
+    return { code: error.code, message: error.message, remedy: remedyOf(error), exitCode };
   }
   return {
     code: UNEXPECTED_ERROR,
