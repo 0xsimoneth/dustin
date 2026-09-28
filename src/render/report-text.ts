@@ -178,6 +178,10 @@ function transactionLines(
 
 const entryName = (entry: string) => entry.replace(/:G[A-Z2-7]{55}/g, "");
 
+/** An envelope as the receipt numbers it: "tx 3", or "tx 1 of round 2" after a re-plan. */
+const txName = (tx: SubmittedTransaction) =>
+  `tx ${tx.index + 1}${tx.round > 0 ? ` of round ${tx.round}` : ""}`;
+
 /** A rung as the subject of "the ... failed". */
 const RUNG_ATTEMPT: Record<DisposalRung, string> = {
   path_payment: "sale by path payment",
@@ -233,12 +237,14 @@ function failedRungs(failures: Array<{ rung: DisposalRung | undefined; code: str
  * or sent to the destination, with the transaction and plan round it applied in; after a fall
  * down the ladder, each rung that failed and its code, as the failed envelopes and the plans of
  * their rounds show them (closing review CC-8). The steps come from the plans, so without them
- * this section is empty; so it is for a run that submitted nothing.
+ * this section is empty; so it is for a run that submitted nothing. `openMerge` is a merge
+ * envelope whose fate is not known: a sale's XLM leaves with it if it applies (CC-10).
  */
 function disposalLines(
   report: CloseReport,
   stepsOfRound: (round: number) => Map<string, CloseStep>,
   merged: boolean,
+  openMerge: SubmittedTransaction | undefined,
 ): string[] {
   if (report.transactions.length === 0) return [];
   const lines: string[] = [];
@@ -257,15 +263,16 @@ function disposalLines(
     if (outcome.status === "applied") {
       const rung = outcome.rung ?? planned;
       const tx = report.transactions.find((t) => t.hash === outcome.txHash);
-      const where = tx
-        ? ` in tx ${tx.index + 1}${tx.round > 0 ? ` of round ${tx.round}` : ""}`
-        : "";
-      // A copy saved while the run is going has no final word on the XLM yet (closing review CC-9).
+      const where = tx ? ` in ${txName(tx)}` : "";
+      // No final word on the XLM while a merge envelope may still apply or may have applied
+      // (closing review CC-10), nor in a copy saved while the run is going (CC-9).
       const xlmNow = merged
         ? "the XLM left with the merge"
-        : report.status === "running"
-          ? "the XLM is on the account while the run goes on"
-          : "the XLM stays on the account";
+        : openMerge
+          ? `the XLM leaves with the merge if that envelope applies (${txName(openMerge)})`
+          : report.status === "running"
+            ? "the XLM is on the account while the run goes on"
+            : "the XLM stays on the account";
       text =
         rung === "path_payment"
           ? `sold for XLM by path payment to the account itself${where}; ${xlmNow}`
@@ -479,6 +486,23 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
     (s) => s.status === "applied" && steps.get(s.stepId)?.kind === "merge",
   );
   const mergeApplied = r.mergedXlm !== null || merged || appliedMerge || report.status === "closed";
+  // Without an applied merge, the last merge envelope whose fate is open: pending mid-POST, or
+  // unknown while it may still apply, may have applied (its number used) or could not be looked
+  // up; not one found gone past its time bound with its number unused, which can never apply (the
+  // executor's rule, closing review CX-1). The account's XLM goes with it if it applies (CC-10).
+  const openMerge = mergeApplied
+    ? undefined
+    : report.transactions
+        .filter(
+          (t) =>
+            (t.result === "pending" ||
+              (t.result === "unknown" &&
+                (t.mayStillApply === true ||
+                  t.lookupError !== undefined ||
+                  t.sequenceUsed === true))) &&
+            (t.phase === "merge" || t.stepIds.some((id) => isMerge(t.round, id))),
+        )
+        .at(-1);
   out.push("", "Result");
   if (r.mergedXlm !== null) {
     out.push(
@@ -496,6 +520,14 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
         "  ",
       ),
     );
+  } else if (openMerge) {
+    out.push(
+      ...wrap(
+        `The merge (${txName(openMerge)}) has no known outcome: if it applies, or applied, the account's XLM goes to the destination with it; look its hash up on the explorer.`,
+        4,
+        "  ",
+      ),
+    );
   } else {
     out.push(
       ...wrap("No merge: the account was not merged, so no XLM moved through a merge.", 4, "  "),
@@ -507,7 +539,7 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
     `  ${xlm(r.feesPaidBySponsorStroops)} (${grouped(r.feesPaidBySponsorStroops)} stroops) in fees paid by the sponsor`,
   );
 
-  const disposals = disposalLines(report, stepsOfRound, mergeApplied);
+  const disposals = disposalLines(report, stepsOfRound, mergeApplied, openMerge);
   if (disposals.length > 0) {
     out.push("", "Disposals (what became of each leftover balance)", ...disposals);
   }

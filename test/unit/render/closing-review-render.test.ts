@@ -163,3 +163,113 @@ describe("CC-9: a copy saved while the run is going reads as a run in progress",
     expect(disposals).toContain("the XLM is on the account while the run goes on");
   });
 });
+
+describe("CC-10: a merge envelope whose fate is open takes the sale's XLM with it if it applies", () => {
+  /** The latest ledger's close time stays at its first reading: no ledger passes a time bound. */
+  function frozenLedger() {
+    let frozen: string | null = null;
+    return (fetch: (url: string, init?: RequestInit) => Promise<Response>) =>
+      async (url: string, init?: RequestInit) => {
+        const response = await fetch(url, init);
+        if (!url.includes("/ledgers")) return response;
+        const page = (await response.json()) as {
+          _embedded: { records: { closed_at: string }[] };
+        };
+        frozen ??= page._embedded.records[0]!.closed_at;
+        page._embedded.records[0]!.closed_at = frozen;
+        return new Response(JSON.stringify(page));
+      };
+  }
+
+  it("does not say the XLM stays on the account while the merge may still apply (the review's probe)", async () => {
+    const frozen = frozenLedger();
+    const h = harness((_l, fetch) =>
+      frozen((url, init) =>
+        url.includes("/transactions/")
+          ? Promise.resolve(new Response(JSON.stringify({ status: 503 }), { status: 503 }))
+          : fetch(url, init),
+      ),
+    );
+    const plans: ClosePlan[] = [];
+    const report = await executeClose(await h.plan(), signers(), {
+      confirm: true,
+      ...h.deps,
+      onEvent: (e) => {
+        if (e.type === "plan") plans.push(e.plan);
+        // The merge's POST gets a 504 and does not apply; its lookups fail.
+        if (e.type === "tx:building" && e.index === 2 && e.attempt === 1) {
+          h.ledger.faults.push("504-not-applied");
+        }
+      },
+    });
+    expect(report.status).toBe("failed");
+    expect(report.transactions[2]).toMatchObject({
+      phase: "merge",
+      result: "unknown",
+      mayStillApply: true,
+    });
+    const text = renderReport(report, { plans });
+    const disposals = section(text, "Disposals");
+    // Before the fix: "...in tx 2; the XLM stays on the account".
+    expect(disposals).toContain(
+      "DUSTA 0.0000007 sold for XLM by path payment to the account itself in tx 2; the XLM leaves with the merge if that envelope applies (tx 3)",
+    );
+    expect(disposals).not.toMatch(/stays on the account/);
+    // The Result section does not say the account was not merged either.
+    const result = section(text, "Result");
+    expect(result).not.toMatch(/No merge: the account was not merged/);
+    expect(result).toMatch(/The merge \(tx 3\) has no known outcome/);
+  });
+
+  it("says the same in a copy saved while the merge's POST is in flight", async () => {
+    const h = harness();
+    const plans: ClosePlan[] = [];
+    let copy: CloseReport | null = null;
+    await executeClose(await h.plan(), signers(), {
+      confirm: true,
+      ...h.deps,
+      onEvent: (e) => {
+        if (e.type === "plan") plans.push(e.plan);
+      },
+      onReport: (c) => {
+        const last = c.transactions.at(-1);
+        if (c.transactions.length === 3 && last?.result === "pending" && last.attempts === 1) {
+          copy = c;
+        }
+      },
+    });
+    const text = renderReport(copy!, { plans });
+    expect(section(text, "Disposals")).toContain(
+      "the XLM leaves with the merge if that envelope applies (tx 3)",
+    );
+    expect(section(text, "Result")).not.toMatch(/No merge: the account was not merged/);
+  });
+
+  it("still says the XLM stays on the account when the merge envelope can never apply (control)", async () => {
+    let lost: string | null = null;
+    const h = harness(
+      (_l, fetch) => (url, init) =>
+        lost && url.endsWith(`/transactions/${lost}`)
+          ? Promise.resolve(new Response(JSON.stringify({ status: 404 }), { status: 404 }))
+          : fetch(url, init),
+    );
+    const plans: ClosePlan[] = [];
+    const report = await executeClose(await h.plan(), signers(), {
+      confirm: true,
+      ...h.deps,
+      maxAttemptsPerTransaction: 1,
+      onEvent: (e) => {
+        if (e.type === "plan") plans.push(e.plan);
+        if (e.type === "tx:building" && e.index === 2 && e.attempt === 1) {
+          h.ledger.faults.push("504-not-applied");
+        }
+        if (e.type === "tx:submitted" && e.index === 2) lost = e.hash;
+      },
+    });
+    // Not found past its bound with its sequence number unused: it can never apply.
+    expect(report.transactions[2]).toMatchObject({ result: "unknown", mayStillApply: false });
+    expect(report.transactions[2]!.sequenceUsed).toBeUndefined();
+    const disposals = section(renderReport(report, { plans }), "Disposals");
+    expect(disposals).toContain("in tx 2; the XLM stays on the account");
+  });
+});
