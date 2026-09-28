@@ -102,6 +102,11 @@ export function planFromSnapshot(s: AccountSnapshot, options: PlanOptions): Clos
   let status: PlanStatus = ordered.status;
   let units: PlanUnit[] = ordered.units;
   let grouped = groupUnits(units, { maxOps, separateMerge: false });
+  // The grouping the plan hash sees: the one without a wait for the sequence guard. A near guard
+  // puts the merge in a transaction of its own, and the merge joins the cleanup again once the
+  // guard clears; that regrouping depends only on time, so it must not change the hash (review
+  // finding CA-11, PRD decision D-10). A merge that is dropped for a far guard is dropped here too.
+  let hashedGrouping = grouped;
   let guard: SequenceGuard | null = null;
 
   const mergeIndex = (txs: GroupedTransaction[]) =>
@@ -140,6 +145,7 @@ export function planFromSnapshot(s: AccountSnapshot, options: PlanOptions): Clos
           permanent: false,
         });
         grouped = groupUnits(units, { maxOps, separateMerge: false });
+        hashedGrouping = grouped;
         status = "blocked";
       }
     }
@@ -177,7 +183,7 @@ export function planFromSnapshot(s: AccountSnapshot, options: PlanOptions): Clos
     fees,
     sequenceGuard: steps.some((step) => step.kind === "merge") ? guard : null,
   };
-  return { ...plan, planHash: structuralHash(plan) };
+  return { ...plan, planHash: structuralHash(plan, hashedGrouping) };
 }
 
 /** The phases of the transactions that run before the merge. */
@@ -251,9 +257,22 @@ function structuralOperation(op: OperationDescriptor): unknown {
  * changed bound would pass silently. `maxOpsPerTransaction` and `maxWaitLedgers` need no entry:
  * they act only through the grouping and the blockers, which are hashed. The default slippage is
  * left out so that plans made before the options were recorded keep their hash.
+ *
+ * The grouping hashed is `grouping` when given: the plan's grouping without the wait for a near
+ * sequence guard (review finding CA-11, PRD decision D-10). `unblocksAtLedger` and the wait
+ * estimate were never hashed; with the regrouping left out too, a guard that clears while the
+ * confirmation waits is not drift. A plan without a near guard hashes exactly as before.
  */
-function structuralHash(plan: Omit<ClosePlan, "planHash">): string {
+function structuralHash(
+  plan: Omit<ClosePlan, "planHash">,
+  grouping?: readonly GroupedTransaction[],
+): string {
   const slippageBps = plan.options?.slippageBps ?? DEFAULT_SLIPPAGE_BPS;
+  const txIndexOf = new Map<string, number>();
+  grouping?.forEach((t, index) => t.steps.forEach((step) => txIndexOf.set(step.id, index)));
+  const transactions = grouping
+    ? grouping.map((t) => ({ phase: t.phase, stepIds: t.steps.map((step) => step.id) }))
+    : plan.transactions.map((t) => ({ phase: t.phase, stepIds: t.stepIds }));
   return sha256Hex(
     canonicalJson({
       account: plan.account,
@@ -265,14 +284,14 @@ function structuralHash(plan: Omit<ClosePlan, "planHash">): string {
       steps: plan.steps.map((step) => ({
         id: step.id,
         kind: step.kind,
-        txIndex: step.txIndex,
+        txIndex: txIndexOf.get(step.id) ?? step.txIndex,
         dependsOn: step.dependsOn,
         subject: subjectKey(step.subject),
         rung: step.disposal?.rung ?? null,
         to: step.disposal?.to ?? null,
         operation: structuralOperation(step.operation),
       })),
-      transactions: plan.transactions.map((t) => ({ phase: t.phase, stepIds: t.stepIds })),
+      transactions,
       unclosable: plan.unclosable.map((u) => ({ code: u.code, subject: subjectKey(u.subject) })),
       blockers: plan.blockers.map((b) => b.code),
     }),

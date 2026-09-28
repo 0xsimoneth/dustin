@@ -224,7 +224,7 @@ export function renderPlan(plan: ClosePlan, options: RenderPlanOptions = {}): st
       ),
     );
   }
-  out.push("  0 XLM paid by the account; every fee is sponsored");
+  out.push("  0.0000000 XLM paid by the account; every fee is sponsored");
   if (plan.sequenceGuard) {
     const g = plan.sequenceGuard;
     out.push(

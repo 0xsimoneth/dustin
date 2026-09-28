@@ -86,20 +86,25 @@ describe("R3-25: the confirmation names the close budget as the most the sponsor
     // The market is gone after the first transaction: the sale fails on the ledger (charged)
     // and the run re-plans, adding a transaction the confirmation did not count.
     const fetch = beforePost(world, 2, () => world.ledger.quotes.clear());
-    const r = await closeCli(world, executeArgs(world, "--yes", "--json", "--base-fee", "100"), {
-      fetch,
-    });
+    // The summary is read from standard output and the figures from the --report file (since
+    // E4-S1 --json prints no human text, review AA-10).
+    const path = join(emptyDir(), "close.json");
+    const r = await closeCli(
+      world,
+      executeArgs(world, "--yes", "--base-fee", "100", "--report", path),
+      { fetch },
+    );
     expect(r.code).toBe(0);
-    const report = JSON.parse(r.out) as CloseReport;
+    const report = JSON.parse(readFileSync(path, "utf8")) as CloseReport;
     expect(report.replans).toHaveLength(1);
     const paid = BigInt(report.recovery.feesPaidBySponsorStroops);
     // The plan's own bid is shown, and so is the ceiling: the close budget, 5 XLM.
-    expect(r.err).toMatch(/pays {9}every fee; the plan bids 0\.0000800 XLM/);
-    const ceiling = summaryStroops(r.err, "at most");
+    expect(r.out).toMatch(/pays {9}every fee; the plan bids 0\.0000800 XLM/);
+    const ceiling = summaryStroops(r.out, "at most");
     expect(ceiling).toBe(50_000_000n);
     expect(paid).toBeGreaterThan(800n);
     expect(ceiling).toBeGreaterThanOrEqual(paid);
-    expect(r.err).not.toMatch(/may bid up to|every fee, at most 0\.0000800/);
+    expect(r.out).not.toMatch(/may bid up to|every fee, at most 0\.0000800/);
   });
 });
 
@@ -177,7 +182,7 @@ describe("R3-26: --report can never name the working directory's .env", () => {
     const path = target(cwd);
     const r = await closeCli(world, executeArgs(world, "--yes", "--report", path), deps);
     expect(r.code).toBe(2);
-    expect(r.err).toMatch(/Cannot write the report file .*\.env/);
+    expect(r.err.replace(/\s+/g, " ")).toMatch(/Cannot write the report file .*\.env/);
     expect(world.ledger.submissions).toHaveLength(0);
     // The secrets file is where it was, as it was.
     expect(readFileSync(join(cwd, ".env"), "utf8")).toBe(text);
@@ -206,7 +211,7 @@ async function closeWithPrompt(world: World, args: string[], prompt: Prompt) {
 }
 
 describe("R3-28, R3-31: the confirmation is asked only where the facts were shown", () => {
-  it("tells the prompt which stream carried the plan: stdout, or stderr with --json", async () => {
+  it("tells the prompt the plan was on stdout, and never asks with --json (AA-10)", async () => {
     const facts: Array<string | undefined> = [];
     const prompt: Prompt = (_question, context) => {
       facts.push(context?.facts);
@@ -214,8 +219,11 @@ describe("R3-28, R3-31: the confirmation is asked only where the facts were show
     };
     const world = zeroSpendableWorld();
     await closeWithPrompt(world, executeArgs(world), prompt);
-    await closeWithPrompt(world, executeArgs(world, "--json"), prompt);
-    expect(facts).toEqual(["stdout", "stderr"]);
+    const json = await closeWithPrompt(world, executeArgs(world, "--json"), prompt);
+    // Since E4-S1 --json is machine mode: the question is not asked, the run is refused.
+    expect(facts).toEqual(["stdout"]);
+    expect(json.code).toBe(3);
+    expect(json.err).toContain("CONFIRMATION_REQUIRED");
     expect(world.ledger.submissions).toHaveLength(0);
   });
 
@@ -228,9 +236,10 @@ describe("R3-28, R3-31: the confirmation is asked only where the facts were show
     );
     expect(r.code).toBe(3);
     expect(r.err).toContain("CONFIRMATION_DECLINED");
-    expect(r.err).toContain(cause);
+    // Error lines wrap at 120 columns (E4-S1): read with the whitespace flattened.
+    expect(r.err.replace(/\s+/g, " ")).toContain(cause);
     expect(r.err).not.toMatch(/the input is not interactive/);
-    expect(r.err).toContain("Nothing was executed");
+    expect(r.err.replace(/\s+/g, " ")).toContain("Nothing was executed");
     expect(r.err).toContain("--yes");
     expect(world.ledger.submissions).toHaveLength(0);
   });

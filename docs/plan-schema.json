@@ -1,0 +1,491 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/0xsimoneth/dustin/blob/main/docs/plan-schema.json",
+  "title": "Dustin close plan",
+  "description": "The ClosePlan that planClose() returns and `dustin plan --json` prints (schemaVersion 1; PRD section 7, src/plan/model.ts). Amounts are decimal strings with 7 decimals, exact to the stroop; fees are whole stroops. A later minor version may add fields, so this schema allows unknown properties; the repository's tests validate the plans of the offline fixtures against it in a strict mode that refuses them, so the schema lists every field the code writes (story E4-S1, AC-E4-S1-2).",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "kind",
+    "network",
+    "account",
+    "destination",
+    "feeSponsor",
+    "memo",
+    "observed",
+    "reserve",
+    "snapshotHash",
+    "planHash",
+    "status",
+    "ladderOrder",
+    "steps",
+    "transactions",
+    "unclosable",
+    "blockers",
+    "warnings",
+    "recovery",
+    "fees",
+    "sequenceGuard"
+  ],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "kind": { "const": "dustin-close-plan" },
+    "network": { "$ref": "#/$defs/Network" },
+    "account": { "$ref": "#/$defs/AccountId" },
+    "destination": { "$ref": "#/$defs/Destination" },
+    "feeSponsor": {
+      "description": "The fee sponsor's public key, or null when the plan was made without --sponsor.",
+      "anyOf": [{ "$ref": "#/$defs/AccountId" }, { "type": "null" }]
+    },
+    "memo": {
+      "description": "The text memo on every transaction (at most 28 bytes), or null.",
+      "type": ["string", "null"]
+    },
+    "options": {
+      "description": "The planning options that shape the plan without appearing in its steps, as applied (defaults filled in). Absent only in plans serialised before they were recorded.",
+      "type": "object",
+      "required": ["slippageBps", "maxOpsPerTransaction", "maxWaitLedgers"],
+      "properties": {
+        "slippageBps": { "type": "integer", "minimum": 0, "maximum": 10000 },
+        "maxOpsPerTransaction": { "type": "integer", "minimum": 2, "maximum": 100 },
+        "maxWaitLedgers": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "observed": {
+      "description": "The ledger the plan was made from and its close time.",
+      "type": "object",
+      "required": ["ledger", "closedAt"],
+      "properties": {
+        "ledger": { "type": "integer", "minimum": 0 },
+        "closedAt": { "type": "string" }
+      }
+    },
+    "reserve": {
+      "description": "The account's XLM position when observed; 0.0000000 everywhere for a missing account.",
+      "type": "object",
+      "required": ["balance", "minimum", "spendable", "baseReserve"],
+      "properties": {
+        "balance": { "$ref": "#/$defs/Amount" },
+        "minimum": { "$ref": "#/$defs/Amount" },
+        "spendable": { "$ref": "#/$defs/Amount" },
+        "baseReserve": { "$ref": "#/$defs/Amount" }
+      }
+    },
+    "snapshotHash": { "$ref": "#/$defs/Hash" },
+    "planHash": {
+      "description": "sha256 of the plan's structure: steps, order, grouping, rungs and blockers; no fees, quotes, prose or sequence-guard timing (PRD decision D-10).",
+      "$ref": "#/$defs/Hash"
+    },
+    "status": { "enum": ["closable", "partial", "blocked"] },
+    "ladderOrder": { "enum": ["sow", "prefer-destination"] },
+    "steps": { "type": "array", "items": { "$ref": "#/$defs/CloseStep" } },
+    "transactions": { "type": "array", "items": { "$ref": "#/$defs/PlannedTransaction" } },
+    "unclosable": { "type": "array", "items": { "$ref": "#/$defs/UnclosableItem" } },
+    "blockers": { "type": "array", "items": { "$ref": "#/$defs/Blocker" } },
+    "warnings": { "type": "array", "items": { "type": "string" } },
+    "recovery": { "$ref": "#/$defs/RecoverySummary" },
+    "fees": { "$ref": "#/$defs/FeeSummary" },
+    "sequenceGuard": {
+      "description": "The ACCOUNT_MERGE_SEQNUM_TOO_FAR guard for the merge, or null when the plan has no merge.",
+      "anyOf": [{ "$ref": "#/$defs/SequenceGuard" }, { "type": "null" }]
+    }
+  },
+  "$defs": {
+    "AccountId": {
+      "description": "A classic account's public key (G...).",
+      "type": "string",
+      "pattern": "^G[A-Z2-7]{55}$"
+    },
+    "Destination": {
+      "description": "The merge destination: a G... account or a muxed M... address.",
+      "type": "string",
+      "pattern": "^(G[A-Z2-7]{55}|M[A-Z2-7]{68})$"
+    },
+    "Hash": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "Amount": {
+      "description": "An amount of an asset or of XLM with 7 decimals.",
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]{7}$"
+    },
+    "Network": {
+      "type": "object",
+      "required": ["passphrase", "horizon"],
+      "properties": {
+        "passphrase": { "const": "Test SDF Network ; September 2015" },
+        "horizon": { "type": "string" }
+      }
+    },
+    "NativeAssetRef": {
+      "type": "object",
+      "required": ["type"],
+      "properties": { "type": { "const": "native" } }
+    },
+    "CreditAssetRef": {
+      "type": "object",
+      "required": ["type", "code", "issuer"],
+      "properties": {
+        "type": { "enum": ["credit_alphanum4", "credit_alphanum12"] },
+        "code": { "type": "string", "pattern": "^[A-Za-z0-9]{1,12}$" },
+        "issuer": { "$ref": "#/$defs/AccountId" }
+      }
+    },
+    "AssetRef": {
+      "oneOf": [{ "$ref": "#/$defs/NativeAssetRef" }, { "$ref": "#/$defs/CreditAssetRef" }]
+    },
+    "PoolShareAssetRef": {
+      "type": "object",
+      "required": ["type", "poolId", "assets"],
+      "properties": {
+        "type": { "const": "liquidity_pool_shares" },
+        "poolId": { "$ref": "#/$defs/Hash" },
+        "assets": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": { "type": "string" }
+        }
+      }
+    },
+    "Rung": { "enum": ["path_payment", "return_to_issuer", "send_to_destination"] },
+    "StepKind": {
+      "enum": ["cancel_offer", "dispose_balance", "remove_trustline", "remove_data", "merge"]
+    },
+    "Phase": { "enum": ["cleanup", "convert", "merge"] },
+    "StepSubject": {
+      "description": "What a step or an unclosable item acts on.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "offerId", "selling", "buying", "amount"],
+          "properties": {
+            "type": { "const": "offer" },
+            "offerId": { "type": "string" },
+            "selling": { "$ref": "#/$defs/AssetRef" },
+            "buying": { "$ref": "#/$defs/AssetRef" },
+            "amount": { "$ref": "#/$defs/Amount" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "asset", "balance", "sponsor"],
+          "properties": {
+            "type": { "const": "trustline" },
+            "asset": { "$ref": "#/$defs/CreditAssetRef" },
+            "balance": { "$ref": "#/$defs/Amount" },
+            "sponsor": { "anyOf": [{ "$ref": "#/$defs/AccountId" }, { "type": "null" }] }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "name"],
+          "properties": {
+            "type": { "const": "data" },
+            "name": { "type": "string" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "poolId", "balance", "sponsor"],
+          "properties": {
+            "type": { "const": "pool_share" },
+            "poolId": { "$ref": "#/$defs/Hash" },
+            "balance": { "$ref": "#/$defs/Amount" },
+            "sponsor": { "anyOf": [{ "$ref": "#/$defs/AccountId" }, { "type": "null" }] }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "destination"],
+          "properties": {
+            "type": { "const": "account" },
+            "destination": { "$ref": "#/$defs/Destination" }
+          }
+        }
+      ]
+    },
+    "OperationDescriptor": {
+      "description": "A serialisable operation; never a signed envelope.",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": ["type", "offerId", "selling", "buying", "amount", "price"],
+          "properties": {
+            "type": { "const": "manageSellOffer" },
+            "offerId": { "type": "string" },
+            "selling": { "$ref": "#/$defs/AssetRef" },
+            "buying": { "$ref": "#/$defs/AssetRef" },
+            "amount": { "const": "0" },
+            "price": {
+              "type": "object",
+              "required": ["n", "d"],
+              "properties": {
+                "n": { "type": "integer", "minimum": 1 },
+                "d": { "type": "integer", "minimum": 1 }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "required": [
+            "type",
+            "sendAsset",
+            "sendAmount",
+            "destination",
+            "destAsset",
+            "destMin",
+            "path"
+          ],
+          "properties": {
+            "type": { "const": "pathPaymentStrictSend" },
+            "sendAsset": { "$ref": "#/$defs/CreditAssetRef" },
+            "sendAmount": { "$ref": "#/$defs/Amount" },
+            "destination": { "$ref": "#/$defs/Destination" },
+            "destAsset": { "$ref": "#/$defs/NativeAssetRef" },
+            "destMin": { "$ref": "#/$defs/Amount" },
+            "path": { "type": "array", "items": { "$ref": "#/$defs/AssetRef" } }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "destination", "asset", "amount"],
+          "properties": {
+            "type": { "const": "payment" },
+            "destination": { "$ref": "#/$defs/Destination" },
+            "asset": { "$ref": "#/$defs/CreditAssetRef" },
+            "amount": { "$ref": "#/$defs/Amount" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "asset", "limit"],
+          "properties": {
+            "type": { "const": "changeTrust" },
+            "asset": {
+              "oneOf": [
+                { "$ref": "#/$defs/CreditAssetRef" },
+                { "$ref": "#/$defs/PoolShareAssetRef" }
+              ]
+            },
+            "limit": { "const": "0" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "name", "value"],
+          "properties": {
+            "type": { "const": "manageData" },
+            "name": { "type": "string" },
+            "value": { "type": "null" }
+          }
+        },
+        {
+          "type": "object",
+          "required": ["type", "destination"],
+          "properties": {
+            "type": { "const": "accountMerge" },
+            "destination": { "$ref": "#/$defs/Destination" }
+          }
+        }
+      ]
+    },
+    "RuledOut": {
+      "type": "object",
+      "required": ["rung", "reason"],
+      "properties": {
+        "rung": { "$ref": "#/$defs/Rung" },
+        "reason": { "type": "string" }
+      }
+    },
+    "DisposalDecision": {
+      "type": "object",
+      "required": ["rung", "amount", "to", "fallbackRungs", "ruledOut"],
+      "properties": {
+        "rung": { "$ref": "#/$defs/Rung" },
+        "amount": { "$ref": "#/$defs/Amount" },
+        "to": {
+          "description": "Where the balance goes: the account itself (rung 1), the issuer or the destination.",
+          "$ref": "#/$defs/Destination"
+        },
+        "quotedXlm": { "$ref": "#/$defs/Amount" },
+        "destMinXlm": { "$ref": "#/$defs/Amount" },
+        "fallbackRungs": { "type": "array", "items": { "$ref": "#/$defs/Rung" } },
+        "ruledOut": { "type": "array", "items": { "$ref": "#/$defs/RuledOut" } }
+      }
+    },
+    "CloseStep": {
+      "type": "object",
+      "required": [
+        "id",
+        "kind",
+        "txIndex",
+        "subject",
+        "reason",
+        "dependsOn",
+        "threshold",
+        "operation",
+        "feeEstimateStroops"
+      ],
+      "properties": {
+        "id": { "type": "string", "pattern": "^S[0-9]{2,}$" },
+        "kind": { "$ref": "#/$defs/StepKind" },
+        "txIndex": { "type": "integer", "minimum": 0 },
+        "subject": { "$ref": "#/$defs/StepSubject" },
+        "reason": { "type": "string" },
+        "dependsOn": { "type": "array", "items": { "type": "string" } },
+        "threshold": { "enum": ["medium", "high"] },
+        "operation": { "$ref": "#/$defs/OperationDescriptor" },
+        "disposal": { "$ref": "#/$defs/DisposalDecision" },
+        "reserveReleasedTo": {
+          "oneOf": [
+            {
+              "type": "object",
+              "required": ["to"],
+              "properties": { "to": { "const": "account" } }
+            },
+            {
+              "type": "object",
+              "required": ["to", "sponsor"],
+              "properties": {
+                "to": { "const": "sponsor" },
+                "sponsor": { "$ref": "#/$defs/AccountId" }
+              }
+            }
+          ]
+        },
+        "feeEstimateStroops": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "PlannedTransaction": {
+      "type": "object",
+      "required": [
+        "index",
+        "phase",
+        "stepIds",
+        "opCount",
+        "innerFeeStroops",
+        "feeBumpFeeStroops",
+        "reason"
+      ],
+      "properties": {
+        "index": { "type": "integer", "minimum": 0 },
+        "phase": { "$ref": "#/$defs/Phase" },
+        "stepIds": { "type": "array", "items": { "type": "string" } },
+        "opCount": { "type": "integer", "minimum": 1, "maximum": 100 },
+        "innerFeeStroops": { "const": 0 },
+        "feeBumpFeeStroops": { "type": "integer", "minimum": 0 },
+        "reason": { "type": "string" }
+      }
+    },
+    "UnclosableItem": {
+      "type": "object",
+      "required": ["code", "subject", "reason", "remedy", "blocksMerge"],
+      "properties": {
+        "code": {
+          "enum": [
+            "TRUSTLINE_NOT_AUTHORIZED",
+            "MAINTAIN_LIABILITIES_ONLY",
+            "NO_DISPOSAL_ROUTE",
+            "LIQUIDITY_POOL_SHARES",
+            "POOL_ASSET_TRUSTLINE"
+          ]
+        },
+        "subject": { "$ref": "#/$defs/StepSubject" },
+        "reason": { "type": "string" },
+        "remedy": { "type": "string" },
+        "blocksMerge": { "const": true },
+        "rungsRuledOut": { "type": "array", "items": { "$ref": "#/$defs/RuledOut" } }
+      }
+    },
+    "BlockerCode": {
+      "enum": [
+        "ACCOUNT_MISSING",
+        "AUTH_IMMUTABLE_SET",
+        "IS_SPONSOR",
+        "MASTER_KEY_DISABLED",
+        "THRESHOLD_UNMET",
+        "DESTINATION_MISSING",
+        "DESTINATION_IS_SELF",
+        "DESTINATION_REQUIRES_MEMO",
+        "SEQNUM_TOO_FAR",
+        "LIQUIDITY_POOL_SHARES"
+      ]
+    },
+    "Blocker": {
+      "type": "object",
+      "required": ["code", "reason", "remedy", "permanent"],
+      "properties": {
+        "code": { "$ref": "#/$defs/BlockerCode" },
+        "reason": { "type": "string" },
+        "remedy": { "type": "string" },
+        "permanent": { "type": "boolean" }
+      }
+    },
+    "ReservesToSponsor": {
+      "type": "object",
+      "required": ["sponsor", "xlm", "entries"],
+      "properties": {
+        "sponsor": { "$ref": "#/$defs/AccountId" },
+        "xlm": { "$ref": "#/$defs/Amount" },
+        "entries": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "RecoverySummary": {
+      "type": "object",
+      "required": [
+        "xlmToDestination",
+        "nativeBalance",
+        "quotedProceedsXlm",
+        "reservesReturnedToSponsors",
+        "feesPaidByAccount"
+      ],
+      "properties": {
+        "xlmToDestination": { "$ref": "#/$defs/Amount" },
+        "nativeBalance": { "$ref": "#/$defs/Amount" },
+        "quotedProceedsXlm": { "$ref": "#/$defs/Amount" },
+        "reservesReturnedToSponsors": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/ReservesToSponsor" }
+        },
+        "feesPaidByAccount": { "const": "0" }
+      }
+    },
+    "FeeSummary": {
+      "type": "object",
+      "required": [
+        "baseFeeStroops",
+        "basis",
+        "maxBaseFeeStroops",
+        "perTransactionStroops",
+        "totalStroops",
+        "budgetStroops",
+        "withinBudget",
+        "payer"
+      ],
+      "properties": {
+        "baseFeeStroops": { "type": "integer", "minimum": 100 },
+        "basis": { "enum": ["fee_stats", "override"] },
+        "maxBaseFeeStroops": { "type": "integer", "minimum": 100 },
+        "perTransactionStroops": { "type": "array", "items": { "type": "integer", "minimum": 0 } },
+        "totalStroops": { "type": "integer", "minimum": 0 },
+        "budgetStroops": { "type": "integer", "minimum": 1 },
+        "withinBudget": { "type": "boolean" },
+        "payer": {
+          "description": "The fee sponsor's public key, or \"fee_sponsor\" when it was not given.",
+          "anyOf": [{ "$ref": "#/$defs/AccountId" }, { "const": "fee_sponsor" }]
+        }
+      }
+    },
+    "SequenceGuard": {
+      "type": "object",
+      "required": ["sequenceAtMerge", "earliestLedger", "ok", "unblocksAtLedger", "etaSeconds"],
+      "properties": {
+        "sequenceAtMerge": { "type": "string", "pattern": "^[0-9]+$" },
+        "earliestLedger": { "type": "integer", "minimum": 0 },
+        "ok": { "type": "boolean" },
+        "unblocksAtLedger": { "type": ["integer", "null"] },
+        "etaSeconds": { "type": ["integer", "null"] }
+      }
+    }
+  }
+}

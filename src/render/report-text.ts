@@ -530,7 +530,7 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
     );
   }
   out.push(...sponsorLines(report));
-  out.push(`  0 XLM in fees paid by the account`);
+  out.push("  0.0000000 XLM in fees paid by the account");
   out.push(
     `  ${xlm(r.feesPaidBySponsorStroops)} (${grouped(r.feesPaidBySponsorStroops)} stroops) in fees paid by the sponsor`,
   );
@@ -554,8 +554,16 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   }
 
   out.push("", "Verify it yourself");
-  out.push(`  account      ${explorer}/account/${report.account}`);
-  out.push(`  destination  ${destinationAccountUrl(explorer, report.destination)}`);
+  // Review finding AA-9 (story E4-S1): the report's links, the explorer page and Horizon's own
+  // resource for each account, as docs/ux-design.md section 2.6 shows them; a report written
+  // before E4-S1 has no links and gets the explorer pages only.
+  const links = report.links;
+  out.push(`  account      ${links?.account.explorer ?? `${explorer}/account/${report.account}`}`);
+  if (links) out.push(`               ${links.account.horizon}`);
+  out.push(
+    `  destination  ${links?.destination.explorer ?? destinationAccountUrl(explorer, report.destination)}`,
+  );
+  if (links) out.push(`               ${links.destination.horizon}`);
   const v = report.verification;
   if (v === null) {
     out.push(
@@ -588,7 +596,20 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   return `${out.join("\n")}\n`;
 }
 
-function nextStep(report: CloseReport): string | null {
+/**
+ * The receipt's "Next" line: what to do after this report, or null when nothing is left to do.
+ * The CLI's last `error` line with --json carries it as the remedy (review finding AA-10).
+ */
+export function nextStep(report: CloseReport): string | null {
+  // Review finding AA-13: a run after a completed close found the account gone (Horizon 404) and
+  // submitted nothing; running it again would change nothing.
+  if (
+    report.stop?.code === "ACCOUNT_MISSING" &&
+    report.verification?.accountExists === false &&
+    report.transactions.length === 0
+  ) {
+    return "If an earlier run merged the account, the close is complete: the account link above shows the merge as its last operation. Otherwise check the address; there is nothing to close.";
+  }
   // Story E3-S4: a run the sequence guard stopped before the merge says when to come back.
   const until = report.stop?.code === "SEQNUM_TOO_FAR" ? report.stop.unblocksAtLedger : undefined;
   if (until !== undefined && report.status !== "closed") {
