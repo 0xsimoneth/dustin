@@ -1,7 +1,9 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import type { ExistingAccountSnapshot } from "../../../src/inspect/snapshot.js";
 import type { Blocker, BlockerCode, ClosePlan } from "../../../src/plan/model.js";
+import { planClose } from "../../../src/plan/plan-close.js";
 import { planFromSnapshot } from "../../../src/plan/plan.js";
+import { edgeManifest, edgeRecordedReader } from "../../helpers/edge-ledger.js";
 import { copy, messy, messySnapshot } from "../../helpers/snapshots.js";
 
 // The closing review of 2026-09-28, planner half (findings CP-1 to CP-7 and CP-15 to CP-17 of the
@@ -87,5 +89,100 @@ describe("CP-1: the cleanup's threshold counts only when there is a cleanup", ()
       "Blocked: every transaction needs weight 2 for its source account (low threshold), so the merge, which needs weight 2, cannot be signed. The account has nothing to clean up.",
     );
     expect(r2).not.toMatch(/cleanup needs weight/i);
+  });
+});
+
+describe("CP-2: a remedy offers --partial only for a cleanup the plan holds", () => {
+  const partial = /--partial/;
+
+  it("the recorded immutable variant has no step, so AUTH_IMMUTABLE_SET offers nothing more", async () => {
+    const m = edgeManifest();
+    const { reader } = edgeRecordedReader();
+    const plan = await planClose(
+      {
+        account: m.accounts.immutable,
+        destination: m.accounts.destination,
+        feeSponsor: m.accounts.sponsor,
+      },
+      { reader },
+    );
+    expect(plan.steps).toEqual([]);
+    expect(blocker(plan, "AUTH_IMMUTABLE_SET").remedy).toBe(
+      "None: the flag cannot be cleared, so the account can never be merged.",
+    );
+  });
+
+  it("AUTH_IMMUTABLE with a cleanup: --partial runs it, and the account keeps its XLM (nothing is emptied)", () => {
+    const s = copy(base);
+    s.flags.authImmutable = true;
+    const plan = planFromSnapshot(s, opts());
+    const { remedy } = blocker(plan, "AUTH_IMMUTABLE_SET");
+    expect(remedy).toBe(
+      "None: the flag cannot be cleared, so the account can never be merged. With --partial the cleanup and the sale still run, but the account stays on the ledger and keeps its XLM.",
+    );
+    expect(remedy).not.toMatch(/empties/);
+  });
+
+  it("AUTH_IMMUTABLE with a cleanup the master key cannot sign: neither blocker offers --partial", () => {
+    const s = onlySigner(copy(base), 1);
+    s.flags.authImmutable = true;
+    s.thresholds = { low: 0, medium: 2, high: 2 };
+    const plan = planFromSnapshot(s, opts());
+    expect(plan.blockers.map((b) => b.code)).toEqual(["AUTH_IMMUTABLE_SET", "THRESHOLD_UNMET"]);
+    expect(plan.steps).toEqual([]);
+    for (const b of plan.blockers) expect(b.remedy, b.code).not.toMatch(partial);
+  });
+
+  it("THRESHOLD_UNMET on an account with nothing to clean up offers no --partial", () => {
+    const s = onlySigner(bare(base), 1);
+    s.thresholds = { low: 0, medium: 0, high: 2 };
+    const plan = planFromSnapshot(s, opts());
+    expect(plan.steps).toEqual([]);
+    expect(blocker(plan, "THRESHOLD_UNMET").remedy).not.toMatch(partial);
+  });
+
+  it("names what a --partial run executes: the cleanup, the sale, or both", () => {
+    // A second signer of weight 1 lets the signers reach the high threshold of 2 outside Dustin.
+    const withSigner = (s: ExistingAccountSnapshot) => {
+      s.thresholds = { low: 0, medium: 0, high: 2 };
+      s.signers.push({
+        key: messy.destination,
+        weight: 1,
+        type: "ed25519_public_key",
+        sponsor: null,
+      });
+      return s;
+    };
+    // The messy fixture: offers, returns, the data entry (the cleanup) and the DUSTA sale.
+    const both = planFromSnapshot(withSigner(copy(base)), opts());
+    expect(blocker(both, "THRESHOLD_UNMET").remedy).toMatch(
+      / The cleanup and the sale can run now with --partial\.$/,
+    );
+    // The DUSTA trustline alone: its sale is the only transaction before the merge.
+    const sale = withSigner(copy(base));
+    sale.trustlines = sale.trustlines.filter((t) => t.asset.code === "DUSTA");
+    sale.quotes = sale.quotes.filter((q) => q.asset.code === "DUSTA");
+    sale.offers = [];
+    sale.data = [];
+    const saleOnly = planFromSnapshot(sale, opts());
+    expect(saleOnly.transactions.map((t) => t.phase)).toEqual(["convert"]);
+    expect(blocker(saleOnly, "THRESHOLD_UNMET").remedy).toMatch(
+      / The sale can run now with --partial\.$/,
+    );
+  });
+
+  it("SEQNUM_TOO_FAR offers --partial only when something runs before the merge", () => {
+    const far = (s: ExistingAccountSnapshot) => {
+      s.sequence = (BigInt(s.observed.ledger + 500) << 32n).toString();
+      return s;
+    };
+    const alone = planFromSnapshot(far(bare(base)), opts());
+    expect(blocker(alone, "SEQNUM_TOO_FAR").remedy).toBe(
+      "Wait until that ledger and run the plan again; a sequence number can only go up, so nothing else helps.",
+    );
+    const messyFar = planFromSnapshot(far(copy(base)), opts());
+    expect(blocker(messyFar, "SEQNUM_TOO_FAR").remedy).toMatch(
+      / The cleanup and the sale can run now with --partial\.$/,
+    );
   });
 });

@@ -1,6 +1,6 @@
 import { toStroops } from "../amounts.js";
 import type { ExistingAccountSnapshot } from "../inspect/snapshot.js";
-import type { Blocker } from "./model.js";
+import type { Blocker, TransactionPhase } from "./model.js";
 
 export interface SigningCapability {
   /** The master key alone can sign medium-threshold cleanup operations. */
@@ -34,6 +34,47 @@ export function hasCleanup(s: ExistingAccountSnapshot): boolean {
 /** The master key cannot sign a cleanup the account needs, so nothing can run before the merge. */
 export function cleanupBlocked(s: ExistingAccountSnapshot): boolean {
   return hasCleanup(s) && !signingCapability(s).cleanup;
+}
+
+/**
+ * What a plan runs before its merge, named from the phases of those transactions: "the cleanup",
+ * "the sale" or "the sales", or both; null when nothing runs before the merge. `plural` picks the
+ * verb.
+ */
+export function workBeforeMerge(
+  phases: readonly TransactionPhase[],
+): { what: string; plural: boolean } | null {
+  const cleanup = phases.includes("cleanup");
+  const sales = phases.filter((phase) => phase === "convert").length;
+  const sale = sales === 1 ? "the sale" : "the sales";
+  if (cleanup && sales > 0) return { what: `the cleanup and ${sale}`, plural: true };
+  if (cleanup) return { what: "the cleanup", plural: false };
+  if (sales > 0) return { what: sale, plural: sales > 1 };
+  return null;
+}
+
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+
+/**
+ * The remedy sentence for a merge that may follow later: what a run with --partial executes now,
+ * named from the plan's transactions before the merge; empty when there are none (closing review
+ * CP-2).
+ */
+export function partialNow(phases: readonly TransactionPhase[]): string {
+  const work = workBeforeMerge(phases);
+  return work ? ` ${capital(work.what)} can run now with --partial.` : "";
+}
+
+/**
+ * The remedy sentence for a merge that can never happen: a run with --partial still executes the
+ * plan's other transactions, and the account keeps its XLM (a partial run never moves native
+ * XLM); empty when there are none (closing review CP-2).
+ */
+function partialAnyway(phases: readonly TransactionPhase[]): string {
+  const work = workBeforeMerge(phases);
+  return work
+    ? ` With --partial ${work.what} still ${work.plural ? "run" : "runs"}, but the account stays on the ledger and keeps its XLM.`
+    : "";
 }
 
 /** The account's signers other than the master key, as "G... (weight n)"; empty when none. */
@@ -105,9 +146,15 @@ function poolSharesBlocker(held: ExistingAccountSnapshot["poolShares"]): Blocker
  * Conditions that make the merge impossible today (docs/README.md canonical decision 11;
  * AccountMerge result codes: https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/account-merge).
  * AUTH_IMMUTABLE_SET comes first: nothing can ever lift it (edge case A-06). The sequence guard is
- * added by the planner once the merge's transaction index is known.
+ * added by the planner once the merge's transaction index is known. `before` holds the phases of
+ * the transactions the plan runs before its merge: a remedy offers --partial only for them
+ * (closing review CP-2).
  */
-export function mergeBlockers(s: ExistingAccountSnapshot, memo: string | null): Blocker[] {
+export function mergeBlockers(
+  s: ExistingAccountSnapshot,
+  memo: string | null,
+  before: readonly TransactionPhase[] = [],
+): Blocker[] {
   const blockers: Blocker[] = [];
   const signing = signingCapability(s);
   if (s.flags.authImmutable) {
@@ -118,7 +165,8 @@ export function mergeBlockers(s: ExistingAccountSnapshot, memo: string | null): 
       reason:
         "The account has the AUTH_IMMUTABLE flag, so it can never be merged: the merge would fail with ACCOUNT_MERGE_IMMUTABLE_SET, and the flag can never be cleared.",
       remedy:
-        "None: the flag cannot be cleared, so the account can never be merged. With --partial the cleanup still runs and empties the account, but the account stays on the ledger.",
+        "None: the flag cannot be cleared, so the account can never be merged." +
+        partialAnyway(before),
       permanent: true,
     });
   }
@@ -143,7 +191,7 @@ export function mergeBlockers(s: ExistingAccountSnapshot, memo: string | null): 
       reason: thresholdReason(s),
       remedy:
         "Multisig closing is out of scope: sign outside Dustin with enough weight, or have the signers lower the thresholds to the master key's weight (SetOptions, which needs the high threshold), then run the plan again." +
-        (signing.cleanup ? " The cleanup can run now with --partial." : ""),
+        partialNow(before),
       permanent: true,
     });
   }

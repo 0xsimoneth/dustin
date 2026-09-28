@@ -4,6 +4,7 @@ import { DustinError } from "../errors/dustin-error.js";
 import { TESTNET_PASSPHRASE } from "../config/network.js";
 import type { AccountSnapshot } from "../inspect/snapshot.js";
 import { assetKey } from "../inspect/snapshot.js";
+import { partialNow } from "./blockers.js";
 import { feeSummary } from "./fees.js";
 import { MAX_OPERATIONS, groupUnits, type GroupedTransaction } from "./grouping.js";
 import { sequenceGuard } from "./guard.js";
@@ -125,14 +126,16 @@ export function planFromSnapshot(s: AccountSnapshot, options: PlanOptions): Clos
           `The account's sequence number is ahead of the ledger: the merge must wait until ledger ${guard.unblocksAtLedger} (about ${guard.etaSeconds} s). ${first}; the executor waits before submitting the merge.`,
         );
       } else {
+        units = units.filter((u) => u.phase !== "merge");
         blockers.push({
           code: "SEQNUM_TOO_FAR",
           reason: `The account's sequence number is ahead of the ledger, so a merge is refused (ACCOUNT_MERGE_SEQNUM_TOO_FAR) until ledger ${guard.unblocksAtLedger}, about ${Math.ceil((guard.etaSeconds ?? 0) / 60)} minutes from now.`,
+          // --partial only when something runs before the merge (closing review CP-2).
           remedy:
-            "Wait until that ledger and run the plan again; a sequence number can only go up, so nothing else helps. The cleanup can run now with --partial.",
+            "Wait until that ledger and run the plan again; a sequence number can only go up, so nothing else helps." +
+            partialNow(units.map((u) => u.phase)),
           permanent: false,
         });
-        units = units.filter((u) => u.phase !== "merge");
         grouped = groupUnits(units, { maxOps, separateMerge: false });
         status = "blocked";
       }

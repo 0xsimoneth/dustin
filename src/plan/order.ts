@@ -52,12 +52,12 @@ type Draft = Omit<CloseStep, "id" | "dependsOn"> & { ref: number; deps: number[]
 export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): OrderResult {
   const ladderOrder: LadderOrder = options.preferDestination ? "prefer-destination" : "sow";
   const memo = options.memo ?? null;
-  const blockers = mergeBlockers(s, memo);
   const unclosable: UnclosableItem[] = [];
   const warnings: string[] = [];
   // Nothing can be signed before the merge, so nothing is planned; the threshold blocker says why.
   // An account with nothing to clean up goes on to its merge (closing review CP-1).
   if (cleanupBlocked(s)) {
+    const blockers = mergeBlockers(s, memo);
     return { units: [], unclosable, blockers, warnings, status: "blocked", ladderOrder };
   }
 
@@ -236,6 +236,12 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
     ...dataUnits.map((u) => ({ phase: "cleanup" as const, drafts: u })),
     ...convertUnits.map((u) => ({ phase: "convert" as const, drafts: u })),
   ];
+  // A remedy offers --partial only for what the plan runs before its merge (closing review CP-2).
+  const blockers = mergeBlockers(
+    s,
+    memo,
+    ordered.map((u) => u.phase),
+  );
   const destination = s.destination?.account ?? options.destination;
   if (blockers.length === 0 && unclosable.length === 0) {
     const everything = ordered.flatMap((u) => u.drafts.map((d) => d.ref));
