@@ -382,12 +382,25 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
 }
 
 function nextStep(report: CloseReport): string | null {
+  // Story E3-S4: a run the sequence guard stopped before the merge says when to come back.
+  const until = report.stop?.code === "SEQNUM_TOO_FAR" ? report.stop.unblocksAtLedger : undefined;
+  if (until !== undefined && report.status !== "closed") {
+    return `The sequence guard holds the merge until ledger ${grouped(until)} (ACCOUNT_MERGE_SEQNUM_TOO_FAR). Run the same command again at or after that ledger: Dustin re-reads the account and plans only what is left.`;
+  }
   switch (report.status) {
     case "closed":
       return report.verification?.accountExists === false
         ? null
         : "Check the account on the explorer; if it still exists, run the same command again.";
     case "partial":
+      // A plan whose guard was beyond the bound ran its cleanup only; its blocker names the ledger.
+      if (
+        report.unclosable.length === 0 &&
+        report.blockers.length > 0 &&
+        report.blockers.every((b) => b.code === "SEQNUM_TOO_FAR")
+      ) {
+        return "The account still exists: the sequence guard holds the merge (SEQNUM_TOO_FAR above). Run the same command again once that ledger has closed: Dustin re-reads the account and merges it.";
+      }
       return "The account still exists. Resolve the items above, then run the same command again: Dustin re-reads the account and plans only what is left.";
     case "aborted":
       return report.transactions.length === 0
