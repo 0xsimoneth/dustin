@@ -214,7 +214,7 @@ dev-story workflow (AI developer agent)
 
 ### Completion Notes List
 
-- Offline tier: 58 files and 514 tests before this work; 65 files and 559 tests after (the numbers include Story 3.2's tests). Lint, format, typecheck and build pass.
+- Offline tier: 58 files and 514 tests before this work; 65 files and 560 tests after (the numbers include Story 3.2's tests). Lint, format, typecheck and build pass.
 - Live tier: `test/testnet/ladder.test.ts`, 14 tests, passed in two runs on 2026-09-28 (hashes above and in the Story 3.2 record).
 - New in the public surface: stop code `XLM_TO_DESTINATION_FELL`; `StopReason.xlmToDestination`; the `drift` event's `xlmToDestination`. PRD section 7 does not list them yet.
 

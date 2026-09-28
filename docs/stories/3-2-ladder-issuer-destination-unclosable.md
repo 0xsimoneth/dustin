@@ -223,7 +223,7 @@ dev-story workflow (AI developer agent)
 
 ### Completion Notes List
 
-- Offline: see the Story 3.1 record (58 files and 514 tests before, 65 files and 559 tests after, both stories together).
+- Offline: see the Story 3.1 record (58 files and 514 tests before, 65 files and 560 tests after, both stories together).
 - Live: 3 of the 4 cases in `test/testnet/ladder.test.ts` serve this story (7 of its 14 tests). Two runs passed on 2026-09-28.
 - Two throwaway accounts stay open on testnet with DUSTB and SPTA dust, one per run of the memo-required case, as the AC intends. They go at the next testnet reset.
 

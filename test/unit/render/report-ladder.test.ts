@@ -208,4 +208,12 @@ describe("the receipt of a ladder run", () => {
     );
     within120(text);
   });
+
+  it("prints no Disposals section when nothing was submitted, but still the unclosable items", async () => {
+    const { report, plans } = await run({ mutate: memoRequiredIssuer });
+    expect(report.status).toBe("aborted");
+    const text = renderReport(report, { plans });
+    expect(text).not.toContain("Disposals");
+    expect(section(text, "Not closed")).toContain("NO_DISPOSAL_ROUTE 0.0000003 DUSTB");
+  });
 });

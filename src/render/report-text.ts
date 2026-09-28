@@ -165,13 +165,14 @@ function firstCode(codes: SubmittedTransaction["resultCodes"]): string {
  * https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/assets#deleting-or-burning-assets),
  * or sent to the destination, with the transaction and plan round it applied in; after a fall
  * down the ladder, the rung that failed first and its code. The steps come from the plans, so
- * without them this section is empty.
+ * without them this section is empty; so it is for a run that submitted nothing.
  */
 function disposalLines(
   report: CloseReport,
   stepsOfRound: (round: number) => Map<string, CloseStep>,
   merged: boolean,
 ): string[] {
+  if (report.transactions.length === 0) return [];
   const lines: string[] = [];
   for (const outcome of report.steps) {
     // A step a re-plan added (onDrift "replan") is "R<round>.S<nn>", in the plan of that round.
