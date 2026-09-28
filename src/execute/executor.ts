@@ -93,9 +93,15 @@ export interface ExecuteOptions {
   budgetStroops?: number;
   /** Cap on the bid per operation; overrides the plan's (default 1,000,000 stroops). */
   maxBaseFeeStroops?: number;
-  /** Seconds of validity for each inner transaction; default 120. */
+  /**
+   * Seconds of validity for each inner transaction; default 120, at most 3600: an envelope whose
+   * outcome is not known is waited for until a ledger closes past its time bound.
+   */
   timeoutSeconds?: number;
-  /** Pause between lookups by hash and between the final checks; default 2000 ms, at least 200. */
+  /**
+   * Pause between lookups by hash and between the final checks; default 2000 ms, at least 200, at
+   * most 2^31 - 1 (Node's timer limit).
+   */
   pollIntervalMs?: number;
   /** How long to keep looking for an unconfirmed envelope after its time bound; default 10 s. */
   graceSeconds?: number;
@@ -105,7 +111,10 @@ export interface ExecuteOptions {
   maxAttemptsPerTransaction?: number;
   /** Posts of one envelope after HTTP 429; default 5. */
   maxRateLimitRetries?: number;
-  /** First pause after a 429, doubled each time; default 1000 ms, at least 200. */
+  /**
+   * First pause after a 429, doubled each time; default 1000 ms, at least 200, at most 2^31 - 1,
+   * and the doubled pause never goes beyond that limit either.
+   */
   backoffMs?: number;
   /** How long the final check waits for Horizon to answer 404 after a merge; default 30 s. */
   verifyTimeoutMs?: number;
@@ -245,6 +254,8 @@ class CloseRun {
   /** The steps each envelope carried, by hash: tells which envelopes carried the merge. */
   private readonly envelopeSteps = new Map<string, CloseStep[]>();
   private readonly failedObservers = new Set<string>();
+  /** Envelopes whose outcome was not known during the run and that a later lookup settled. */
+  private readonly settledLate = new Set<string>();
   /** Assets whose strict-send sale failed on the market during this run. */
   private readonly demoted = new Set<string>();
   private sponsor: FeeSponsor | null = null;
@@ -271,8 +282,9 @@ class CloseRun {
       transactions: [],
       steps: fresh.steps.map((s) => ({ stepId: s.id, status: "not_run", txIndex: s.txIndex })),
       replans: [],
-      unclosable: fresh.unclosable,
-      blockers: fresh.blockers,
+      // Copies: a blocker the run finds must never be pushed into a plan it emitted (R3-19).
+      unclosable: [...fresh.unclosable],
+      blockers: [...fresh.blockers],
       warnings: [...fresh.warnings],
       recovery: {
         mergedXlm: null,
@@ -329,16 +341,23 @@ class CloseRun {
   /**
    * Calls one of the caller's observers. An observer that throws must not stop a run that has
    * already signed and submitted (review finding 3): its error becomes a warning, once per callback.
+   * An async observer (TypeScript accepts one for a `void` callback) whose promise rejects is
+   * caught the same way, so it cannot end the process as an unhandled rejection; its warning is
+   * recorded when the rejection arrives (review round 3, R3-15).
    */
-  private observe(name: "onReport" | "onEvent", call: () => void): void {
-    try {
-      call();
-    } catch (error) {
+  private observe(name: "onReport" | "onEvent", call: () => unknown): void {
+    const failed = (error: unknown) => {
       if (this.failedObservers.has(name)) return;
       this.failedObservers.add(name);
       this.report.warnings.push(
         `The caller's ${name} callback threw (${error instanceof Error ? error.message : String(error)}); the run went on without it.`,
       );
+    };
+    try {
+      const result = call();
+      if (isThenable(result)) void result.then(undefined, failed);
+    } catch (error) {
+      failed(error);
     }
   }
 
@@ -348,7 +367,11 @@ class CloseRun {
     this.report.stop = stop;
     this.report.finishedAt = this.timestamp();
     this.publish();
+    const warnings = this.report.warnings.length;
     this.emit({ type: "done", status });
+    // An onEvent that threw on "done" added a warning after the last copy: publish it too, so the
+    // last copy (the --report file) says what the returned report says (review round 3, R3-20).
+    if (this.report.warnings.length > warnings) this.publish();
     return this.report;
   }
 
@@ -588,18 +611,35 @@ class CloseRun {
    * seconds; acting on the stale read would build at a used sequence number or refuse a clean merge.
    */
   private async freshAccount(): Promise<HorizonAccount | null> {
-    const used = this.report.transactions.reduce(
-      (most, t) =>
-        (t.result === "applied" || t.result === "failed") && BigInt(t.sequence) > most
-          ? BigInt(t.sequence)
-          : most,
-      0n,
-    );
+    const used = this.usedSequence();
     for (let read = 1; ; read++) {
       const account = await this.input.reader.account(this.input.plan.account);
       if (!account || BigInt(account.sequence) >= used || read >= 5) return account;
       await this.settings.sleep(this.settings.pollIntervalMs);
     }
+  }
+
+  /**
+   * The highest sequence number this run saw used: by its envelopes that applied or failed on the
+   * ledger, by an envelope Horizon did not find while the account showed its number used (edge
+   * case E5), and by a number a `tx_bad_seq` refusal proved used. The last two count too since
+   * review round 3 (R3-11): a read below them is as stale as one below an applied transaction.
+   */
+  private usedSequence(): bigint {
+    let most = 0n;
+    for (const t of this.report.transactions) {
+      const badSeq =
+        t.result === "rejected" &&
+        (t.resultCodes?.innerTransaction === "tx_bad_seq" ||
+          t.resultCodes?.transaction === "tx_bad_seq");
+      const used =
+        t.result === "applied" ||
+        t.result === "failed" ||
+        (t.result === "unknown" && t.sequenceUsed === true) ||
+        badSeq;
+      if (used && BigInt(t.sequence) > most) most = BigInt(t.sequence);
+    }
+    return most;
   }
 
   private outcomeFor(step: CloseStep): StepOutcome {
@@ -661,13 +701,29 @@ class CloseRun {
     };
     const failure = operationFailure(outcome.codes);
     if (!failure) {
+      const label = `Transaction ${tx.index + 1} (${tx.phase})`;
+      const inner = outcome.codes.innerTransaction ?? outcome.codes.transaction;
+      if (inner && inner !== "tx_failed" && inner !== "tx_fee_bump_inner_failed") {
+        // Review round 3, R3-9: it failed before any operation ran (an inner tx_too_late or
+        // tx_bad_seq at apply time), so nothing of it applied and only its sequence number and
+        // fee were spent: plan the rest again from the ledger, as after any safe failure.
+        return this.replanFrom({
+          tx,
+          hash: at.hash,
+          codes: outcome.codes,
+          explanation: outcome.entry.explanation ?? inner,
+          where: `${label} was included but failed with ${inner} before any operation ran.`,
+        });
+      }
+      // No code says which operation failed, so no step can be blamed or demoted; the next run
+      // plans from the ledger, which is what the verdict says.
       return {
         kind: "stop",
         stop: {
           code: "OPERATION_FAILED",
           stage: "submit",
-          verdict: "stop",
-          detail: `Transaction ${tx.index + 1} (${tx.phase}) failed on the ledger without an operation result (${outcome.entry.explanation ?? "no result codes"}). Run the close again to continue from the current state.`,
+          verdict: "replan",
+          detail: `${label} failed on the ledger without an operation result (${outcome.entry.explanation ?? "no result codes"}), so the run cannot tell which step failed. Run the close again to continue from the current state.`,
           ...at,
         },
       };
@@ -709,7 +765,9 @@ class CloseRun {
       this.report.blockers.push({
         code: "STEP_FAILED_TWICE",
         reason: `Step ${stepOutcome.stepId} (${step?.kind.replaceAll("_", " ") ?? "operation"}, ${subject}) failed twice on the ledger with ${failure.code}: ${failure.explanation}`,
-        remedy: `Find out why it keeps failing (look at the account's ${subject} on the explorer), fix it or run the close with --partial to leave it in place, then run the close again; the next run plans from the ledger.`,
+        // Review round 3, R3-5: --partial only lets a plan that cannot merge run; it is not an
+        // input to the planner, so the next plan includes the same step again.
+        remedy: `Look at the account's ${subject} on the explorer to find out why the step keeps failing, resolve that or wait until it settles, then run the close again, which plans from the ledger; --partial does not skip it, since the next plan includes the step again.`,
         permanent: false,
         stepId: stepOutcome.stepId,
         resultCodes: outcome.codes,
@@ -749,13 +807,17 @@ class CloseRun {
   }): Promise<AfterFailure> {
     const { options, reader, fresh, plan, sponsorKey } = this.input;
     const { tx, where, stepId } = trigger;
+    // The round of the transaction that forced the re-plan. A stop raised after the new round was
+    // counted still names that transaction (txIndex, hash), so it carries its round too (review
+    // round 3, R3-7).
+    const triggerRound = this.round;
     const stopWith = (
       stop: Omit<StopReason, "stage" | "round" | "txIndex" | "hash"> & { stage?: ErrorStage },
     ): AfterFailure => ({
       kind: "stop",
       stop: {
         stage: "submit",
-        round: this.round,
+        round: triggerRound,
         txIndex: tx.index,
         hash: trigger.hash,
         resultCodes: trigger.codes,
@@ -772,11 +834,17 @@ class CloseRun {
     }
     this.stage = "plan";
     const allowed = new Set([...rungOneAssets(fresh)].filter((a) => !this.demoted.has(a)));
+    const paths = withPathsOnlyFor(reader, allowed);
     const next = await planClose(replanInput(plan, sponsorKey, options), {
-      reader: withPathsOnlyFor(reader, allowed),
+      // The closing account is read as the attempt loop reads it: again, a bounded number of
+      // times, while it lags the transactions this run saw use their sequence numbers. A stale
+      // read would plan steps that already applied again (review round 3, R3-11).
+      reader: {
+        ...paths,
+        account: (id) => (id === plan.account ? this.freshAccount() : paths.account(id)),
+      },
     });
     const drift = replanDrift(fresh, next);
-    const triggerRound = this.round;
     this.round += 1;
     this.roundPlans[this.round] = next;
     this.report.replans.push({
@@ -795,8 +863,9 @@ class CloseRun {
       drift,
       transactions: next.transactions.length,
     });
-    this.report.unclosable = next.unclosable;
-    this.report.blockers = next.blockers;
+    // Copies, as in the constructor: the re-plan was emitted as it is (review round 3, R3-19).
+    this.report.unclosable = [...next.unclosable];
+    this.report.blockers = [...next.blockers];
     for (const warning of next.warnings) {
       if (!this.report.warnings.includes(warning)) this.report.warnings.push(warning);
     }
@@ -864,49 +933,65 @@ class CloseRun {
     return entry ? { hash: entry.hash, ledger: entry.ledger ?? 0 } : null;
   }
 
-  /** A stop during the run: `failed` once something was submitted, `aborted` if not. */
+  /**
+   * A stop during the run: `failed` once something was submitted, `aborted` if not, and `closed`
+   * when a merge of this run turns out to have applied after all.
+   */
   private async stopped(stop: StopReason): Promise<CloseReport> {
     if (!this.report.transactions.some((t) => t.attempts > 0)) return this.abort(stop);
     await this.settleUnknown();
     const verification = await this.verifyOrWarn();
-    if (this.merge && verification?.accountExists === false) {
-      // The merge was found applied after all (a lagging lookup settled): a close like any other.
-      this.recoverReserves();
-      return this.finish("closed", null, null);
-    }
+    // The merge was found applied after all (a lagging lookup settled): a close like any other,
+    // verified or not, and the stop it settled no longer stands (review round 3, R3-10).
+    if (this.merge) return this.merged(verification);
     const closed = verification ? await this.closedUnseen(verification) : null;
     if (closed) return closed;
     this.recoverReserves();
+    const known = this.settledStop(stop);
     return this.finish(
       "failed",
-      `${stop.detail}${stop.verdict === "replan" && !/run the close again/i.test(stop.detail) ? " Run the close again to continue from the current state." : ""}`,
-      stop,
+      `${known.detail}${known.verdict === "replan" && !/run the close again/i.test(known.detail) ? " Run the close again to continue from the current state." : ""}`,
+      known,
     );
+  }
+
+  /**
+   * A stop that names an envelope whose outcome was not known, once `settleUnknown` found it on
+   * the ledger (review round 3, R3-35; blind review BH-11): the trigger stays (code, round,
+   * transaction, hash), and the detail says what is known now. For OUTCOME_UNKNOWN the time bound
+   * a re-run had to wait for no longer matters, so `maxTime` goes and the detail is rewritten;
+   * another stop keeps its detail and gains a sentence.
+   */
+  private settledStop(stop: StopReason): StopReason {
+    const entry = this.report.transactions.find((t) => t.hash === stop.hash);
+    if (!entry || !this.settledLate.has(entry.hash)) return stop;
+    const found =
+      entry.result === "applied"
+        ? `found applied in ledger ${entry.ledger ?? "?"}`
+        : `found failed on the ledger (${entry.explanation ?? "no result codes"})`;
+    if (stop.code !== "OUTCOME_UNKNOWN") {
+      return {
+        ...stop,
+        detail: `${stop.detail} Looked up again before the final check, envelope ${entry.hash} was ${found}.`,
+      };
+    }
+    const { maxTime: _passed, ...rest } = stop;
+    const label = `Transaction ${entry.index + 1} (${entry.phase})${entry.round > 0 ? ` of round ${entry.round}` : ""}`;
+    return {
+      ...rest,
+      verdict: "replan",
+      detail: `${label} (${entry.hash}) had no known outcome when the run stopped, so nothing was rebuilt; looked up again before the final check, it was ${found}. No time bound needs to pass first: run the close again to continue from the ledger.`,
+    };
   }
 
   /** Every planned transaction ran. */
   private async complete(): Promise<CloseReport> {
     await this.settleUnknown();
     const verification = await this.verifyOrWarn();
+    if (this.merge) return this.merged(verification);
     const closed = verification ? await this.closedUnseen(verification) : null;
     if (closed) return closed;
     this.recoverReserves();
-    if (this.merge) {
-      if (verification?.accountExists) {
-        return this.finish(
-          "failed",
-          "The merge was reported applied but the account still exists; check it on the explorer.",
-          {
-            code: "ACCOUNT_STILL_EXISTS",
-            stage: "confirm",
-            verdict: "stop",
-            detail: `The merge (${this.merge.hash}) applied in ledger ${this.merge.ledger}, but Horizon still returns the account.`,
-            hash: this.merge.hash,
-          },
-        );
-      }
-      return this.finish("closed", null, null);
-    }
     const left = this.report.unclosable.length + this.report.blockers.length;
     return this.finish(
       "partial",
@@ -916,23 +1001,47 @@ class CloseRun {
   }
 
   /**
+   * A merge of this run applied, seen by hash: the run is `closed` (decision EX-10; `CloseStatus`
+   * in report.ts), whether it ended the planned way or after a stop that a later lookup settled. A
+   * verified close has the final check's 404 and no stop. When Horizon still returned the account
+   * at the final check, the message says so and the stop ACCOUNT_STILL_EXISTS names the merge;
+   * the CLI exits 5 for it, never 0 (review round 3, R3-10: `complete()` returned `failed` and
+   * `stopped()` kept its stale stop for the same state).
+   */
+  private merged(verification: CloseReport["verification"]): CloseReport {
+    const merge = this.merge!;
+    this.recoverReserves();
+    if (verification?.accountExists !== true) return this.finish("closed", null, null);
+    return this.finish(
+      "closed",
+      `The merge (${merge.hash}) applied in ledger ${merge.ledger}, but Horizon still returned the account at the final check; check it on the explorer.`,
+      {
+        code: "ACCOUNT_STILL_EXISTS",
+        stage: "confirm",
+        verdict: "stop",
+        detail: `The merge (${merge.hash}) applied in ledger ${merge.ledger}, but Horizon still returns the account.`,
+        hash: merge.hash,
+      },
+    );
+  }
+
+  /**
    * Review finding 2: the account is gone although the run never saw its merge apply (a lost
    * lookup, or a rebuilt merge refused with tx_no_source_account). The merge envelopes the run
-   * posted are looked up once more: one found applied makes the run a close like any other. If
-   * none is confirmed the account is still verified gone, so the run is reported closed with a
-   * message saying the merge was not confirmed, never failed. Null when the account exists or the
-   * run posted no merge at all (then someone else removed it, and the stop stands).
+   * posted that could have applied are looked up once more: one found applied makes the run a
+   * close like any other. If none is confirmed the account is still verified gone, so the run is
+   * reported closed with a message saying the merge was not confirmed, never failed. Null when the
+   * account exists, or when no merge envelope of this run could have applied: none was posted, or
+   * every one was refused before inclusion or failed on the ledger. Then someone else removed the
+   * account, and the stop stands (review round 3, R3-1).
    */
   private async closedUnseen(
     verification: NonNullable<CloseReport["verification"]>,
   ): Promise<CloseReport | null> {
     if (this.merge || verification.accountExists) return null;
-    const merges = this.report.transactions.filter((t) =>
-      (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
-    );
+    const merges = this.mergeCandidates();
     if (merges.length === 0) return null;
     for (const entry of merges) {
-      if (entry.result !== "unknown" && entry.result !== "pending") continue;
       const lookup = await lookupTransaction(this.input.submitter, entry.hash);
       if (lookup.kind !== "found") continue;
       const found = outcomeFromRecord(entry.hash, lookup.record);
@@ -991,6 +1100,7 @@ class CloseRun {
       if (lookup.kind !== "found") continue;
       const found = outcomeFromRecord(entry.hash, lookup.record);
       recordOutcome(entry, found);
+      this.settledLate.add(entry.hash);
       if (found.kind === "applied") {
         this.applied(this.envelopeSteps.get(entry.hash) ?? [], {
           kind: "applied",
@@ -1026,28 +1136,32 @@ class CloseRun {
    * merge, the sponsored signers and account entry the merge removed are credited too, as the plan
    * that carried the merge listed them; an unconfirmed merge counts as applied then, with the rest
    * of its transaction, because the account being gone proves every entry of it is gone.
+   * For the same reason, every sponsored entry that any round's plan named is credited then, with
+   * the sponsor of the latest plan naming it, whether a confirmed removal of this run, an envelope
+   * that applied unseen or another party removed it (review round 3, R3-12).
    * Units follow the planner (src/plan/recovery.ts): one base reserve per trustline, offer and
    * signer, two per pool share and for the account entry (CAP-33).
    */
   private recoverReserves(): void {
     const gone = this.report.verification?.accountExists === false;
-    const released = [...this.appliedSteps];
     const unconfirmed = gone && !this.merge ? this.postedMerge() : null;
-    if (unconfirmed) {
-      const steps = this.envelopeSteps.get(unconfirmed.hash) ?? [];
-      released.push(...steps.map((step) => ({ step, round: unconfirmed.round })));
-    }
+    const mergedByRun = gone && (this.merge !== null || unconfirmed !== null);
+    if (mergedByRun) this.markGoneSteps(unconfirmed);
     const bySponsor = new Map<string, { stroops: bigint; entries: string[] }>();
-    for (const { step, round } of released) {
+    const credit = (
+      plan: ClosePlan,
+      sponsor: string | null | undefined,
+      units: bigint,
+      entry: string,
+    ) => {
+      if (!sponsor) return;
+      const current = bySponsor.get(sponsor) ?? { stroops: 0n, entries: [] };
+      current.stroops += units * toStroops(plan.reserve.baseReserve);
+      current.entries.push(entry);
+      bySponsor.set(sponsor, current);
+    };
+    for (const { step, round } of this.appliedSteps) {
       const plan = this.roundPlans[round] ?? this.input.fresh;
-      const reserve = toStroops(plan.reserve.baseReserve);
-      const credit = (sponsor: string | null | undefined, units: bigint, entry: string) => {
-        if (!sponsor) return;
-        const current = bySponsor.get(sponsor) ?? { stroops: 0n, entries: [] };
-        current.stroops += units * reserve;
-        current.entries.push(entry);
-        bySponsor.set(sponsor, current);
-      };
       // A step names the sponsor of a trustline or pool share; the sponsors of offers, signers and
       // the account entry are recorded only in the plan's recovery summary, under these labels.
       const listed = new Map(
@@ -1057,15 +1171,28 @@ class CloseRun {
       );
       const { subject } = step;
       if (step.kind === "remove_trustline" && subject.type === "trustline") {
-        credit(subject.sponsor, 1n, `trustline ${assetKey(subject.asset)}`);
+        credit(plan, subject.sponsor, 1n, `trustline ${assetKey(subject.asset)}`);
       } else if (step.kind === "remove_trustline" && subject.type === "pool_share") {
-        credit(subject.sponsor, 2n, `pool share ${subject.poolId}`);
+        credit(plan, subject.sponsor, 2n, `pool share ${subject.poolId}`);
       } else if (step.kind === "cancel_offer" && subject.type === "offer") {
-        credit(listed.get(`offer ${subject.offerId}`), 1n, `offer ${subject.offerId}`);
+        credit(plan, listed.get(`offer ${subject.offerId}`), 1n, `offer ${subject.offerId}`);
       } else if (step.kind === "merge" && gone) {
         for (const [entry, sponsor] of listed) {
-          if (entry.startsWith("signer ")) credit(sponsor, 1n, entry);
-          if (entry === "account entry") credit(sponsor, 2n, entry);
+          if (entry.startsWith("signer ")) credit(plan, sponsor, 1n, entry);
+          if (entry === "account entry") credit(plan, sponsor, 2n, entry);
+        }
+      }
+    }
+    if (mergedByRun) {
+      const credited = new Set([...bySponsor.values()].flatMap((v) => v.entries));
+      for (const plan of [...this.roundPlans].reverse()) {
+        for (const { sponsor, entries } of plan.recovery.reservesReturnedToSponsors) {
+          for (const entry of entries) {
+            if (credited.has(entry)) continue;
+            credited.add(entry);
+            const double = entry.startsWith("pool share ") || entry === "account entry";
+            credit(plan, sponsor, double ? 2n : 1n, entry);
+          }
         }
       }
     }
@@ -1078,13 +1205,46 @@ class CloseRun {
       }));
   }
 
-  /** The last merge-carrying envelope this run posted, whatever became of it. */
+  /**
+   * With the account verified gone after this run's merge every entry of it is gone, so the steps
+   * of an envelope that may have applied unseen count as applied, not confirmed by hash (review
+   * round 3, R3-12): those of the unconfirmed merge, and those of an envelope whose sequence number
+   * is known used. Only steps still `not_run` are marked; one another envelope applied keeps it.
+   */
+  private markGoneSteps(unconfirmed: SubmittedTransaction | null): void {
+    for (const entry of this.report.transactions) {
+      const unseen = entry.result === "unknown" && entry.sequenceUsed === true;
+      if (entry !== unconfirmed && !unseen) continue;
+      for (const step of this.envelopeSteps.get(entry.hash) ?? []) {
+        const outcome = this.outcomes.get(stepIdentity(step));
+        if (outcome?.status !== "not_run") continue;
+        outcome.status = "applied";
+        outcome.txHash = entry.hash;
+        if (entry.round > 0) outcome.round = entry.round;
+        if (step.disposal) outcome.rung = step.disposal.rung;
+        outcome.explanation = `Not confirmed by hash: Horizon never returned envelope ${entry.hash}, but the account was verified gone after this run's merge, so this entry is gone too.`;
+        this.appliedSteps.push({ step, round: entry.round });
+      }
+    }
+  }
+
+  /** The last merge-carrying envelope this run posted that could have applied. */
   private postedMerge(): SubmittedTransaction | null {
-    const merges = this.report.transactions.filter(
+    return this.mergeCandidates().at(-1) ?? null;
+  }
+
+  /**
+   * The merge-carrying envelopes this run posted whose outcome is not known: `unknown`, or
+   * `pending` in a run interrupted mid-POST. Only these could have removed the account; one
+   * refused before inclusion or failed on the ledger cannot have (review round 3, R3-1).
+   */
+  private mergeCandidates(): SubmittedTransaction[] {
+    return this.report.transactions.filter(
       (t) =>
-        t.attempts > 0 && (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
+        t.attempts > 0 &&
+        (t.result === "unknown" || t.result === "pending") &&
+        (this.envelopeSteps.get(t.hash) ?? []).some((s) => s.kind === "merge"),
     );
-    return merges.at(-1) ?? null;
   }
 
   /**
@@ -1129,6 +1289,9 @@ class CloseRun {
             `The close stopped on ${err.code} before anything was submitted: ${err.message}`,
           ];
     try {
+      // The removals that applied returned their reserves, interrupted or not (review round 3,
+      // R3-13); the other finishing paths compute them the same way.
+      this.recoverReserves();
       this.finish(status, message, stop);
     } catch {
       // The caller's onReport failed; the report still travels on the error.
@@ -1141,6 +1304,15 @@ class CloseRun {
           report: this.report,
         });
   }
+}
+
+/** A promise, or anything else with a `then` method: what an async observer returns. */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value !== null &&
+    (typeof value === "object" || typeof value === "function") &&
+    typeof (value as { then?: unknown }).then === "function"
+  );
 }
 
 /**

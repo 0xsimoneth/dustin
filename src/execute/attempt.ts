@@ -1,3 +1,5 @@
+import type { FeeBumpTransaction } from "@stellar/stellar-sdk";
+import { MAX_PAUSE_MS } from "../config/pauses.js";
 import type { ErrorStage } from "../errors/dustin-error.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
 import type { ClosePlan, CloseStep, PlannedTransaction } from "../plan/model.js";
@@ -83,6 +85,10 @@ const short = (hash: string) => `${hash.slice(0, 8)}...`;
 export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcome): void {
   entry.result = outcome.kind;
   if (outcome.kind !== "unknown") delete entry.mayStillApply;
+  if (outcome.kind !== "unknown" || !outcome.sequenceUsed) delete entry.sequenceUsed;
+  if (outcome.kind !== "unknown" || !(outcome.lookupError ?? outcome.readError)) {
+    delete entry.lookupError;
+  }
   switch (outcome.kind) {
     case "applied":
       entry.ledger = outcome.ledger;
@@ -93,7 +99,7 @@ export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcom
       entry.resultCodes = outcome.codes;
       entry.ledger = outcome.ledger ?? null;
       entry.feeChargedStroops = outcome.feeChargedStroops ?? null;
-      entry.explanation = explainCodes(outcome.codes, outcome.status);
+      entry.explanation = explainCodes(outcome.codes, outcome.status, true);
       return;
     case "rejected":
       entry.resultCodes = outcome.codes;
@@ -101,6 +107,10 @@ export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcom
       return;
     case "unknown":
       entry.mayStillApply = outcome.mayStillApply === true;
+      if (outcome.sequenceUsed) entry.sequenceUsed = true;
+      if (outcome.lookupError ?? outcome.readError) {
+        entry.lookupError = (outcome.lookupError ?? outcome.readError)!;
+      }
       entry.explanation = unknownMeaning(outcome);
   }
 }
@@ -112,6 +122,12 @@ function unknownMeaning(outcome: Extract<SubmitOutcome, { kind: "unknown" }>): s
     : "its time bound has passed, so it cannot apply any more";
   if (outcome.lookupError) {
     return `It could not be looked up by hash (${outcome.lookupError}), so whether it applied is not known; ${bound}.`;
+  }
+  if (outcome.readError) {
+    const unjudged = outcome.mayStillApply
+      ? "no ledger was seen closing past its time bound, so it may still apply"
+      : bound;
+    return `It could not be settled: ${outcome.readError}, so whether it applied is not known; ${unjudged}.`;
   }
   if (outcome.sequenceUsed) {
     return "Not found by hash, but the account shows its sequence number used: it applied where Horizon has not caught up yet, or another transaction used the number. Either way it cannot apply any more.";
@@ -179,6 +195,8 @@ export async function submitPlannedTransaction(
   let badSeq = 0;
   let rebuiltBecause: string | undefined;
   const envelopes: SubmittedTransaction[] = [];
+  /** The fee bump behind each envelope, so a release takes back exactly its bid (R3-6). */
+  const feeBumps = new Map<SubmittedTransaction, FeeBumpTransaction>();
 
   // The highest bid the cap and the budget allow for this transaction's next sequence number.
   const ceiling = () =>
@@ -261,6 +279,7 @@ export async function submitPlannedTransaction(
       explorerUrl: `${ctx.explorerBaseUrl}/tx/${hash}`,
     };
     envelopes.push(entry);
+    feeBumps.set(entry, bump);
     ctx.record(entry);
     ctx.emit({
       type: "tx:submitted",
@@ -309,6 +328,15 @@ export async function submitPlannedTransaction(
           "OUTCOME_UNKNOWN",
           "replan",
           `${label} (${hash}) could not be looked up by hash (${outcome.lookupError}), so whether it applied is not known; nothing was rebuilt. ${wait}`,
+          { hash, maxTime },
+        );
+      }
+      if (outcome.readError) {
+        // Nor does a read of the ledger or the account that failed (review round 3, R3-14).
+        return stop(
+          "OUTCOME_UNKNOWN",
+          "replan",
+          `${label} (${hash}) could not be settled: ${outcome.readError}, so whether it applied is not known; nothing was rebuilt. ${wait}`,
           { hash, maxTime },
         );
       }
@@ -375,6 +403,14 @@ export async function submitPlannedTransaction(
         if (unseen.length > 0) {
           // Still not seen: the operations may have applied with it, so sending them again at the
           // account's new sequence number could apply them twice. Plan the rest from the ledger.
+          // The refusal proves their number used (by one of them, where Horizon has not caught up,
+          // or by another transaction), which the report records (review round 3, R3-11).
+          for (const e of unseen) {
+            if (e.sequence === entry.sequence) {
+              recordOutcome(e, { kind: "unknown", hash: e.hash, sequenceUsed: true });
+            }
+          }
+          ctx.changed();
           return {
             kind: "replan",
             entry,
@@ -387,11 +423,18 @@ export async function submitPlannedTransaction(
           return stop("ACCOUNT_MISSING", "stop", `The account ${plan.account} no longer exists.`);
         }
         rebuiltBecause = `envelope ${short(hash)} was refused with tx_bad_seq; the account's sequence number is now ${fresh.sequence}`;
-        // Every envelope signed for the old sequence number was refused (none is unseen), and
-        // another transaction consumed it, so none can ever be charged: its bids leave the budget
-        // before the rebuild at the new number (edge case E7).
+        // Every envelope of this transaction signed for the old sequence number was refused (none
+        // is unseen), and another transaction consumed it, so none of them can ever be charged:
+        // their bids leave the budget before the rebuild at the new number (edge case E7). Only
+        // theirs: another transaction of this run may hold the charged bid for that number, when
+        // this one was built on a stale read (review round 3, R3-6).
         if (fresh.sequence !== sequence) {
-          ctx.sponsor.release(plan.account, (BigInt(sequence) + 1n).toString());
+          const old = (BigInt(sequence) + 1n).toString();
+          ctx.sponsor.release(
+            envelopes
+              .filter((e) => e.sequence === old && e.result === "rejected")
+              .map((e) => feeBumps.get(e)!),
+          );
         }
         sequence = fresh.sequence;
         continue;
@@ -455,6 +498,9 @@ async function postWithBackoff(
   const { settings } = ctx;
   for (let retry = 0; ; retry++) {
     entry.attempts += 1;
+    // Published as it happens (AC-E2-S3-6) and before the POST goes out, so a copy saved while the
+    // POST is in flight counts it (review round 3, R3-3); a re-post after a 429 too (R3-4).
+    ctx.changed();
     const outcome = await submitAndConfirm(
       ctx.submitter,
       { xdr: entry.feeBumpEnvelopeXdr, hash: entry.hash, maxTime },
@@ -462,6 +508,11 @@ async function postWithBackoff(
         pollIntervalMs: settings.pollIntervalMs,
         graceSeconds: settings.graceSeconds,
         ledgerWaitSeconds: settings.ledgerWaitSeconds,
+        // Whatever Horizon answers, the wait for one envelope ends on the local clock: its time
+        // bound can be at most timeoutSeconds away, plus the grace and the ledger wait, twice
+        // over for a failed read late in the wait (review round 3, R3-17).
+        maxWaitSeconds:
+          settings.timeoutSeconds + 2 * (settings.graceSeconds + settings.ledgerWaitSeconds),
         now: () => settings.now() / 1000,
         sleep: settings.sleep,
         // A 404 is trusted only while the account has not used the envelope's sequence number;
@@ -475,8 +526,7 @@ async function postWithBackoff(
     );
     const limited = outcome.kind === "rejected" && outcome.status === 429;
     if (!limited || retry >= settings.maxRateLimitRetries) return outcome;
-    // Published as it happens (AC-E2-S3-6): posted `attempts` times, still pending.
-    ctx.changed();
-    await settings.sleep(settings.backoffMs * 2 ** retry);
+    // Doubled each time, never beyond Node's timer limit (review round 3, R3-18).
+    await settings.sleep(Math.min(settings.backoffMs * 2 ** retry, MAX_PAUSE_MS));
   }
 }

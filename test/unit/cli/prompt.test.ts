@@ -32,15 +32,45 @@ describe("terminalPrompt", () => {
     }
   });
 
-  it("does not ask at all when the input is not a terminal", async () => {
+  it("does not ask at all when the input is not a terminal, and says so", async () => {
     const t = terminal(false);
-    await expect(terminalPrompt(t)("? ")).resolves.toBeNull();
+    await expect(terminalPrompt(t)("? ")).resolves.toEqual({
+      unasked: expect.stringMatching(/^standard input is not a terminal/) as unknown,
+    });
     expect(t.written).toEqual([]);
   });
 
-  it("does not ask when the output is redirected, so no answer lands in a log", async () => {
+  it("does not ask when the output is redirected, so no answer lands in a log, and says so", async () => {
+    // Review round 3, R3-31: the cause is standard error, not "the input is not interactive".
     const t = terminal(true, false);
-    await expect(terminalPrompt(t)("? ")).resolves.toBeNull();
+    await expect(terminalPrompt(t)("? ")).resolves.toEqual({
+      unasked: expect.stringMatching(/^standard error is not a terminal/) as unknown,
+    });
     expect(t.written).toEqual([]);
+  });
+});
+
+describe("terminalPrompt and where the facts to confirm went (review round 3, R3-28)", () => {
+  it("does not ask when standard output carried the plan and it is not a terminal", async () => {
+    const t = terminal();
+    const prompt = terminalPrompt({ ...t, stdout: { isTTY: false } });
+    await expect(prompt("? ", { facts: "stdout" })).resolves.toEqual({
+      unasked: expect.stringMatching(/^standard output is not a terminal/) as unknown,
+    });
+    expect(t.written).toEqual([]);
+  });
+
+  it("asks when standard output carried the plan and it is a terminal", async () => {
+    const t = terminal();
+    const answer = terminalPrompt({ ...t, stdout: { isTTY: true } })("? ", { facts: "stdout" });
+    t.input.write("M4RX\r");
+    await expect(answer).resolves.toBe("M4RX");
+  });
+
+  it("asks with --json, where the plan went to standard error, whatever standard output is", async () => {
+    const t = terminal();
+    const answer = terminalPrompt({ ...t, stdout: { isTTY: false } })("? ", { facts: "stderr" });
+    t.input.write("M4RX\r");
+    await expect(answer).resolves.toBe("M4RX");
   });
 });

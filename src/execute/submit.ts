@@ -12,11 +12,13 @@ export type { ResultCodes } from "./result-codes.js";
  *   a 400 without result codes or a 429 (status tells which);
  * - unknown: not found by hash (Horizon answered 404) after its upper time bound passed, so it
  *   never applied and never can; only then may a replacement for the same sequence number be
- *   built. Three flags mark the exceptions, when the envelope must not be replaced:
+ *   built. Four flags mark the exceptions, when the envelope must not be replaced:
  *   `mayStillApply` (no ledger has closed past the time bound yet), `lookupError` (the last
- *   lookups by hash failed, so whether it applied is not known; review finding 1) and
- *   `sequenceUsed` (the account shows its sequence number used, so the 404 came from a Horizon
- *   behind, or another transaction took the number; edge case E5).
+ *   lookups by hash failed, so whether it applied is not known; review finding 1), `readError`
+ *   (a read the wait needs failed: the latest ledger, so the bound could not be judged, or the
+ *   account, so a 404 could not be trusted; review round 3, R3-14) and `sequenceUsed` (the account
+ *   shows its sequence number used, so the 404 came from a Horizon behind, or another transaction
+ *   took the number; edge case E5).
  */
 export type SubmitOutcome =
   | { kind: "applied"; hash: string; ledger: number; feeChargedStroops: number; resultXdr: string }
@@ -35,6 +37,8 @@ export type SubmitOutcome =
       hash: string;
       mayStillApply?: boolean;
       lookupError?: string;
+      /** A read the wait needs failed (what, and why), so whether it applied is not known. */
+      readError?: string;
       /** Horizon answered 404, but the account shows the envelope's sequence number used. */
       sequenceUsed?: boolean;
     };
@@ -70,13 +74,17 @@ export interface Submitter {
   lookup?(hash: string): Promise<TransactionLookup>;
 }
 
-/** Looks a transaction up by hash with whatever the submitter offers (review finding 1). */
+/**
+ * Looks a transaction up by hash with whatever the submitter offers (review finding 1). A lookup
+ * that throws or rejects, the three-state one of an injected submitter included, is a failed
+ * lookup: it proves nothing and never escapes as an exception (review round 3, R3-16).
+ */
 export async function lookupTransaction(
   submitter: Submitter,
   hash: string,
 ): Promise<TransactionLookup> {
-  if (submitter.lookup) return submitter.lookup(hash);
   try {
+    if (submitter.lookup) return await submitter.lookup(hash);
     const record = await submitter.transaction(hash);
     return record
       ? { kind: "found", record }
@@ -257,6 +265,13 @@ export interface ConfirmOptions {
   /** How long to wait, beyond the time bound and the grace, for such a ledger; default 60 s. */
   ledgerWaitSeconds?: number;
   /**
+   * The longest the whole wait may last, in seconds on the local clock, whatever Horizon answers
+   * (a close time far in the past, for one), so the wait always ends (review round 3, R3-17).
+   * Default: the time left to `maxTime` on the local clock plus twice the grace and the ledger
+   * wait. The executor passes its `timeoutSeconds` plus twice the grace and the ledger wait.
+   */
+  maxWaitSeconds?: number;
+  /**
    * Whether the envelope's sequence number has been used, read from the account. A 404 is trusted
    * only when it has not (edge case E5): Horizon instances behind one address may lag each other,
    * and a 404 carries no ledger to tell (testnet Horizon sent no Latest-Ledger header on
@@ -290,7 +305,7 @@ export async function submitAndConfirm(
   if ("status" in response) {
     const known = fromResponse(envelope.hash, response.status, response.body);
     if (known && (known.kind === "failed" || known.kind === "rejected") && ambiguous(known)) {
-      return settleInclusion(submitter, known);
+      return settleInclusion(submitter, known, options.sequenceUsed);
     }
     if (known) return known;
   }
@@ -320,29 +335,61 @@ function ambiguous(outcome: { status: number; codes: ResultCodes }): boolean {
  * The ledger decides (edge case E6): a record by hash means included (sequence number used, fee
  * charged); a 404 means refused at validation, nothing used. A lookup that fails leaves the
  * reading of the codes (included when the inner code is `tx_failed`).
+ *
+ * A 404 can come from a Horizon behind the one that answered the POST, so, as in the wait for an
+ * unconfirmed envelope (edge case E5), the account's sequence number is the witness (review round
+ * 3, R3-8): an answer that reads as an included failure (inner `tx_failed`, or an inner
+ * `tx_too_late` at apply time) stays included while the account shows the envelope's number used,
+ * or cannot be read. Only then would a refusal let the caller rebuild at a number that is used,
+ * or give back a bid that was charged. An answer with no included reading (`tx_bad_seq`, for which
+ * a used number is the refusal itself) keeps its reading.
  */
 async function settleInclusion(
   submitter: Submitter,
   answered: Extract<SubmitOutcome, { kind: "failed" | "rejected" }>,
+  sequenceUsed?: () => Promise<boolean>,
 ): Promise<SubmitOutcome> {
   const lookup = await lookupTransaction(submitter, answered.hash);
-  if (lookup.kind === "missing") {
+  if (lookup.kind === "found") {
+    const recorded = outcomeFromRecord(answered.hash, lookup.record);
+    if (recorded.kind !== "failed") return recorded;
+    // A record whose result cannot be decoded still means included; the answer's codes describe it.
     return {
-      kind: "rejected",
-      hash: answered.hash,
+      ...recorded,
       status: answered.status,
-      codes: answered.codes,
+      codes: Object.keys(recorded.codes).length > 0 ? recorded.codes : answered.codes,
     };
   }
+  const reading = includedReading(answered);
+  if (reading && sequenceUsed) {
+    let used: boolean | null;
+    try {
+      used = await sequenceUsed();
+    } catch {
+      used = null;
+    }
+    if (used !== false) return reading;
+  }
   if (lookup.kind === "error") return answered;
-  const recorded = outcomeFromRecord(answered.hash, lookup.record);
-  if (recorded.kind !== "failed") return recorded;
-  // A record whose result cannot be decoded still means included; the answer's codes describe it.
   return {
-    ...recorded,
+    kind: "rejected",
+    hash: answered.hash,
     status: answered.status,
-    codes: Object.keys(recorded.codes).length > 0 ? recorded.codes : answered.codes,
+    codes: answered.codes,
   };
+}
+
+/**
+ * The answer read as a failure included in a ledger, when it can be one: inner `tx_failed`
+ * (an operation failed), or inner `tx_too_late` (the ledger that included the fee bump closed after
+ * the inner time bound). The fee is not known without the record.
+ */
+function includedReading(
+  answered: Extract<SubmitOutcome, { kind: "failed" | "rejected" }>,
+): Extract<SubmitOutcome, { kind: "failed" }> | null {
+  if (answered.kind === "failed") return answered;
+  if (answered.codes.innerTransaction !== "tx_too_late") return null;
+  return { kind: "failed", hash: answered.hash, status: answered.status, codes: answered.codes };
 }
 
 /** Without a ledger clock: look the envelope up until the local clock passes its bound. */
@@ -356,7 +403,8 @@ async function confirmByLocalClock(
   for (;;) {
     const found = await lookupTransaction(submitter, envelope.hash);
     if (found.kind === "found") return outcomeFromRecord(envelope.hash, found.record);
-    if (now() > deadline) {
+    // Written so that a clock giving no time ends the wait instead of prolonging it (R3-17).
+    if (!(now() <= deadline)) {
       return found.kind === "error"
         ? { kind: "unknown", hash: envelope.hash, lookupError: found.detail }
         : { kind: "unknown", hash: envelope.hash };
@@ -366,10 +414,35 @@ async function confirmByLocalClock(
 }
 
 /**
+ * A read the wait depends on, or what failed: a thrown read proves nothing about the envelope, so
+ * it is a failure to try again, never an exception out of the wait (review round 3, R3-14).
+ */
+async function guardedRead<T>(
+  what: string,
+  read: () => Promise<T>,
+): Promise<{ value: T } | { failed: string }> {
+  try {
+    return { value: await read() };
+  } catch (error) {
+    return {
+      failed: `${what} could not be read (${error instanceof Error ? error.message : String(error)})`,
+    };
+  }
+}
+
+/**
  * With a ledger clock: the time bound is judged by ledger close times, and the local clock only
  * measures how long the wait has lasted, so a skewed local clock can neither end the wait early
  * nor make it endless. Horizon is asked for the latest close time once at the start, and again
  * only when that reading plus the time waited says the bound has probably passed.
+ *
+ * Every read the wait depends on can fail: the lookup by hash, the latest ledger and the account
+ * that checks a 404. A failure proves nothing, so it is only tried again, within the same bound,
+ * and the wait then ends as `unknown` naming it, with `mayStillApply` while no ledger was seen
+ * past the bound (review round 3, R3-14). A close time that is not a number is such a failure,
+ * and the whole wait is bounded on the local clock by `maxWaitSeconds`, so neither it nor a close
+ * time far in the past can make the wait endless; a local clock that gives no time ends it at once
+ * (R3-17).
  */
 async function confirmByLedgerClock(
   submitter: Submitter,
@@ -378,43 +451,81 @@ async function confirmByLedgerClock(
   ledgerCloseTime: () => Promise<number>,
 ): Promise<SubmitOutcome> {
   const now = options.now ?? (() => Date.now() / 1000);
+  const grace = options.graceSeconds ?? 10;
+  const ledgerWait = options.ledgerWaitSeconds ?? 60;
   const started = now();
+  const maxWait =
+    options.maxWaitSeconds ?? Math.max(0, envelope.maxTime - started) + 2 * (grace + ledgerWait);
   let firstClose: number | null = null;
+  // Seconds into the wait of its first failed read: failures get their retries from then on.
+  let firstFailure: number | null = null;
   // Set once a ledger closed after maxTime: no later ledger can include the envelope (close times
   // only grow), and every earlier ledger is already ingested, so a 404 from then on is conclusive.
   let pastBound = false;
+  const closeTime = async (): Promise<{ value: number } | { failed: string }> => {
+    const read = await guardedRead("the latest ledger", ledgerCloseTime);
+    if ("failed" in read || Number.isFinite(read.value)) return read;
+    return { failed: `the latest ledger has no valid close time (${String(read.value)})` };
+  };
   for (;;) {
     const found = await lookupTransaction(submitter, envelope.hash);
     if (found.kind === "found") return outcomeFromRecord(envelope.hash, found.record);
+    // What failed in this round, besides a lookup: a read of the account or of the ledger.
+    let readError: string | null = null;
     if (pastBound && found.kind === "missing") {
       // A 404 the account contradicts comes from a Horizon behind the one that read the account.
-      if (options.sequenceUsed && (await options.sequenceUsed())) {
-        return { kind: "unknown", hash: envelope.hash, sequenceUsed: true };
+      if (!options.sequenceUsed) return { kind: "unknown", hash: envelope.hash };
+      const used = await guardedRead("the account", options.sequenceUsed);
+      if ("value" in used) {
+        return used.value
+          ? { kind: "unknown", hash: envelope.hash, sequenceUsed: true }
+          : { kind: "unknown", hash: envelope.hash };
       }
-      return { kind: "unknown", hash: envelope.hash };
+      readError = used.failed;
     }
-    firstClose ??= await ledgerCloseTime();
+    if (firstClose === null) {
+      const first = await closeTime();
+      if ("value" in first) firstClose = first.value;
+      else readError ??= first.failed;
+    }
     const waited = now() - started;
-    if (
-      !pastBound &&
-      firstClose + waited > envelope.maxTime &&
-      (await ledgerCloseTime()) > envelope.maxTime
-    ) {
-      pastBound = true;
-      continue;
+    if (!Number.isFinite(waited) || !Number.isFinite(maxWait)) {
+      // Without a local clock the wait cannot be measured, so it cannot be bounded either.
+      return {
+        kind: "unknown",
+        hash: envelope.hash,
+        ...(pastBound ? {} : { mayStillApply: true }),
+        readError: "the local clock gave no time, so the wait could not be measured",
+      };
     }
-    // A failed lookup proves nothing, so it is only tried again, within the same bound.
-    const limit =
-      envelope.maxTime -
-      firstClose +
-      (options.graceSeconds ?? 10) +
-      (options.ledgerWaitSeconds ?? 60);
+    if (!pastBound && firstClose !== null && firstClose + waited > envelope.maxTime) {
+      const latest = await closeTime();
+      if ("value" in latest && latest.value > envelope.maxTime) {
+        pastBound = true;
+        continue;
+      }
+      if ("failed" in latest) readError ??= latest.failed;
+    }
+    // A failure proves nothing, so it is only tried again, within the same bound; without any
+    // reading of the ledger the bound is measured from the start of the wait. Failures also get
+    // the grace and the ledger wait from the first of them, even when the first reading of the
+    // ledger was already long past the bound (review round 3, R3-21). The local clock bounds the
+    // whole wait (R3-17).
+    if (found.kind === "error" || readError !== null) firstFailure ??= waited;
+    const limit = Math.min(
+      Math.max(
+        (firstClose === null ? 0 : envelope.maxTime - firstClose) + grace + ledgerWait,
+        firstFailure === null ? Number.NEGATIVE_INFINITY : firstFailure + grace + ledgerWait,
+      ),
+      maxWait,
+    );
     if (waited > limit) {
       return {
         kind: "unknown",
         hash: envelope.hash,
         ...(pastBound ? {} : { mayStillApply: true }),
         ...(found.kind === "error" ? { lookupError: found.detail } : {}),
+        ...(readError !== null ? { readError } : {}),
       };
     }
     await (options.sleep ?? timerSleep)(options.pollIntervalMs ?? 2000);

@@ -61,7 +61,7 @@ function field(label: string, value: string): string[] {
 const grouped = (n: number) => n.toLocaleString("en-US");
 const xlm = (stroops: number) => `${formatStroops(BigInt(stroops))} XLM`;
 
-function headline(report: CloseReport): string {
+function headline(report: CloseReport, appliedMerge: boolean): string {
   const submitted = report.transactions.length;
   switch (report.status) {
     case "closed":
@@ -78,7 +78,7 @@ function headline(report: CloseReport): string {
       // Only a copy saved while the run was going (--report, onReport) carries this status.
       return "RUNNING: this copy was saved while the run was in progress; it is not the final report";
     case "failed":
-      return report.recovery.mergedXlm !== null || report.stop?.code === "ACCOUNT_STILL_EXISTS"
+      return appliedMerge || report.stop?.code === "ACCOUNT_STILL_EXISTS"
         ? "FAILED: the merge applied, but the account was not verified gone"
         : "FAILED: the run stopped before the account was closed";
     default:
@@ -93,6 +93,31 @@ const OUTCOME: Record<string, string> = {
   unknown: "unknown: not found by hash after its time bound, so it can never apply",
   pending: "pending: the outcome was not known when the run stopped; look the hash up",
 };
+
+/**
+ * The label of an envelope whose outcome is not known, from what is known about it, so that it
+ * never contradicts its meaning line (review round 3, R3-22; blind review BH-13): lookups that
+ * failed are not "not found", and a used sequence number means it may have applied. Reports
+ * written before `lookupError` and `sequenceUsed` existed are read from their explanation.
+ */
+function unknownLabel(tx: SubmittedTransaction): string {
+  const meaning = tx.explanation ?? "";
+  if (tx.lookupError !== undefined || /could not be (looked up|settled)/.test(meaning)) {
+    const what = /could not be settled/.test(meaning)
+      ? "its outcome could not be settled"
+      : "it could not be looked up";
+    return tx.mayStillApply
+      ? `unknown: ${what}, and it may still apply until its time bound passes`
+      : `unknown: ${what}, so whether it applied is not known`;
+  }
+  if (tx.sequenceUsed === true || /sequence number used/.test(meaning)) {
+    return "unknown: not found by hash, but its sequence number is used, so it may have applied";
+  }
+  if (tx.mayStillApply) {
+    return "unknown: not found yet, and it may still apply until its time bound passes";
+  }
+  return OUTCOME.unknown!;
+}
 
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
@@ -117,9 +142,11 @@ function transactionLines(
     // Round n is the n-th re-plan; its transactions are numbered from 1 again (E2-S3).
     tx.round > 0 ? `round ${tx.round}` : "",
     tx.attempt > 1 ? `attempt ${tx.attempt}` : "",
-    tx.result === "unknown" && tx.mayStillApply
-      ? "unknown: not found yet, and it may still apply until its time bound passes"
-      : (OUTCOME[tx.result] ?? String(tx.result)),
+    tx.result === "unknown"
+      ? unknownLabel(tx)
+      : tx.result === "pending" && report.status === "running"
+        ? "pending: posted, its outcome was not known yet when this copy was saved"
+        : (OUTCOME[tx.result] ?? String(tx.result)),
     tx.ledger !== null ? `ledger ${grouped(tx.ledger)}` : "",
     tx.feeChargedStroops !== null
       ? `fee ${xlm(tx.feeChargedStroops)} (${grouped(tx.feeChargedStroops)} stroops) charged to ${payer}`
@@ -234,8 +261,26 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   };
   const steps = stepsOfRound(0);
   const out: string[] = [];
+  // A merge that applied, whether or not its result gave the merged amount (review round 3,
+  // R3-36): its step outcome, or an applied envelope that carried it. Without the plans only an
+  // envelope of the merge phase tells.
+  const isMerge = (round: number, id: string) => stepsOfRound(round).get(id)?.kind === "merge";
+  const appliedMerge =
+    report.recovery.mergedXlm !== null ||
+    report.steps.some((s) => {
+      const added = /^R(\d+)\.(.+)$/.exec(s.stepId);
+      return (
+        s.status === "applied" &&
+        (added ? isMerge(Number(added[1]), added[2]!) : isMerge(0, s.stepId))
+      );
+    }) ||
+    report.transactions.some(
+      (t) =>
+        t.result === "applied" &&
+        (t.phase === "merge" || t.stepIds.some((id) => isMerge(t.round, id))),
+    );
 
-  out.push(`Dustin close receipt   ${headline(report)}`);
+  out.push(`Dustin close receipt   ${headline(report, appliedMerge)}`);
   if (report.message) out.push(...field("Why", report.message));
   // The machine-readable stop reason (E2-S3): integrators branch on the code and the verdict.
   if (report.stop) {
@@ -297,7 +342,7 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   const merged = report.steps.some(
     (s) => s.status === "applied" && steps.get(s.stepId)?.kind === "merge",
   );
-  const mergeApplied = r.mergedXlm !== null || merged || report.status === "closed";
+  const mergeApplied = r.mergedXlm !== null || merged || appliedMerge || report.status === "closed";
   out.push("", "Result");
   if (r.mergedXlm !== null) {
     out.push(
@@ -358,7 +403,13 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   const v = report.verification;
   if (v === null) {
     out.push(
-      ...wrap("not checked: the run stopped before the final Horizon check", 15, "  verified     "),
+      ...wrap(
+        report.status === "running"
+          ? "not checked yet: the run was still in progress when this copy was saved"
+          : "not checked: the run stopped before the final Horizon check",
+        15,
+        "  verified     ",
+      ),
     );
   } else {
     out.push(
@@ -393,6 +444,10 @@ function nextStep(report: CloseReport): string | null {
       return report.transactions.length === 0
         ? "Nothing was submitted. Review the plan and run the command again."
         : "Run the same command again to continue: Dustin re-reads the account and plans only what is left.";
+    case "running":
+      // A copy saved while the run was going (review round 3, R3-23): a second close of the same
+      // account started while it may still run would compete for its sequence numbers.
+      return "This copy was saved while the run was in progress. Do not start the same close again while that run may still be going: two runs would compete for the account's sequence numbers. If it is gone (the process was killed or crashed), look the pending hashes above up first, then run the same command again: Dustin re-reads the account and plans only what is left.";
     default:
       return "Run the same command again to continue: Dustin re-reads the account and plans only what is left.";
   }

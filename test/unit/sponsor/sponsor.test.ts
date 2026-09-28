@@ -137,22 +137,43 @@ describe("signers", () => {
 });
 
 describe("FeeSponsor.release (edge case E7)", () => {
-  it("drops the bids of a sequence number that no envelope can use any more", async () => {
+  it("drops the bids of envelopes that no one can use any more", async () => {
     const s = new FeeSponsor(keypairSigner(sponsorKp), {
       networkPassphrase: TESTNET,
       budgetStroops: 3000,
     });
     const account = accountKp.publicKey();
-    await s.wrap(inner(1, account, "100"), 1000); // 2000 for sequence 101
+    const refused = await s.wrap(inner(1, account, "100"), 1000); // 2000 for sequence 101
     await expect(s.wrap(inner(1, account, "101"), 1000)).rejects.toMatchObject({
       code: "SPONSOR_BUDGET_EXCEEDED",
     });
-    s.release(account, "101");
+    s.release([refused]);
     expect(s.spentBidStroops).toBe(0);
-    await s.wrap(inner(1, account, "101"), 1000); // sequence 102 now fits
+    const next = await s.wrap(inner(1, account, "101"), 1000); // sequence 102 now fits
     expect(s.spentBidStroops).toBe(2000);
-    s.release(account, "999"); // nothing signed for it: no change
+    s.release([refused]); // already released: no change
     expect(s.spentBidStroops).toBe(2000);
+    expect(next.fee).toBe("2000");
+  });
+
+  it("keeps another envelope's bid for the same sequence number (review round 3, R3-6)", async () => {
+    const s = new FeeSponsor(keypairSigner(sponsorKp), {
+      networkPassphrase: TESTNET,
+      budgetStroops: 5000,
+    });
+    const account = accountKp.publicKey();
+    // One transaction's envelope applied and was charged 2000 for sequence 101; another
+    // transaction, built on a stale read, signed 4000 for the same number and was refused.
+    await s.wrap(inner(1, account, "100"), 1000);
+    const refused = await s.wrap(inner(1, account, "100"), 2000);
+    expect(s.spentBidStroops).toBe(4000);
+    s.release([refused]);
+    // The charged bid stays counted: before the fix the whole sequence number was forgotten.
+    expect(s.spentBidStroops).toBe(2000);
+    expect(s.remainingStroops).toBe(3000);
+    await expect(s.wrap(inner(1, account, "101"), 2000)).rejects.toMatchObject({
+      code: "SPONSOR_BUDGET_EXCEEDED",
+    });
   });
 });
 

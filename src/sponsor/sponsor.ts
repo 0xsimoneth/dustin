@@ -34,6 +34,11 @@ export class FeeSponsor {
    * an object so that the one a failed signature takes back is exactly the one it added.
    */
   private readonly bids = new Map<string, Set<{ total: number }>>();
+  /** The sequence number and the bid of each fee bump signed, so `release` drops exactly those. */
+  private readonly signed = new WeakMap<
+    FeeBumpTransaction,
+    { key: string; bid: { total: number } }
+  >();
   /** The sum, over sequence numbers, of the largest bid in `bids`. */
   private spent = 0;
 
@@ -66,15 +71,20 @@ export class FeeSponsor {
   }
 
   /**
-   * Forgets the bids signed for a sequence number that no envelope of this close can use any more:
-   * another transaction consumed it and every envelope signed for it was refused at validation, so
-   * none of them can ever be charged (edge case E7). Only the caller can know that; it must not
-   * release a sequence number while an envelope for it may still apply or may have applied.
+   * Takes back the bids of the given fee bumps, signed for a sequence number that none of them can
+   * use any more: another transaction consumed it and each of them was refused at validation, so
+   * none can ever be charged (edge case E7). Only these bids leave the budget; a bid another
+   * envelope holds for the same sequence number stays counted, since that envelope may be the one
+   * that applied and was charged (review round 3, R3-6). Only the caller can know that the given
+   * envelopes were refused; it must not release one that may still apply or may have applied.
    */
-  release(source: string, sequence: string): void {
-    const key = `${source}:${sequence}`;
-    this.spent -= this.largest(key);
-    this.bids.delete(key);
+  release(feeBumps: Iterable<FeeBumpTransaction>): void {
+    for (const feeBump of feeBumps) {
+      const signed = this.signed.get(feeBump);
+      if (!signed) continue;
+      this.signed.delete(feeBump);
+      this.takeBack(signed.key, signed.bid);
+    }
   }
 
   /** What is left of the close budget for sequence numbers not signed for yet. */
@@ -154,6 +164,7 @@ export class FeeSponsor {
       this.takeBack(key, reserved);
       throw error;
     }
+    this.signed.set(feeBump, { key, bid: reserved });
     return feeBump;
   }
 }

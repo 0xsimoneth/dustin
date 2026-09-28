@@ -31,8 +31,9 @@ export interface CliDeps {
   fetch?: FetchLike;
   horizon?: { retries?: number; backoffMs?: number; sleep?: Sleep };
   /**
-   * Asks the typed confirmation of `close --execute` and resolves with the answer, or with null
-   * on EOF or a non-interactive input. Without it the input counts as non-interactive.
+   * Asks the typed confirmation of `close --execute` and resolves with the answer, with null on
+   * EOF or Ctrl-C, or with `{ unasked }` when it could not be asked (a stream that is not a
+   * terminal). Without it the input counts as non-interactive.
    */
   prompt?: Prompt;
   /**
