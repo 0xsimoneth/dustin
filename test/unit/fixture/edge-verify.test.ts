@@ -112,6 +112,10 @@ describe("recorded file names", () => {
         roleOf,
       ),
     ).toBe("paths-strict-send-ILQX");
+    // X-03: the page of claimable balances that name the account as a claimant.
+    expect(recordName(`/claimable_balances?claimant=${roles.authFrozen}&limit=200`, roleOf)).toBe(
+      "claimable-claimant-auth-frozen",
+    );
     expect(recordName(`/liquidity_pools/${manifest.pool.id}`, roleOf)).toBe("liquidity-pool");
     expect(recordName("/fee_stats", roleOf)).toBe("fee-stats");
     expect(recordName("/ledgers?order=desc&limit=1", roleOf)).toBe("ledger-latest");

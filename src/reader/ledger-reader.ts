@@ -1,5 +1,10 @@
 import type { FeeStatsLike } from "../config/fees.js";
-import type { HorizonAccount, HorizonAssetRef, HorizonOffer } from "../inspect/horizon-types.js";
+import type {
+  HorizonAccount,
+  HorizonAssetRef,
+  HorizonClaimableBalance,
+  HorizonOffer,
+} from "../inspect/horizon-types.js";
 import {
   accountOffers,
   latestLedger,
@@ -34,6 +39,14 @@ export interface LedgerReader {
   offers(id: string): Promise<HorizonOffer[]>;
   strictSendPathsToNative(asset: CreditAssetRef, amount: string): Promise<PathRecord[]>;
   claimableBalancesSponsoredBy(id: string): Promise<number>;
+  /**
+   * Every claimable balance that names `id` as a claimant (`GET /claimable_balances?claimant=`, the
+   * query js-stellar-sdk's `ClaimableBalanceCallBuilder.claimant()` builds:
+   * https://github.com/stellar/js-stellar-sdk/blob/master/src/horizon/claimable_balances_call_builder.ts),
+   * following the pages to the end (matrix row X-03). Optional, so a reader written before it
+   * still fits; the inspector then reports that it could not ask.
+   */
+  claimableBalancesClaimableBy?(id: string): Promise<HorizonClaimableBalance[]>;
   /** Reserve assets of a liquidity pool ("native" or "CODE:ISSUER"), or null if not found. */
   liquidityPoolAssets(id: string): Promise<string[] | null>;
 }
@@ -71,6 +84,19 @@ export function horizonReader(client: HorizonJsonClient): LedgerReader {
     async liquidityPoolAssets(id) {
       const pool = await client.get<{ reserves: { asset: string }[] }>(`/liquidity_pools/${id}`);
       return pool ? pool.reserves.map((r) => r.asset) : null;
+    },
+    async claimableBalancesClaimableBy(id) {
+      const balances: HorizonClaimableBalance[] = [];
+      let cursor = "";
+      for (;;) {
+        const page = await client.get<Page<HorizonClaimableBalance>>(
+          `/claimable_balances?claimant=${id}&limit=200${cursor ? `&cursor=${cursor}` : ""}`,
+        );
+        const records = page?._embedded.records ?? [];
+        balances.push(...records);
+        if (records.length < 200) return balances;
+        cursor = records[records.length - 1]!.paging_token;
+      }
     },
     async claimableBalancesSponsoredBy(id) {
       let count = 0;

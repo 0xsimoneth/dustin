@@ -197,5 +197,6 @@ export function randomSnapshot(
             }
           : null,
     })),
+    claimableBalancesClaimable: [],
   };
 }

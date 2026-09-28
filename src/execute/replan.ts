@@ -80,6 +80,7 @@ export function withPathsOnlyFor(reader: LedgerReader, allowed: ReadonlySet<stri
         ? reader.strictSendPathsToNative(asset, amount)
         : Promise.resolve([]),
     claimableBalancesSponsoredBy: (id) => reader.claimableBalancesSponsoredBy(id),
+    claimableBalancesClaimableBy: reader.claimableBalancesClaimableBy?.bind(reader),
     liquidityPoolAssets: (id) => reader.liquidityPoolAssets(id),
   };
 }
