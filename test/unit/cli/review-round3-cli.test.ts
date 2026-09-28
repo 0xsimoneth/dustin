@@ -66,3 +66,36 @@ describe("R3-3, auditor 5: the --report file follows the run while it goes", () 
     ]);
   });
 });
+
+/** The amount of the summary line with this label, in stroops. */
+function summaryStroops(text: string, label: string): bigint {
+  const line = text.split("\n").find((l) => l.startsWith(`  ${label.padEnd(13)}`));
+  expect(line, `no "${label}" line`).toBeDefined();
+  const amount = /(\d+\.\d{7}) XLM/.exec(line!)?.[1];
+  expect(amount, line).toBeDefined();
+  const [whole, fraction] = amount!.split(".");
+  return BigInt(whole!) * 10_000_000n + BigInt(fraction!);
+}
+
+describe("R3-25: the confirmation names the close budget as the most the sponsor can pay", () => {
+  it("shows a ceiling the run cannot exceed when a failure makes it re-plan", async () => {
+    const world = zeroSpendableWorld({ market: true });
+    // The market is gone after the first transaction: the sale fails on the ledger (charged)
+    // and the run re-plans, adding a transaction the confirmation did not count.
+    const fetch = beforePost(world, 2, () => world.ledger.quotes.clear());
+    const r = await closeCli(world, executeArgs(world, "--yes", "--json", "--base-fee", "100"), {
+      fetch,
+    });
+    expect(r.code).toBe(0);
+    const report = JSON.parse(r.out) as CloseReport;
+    expect(report.replans).toHaveLength(1);
+    const paid = BigInt(report.recovery.feesPaidBySponsorStroops);
+    // The plan's own bid is shown, and so is the ceiling: the close budget, 5 XLM.
+    expect(r.err).toMatch(/pays {9}every fee; the plan bids 0\.0000800 XLM/);
+    const ceiling = summaryStroops(r.err, "at most");
+    expect(ceiling).toBe(50_000_000n);
+    expect(paid).toBeGreaterThan(800n);
+    expect(ceiling).toBeGreaterThanOrEqual(paid);
+    expect(r.err).not.toMatch(/may bid up to|every fee, at most 0\.0000800/);
+  });
+});

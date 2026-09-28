@@ -151,7 +151,7 @@ export async function closeExecute(
 
   // The report file is checked (and its directory created) before the confirmation.
   const receipt = options.report !== undefined ? receiptFile(options.report, ctx) : null;
-  say(summary(plan, spendable, baseFee ?? plan.fees.maxBaseFeeStroops));
+  say(summary(plan, spendable, baseFee));
   if (options.yes) {
     say(
       "\nCONFIRMATION SKIPPED: --yes was given, so the typed confirmation was not asked. Executing now.\n",
@@ -295,18 +295,24 @@ function notClosable(plan: ClosePlan): string {
 }
 
 /** The four facts to check before typing the confirmation (ux-design section 2.2). */
-function summary(plan: ClosePlan, sponsorSpendableStroops: bigint, maxBidPerOp: number): string {
+function summary(
+  plan: ClosePlan,
+  sponsorSpendableStroops: bigint,
+  baseFee: number | undefined,
+): string {
   const merge = plan.transactions.findIndex((t) =>
     t.stepIds.some((id) => plan.steps.find((s) => s.id === id)?.kind === "merge"),
   );
   const ops = plan.transactions.reduce((n, t) => n + t.opCount, 0);
-  // A retry after a fee surge may raise the bid (E2-S3): per operation up to the cap, and never
-  // beyond the per-close budget, so that is what the sponsor may pay at most.
-  const ceiling = Math.min(plan.fees.budgetStroops, maxBidPerOp * (ops + plan.transactions.length));
-  const pays =
-    ceiling > plan.fees.totalStroops
-      ? `every fee: the plan bids ${xlm(plan.fees.totalStroops)}; a retry after a fee surge may bid up to ${xlm(ceiling)}`
-      : `every fee, at most ${xlm(plan.fees.totalStroops)}`;
+  // Review round 3, R3-25: only the close budget bounds what the sponsor pays. A retry after a fee
+  // surge raises the bid for the same sequence number (not with --base-fee, which is also the cap
+  // per operation), and a transaction that fails on the ledger is charged and makes the run
+  // re-plan, which signs transactions the plan did not have; the sponsor signs nothing that would
+  // take the close past its budget (FeeSponsor), so the budget is the ceiling.
+  const bid =
+    baseFee === undefined
+      ? xlm(plan.fees.totalStroops)
+      : `${xlm(plan.fees.totalStroops)} at ${grouped(baseFee)} stroops per operation (--base-fee), never raised`;
   const lines = [
     "",
     merge >= 0
@@ -320,7 +326,8 @@ function summary(plan: ClosePlan, sponsorSpendableStroops: bigint, maxBidPerOp: 
     ...(plan.memo !== null
       ? [`  memo         ${JSON.stringify(plan.memo)} (on every transaction, the merge included)`]
       : []),
-    `  pays         ${pays}`,
+    `  pays         every fee; the plan bids ${bid}`,
+    `  at most      ${xlm(plan.fees.budgetStroops)}, the close budget; retries and re-plans can bid more than the plan, never more`,
     `  can spend    ${xlm(sponsorSpendableStroops)}`,
     `  signs        ${plural(plan.transactions.length, "fee-bumped transaction", "fee-bumped transactions")}, ${plural(ops, "operation", "operations")}, signed by the account`,
     `  unclosable   ${plural(plan.unclosable.length, "item", "items")}${plan.unclosable.length > 0 ? ", staying on the account" : ""}`,
