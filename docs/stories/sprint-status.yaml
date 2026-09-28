@@ -38,22 +38,22 @@ development_status:
   1-6-dry-run-guarantee-tests: done
   1-7-cli-plan-command: done
   epic-1-retrospective: optional
-  epic-2: in-progress
+  epic-2: done
   2-1-fee-bump-submission-engine: done
   2-2-simple-close-executor: done
-  2-3-retry-recovery-resume: review
-  2-4-verification-receipt: review
+  2-3-retry-recovery-resume: done
+  2-4-verification-receipt: done
   2-5-disposal-route-resolution: done
-  2-6-live-simple-close: review
+  2-6-live-simple-close: done
   epic-2-retrospective: optional
   epic-3: in-progress
-  3-1-ladder-path-payment: review
-  3-2-ladder-issuer-destination-unclosable: review
-  3-3-sponsored-trustline-unwind: in-progress
-  3-4-seqnum-too-far-guard: in-progress
-  3-5-detection-only-blockers: review
-  3-6-edge-case-test-matrix: review
-  3-7-full-fixture-close: backlog
+  3-1-ladder-path-payment: done
+  3-2-ladder-issuer-destination-unclosable: done
+  3-3-sponsored-trustline-unwind: done
+  3-4-seqnum-too-far-guard: done
+  3-5-detection-only-blockers: done
+  3-6-edge-case-test-matrix: review # done once the builder accepts the AC-3 deviation (docs/reviews/2026-09-28-e3-review.md)
+  3-7-full-fixture-close: done
   epic-3-retrospective: optional
   epic-4: backlog
   4-1-cli-output-polish: backlog
@@ -202,7 +202,7 @@ stories:
     title: Retry, failure recovery and resumable execution
     epic: E2
     week: 2
-    status: review
+    status: done
     estimate_hours: 10
     deliverable: D2
   - key: 2-4-verification-receipt
@@ -210,7 +210,7 @@ stories:
     title: Post-close verification and receipt with explorer links
     epic: E2
     week: 2
-    status: review
+    status: done
     estimate_hours: 4
     deliverable: D2
   - key: 2-5-disposal-route-resolution
@@ -226,7 +226,7 @@ stories:
     title: First live end-to-end simple close on testnet with evidence
     epic: E2
     week: 2
-    status: review
+    status: done
     estimate_hours: 6
     deliverable: D2
   - key: 3-1-ladder-path-payment
@@ -234,7 +234,7 @@ stories:
     title: Ladder execution, path-payment sale
     epic: E3
     week: 3
-    status: review
+    status: done
     estimate_hours: 8
     deliverable: D2
   - key: 3-2-ladder-issuer-destination-unclosable
@@ -242,7 +242,7 @@ stories:
     title: Ladder execution, issuer return, destination transfer and unclosable reporting
     epic: E3
     week: 3
-    status: review
+    status: done
     estimate_hours: 6
     deliverable: D2
   - key: 3-3-sponsored-trustline-unwind
@@ -250,7 +250,7 @@ stories:
     title: Sponsored trustline unwind with reserve attribution
     epic: E3
     week: 3
-    status: in-progress
+    status: done
     estimate_hours: 6
     deliverable: D2
   - key: 3-4-seqnum-too-far-guard
@@ -258,7 +258,7 @@ stories:
     title: ACCOUNT_MERGE_SEQNUM_TOO_FAR guard
     epic: E3
     week: 3
-    status: in-progress
+    status: done
     estimate_hours: 4
     deliverable: D2
   - key: 3-5-detection-only-blockers
@@ -266,7 +266,7 @@ stories:
     title: Detection-only blockers (pool shares, raised thresholds, AUTH_IMMUTABLE, active sponsoring)
     epic: E3
     week: 3
-    status: review
+    status: done
     estimate_hours: 6
     deliverable: D3
   - key: 3-6-edge-case-test-matrix
@@ -282,7 +282,7 @@ stories:
     title: Full messy fixture close on testnet, recorded
     epic: E3
     week: 3
-    status: backlog
+    status: done
     estimate_hours: 6
     deliverable: D2
   - key: 4-1-cli-output-polish
@@ -341,3 +341,29 @@ stories:
     status: backlog
     estimate_hours: 5
     deliverable: D4
+
+# One entry per working session, newest last (the progress log has the full account).
+sessions:
+  - date: "2026-09-28"
+    sprint_day: 7
+    summary: >-
+      Builder decisions D-2 to D-7 applied before any parallel work. E2-S5 record and tests (done).
+      E2-S3 and E2-S4 review round 3, 37 findings fixed (done). Epic 3 built by parallel agents and
+      merged: the ladder live (E3-S1, E3-S2), the detection-only blockers and the edge fixture with
+      the test matrix (E3-S5, E3-S6), the sponsored unwind with the observed reserve release (E3-S3),
+      the bounded sequence-guard wait (E3-S4), the metric close recorded through the SDK and the CLI
+      (E3-S7). Closing review of the session: 64 findings, no major, every code finding fixed. Offline
+      tier 89 files and 864 tests; live tier 10 files and 51 tests, green locally and in the testnet
+      CI job (run 36424696971), which closes E2-S6. Epic 2 done; Epic 3 done except E3-S6.
+    blocked_on_builder:
+      - E3-S6 AC-3 deviation to accept (docs/reviews/2026-09-28-e3-review.md, decision 2)
+      - npm login and publish of the 0.0.1 name placeholder with 2FA
+      - E1-S2 Demolisher baseline recording on messy-20260926T035942Z (matrix B-01, B-02), then B-03
+      - video hosting for the demo (E4-S6)
+      - the chapter lead's written acknowledgement
+      - history rewrite R4 and R5 (postponed by decision D-7)
+      - CA-11 and CA-18, fix in week 4 or accept; third-party names in the prior-art citations
+    next: >-
+      Epic 4 a week early: E4-S1 and E4-S2 (CLI output and error handling, with CA-11, CA-18, CL-1,
+      AA-9, AA-10, AA-13), E4-S3 (test evidence), E4-S4 (npm 0.1.0 prepared for the builder to publish),
+      E4-S5 (write-up final), E4-S6 (demo script for the builder's recording), E4-S7 (evidence package).

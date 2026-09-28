@@ -1,6 +1,6 @@
 # Story 3.2: Ladder execution, issuer return, destination transfer and unclosable reporting
 
-Status: review
+Status: done
 
 ## Story
 
@@ -171,6 +171,16 @@ Run 1, fixture `messy-20260928T095652Z-fe5ae5`:
 | 4913176 | `042d03e4def27a7a2d5a76049f3288cbf0bf8eb7cfbe392566f4477a8e217e71` | close with `allowPartial`, tx 1 (cleanup), applied |
 | 4913177 | `14f4baf185f55385e2e08943f24dceb14705ad6c298305947f54c62d714c2a12` | close with `allowPartial`, tx 2 (convert), applied; status `partial` |
 
+### Through the CLI: the partial-close receipt (AC-E3-S2-3)
+
+Recorded on the final Epic 3 code by `node scripts/evidence-cli.mjs memo-partial`: [`evidence/runs/20260928T125528Z-e3s2-partial/`](../../evidence/runs/20260928T125528Z-e3s2-partial/summary.md), on a fresh messy fixture, 2026-09-28 12:55 to 12:56 UTC.
+
+- Setup: the issuer `GDUQSZVUYLSBJFVRHETXDZF6TASCOEGZDP4NGXC53LT44WIHC5NH25ZX` set `config.memo_required` = 1 in its own transaction `813e46074c6db79ef34e0861f5ec7ace2c1425723c66f5f16930a69eefe0061f` (ledger 4915318).
+- `dustin plan`: status PARTIAL, no merge; DUSTA sold by path payment, DUSTC to the destination (rung `send_to_destination`, because the issuer requires a memo), `NO_DISPOSAL_ROUTE` for 0.0000003 DUSTB and 0.0000001 SPTA with every rung ruled out.
+- `dustin close --execute --yes` exited 3 ("Not executed: the plan cannot end in a merge (status PARTIAL), so nothing was signed or submitted"); the account's sequence number was the same before and after.
+- `dustin close --execute --yes --partial --report report.json` exited 4: the cleanup `d87eb28d7dfff3bc5e3dc50d4b0db34807022f3a0a033b1f236373547dea3098` (ledger 4915321) and the sale `eef625a2721c96651402c4c54beb1e75711c4eaa70076090046eaccf3e20fff8` (ledger 4915322), both fee-bumped by the sponsor; no merge. The receipt at the end of `transcript.txt` says "No merge: the account was not merged, so no XLM moved through a merge.", lists DUSTC "sent to the destination" and DUSTA "sold for XLM by path payment" under Disposals, and under "Not closed" gives each item its code, one line per rung ruled out and the remedy, which names the memo (`--memo`) and the `CODE:ISSUER` trustline to open on the destination.
+- Horizon answers 200 for the account afterwards: it holds 0.0000003 DUSTB, 0.0000001 SPTA and 4.0000007 XLM. The destination's DUSTC went from 0 to 0.0000005.
+
 ## Tasks / Subtasks
 
 - [x] Task 1: AC-4: a remedy per ruled-out rung, naming the limit to raise when the destination trustline has no room (`src/plan/ladder.ts`); the fake ledger answers `op_line_full` (AC: 3, 4)
@@ -179,6 +189,16 @@ Run 1, fixture `messy-20260928T095652Z-fe5ae5`:
 - [x] Task 4: offline tests for every rung, the `--prefer-destination` flag, the partial exit code and matrix rows S-01, X-06, X-11 (AC: 1-4)
 - [x] Task 5: live tests: `--prefer-destination`, a memo-required issuer, and the burn (AC: 1-3)
 - [x] Task 6: Story 3.2 in the epics: AC-2 and AC-3 reworded for day-1 experiment 4, the `op_no_destination` mapping corrected, the superseded flag and exit code noted (AC: 2, 3)
+
+### Closing review (2026-09-28)
+
+Findings of the closing review (`docs/reviews/2026-09-28-e3-review.md`) that concern this story, each fixed with a test that failed first:
+
+- CP-6 (`872839f`): a sale ruled out by the account's own offer names the offer and how to reopen the rung.
+- CP-7 (`8e23734`): the remedy of a trustline that is not authorized offers a clawback only when the trustline is clawback-enabled.
+- CP-15 (`b806327`): the destination fix names the base G account of a muxed destination and the asset as `CODE:ISSUER`.
+- CC-8 (`5044ab5`): after a fall down the ladder, Disposals names every rung that failed, each with its own operation code ("the sale by path payment failed with op_too_few_offers, then the return to its issuer failed with ..."), instead of the first plan's rung next to the last failure's code.
+- CA-4 (`0b18867`, `fa2755b`): the partial-close receipt of AC-3 is committed as a CLI run (above).
 
 ## Dev Notes
 
@@ -234,3 +254,4 @@ dev-story workflow (AI developer agent)
 ## Change Log
 
 - 2026-09-28: named remedies (AC-4), unclosable items with their rungs in the plan, the refusal and the receipt, the Disposals section, offline and live tests, the epics' Story 3.2 corrected. Status: review.
+- 2026-09-28: closing review CP-6, CP-7, CP-15, CC-8 fixed; the partial-close receipt recorded through the CLI (CA-4). Status: done (docs/reviews/2026-09-28-e3-review.md).

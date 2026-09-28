@@ -41,6 +41,16 @@ How each is met, and the test that proves it:
 - [x] Task 7: live tests (`test/testnet/edge.test.ts`), two green runs
 - [x] Task 8: `docs/test-matrix.md`
 
+### Closing review (2026-09-28)
+
+Findings of the closing review (`docs/reviews/2026-09-28-e3-review.md`) that concern this story, each code fix with a test that failed first:
+
+- CA-1 (`de0b5b2`): the test matrix brought to the merged Epic 3 code; the "Last run" column filled by the integrator from the final run of both tiers (below).
+- CA-5 (`0b18867`, `fa2755b`): the SOW's week-3 unclosable exit on the `edge` fixture is committed as a CLI run (below).
+- CA-15 (`6df5ce0`): this record names FRZ as the deliberately illiquid asset of canonical decision 3 and says the guard cases run on bumped messy fixtures.
+- CP-7 (`8e23734`): the remedy of a trustline that is not authorized offers a clawback only when the trustline is clawback-enabled, so the frozen FRZ's remedy asks the issuer to authorize it again.
+- Fixture builder robustness, in `src/fixture/edge-builder.ts` and the messy builder: CP-8 (`73a7252`, a failed Friendbot try asks Horizon whether the account was funded), CP-9 (`e16c563`, `454157b`, a Horizon failure after the build submitted keeps the manifest and `dustin fixture create` exits 5), CP-10 (`6970b65`, the build reads through a Horizon that lags the ledger), CP-11 (`82a489b`, a settle id whose check did not run counts as open), CP-12 (`77d9398`, `onKeys` is awaited before Friendbot funds anything), CP-13 (`7070b91`, `settleTimeoutMs` is validated), CP-14 (`a68a0dc`, `fixture verify` validates every role, the network and the pool id of a manifest).
+
 ## Dev Notes
 
 - Canonical decision 3: `messy` is the metric account; `edge` carries the frozen authorization-required trustline and ends `partial` with an unclosable reason. The auth-frozen variant is that account: zero spendable XLM, a frozen FRZ balance, illiquid ILQX dust (no market, live issuer: it is burned, S-01) and a data entry; its partial close is fee-sponsored and stops before the merge with the reason `TRUSTLINE_NOT_AUTHORIZED`. FRZ, frozen by its issuer and with no market, is the SOW's "deliberately illiquid asset that exits through the unclosable path with a stated reason" (canonical decision 3; matrix row S-02); the architecture's wording for it is "must exit through rung 4" (section 4.10).
@@ -68,6 +78,8 @@ How each is met, and the test that proves it:
 - CLI build, 2026-09-28: `dustin fixture create --profile edge` built `edge-20260928T095236Z-432c80` in 7 transactions (ledgers 4913116 to 4913122; the first `0fec074b0455ea6a2e8f0e102b5131cf74f95d32778d7326864d449e6c9b77f0`), all 62 verification checks passed, and every variant planned exactly as its manifest expects. Its recording is `test/fixtures/horizon/edge/`.
 - Live test runs, 2026-09-28: 13 of 13 passed twice (about 140 s each). The second, on `edge-20260928T100439Z-d5767b` (fee sponsor `GANXQBYVDD7FQ5TCCTL3RZ6FYTE2S4VYBMY5UJKFTECVS6EDAHHQCWZZ`), submitted 7 build transactions and 17 test transactions; every hash with its purpose is in `docs/test-matrix.md`.
 - Offline tier: 65 files, 580 tests, about 6 s (58 files, 514 tests before Stories 3.5 and 3.6).
+- Through the CLI, on the final Epic 3 code (2026-09-28 12:54 to 12:55 UTC): `node scripts/evidence-cli.mjs edge-frozen` built a fresh `edge` fixture, `edge-20260928T125416Z-933e2d`, whose 62 checks all passed, and recorded [`evidence/runs/20260928T125414Z-edge-frozen/`](../../evidence/runs/20260928T125414Z-edge-frozen/summary.md): the plan of the auth-frozen account is PARTIAL with `TRUSTLINE_NOT_AUTHORIZED` for 0.0000005 FRZ, naming the issuer and the remedy; `dustin close --execute --yes` exited 3 with the account's sequence number unchanged; with `--partial` it exited 4 after one fee-bumped cleanup, `8c12934d5a03eeee5224e0b06f67a8b00f74f576f461b928321ab476f2550c73` (ledger 4915308), which burned the illiquid ILQX and removed its trustline and the data entry; the receipt lists FRZ under "Not closed", and Horizon still shows the account with only the frozen FRZ trustline and 2.5 XLM.
+- Final run of both tiers on the closing code (`d0d711c`; integrator, 2026-09-28): offline 89 files, 864 tests in 5.7 s; live, the testnet CI job [run 36424696971](https://github.com/0xsimoneth/dustin/actions/runs/36424696971), 10 files, 51 tests in 321 s, `test/testnet/edge.test.ts` included. The matrix's "Last run" column records it row by row. Counts on that code: 27 of 32 rows with an offline test, 16 with a live test, 21 green, 1 planned (B-03), 8 not covered, 2 human action (B-01, B-02).
 
 ### File List
 
@@ -80,3 +92,4 @@ How each is met, and the test that proves it:
 ## Change Log
 
 - 2026-09-28: `edge` fixture profile, its recorded vectors, the edge rows offline and live, `docs/test-matrix.md`. Status: review (AC-2 waits for the S-03 and S-04 live tests of other stories; the deviation in AC-3 needs the builder's acceptance).
+- 2026-09-28: closing review CA-1, CA-5, CA-15, CP-7 and CP-8 to CP-14 fixed; the unclosable exit on the `edge` fixture recorded through the CLI; the matrix's "Last run" column filled from the final run of both tiers.

@@ -27,12 +27,24 @@ The links below are to the CLI run; the SDK run's directory holds the same files
 
 The destination received exactly 4.0000007 XLM: the fixture's 4.0000000 XLM plus 0.0000007 XLM from selling DUSTA. The reserve sponsor's `num_sponsoring` went from 1 to 0 and its minimum balance from 1.5 to 1.0 XLM, with its XLM balance unchanged: the sponsored trustline's reserve went back to the sponsor, never to the closed account.
 
+## The other Epic 3 outcomes through the CLI (2026-09-28)
+
+Each run built a fresh fixture and was recorded by `node scripts/evidence-cli.mjs <case>` on the final Epic 3 code; every command's expected and actual exit code is in its `summary.md`.
+
+| Run | What it shows | Result |
+|---|---|---|
+| [`runs/20260928T125223Z-e3s4-wait/`](runs/20260928T125223Z-e3s4-wait/summary.md) (`seq-wait`; story E3-S4, matrix row S-04) | A BumpSequence to (4915280 + 12) << 32 makes the merge unable to land before ledger 4915293. The command runs the cleanup and the sale, prints the wait ("waiting for the sequence guard: the merge can land from ledger 4,915,293") and merges in ledger 4915293, the unblocking ledger itself | exit 0; no merge refused with `op_seq_num_too_far`; Horizon 404 afterwards |
+| [`runs/20260928T125414Z-edge-frozen/`](runs/20260928T125414Z-edge-frozen/summary.md) (`edge-frozen`; SOW week 3, story E3-S6, matrix rows S-02 and S-01) | The `edge` fixture (62 of 62 checks) and its account with a frozen FRZ trustline from an AUTH_REQUIRED + AUTH_REVOCABLE issuer: `TRUSTLINE_NOT_AUTHORIZED`, with the issuer and the remedy | exit 3 without `--partial` (the account's sequence number unchanged); exit 4 with it: the illiquid ILQX went back to its issuer, its trustline and the data entry were removed, FRZ stays under "Not closed" |
+| [`runs/20260928T125528Z-e3s2-partial/`](runs/20260928T125528Z-e3s2-partial/summary.md) (`memo-partial`; story E3-S2) | The dust issuer requires a memo (SEP-29): DUSTA is sold, DUSTC goes to the destination, DUSTB and SPTA have no route (`NO_DISPOSAL_ROUTE`, every rung ruled out) | exit 3 without `--partial` (sequence unchanged); exit 4 with it; the transcript ends with the partial-close receipt |
+
+The whole live tier (10 files, 51 tests) passed in the CI job [Testnet tier, run 36424696971](https://github.com/0xsimoneth/dustin/actions/runs/36424696971) on commit `d0d711c` (321 s); the [test matrix](../docs/test-matrix.md) maps every row to its tests.
+
 ## Other evidence
 
 | Directory | What it holds |
 |---|---|
 | [`plan/`](plan/) | The dry-run plan of the builder's baseline fixture, as text and JSON (Deliverable 1, 2026-09-26) |
-| [`runs/`](runs/README.md) | Every live close: the layout, and how to reproduce a run, through the SDK (`test/testnet/execute-close.test.ts`) or through the command line (`node scripts/evidence-cli.mjs <case>`, cases `metric`, `edge-frozen`, `memo-partial` and `seq-wait`) |
+| [`runs/`](runs/README.md) | Every live run: the layout, and how to reproduce a run, through the SDK (`test/testnet/execute-close.test.ts`) or through the command line (`node scripts/evidence-cli.mjs <case>`, cases `metric`, `edge-frozen`, `memo-partial` and `seq-wait`) |
 | [`runs/20260926T125350Z/`](runs/20260926T125350Z/summary.md), [`runs/20260927T200015Z-cli/`](runs/20260927T200015Z-cli/summary.md) | The first live closes of week 2 (story E2-S6) |
 | [`baseline/`](baseline/README.md) | The recording protocol for the StellarExpert Demolisher baseline (Deliverable 3); the recording is pending (builder, story E1-S2) |
 | [`../docs/test-matrix.md`](../docs/test-matrix.md) | The D3 test matrix: every row, its tests and their status |
