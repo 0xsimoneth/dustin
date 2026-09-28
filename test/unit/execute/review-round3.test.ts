@@ -21,6 +21,10 @@ import {
   staleAccountOnce,
 } from "./harness.js";
 
+// Third review round of E2-S3 (2026-09-28): the acceptance audit, the edge-case review of the
+// executor and the blind review. Every test here failed on the code before its fix, and runs on
+// the injected clock of the harness: no real waiting, no network.
+
 /**
  * The harness, plus what the latest published copy of the report said about the envelope in
  * flight at the moment each POST reached Horizon: its `attempts`.
@@ -38,10 +42,6 @@ function copiesAtEachPost() {
   };
   return { ...h, inFlight, onReport };
 }
-
-// Third review round of E2-S3 (2026-09-28): the acceptance audit, the edge-case review of the
-// executor and the blind review. Every test here failed on the code before its fix, and runs on
-// the injected clock of the harness: no real waiting, no network.
 
 describe("R3-1: only a merge that could have applied proves a close", () => {
   it("keeps the stop when this run's merge was refused and someone else removed the account", async () => {
