@@ -183,13 +183,26 @@ interface ShownPlan {
  * before the executor has a report gets the plan printed by the caller (closing review CC-2).
  */
 async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
-  const { account, destination, baseFee, signers, sponsor, config, reader, plan } = shown;
+  const { account, destination, baseFee, sponsor, reader, plan } = shown;
   const { options, ctx, say, document } = shown;
   const refusedWith = (text: string) => {
     say(text);
     document(plan);
     return ExitCode.NOTHING_EXECUTED;
   };
+  if (plan.blockers.some((b) => b.code === "ACCOUNT_MISSING")) {
+    // Review finding AA-13: a run after a completed close. Horizon answers 404 for the account, so
+    // there is nothing to sign and nothing to confirm; the executor records the 404 in the report
+    // as it does for an SDK caller (PRD FR-17), and the receipt, --report and --json carry it. The
+    // exit code stays 3, nothing executed (canonical decision 5). The executor plans again before
+    // anything else, and a plan that differs from this one (the account came back) is drift, so
+    // nothing can be signed on this path.
+    const receipt = options.report !== undefined ? receiptFile(options.report, ctx) : null;
+    say(
+      "\nThe account does not exist on the testnet ledger: nothing is signed, and Horizon's 404 is recorded in the report.\n",
+    );
+    return runExecutor(shown, receipt, null);
+  }
   if (plan.transactions.length === 0) {
     return refusedWith(
       "\nNothing to execute: the plan has no step to run (see the blockers above). Nothing was signed or submitted.\n",
@@ -235,7 +248,24 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
   } else {
     await confirm(destination, ctx.prompt, options.json ? "stderr" : "stdout");
   }
+  return runExecutor(
+    shown,
+    receipt,
+    `\nClosing ${account} on testnet.\nEvery fee is paid by the sponsor ${sponsor}; the account pays nothing.\n`,
+  );
+}
 
+/**
+ * Runs the executor on the plan shown, with streamed progress, the --report copies and the receipt,
+ * and returns the exit code. `opening` is printed first when given.
+ */
+async function runExecutor(
+  shown: ShownPlan,
+  receipt: ReceiptFile | null,
+  opening: string | null,
+): Promise<ExitCode> {
+  const { account, baseFee, signers, config, reader, plan } = shown;
+  const { options, ctx, say, document } = shown;
   const plans: ClosePlan[] = [plan];
   // The receipt describes each transaction with the plan of its round. The executor's fresh plan
   // can share the hash of the plan shown and still differ from it (a better quote, or the sequence
@@ -246,9 +276,7 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
   let submitted = false;
   const progress = progressPrinter(say, plans, account, () => submitted);
   const execute = ctx.execute?.executeClose ?? executeClose;
-  say(
-    `\nClosing ${account} on testnet.\nEvery fee is paid by the sponsor ${sponsor}; the account pays nothing.\n`,
-  );
+  if (opening !== null) say(opening);
   let report: CloseReport;
   try {
     report = await execute(plan, signers, {
@@ -683,6 +711,8 @@ function sameFile(a: string, b: string): boolean {
  * checked before anything is signed; a write that fails later only warns, because stopping a
  * close half way would be worse.
  */
+type ReceiptFile = ReturnType<typeof receiptFile>;
+
 function receiptFile(path: string, ctx: CloseContext) {
   const refuse = (detail: string) =>
     new DustinError("CONFIG_INVALID", `Cannot write the report file ${path}: ${detail}.`, {

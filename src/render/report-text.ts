@@ -589,6 +589,15 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
 }
 
 function nextStep(report: CloseReport): string | null {
+  // Review finding AA-13: a run after a completed close found the account gone (Horizon 404) and
+  // submitted nothing; running it again would change nothing.
+  if (
+    report.stop?.code === "ACCOUNT_MISSING" &&
+    report.verification?.accountExists === false &&
+    report.transactions.length === 0
+  ) {
+    return "If an earlier run merged the account, the close is complete: the account link above shows the merge as its last operation. Otherwise check the address; there is nothing to close.";
+  }
   // Story E3-S4: a run the sequence guard stopped before the merge says when to come back.
   const until = report.stop?.code === "SEQNUM_TOO_FAR" ? report.stop.unblocksAtLedger : undefined;
   if (until !== undefined && report.status !== "closed") {

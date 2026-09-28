@@ -169,13 +169,14 @@ describe("dustin close --execute: refusals before anything is signed", () => {
     expect(r.out).toContain("TRUSTLINE_NOT_AUTHORIZED");
   });
 
-  it("has nothing to execute for an account that no longer exists (exit 3)", async () => {
+  it("has nothing to execute for an account that no longer exists, and records the 404 (exit 3)", async () => {
     const world = zeroSpendableWorld();
     world.ledger.accounts.delete(world.id);
     const r = await closeCli(world, executeArgs(world, "--yes"));
     expect(r.code).toBe(3);
     expect(r.out).toContain("ACCOUNT_MISSING");
-    expect(r.out).toMatch(/Nothing to execute/);
+    // Review finding AA-13 (E4-S2): the receipt records Horizon's 404, as the SDK's report does.
+    expect(r.out).toContain(`account ${world.id} no longer exists on Horizon (404)`);
     expect(world.ledger.submissions).toHaveLength(0);
   });
 
