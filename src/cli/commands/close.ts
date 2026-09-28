@@ -23,7 +23,7 @@ import type { ClosePlan, CloseStep } from "../../plan/model.js";
 import { planClose } from "../../plan/plan-close.js";
 import { horizonJson } from "../../reader/horizon-json.js";
 import { horizonReader, type LedgerReader } from "../../reader/ledger-reader.js";
-import { renderPlan, short } from "../../render/plan-text.js";
+import { renderPlan, short, unclosableLines } from "../../render/plan-text.js";
 import { renderReport } from "../../render/report-text.js";
 import { ExitCode, exitCodeForReport } from "../exit-codes.js";
 import { loadCloseSigners, type SecretSources } from "../secrets.js";
@@ -280,8 +280,11 @@ function wrapped(text: string, indent: number): string {
 
 function notClosable(plan: ClosePlan): string {
   let text = `\nNot executed: the plan cannot end in a merge (status ${plan.status.toUpperCase()}), so nothing was signed or submitted.\n`;
+  // Each item with its subject, the rungs of the ladder ruled out and the remedy (AC-E3-S2-3).
   for (const item of plan.unclosable) {
-    text += `  ${item.code}\n${wrapped(item.reason, 4)}${wrapped(`remedy: ${item.remedy}`, 4)}`;
+    text += unclosableLines(item, 4)
+      .map((line) => `${line}\n`)
+      .join("");
   }
   for (const b of plan.blockers) {
     text += `  ${b.code}${b.permanent ? " (permanent)" : ""}\n${wrapped(b.reason, 4)}${wrapped(`remedy: ${b.remedy}`, 4)}`;
@@ -401,9 +404,20 @@ function progressPrinter(
       case "plan":
       case "done":
         return;
-      case "drift":
+      case "drift": {
+        // Two kinds of drift: a changed plan structure (its hash), and less XLM for the destination
+        // than the plan shown, which the hash does not show (a worse quote; review BH-7).
+        const what = [
+          event.previousPlanHash !== event.planHash
+            ? `the account changed since the plan was shown (plan hash ${event.previousPlanHash} is now ${event.planHash})`
+            : "",
+          event.xlmToDestination
+            ? `the XLM the destination receives fell from ${event.xlmToDestination.approved} XLM to ${event.xlmToDestination.fresh} XLM since the plan was shown (a worse quote for a sale, or a lower balance)`
+            : "",
+        ].filter(Boolean);
+        const text = what.join(", and ") || "the plan changed since it was shown";
         say(
-          `\nThe account changed since the plan was shown (plan hash ${event.previousPlanHash} is now ${event.planHash}); ` +
+          `\n${text.charAt(0).toUpperCase()}${text.slice(1)}; ` +
             (event.action === "replan"
               ? "continuing with the fresh plan.\n"
               : anySubmitted()
@@ -411,6 +425,7 @@ function progressPrinter(
                 : "nothing was submitted.\n"),
         );
         return;
+      }
       case "preflight":
         say(
           `\n${label(event.index)}  merge preflight ${event.ok ? "ok" : "FAILED"}: ${event.detail}\n`,

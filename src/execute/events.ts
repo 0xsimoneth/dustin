@@ -7,7 +7,17 @@ import type { CloseStatus } from "./report.js";
  */
 export type CloseEvent =
   | { type: "plan"; plan: ClosePlan; round?: number }
-  | { type: "drift"; action: "abort" | "replan"; previousPlanHash: string; planHash: string }
+  | {
+      type: "drift";
+      action: "abort" | "replan";
+      previousPlanHash: string;
+      planHash: string;
+      /**
+       * Set when the fresh plan sends less XLM to the destination than the approved plan
+       * (`recovery.xlmToDestination`), which the plan hash alone does not show (review BH-7).
+       */
+      xlmToDestination?: { approved: string; fresh: string };
+    }
   | { type: "preflight"; index: number; ok: boolean; detail: string }
   | {
       type: "tx:building";

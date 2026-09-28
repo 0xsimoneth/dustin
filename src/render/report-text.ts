@@ -2,8 +2,8 @@ import { formatStroops } from "../amounts.js";
 import { DEFAULT_EXPLORER_BASE } from "../config/network.js";
 import type { CloseReport, SubmittedTransaction } from "../execute/report.js";
 import { destinationBaseAccount } from "../inspect/address.js";
-import type { ClosePlan, CloseStep } from "../plan/model.js";
-import { short, stepAction } from "./plan-text.js";
+import type { ClosePlan, CloseStep, DisposalRung } from "../plan/model.js";
+import { short, stepAction, unclosableLines } from "./plan-text.js";
 
 /**
  * Renders a close report as the receipt printed at the end of `dustin close --execute`: plain
@@ -146,6 +146,69 @@ function transactionLines(
 
 const entryName = (entry: string) => entry.replace(/:G[A-Z2-7]{55}/g, "");
 
+/** A rung as the subject of "the ... failed". */
+const RUNG_ATTEMPT: Record<DisposalRung, string> = {
+  path_payment: "sale by path payment",
+  return_to_issuer: "return to its issuer",
+  send_to_destination: "transfer to the destination",
+};
+
+/** The first code of a failure that is not a success: the operation's, else the transaction's. */
+function firstCode(codes: SubmittedTransaction["resultCodes"]): string {
+  const op = codes?.operations?.find((c) => c !== "op_success");
+  return op ?? codes?.innerTransaction ?? codes?.transaction ?? "no result code";
+}
+
+/**
+ * What became of each leftover balance (stories E3-S1 and E3-S2; PRD FR-12): sold for XLM, burned
+ * by the return to its issuer (a payment to the issuer takes the asset out of circulation,
+ * https://developers.stellar.org/docs/learn/fundamentals/stellar-data-structures/assets#deleting-or-burning-assets),
+ * or sent to the destination, with the transaction and plan round it applied in; after a fall
+ * down the ladder, the rung that failed first and its code. The steps come from the plans, so
+ * without them this section is empty; so it is for a run that submitted nothing.
+ */
+function disposalLines(
+  report: CloseReport,
+  stepsOfRound: (round: number) => Map<string, CloseStep>,
+  merged: boolean,
+): string[] {
+  if (report.transactions.length === 0) return [];
+  const lines: string[] = [];
+  for (const outcome of report.steps) {
+    // A step a re-plan added (onDrift "replan") is "R<round>.S<nn>", in the plan of that round.
+    const added = /^R(\d+)\.(.+)$/.exec(outcome.stepId);
+    const step = added
+      ? stepsOfRound(Number(added[1])).get(added[2]!)
+      : stepsOfRound(0).get(outcome.stepId);
+    if (step?.kind !== "dispose_balance" || step.subject.type !== "trustline") continue;
+    const { code, issuer } = step.subject.asset;
+    const planned = step.disposal?.rung;
+    let text: string;
+    if (outcome.status === "applied") {
+      const rung = outcome.rung ?? planned;
+      const tx = report.transactions.find((t) => t.hash === outcome.txHash);
+      const where = tx
+        ? ` in tx ${tx.index + 1}${tx.round > 0 ? ` of round ${tx.round}` : ""}`
+        : "";
+      text =
+        rung === "path_payment"
+          ? `sold for XLM by path payment to the account itself${where}; ${merged ? "the XLM left with the merge" : "the XLM stays on the account"}`
+          : rung === "return_to_issuer"
+            ? `burned: returned to its issuer ${short(issuer)}${where}`
+            : `sent to the destination ${short(report.destination)}${where}`;
+      if ((outcome.failures ?? 0) > 0 && planned && rung !== planned) {
+        text += `, after the ${RUNG_ATTEMPT[planned]} failed with ${firstCode(outcome.resultCodes)}`;
+      }
+    } else if (outcome.status === "failed") {
+      text = `not disposed of: the ${planned ? RUNG_ATTEMPT[planned] : "disposal"} failed with ${firstCode(outcome.resultCodes)}`;
+    } else {
+      text = "not disposed of: the run stopped before this step";
+    }
+    lines.push(...wrap(text, 4, `  ${code} ${step.subject.balance}  `));
+  }
+  return lines;
+}
+
 function destinationAccountUrl(explorer: string, destination: string): string {
   try {
     return `${explorer}/account/${destinationBaseAccount(destination)}`;
@@ -271,12 +334,14 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
     `  ${xlm(r.feesPaidBySponsorStroops)} (${grouped(r.feesPaidBySponsorStroops)} stroops) in fees paid by the sponsor`,
   );
 
+  const disposals = disposalLines(report, stepsOfRound, mergeApplied);
+  if (disposals.length > 0) {
+    out.push("", "Disposals (what became of each leftover balance)", ...disposals);
+  }
+
   if (report.unclosable.length > 0 || (report.status !== "closed" && report.blockers.length > 0)) {
     out.push("", "Not closed (the account is not merged while these remain)");
-    for (const item of report.unclosable) {
-      out.push(`  ${item.code}`);
-      out.push(...wrap(item.reason, 4), ...wrap(`remedy: ${item.remedy}`, 4));
-    }
+    for (const item of report.unclosable) out.push(...unclosableLines(item, 4));
     for (const b of report.blockers) {
       out.push(`  ${b.code}${b.permanent ? " (permanent)" : ""}`);
       out.push(...wrap(b.reason, 4), ...wrap(`remedy: ${b.remedy}`, 4));

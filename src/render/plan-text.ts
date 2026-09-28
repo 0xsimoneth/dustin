@@ -1,6 +1,6 @@
 import { formatStroops } from "../amounts.js";
 import type { AssetRef } from "../inspect/snapshot.js";
-import type { ClosePlan, CloseStep, StepSubject } from "../plan/model.js";
+import type { ClosePlan, CloseStep, StepSubject, UnclosableItem } from "../plan/model.js";
 
 /**
  * Renders a plan for people: plain ASCII, status as words, at most 120 columns
@@ -33,6 +33,51 @@ function wrap(text: string, indent: number, width = WIDTH): string[] {
 
 function subjectCode(subject: StepSubject): string {
   return subject.type === "trustline" ? subject.asset.code : "";
+}
+
+/** What an item or a step acts on, in a few words: "0.0000003 DUSTB (issuer GABC...WXYZ)". */
+export function subjectLabel(subject: StepSubject): string {
+  switch (subject.type) {
+    case "trustline":
+      return `${subject.balance} ${subject.asset.code} (issuer ${short(subject.asset.issuer)})`;
+    case "pool_share":
+      return `pool share ${short(subject.poolId)} (balance ${subject.balance})`;
+    case "offer":
+      return `offer ${subject.offerId}`;
+    case "data":
+      return `data entry "${subject.name}"`;
+    case "account":
+      return "the account";
+  }
+}
+
+/**
+ * An item no rung can dispose of, for people (AC-E3-S2-3): its code and subject, why, each rung of
+ * the ladder ruled out on a line of its own, and the remedy. The item's `reason` lists the ruled-out
+ * rungs in one sentence for JSON readers; here they are shown as a list instead of that sentence.
+ */
+export function unclosableLines(item: UnclosableItem, indent: number): string[] {
+  const lines = [
+    `${" ".repeat(Math.max(0, indent - 2))}${item.code}  ${subjectLabel(item.subject)}`,
+  ];
+  const rungs = item.rungsRuledOut ?? [];
+  if (rungs.length > 0 && item.subject.type === "trustline") {
+    lines.push(
+      ...wrap(
+        `No route disposes of ${item.subject.balance} ${item.subject.asset.code}; every rung of the ladder is ruled out:`,
+        indent,
+      ),
+    );
+    for (const r of rungs) {
+      // A hanging indent: continuation lines start under the text, not under the dash.
+      const [first = "", ...rest] = wrap(`${r.rung.replaceAll("_", " ")}: ${r.reason}`, indent + 4);
+      lines.push(`${" ".repeat(indent + 2)}- ${first.trimStart()}`, ...rest);
+    }
+  } else {
+    lines.push(...wrap(item.reason, indent));
+  }
+  lines.push(...wrap(`remedy: ${item.remedy}`, indent));
+  return lines;
 }
 
 export function stepAction(step: CloseStep): string {
@@ -133,10 +178,7 @@ export function renderPlan(plan: ClosePlan, options: RenderPlanOptions = {}): st
 
   if (plan.unclosable.length > 0) {
     out.push("", "Cannot be disposed of (the account is not merged while these remain)");
-    for (const item of plan.unclosable) {
-      out.push(`  ${item.code}`);
-      out.push(...wrap(item.reason, 4), ...wrap(`remedy: ${item.remedy}`, 4));
-    }
+    for (const item of plan.unclosable) out.push(...unclosableLines(item, 4));
   }
   if (plan.blockers.length > 0) {
     out.push("", "Blockers (the merge is not possible while these hold)");
