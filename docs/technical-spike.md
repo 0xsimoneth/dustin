@@ -147,6 +147,9 @@ Rules that follow:
 `data_attr["config.memo_required"]`. Note core no longer checks issuer existence for payments since
 protocol 13 (`checkIssuer` is gated on `protocolVersionIsBefore(V_13)`) [S13] — the failure for a dead issuer
 comes from the destination-account check, not from `NO_ISSUER`.
+**Superseded on 2026-09-26 by day-1 experiment 4** (`docs/progress-log.md`; `docs/README.md` open question 3): a
+payment to an issuer that was merged away succeeded and burned the balance, so a 404 issuer does not rule out the
+issuer rung; it only needs an authorized holder trustline.
 
 ### 1.6 Fee-bump evidence on transaction records
 
@@ -215,7 +218,8 @@ Operation.payment({ destination: issuer, asset, amount: balance })
 - The issuer never needs a trustline to its own asset: core `shouldBypassIssuerCheck` when the destination
   is the issuer; the amount is burned [S13]. `changeTrust` for an issuer's own asset is `MALFORMED` (protocol ≥ 16) [S9].
 - Fails when: issuer account gone ⇒ `PAYMENT_NO_DESTINATION` (`op_no_destination`) [S1][S27] (**expected**,
-  derived from the destination-existence check; confirm on day 1); holder's trustline not authorized ⇒
+  derived from the destination-existence check; confirm on day 1; **not confirmed**: day-1 experiment 4 saw the
+  payment to a merged-away issuer succeed and burn the balance); holder's trustline not authorized ⇒
   `PAYMENT_SRC_NOT_AUTHORIZED` (`op_src_not_authorized`) [S1][S13]. `auth_required` alone is harmless as long
   as this trustline is authorized; `auth_immutable` on the issuer is irrelevant; clawback flags are irrelevant
   to sending [S15][S16].
@@ -411,9 +415,9 @@ Order per non-zero balance line: (1) path-payment sell → (2) return to issuer 
 | Rung | Pre-check (Horizon) | Expected op failure ⇒ next rung | Terminal "unclosable" reasons |
 |---|---|---|---|
 | 1 sell | `strictSendPaths(asset, balance, [Asset.native()])` returns ≥ 1 record with `destination_amount ≥ 0.0000001` | `op_too_few_offers`, `op_under_dest_min` (quote moved) | — |
-| 2 issuer | issuer account exists (`loadAccount` 200); line `is_authorized === true` | `op_no_destination` (issuer merged) | `op_src_not_authorized` ⇒ "trustline not authorized; issuer must re-authorize or claw back" |
+| 2 issuer | line `is_authorized === true`; SEP-29 memo if the issuer requires one (the issuer account need not exist: day-1 experiment 4) | none from a merged issuer: the payment succeeds and burns (day-1 experiment 4) | `op_src_not_authorized` ⇒ "trustline not authorized; issuer must re-authorize or claw back" |
 | 3 destination | destination line exists, `is_authorized`, headroom ≥ amount, SEP-29 satisfied | `op_line_full`, `op_no_trust`, `op_not_authorized` | same codes when the pre-check already fails |
-| 4 report | — | — | "no liquidity, issuer gone/de-authorized, destination lacks trustline" |
+| 4 report | — | — | "no liquidity, de-authorized or memo-required issuer without a memo, destination lacks trustline" |
 
 Notes:
 
@@ -424,7 +428,9 @@ Notes:
 - **Why not "sell at market" like the Demolisher** (`manageSellOffer` at price `0.0000001`) [S38]: with no bids
   it leaves a resting offer (a new subentry, `op_low_reserve` on a floor-balance account) that must be
   cancelled on the next pass. A strict-send path payment is atomic and leaves nothing behind.
-- **Return-to-issuer failure modes** verified: issuer merged ⇒ destination-missing failure [S1][S13];
+- **Return-to-issuer failure modes** verified: issuer merged ⇒ destination-missing failure [S1][S13] (**wrong**:
+  day-1 experiment 4 saw the payment to a merged-away issuer succeed and burn the balance; `docs/README.md` open
+  question 3);
   de-authorized or "maintain liabilities only" trustline ⇒ source not authorized [S13]; `auth_immutable` on
   the issuer does not affect payments [S15]; clawback-enabled lines can still be paid back [S16].
 - **Destination-holds-trustline check**: `loadAccount(destination).balances.find(code && issuer)`, require
@@ -436,13 +442,15 @@ Notes:
   make the issuer unusable deterministically: (i) issue with `AUTH_REQUIRED | AUTH_REVOCABLE`, authorize,
   pay dust, then `setTrustLineFlags({ trustor, asset, flags: { authorized: false } })` [S36][S1]; or (ii) merge
   the throwaway issuer away after distribution (`accountMerge` on the issuer; an issuer with no subentries can
-  merge — **unverified** whether outstanding balances matter; core does not count them, so expected fine).
+  merge — **unverified** whether outstanding balances matter; core does not count them, so expected fine). Option
+  (ii) does not work: day-1 experiment 4 merged an issuer with outstanding balances, and the payment back to it still
+  burned the balance, so only option (i) leaves an unclosable balance.
 - **Seeding liquidity for rung 1 evidence**: a market-maker account with a trustline to one dust asset places
   `manageBuyOffer({ selling: XLM, buying: DUST1, buyAmount, price })` sized so that the dust sale yields
   ≥ 0.0000001 XLM. Keep the maker separate from the sponsor to avoid `op_cross_self` confusion.
 
 Error-to-decision map for `executeClose()` (Horizon strings from [S27]): `op_too_few_offers | op_under_dest_min` → next rung;
-`op_src_not_authorized` → unclosable; `op_no_destination` (issuer rung) → next rung; `op_no_trust | op_not_authorized | op_line_full` (destination rung) → unclosable;
+`op_src_not_authorized` → unclosable; `op_no_destination` (issuer rung) → next rung (does not occur for a merged issuer, day-1 experiment 4); `op_no_trust | op_not_authorized | op_line_full` (destination rung) → unclosable;
 `op_invalid_limit` → reload balances (residual balance or buying liabilities); `op_cannot_delete` → pool blocker;
 `op_has_sub_entries` → re-inspect; `op_seq_num_too_far` → wait N ledgers; `op_is_sponsor` → unclosable (account sponsors others);
 `op_immutable_set` → unclosable; `tx_bad_seq` → reload sequence and rebuild; `tx_insufficient_fee` → raise outer fee;
@@ -663,7 +671,7 @@ the account first (fresh `sequence`, liabilities). Typical fixture: 3 transactio
 | 1 | Zero-spendable inner source + fee bump works with inner `fee: "0"` and with `fee: BASE_FEE` | friendbot A; drain A to exactly minBalance; build `manageData` add/remove inner (fee "0"), fee-bump by B, submit | `tx_fee_bump_inner_success`, A's balance unchanged, B paid `200` stroops (1 op + 1) |
 | 2 | `manageSellOffer(amount "0")` deletes an offer created by `manageBuyOffer` | create buy offer, cancel via manageSellOffer with its `id` and `price` | `op_success`, offer gone from `/offers` |
 | 3 | Owner deletes a **sponsored** trustline alone; reserve returns to sponsor | sandwich-create, then fixture-only `changeTrust "0"` | success; sponsor `num_sponsoring` −1, fixture `num_sponsored` −1 |
-| 4 | Payment to a **merged** issuer fails as `op_no_destination`; `changeTrust "0"` to it still works | merge throwaway issuer away, then pay / delete | `op_no_destination`; delete `op_success` |
+| 4 | Payment to a **merged** issuer fails as `op_no_destination`; `changeTrust "0"` to it still works | merge throwaway issuer away, then pay / delete | `op_no_destination`; delete `op_success`. Observed 2026-09-26: the payment **succeeded and burned** the balance, and both deletions succeeded (`docs/progress-log.md`) |
 | 5 | SEQNUM guard math | `bumpSequence` to `(latest+20) << 32`, merge now, merge after 20 ledgers | `op_seq_num_too_far`, then success; measure ledger interval |
 | 6 | Horizon strict-send returns a path for a dust amount against a seeded buy offer | seed maker offer, quote `0.0000005` DUST | 1 record, `destination_amount ≥ 0.0000001` |
 | 7 | `accountMerge` in the same tx as the last `changeTrust "0"` ops | Phase C as one tx | `op_success` ×N, account 404 afterwards |
@@ -697,7 +705,8 @@ the account first (fresh `sequence`, liabilities). Typical fixture: 3 transactio
 1. The Demolisher mediator server's "< 1 XLM" refusal policy (server code not public) — experiment #9.
 2. `ManageSellOffer(amount 0)` deleting offers created by `ManageBuyOffer` — verified only by production usage — #2.
 3. Payment to a merged issuer failing specifically as `PAYMENT_NO_DESTINATION` (derived from core's
-   destination check, not from a doc sentence) — #4.
+   destination check, not from a doc sentence) — #4. Resolved 2026-09-26: it does not fail; the payment burns the
+   balance (`docs/README.md` open question 3).
 4. Whether Horizon's `/paths/strict-send` includes liquidity pools on testnet — covered by seeding an order-book offer, #6.
 5. Horizon serving `/accounts/{id}/operations` after the account is merged — #11.
 6. Ledger close interval on testnet (~5 s) and base reserve value — #12.
@@ -708,6 +717,7 @@ the account first (fresh `sequence`, liabilities). Typical fixture: 3 transactio
     status beyond its README roadmap.
 11. Inner transaction with `fee: "0"` end-to-end through Horizon (protocol-legal per CAP-0015/core; SDK accepts) — #1.
 12. Whether an issuer with outstanding balances can be merged (used only for the optional dead-issuer fixture) — #4.
+    Resolved 2026-09-26: it can (day-1 experiment 4 merged one while holders still had its asset).
 13. The docs' two testnet-reset statements conflict (2–4×/year at 17:00 UTC vs quarterly at 09:00 UTC); the
     dated schedule (2026-12-16) is taken from the current networks page.
 
