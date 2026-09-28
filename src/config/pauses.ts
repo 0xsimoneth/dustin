@@ -11,29 +11,46 @@ import { DustinError, type ErrorStage } from "../errors/dustin-error.js";
  */
 export const MIN_PAUSE_MS = 200;
 
+/**
+ * The longest pause: Node's timer limit, 2^31 - 1 ms (about 24.8 days). A longer `setTimeout`
+ * fires after 1 ms instead (https://nodejs.org/api/timers.html#settimeoutcallback-delay-args), which
+ * would turn a long pause into a tight loop against Horizon. A pause option above it is refused,
+ * and a computed pause (the doubled backoff after HTTP 429) is capped at it (review round 3, R3-18).
+ */
+export const MAX_PAUSE_MS = 2 ** 31 - 1;
+
 /** Waits for the given number of milliseconds. Injected by tests, which pass one that returns at once. */
 export type Sleep = (ms: number) => Promise<void>;
 
-/** The production pause: a timer. */
-export const timerSleep: Sleep = (ms) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+/** The production pause: a timer, never set beyond Node's limit. */
+export const timerSleep: Sleep = (ms) =>
+  new Promise<void>((resolve) => setTimeout(resolve, Math.min(ms, MAX_PAUSE_MS)));
 
-/** True for a pause Dustin accepts: a finite number of milliseconds, at least `MIN_PAUSE_MS`. */
+/**
+ * True for a pause Dustin accepts: a finite number of milliseconds from `MIN_PAUSE_MS` to
+ * `MAX_PAUSE_MS`.
+ */
 export function isPause(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value) && value >= MIN_PAUSE_MS;
+  return (
+    typeof value === "number" &&
+    Number.isFinite(value) &&
+    value >= MIN_PAUSE_MS &&
+    value <= MAX_PAUSE_MS
+  );
 }
 
 /**
- * Refuses a pause below the floor, before anything is read, signed or submitted. Tests that must
- * not wait inject a `sleep` that returns at once instead of passing 0.
+ * Refuses a pause outside the bounds, before anything is read, signed or submitted. Tests that
+ * must not wait inject a `sleep` that returns at once instead of passing 0.
  */
 export function assertPause(name: string, value: number | undefined, stage: ErrorStage): void {
   if (value === undefined || isPause(value)) return;
   throw new DustinError(
     "CONFIG_INVALID",
-    `Invalid option: ${name} must be a pause of at least ${MIN_PAUSE_MS} ms; got ${String(value)}.`,
+    `Invalid option: ${name} must be a pause of ${MIN_PAUSE_MS} to ${MAX_PAUSE_MS} ms; got ${String(value)}.`,
     {
       stage,
-      remedy: `Leave ${name} out to use the default, or give at least ${MIN_PAUSE_MS} ms. To skip waiting (tests), inject a sleep function that returns at once.`,
+      remedy: `Leave ${name} out to use the default, or give ${MIN_PAUSE_MS} to ${MAX_PAUSE_MS} ms. To skip waiting (tests), inject a sleep function that returns at once.`,
     },
   );
 }

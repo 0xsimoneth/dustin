@@ -93,9 +93,15 @@ export interface ExecuteOptions {
   budgetStroops?: number;
   /** Cap on the bid per operation; overrides the plan's (default 1,000,000 stroops). */
   maxBaseFeeStroops?: number;
-  /** Seconds of validity for each inner transaction; default 120. */
+  /**
+   * Seconds of validity for each inner transaction; default 120, at most 3600: an envelope whose
+   * outcome is not known is waited for until a ledger closes past its time bound.
+   */
   timeoutSeconds?: number;
-  /** Pause between lookups by hash and between the final checks; default 2000 ms, at least 200. */
+  /**
+   * Pause between lookups by hash and between the final checks; default 2000 ms, at least 200, at
+   * most 2^31 - 1 (Node's timer limit).
+   */
   pollIntervalMs?: number;
   /** How long to keep looking for an unconfirmed envelope after its time bound; default 10 s. */
   graceSeconds?: number;
@@ -105,7 +111,10 @@ export interface ExecuteOptions {
   maxAttemptsPerTransaction?: number;
   /** Posts of one envelope after HTTP 429; default 5. */
   maxRateLimitRetries?: number;
-  /** First pause after a 429, doubled each time; default 1000 ms, at least 200. */
+  /**
+   * First pause after a 429, doubled each time; default 1000 ms, at least 200, at most 2^31 - 1,
+   * and the doubled pause never goes beyond that limit either.
+   */
   backoffMs?: number;
   /** How long the final check waits for Horizon to answer 404 after a merge; default 30 s. */
   verifyTimeoutMs?: number;

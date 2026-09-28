@@ -1,4 +1,5 @@
 import type { FeeBumpTransaction } from "@stellar/stellar-sdk";
+import { MAX_PAUSE_MS } from "../config/pauses.js";
 import type { ErrorStage } from "../errors/dustin-error.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
 import type { ClosePlan, CloseStep, PlannedTransaction } from "../plan/model.js";
@@ -519,6 +520,7 @@ async function postWithBackoff(
     );
     const limited = outcome.kind === "rejected" && outcome.status === 429;
     if (!limited || retry >= settings.maxRateLimitRetries) return outcome;
-    await settings.sleep(settings.backoffMs * 2 ** retry);
+    // Doubled each time, never beyond Node's timer limit (review round 3, R3-18).
+    await settings.sleep(Math.min(settings.backoffMs * 2 ** retry, MAX_PAUSE_MS));
   }
 }

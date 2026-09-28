@@ -9,6 +9,7 @@ import {
   type ConfirmOptions,
   type Submitter,
 } from "../../../src/execute/submit.js";
+import { verifyClosed } from "../../../src/execute/verify.js";
 import { messy } from "../../helpers/snapshots.js";
 import {
   answer,
@@ -945,5 +946,64 @@ describe("R3-20: the last published copy has every warning of the returned repor
     // The --report file is the last copy: it must say what the returned report says.
     expect(copies.at(-1)!.warnings).toEqual(report.warnings);
     expect(copies.at(-1)!.status).toBe("closed");
+  });
+});
+
+/** Node's timer limit: a longer setTimeout fires after 1 ms (with a TimeoutOverflowWarning). */
+const TIMER_LIMIT_MS = 2 ** 31 - 1;
+
+describe("R3-18: numeric options have upper bounds", () => {
+  const invalid: Array<[string, number]> = [
+    ["pollIntervalMs", TIMER_LIMIT_MS + 1],
+    ["backoffMs", 1e12],
+    ["timeoutSeconds", 3601],
+  ];
+
+  it.each(invalid)("refuses %s = %s before anything is read or signed", async (name, value) => {
+    let requests = 0;
+    const { ledger, deps, plan } = harness((_l, fetch) => (url, init) => {
+      requests += 1;
+      return fetch(url, init);
+    });
+    const p = await plan();
+    const before = requests;
+    await expect(
+      executeClose(p, signers(), { confirm: true, ...deps, [name]: value }),
+    ).rejects.toMatchObject({ code: "CONFIG_INVALID", stage: "config" });
+    expect(requests).toBe(before);
+    expect(ledger.submissions).toHaveLength(0);
+  });
+
+  it("accepts the largest pause and the longest validity window", async () => {
+    const { deps, plan } = harness();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      pollIntervalMs: TIMER_LIMIT_MS,
+      backoffMs: TIMER_LIMIT_MS,
+      timeoutSeconds: 3600,
+    });
+    expect(report.status).toBe("closed");
+  });
+
+  it("never sleeps longer than the timer limit, however many 429s double the backoff", async () => {
+    const { ledger, deps, plan, clock } = harness();
+    // 1,000 ms doubled 23 times is about 8.4e9 ms, far past the limit.
+    for (let i = 0; i < 24; i++) ledger.faults.push({ status: 429, body: { status: 429 } });
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      backoffMs: 1000,
+      maxRateLimitRetries: 30,
+    });
+    expect(report.status).toBe("closed");
+    expect(Math.max(...clock.sleeps)).toBe(TIMER_LIMIT_MS);
+  });
+
+  it("refuses a pause beyond the limit wherever a pause is an option (verifyClosed)", async () => {
+    const { deps } = harness();
+    await expect(
+      verifyClosed(messy.fixture, { reader: deps.reader, intervalMs: TIMER_LIMIT_MS + 1 }),
+    ).rejects.toMatchObject({ code: "CONFIG_INVALID" });
   });
 });
