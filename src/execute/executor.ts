@@ -358,7 +358,11 @@ class CloseRun {
     this.report.stop = stop;
     this.report.finishedAt = this.timestamp();
     this.publish();
+    const warnings = this.report.warnings.length;
     this.emit({ type: "done", status });
+    // An onEvent that threw on "done" added a warning after the last copy: publish it too, so the
+    // last copy (the --report file) says what the returned report says (review round 3, R3-20).
+    if (this.report.warnings.length > warnings) this.publish();
     return this.report;
   }
 

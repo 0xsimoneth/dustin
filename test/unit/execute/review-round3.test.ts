@@ -928,3 +928,22 @@ describe("R3-19: the report keeps its own blockers and unclosable items", () => 
     }
   });
 });
+
+describe("R3-20: the last published copy has every warning of the returned report", () => {
+  it("publishes again when onEvent throws on the done event", async () => {
+    const { deps, plan } = harness();
+    const copies: CloseReport[] = [];
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onReport: (r) => copies.push(r),
+      onEvent: (e) => {
+        if (e.type === "done") throw new Error("terminal gone");
+      },
+    });
+    expect(report.warnings.join(" ")).toMatch(/onEvent callback threw \(terminal gone\)/);
+    // The --report file is the last copy: it must say what the returned report says.
+    expect(copies.at(-1)!.warnings).toEqual(report.warnings);
+    expect(copies.at(-1)!.status).toBe("closed");
+  });
+});
