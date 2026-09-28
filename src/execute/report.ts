@@ -123,7 +123,12 @@ export interface RunBlocker {
   code: "STEP_FAILED_TWICE";
   reason: string;
   remedy: string;
-  /** Fixing what makes the step fail, or allowing a partial close, unblocks it. */
+  /**
+   * Not permanent: resolving what makes the step fail, or waiting until it settles, and then
+   * running the close again unblocks it. Allowing a partial close does not: `--partial`
+   * (`allowPartial`) is no input to the planner, so the next plan includes the step again (review
+   * round 3, R3-5; acceptance audit CA-13).
+   */
   permanent: false;
   /** The step of the plan the run started with. */
   stepId: string;
