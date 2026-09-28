@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { formatStroops } from "../../../src/amounts.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import type { ClosePlan } from "../../../src/plan/model.js";
 import { renderReport } from "../../../src/render/report-text.js";
@@ -8,12 +9,17 @@ import { harness, reply, signers } from "../execute/harness.js";
 // before its fix. Reports come from the real executor on the fake ledger, so the labels are
 // checked against the executor's own explanations.
 
-/** The receipt's head line of the transaction with this hash. */
+/** The receipt's head of the transaction with this hash, its wrapped lines joined into one. */
 function txLine(text: string, hash: string): string {
   const lines = text.split("\n");
   const at = lines.findIndex((line) => line.endsWith(`outer hash  ${hash}`));
   expect(at, `no transaction ${hash} in the receipt`).toBeGreaterThan(0);
-  return lines[at - 1]!;
+  let start = at - 1;
+  while (start > 0 && !lines[start]!.startsWith("  tx ")) start -= 1;
+  return lines
+    .slice(start, at)
+    .map((line) => line.trim())
+    .join(" ");
 }
 
 /** The latest ledger's close time stays at its first reading: no ledger passes a time bound. */
@@ -93,5 +99,47 @@ describe("R3-22: an unknown envelope is labelled from what is known", () => {
     const line = txLine(text, tx.hash);
     expect(line).not.toMatch(/can never apply/);
     expect(line).toMatch(/sequence number is used, so it may have applied/);
+  });
+});
+
+/** A closed run of the messy fixture, with the plans it executed. */
+async function closedRun(onEvent?: (e: CloseEvent, h: ReturnType<typeof harness>) => void) {
+  const h = harness();
+  const plans: ClosePlan[] = [];
+  const report = await executeClose(await h.plan(), signers(), {
+    confirm: true,
+    ...h.deps,
+    onEvent: (e) => {
+      if (e.type === "plan") plans.push(e.plan);
+      onEvent?.(e, h);
+    },
+  });
+  return { report, plans };
+}
+
+describe("R3-24: the receipt gives each transaction's ledger and the fee charged to the sponsor", () => {
+  it("prints them on the line of every transaction that was included", async () => {
+    // The sale fails on the ledger (charged) after the market vanishes; the rest applies.
+    const { report, plans } = await closedRun((e, h) => {
+      if (e.type === "tx:confirmed" && e.index === 0) h.ledger.quotes.clear();
+    });
+    expect(report.status).toBe("closed");
+    const text = renderReport(report, { plans });
+    const included = report.transactions.filter((t) => t.ledger !== null);
+    expect(included.map((t) => t.result)).toEqual(["applied", "failed", "applied"]);
+    for (const t of included) {
+      const line = txLine(text, t.hash);
+      const fee = t.feeChargedStroops!;
+      expect(line).toContain(`ledger ${t.ledger!.toLocaleString("en-US")}`);
+      expect(line).toContain(
+        `fee ${formatStroops(BigInt(fee))} XLM (${fee.toLocaleString("en-US")} stroops) charged to the sponsor`,
+      );
+    }
+    // The fees on the lines add up to what the result says the sponsor paid.
+    const paid = report.recovery.feesPaidBySponsorStroops;
+    expect(included.reduce((sum, t) => sum + t.feeChargedStroops!, 0)).toBe(paid);
+    expect(text).toContain(
+      `${formatStroops(BigInt(paid))} XLM (${paid.toLocaleString("en-US")} stroops) in fees paid by the sponsor`,
+    );
   });
 });
