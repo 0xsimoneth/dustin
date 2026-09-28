@@ -564,6 +564,8 @@ So that the close does not end in a confusing failure.
 
 ### Story 3.5 (E3-S5): Detection-only blockers: pool shares, raised thresholds, AUTH_IMMUTABLE, active sponsoring (`3-5-detection-only-blockers`)
 
+> Implementation (2026-09-28): see `docs/stories/3-5-detection-only-blockers.md`. Deviations awaiting the builder's acceptance: the codes are `THRESHOLD_UNMET` and `AUTH_IMMUTABLE_SET`, as PRD section 7 lists them (decision D-2), not `RAISED_THRESHOLDS` and `AUTH_IMMUTABLE`; the live pool-share test runs on the `pool-share` variant of the `edge` profile (canonical decision 3), not on an `lp` profile.
+
 As an integrator,
 I want out-of-scope situations detected and reported with a reason, never acted on,
 So that my users are not led into a close that cannot complete.
@@ -580,6 +582,8 @@ So that my users are not led into a close that cannot complete.
 **Dependencies:** E1-S4, E2-S2. **Estimate:** 6 h. **Evidence:** test results (SOW 6.1, D3). **SOW deliverable:** D3.
 
 ### Story 3.6 (E3-S6): Edge-case test matrix (`3-6-edge-case-test-matrix`)
+
+> Implementation (2026-09-28): see `docs/stories/3-6-edge-case-test-matrix.md` and `docs/test-matrix.md` (all 32 rows of the D3 matrix, which the documents call 31). The profiles `authreq`, `clawback`, `lp` and `multisig` are variants of the one `edge` profile, one account each (`dustin fixture create --profile edge`; canonical decision 3). Deviation awaiting the builder's acceptance: AC-E3-S6-3's forced payment is a negative probe plus a trustline revoked after planning, because the planner never plans a payment it knows will fail. AC-E3-S6-2 is met for five of the seven SOW cases; S-03 and S-04 wait for their live tests (E3-S3, E3-S4).
 
 As another team evaluating Dustin,
 I want a test matrix I can run myself that covers the cases that break naive implementations,

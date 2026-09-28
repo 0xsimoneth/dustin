@@ -1,0 +1,54 @@
+{
+  "path": "/claimable_balances?sponsor=GCM6A7KOKUEUO2JQWS35DVWWT3X2GNE6DJLYQDN5GYJ27PG5IIWGXOBB&limit=200",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/claimable_balances?cursor=&limit=200&order=asc&sponsor=GCM6A7KOKUEUO2JQWS35DVWWT3X2GNE6DJLYQDN5GYJ27PG5IIWGXOBB"
+      },
+      "next": {
+        "href": "https://horizon-testnet.stellar.org/claimable_balances?cursor=4913121-00000000328bf77422756122d2426b4dbc7bf0fff8c54ea5feb655f1711409eb88abb310&limit=200&order=asc&sponsor=GCM6A7KOKUEUO2JQWS35DVWWT3X2GNE6DJLYQDN5GYJ27PG5IIWGXOBB"
+      },
+      "prev": {
+        "href": "https://horizon-testnet.stellar.org/claimable_balances?cursor=4913121-00000000328bf77422756122d2426b4dbc7bf0fff8c54ea5feb655f1711409eb88abb310&limit=200&order=desc&sponsor=GCM6A7KOKUEUO2JQWS35DVWWT3X2GNE6DJLYQDN5GYJ27PG5IIWGXOBB"
+      }
+    },
+    "_embedded": {
+      "records": [
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/claimable_balances/00000000328bf77422756122d2426b4dbc7bf0fff8c54ea5feb655f1711409eb88abb310"
+            },
+            "transactions": {
+              "href": "https://horizon-testnet.stellar.org/claimable_balances/00000000328bf77422756122d2426b4dbc7bf0fff8c54ea5feb655f1711409eb88abb310/transactions{?cursor,limit,order}",
+              "templated": true
+            },
+            "operations": {
+              "href": "https://horizon-testnet.stellar.org/claimable_balances/00000000328bf77422756122d2426b4dbc7bf0fff8c54ea5feb655f1711409eb88abb310/operations{?cursor,limit,order}",
+              "templated": true
+            }
+          },
+          "id": "00000000328bf77422756122d2426b4dbc7bf0fff8c54ea5feb655f1711409eb88abb310",
+          "asset": "native",
+          "amount": "0.0000001",
+          "sponsor": "GCM6A7KOKUEUO2JQWS35DVWWT3X2GNE6DJLYQDN5GYJ27PG5IIWGXOBB",
+          "last_modified_ledger": 4913121,
+          "last_modified_time": "2026-09-28T09:53:12Z",
+          "claimants": [
+            {
+              "destination": "GA6B2IOCNM54LTPBH73RYS35LEJBDO7FEL63UM2P5BTGIPNMERGT4ZQ7",
+              "predicate": {
+                "unconditional": true
+              }
+            }
+          ],
+          "flags": {
+            "clawback_enabled": false
+          },
+          "paging_token": "4913121-00000000328bf77422756122d2426b4dbc7bf0fff8c54ea5feb655f1711409eb88abb310"
+        }
+      ]
+    }
+  }
+}

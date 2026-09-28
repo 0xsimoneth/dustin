@@ -1,0 +1,9 @@
+{
+  "path": "/paths/strict-send?source_asset_type=credit_alphanum4&source_asset_code=RVK&source_asset_issuer=GDIENBRWMSRWYOG7S5GZU6HQC3M6TKI4OPXGMXRWDSN4U2T4C53Y2XIC&source_amount=0.0000004&destination_assets=native",
+  "status": 200,
+  "body": {
+    "_embedded": {
+      "records": []
+    }
+  }
+}

@@ -1,0 +1,9 @@
+{
+  "path": "/paths/strict-send?source_asset_type=credit_alphanum4&source_asset_code=ILQX&source_asset_issuer=GBSLUYY3AIKX232FVMHCBVMZW2GONUZVXMTC54D2DOERAQ2YNDHMORVC&source_amount=0.0000003&destination_assets=native",
+  "status": 200,
+  "body": {
+    "_embedded": {
+      "records": []
+    }
+  }
+}
