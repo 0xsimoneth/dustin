@@ -342,3 +342,44 @@ describe("R3-8: an included failure is not taken for a refusal on one lagging 40
     expect(report.stop).toMatchObject({ code: "TRANSACTION_REJECTED" });
   });
 });
+
+describe("R3-9: an included failure with no operation code spent only a number and a fee", () => {
+  it("re-plans after an inner tx_too_late at apply time, and closes", async () => {
+    const { ledger, deps, plan } = harness();
+    ledger.faults.push(
+      included({ transaction: "tx_fee_bump_inner_failed", inner_transaction: "tx_too_late" }),
+    );
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    const [first] = report.transactions;
+    expect(first).toMatchObject({ result: "failed", feeChargedStroops: 1000 });
+    // Its meaning says what happened: included, failed before any operation ran.
+    expect(first!.explanation).toMatch(/^tx_fee_bump_inner_failed \/ tx_too_late: Included/);
+    expect(first!.explanation).not.toMatch(/before it was included/);
+    expect(report.replans).toHaveLength(1);
+    expect(report.replans[0]!.trigger).toMatchObject({
+      hash: first!.hash,
+      resultCodes: { innerTransaction: "tx_too_late" },
+    });
+    expect(report.stop).toBeNull();
+    expect(report.status).toBe("closed");
+  });
+
+  it("stops with verdict replan when the failure names no code at all", async () => {
+    const { ledger, deps, plan } = harness();
+    // The fake ledger's records carry no result XDR, like a Horizon without it: the transaction
+    // found failed after a 504 has no code to classify.
+    ledger.faults.push("504-applied");
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:building" && e.index === 0) ledger.offers.set(messy.fixture, []);
+      },
+    });
+    expect(report.transactions[0]).toMatchObject({ result: "failed", resultCodes: {} });
+    expect(report.transactions[0]!.explanation).not.toMatch(/nothing was submitted/);
+    // Its detail says to run the close again, and so does its verdict now.
+    expect(report.stop).toMatchObject({ code: "OPERATION_FAILED", verdict: "replan" });
+    expect(report.message).toMatch(/Run the close again/);
+  });
+});

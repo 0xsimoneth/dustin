@@ -632,13 +632,29 @@ class CloseRun {
     };
     const failure = operationFailure(outcome.codes);
     if (!failure) {
+      const label = `Transaction ${tx.index + 1} (${tx.phase})`;
+      const inner = outcome.codes.innerTransaction ?? outcome.codes.transaction;
+      if (inner && inner !== "tx_failed" && inner !== "tx_fee_bump_inner_failed") {
+        // Review round 3, R3-9: it failed before any operation ran (an inner tx_too_late or
+        // tx_bad_seq at apply time), so nothing of it applied and only its sequence number and
+        // fee were spent: plan the rest again from the ledger, as after any safe failure.
+        return this.replanFrom({
+          tx,
+          hash: at.hash,
+          codes: outcome.codes,
+          explanation: outcome.entry.explanation ?? inner,
+          where: `${label} was included but failed with ${inner} before any operation ran.`,
+        });
+      }
+      // No code says which operation failed, so no step can be blamed or demoted; the next run
+      // plans from the ledger, which is what the verdict says.
       return {
         kind: "stop",
         stop: {
           code: "OPERATION_FAILED",
           stage: "submit",
-          verdict: "stop",
-          detail: `Transaction ${tx.index + 1} (${tx.phase}) failed on the ledger without an operation result (${outcome.entry.explanation ?? "no result codes"}). Run the close again to continue from the current state.`,
+          verdict: "replan",
+          detail: `${label} failed on the ledger without an operation result (${outcome.entry.explanation ?? "no result codes"}), so the run cannot tell which step failed. Run the close again to continue from the current state.`,
           ...at,
         },
       };

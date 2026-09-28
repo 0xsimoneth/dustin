@@ -94,7 +94,7 @@ export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcom
       entry.resultCodes = outcome.codes;
       entry.ledger = outcome.ledger ?? null;
       entry.feeChargedStroops = outcome.feeChargedStroops ?? null;
-      entry.explanation = explainCodes(outcome.codes, outcome.status);
+      entry.explanation = explainCodes(outcome.codes, outcome.status, true);
       return;
     case "rejected":
       entry.resultCodes = outcome.codes;

@@ -652,7 +652,10 @@ describe("edge case E6: included or refused is decided by the ledger, not by the
     const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
     expect(tx0).toHaveLength(1);
     expect(tx0[0]).toMatchObject({ result: "failed", feeChargedStroops: 1000 });
-    expect(ledger.submissions).toHaveLength(1);
+    // Never rebuilt at the number it used: the rest is planned again from the ledger (review
+    // round 3, R3-9; the run stopped here before).
+    expect(report.transactions.filter((t) => t.round === 0)).toHaveLength(1);
+    expect(report.replans).toHaveLength(1);
   });
 });
 
