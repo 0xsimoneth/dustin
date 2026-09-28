@@ -30,8 +30,24 @@ import { loadCloseSigners, type SecretSources } from "../secrets.js";
 import type { CommandContext } from "./fixture.js";
 import { checkAddresses, destinationOf, parseBaseFee, type PlanCommandOptions } from "./plan.js";
 
-/** Asks one question; resolves with the answer, or null on EOF or a non-interactive input. */
-export type Prompt = (question: string) => Promise<string | null>;
+/**
+ * Where the facts that the typed confirmation confirms (the plan and the summary) were printed:
+ * standard output, or standard error with --json.
+ */
+export interface PromptContext {
+  facts: "stdout" | "stderr";
+}
+
+/**
+ * Asks one question. Resolves with the answer; with null at the end of input (Ctrl-D) or on
+ * Ctrl-C; or with `{ unasked }`, naming why it could not be asked at all, for example a stream that
+ * is not a terminal (review round 3, R3-28, R3-31). Anything but the right answer is no
+ * confirmation.
+ */
+export type Prompt = (
+  question: string,
+  context?: PromptContext,
+) => Promise<string | null | { unasked: string }>;
 
 export interface CloseCommandOptions extends PlanCommandOptions {
   execute?: boolean;
@@ -164,7 +180,7 @@ export async function closeExecute(
       "\nCONFIRMATION SKIPPED: --yes was given, so the typed confirmation was not asked. Executing now.\n",
     );
   } else {
-    await confirm(destination, ctx.prompt);
+    await confirm(destination, ctx.prompt, options.json ? "stderr" : "stdout");
   }
 
   const plans: ClosePlan[] = [plan];
@@ -345,20 +361,37 @@ function summary(
   return `${lines.join("\n")}\n`;
 }
 
-async function confirm(destination: string, prompt: Prompt | undefined): Promise<void> {
+/**
+ * The typed confirmation. It is asked only where the user saw the facts it confirms: the prompt
+ * learns which stream carried them (`facts`) and declines to ask when that stream, its own input
+ * or its output is not a terminal, naming which (review round 3, R3-28, R3-31).
+ */
+async function confirm(
+  destination: string,
+  prompt: Prompt | undefined,
+  facts: PromptContext["facts"],
+): Promise<void> {
   const tail = destination.slice(-4);
-  let answer: string | null = null;
-  if (prompt) {
-    try {
-      answer = await prompt(
-        `\nType the last 4 characters of the destination ${destination} to confirm: `,
-      );
-    } catch {
-      answer = null;
-    }
+  if (!prompt) {
+    throw declined("no terminal is available to ask on (the input is not interactive)");
+  }
+  let answer: string | null | { unasked: string };
+  try {
+    answer = await prompt(
+      `\nType the last 4 characters of the destination ${destination} to confirm: `,
+      { facts },
+    );
+  } catch {
+    answer = null;
+  }
+  if (answer !== null && typeof answer === "object") {
+    throw declined(
+      `the question was not asked: ${answer.unasked}`,
+      "Run the command in a terminal without redirecting its input, standard output or standard error (with --json, standard output may be redirected: the plan and the question go to standard error), or add --yes for a non-interactive run (it works only with --execute).",
+    );
   }
   if (answer === null) {
-    throw declined("no answer was given (the input is not interactive, or it ended)");
+    throw declined("no answer was given (the input ended, or Ctrl-C was pressed)");
   }
   // The answer is never echoed: a user might have typed anything, even a secret.
   if (answer.trim() !== tail) {
@@ -366,10 +399,11 @@ async function confirm(destination: string, prompt: Prompt | undefined): Promise
   }
 }
 
-function declined(why: string): DustinError {
+function declined(why: string, remedy?: string): DustinError {
   return new DustinError("CONFIRMATION_DECLINED", `Not confirmed: ${why}. Nothing was executed.`, {
     stage: "config",
     remedy:
+      remedy ??
       "Run the command in a terminal and type the last 4 characters of the destination, or add --yes for a non-interactive run (it works only with --execute).",
   });
 }

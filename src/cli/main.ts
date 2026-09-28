@@ -19,5 +19,7 @@ const stdout = guardedWriter(process.stdout, {
 process.exitCode = await run(process.argv, { stdout, stderr }, version, {
   env: process.env,
   cwd: process.cwd(),
-  prompt: terminalPrompt({ input: process.stdin, output: process.stderr }),
+  // The question goes to standard error; it is asked only when every stream it depends on is a
+  // terminal, standard output included when the plan it confirms was printed there.
+  prompt: terminalPrompt({ input: process.stdin, output: process.stderr, stdout: process.stdout }),
 });

@@ -1,7 +1,10 @@
 import { existsSync, linkSync, readdirSync, readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
+import type { Prompt } from "../../../src/cli/commands/close.js";
+import { run } from "../../../src/cli/run.js";
 import type { CloseReport } from "../../../src/execute/report.js";
+import { noSleep } from "../../helpers/no-sleep.js";
 import {
   closeCli,
   emptyDir,
@@ -179,5 +182,56 @@ describe("R3-26: --report can never name the working directory's .env", () => {
     // The secrets file is where it was, as it was.
     expect(readFileSync(join(cwd, ".env"), "utf8")).toBe(text);
     expect(readdirSync(cwd).filter((f) => /^\.env\./i.test(f))).toEqual([]);
+  });
+});
+
+/** `dustin` with the given prompt, which also sees where the facts it confirms were printed. */
+async function closeWithPrompt(world: World, args: string[], prompt: Prompt) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = await run(
+    ["node", "dustin", ...args],
+    { stdout: (s) => void out.push(s), stderr: (s) => void err.push(s) },
+    "0.0.0",
+    {
+      env: world.env,
+      cwd: emptyDir(),
+      fetch: world.ledger.fetch,
+      horizon: { retries: 0 },
+      execute: { sleep: noSleep },
+      prompt,
+    },
+  );
+  return { code, out: out.join(""), err: err.join("") };
+}
+
+describe("R3-28, R3-31: the confirmation is asked only where the facts were shown", () => {
+  it("tells the prompt which stream carried the plan: stdout, or stderr with --json", async () => {
+    const facts: Array<string | undefined> = [];
+    const prompt: Prompt = (_question, context) => {
+      facts.push(context?.facts);
+      return Promise.resolve("nope");
+    };
+    const world = zeroSpendableWorld();
+    await closeWithPrompt(world, executeArgs(world), prompt);
+    await closeWithPrompt(world, executeArgs(world, "--json"), prompt);
+    expect(facts).toEqual(["stdout", "stderr"]);
+    expect(world.ledger.submissions).toHaveLength(0);
+  });
+
+  it("does not execute, and names the cause, when the question could not be asked", async () => {
+    const world = zeroSpendableWorld();
+    const cause =
+      "standard output is not a terminal (it is redirected or piped), so the plan and the summary to confirm were not on screen";
+    const r = await closeWithPrompt(world, executeArgs(world), () =>
+      Promise.resolve({ unasked: cause }),
+    );
+    expect(r.code).toBe(3);
+    expect(r.err).toContain("CONFIRMATION_DECLINED");
+    expect(r.err).toContain(cause);
+    expect(r.err).not.toMatch(/the input is not interactive/);
+    expect(r.err).toContain("Nothing was executed");
+    expect(r.err).toContain("--yes");
+    expect(world.ledger.submissions).toHaveLength(0);
   });
 });
