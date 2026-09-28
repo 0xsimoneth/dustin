@@ -142,7 +142,11 @@ function transactionLines(
     // Round n is the n-th re-plan; its transactions are numbered from 1 again (E2-S3).
     tx.round > 0 ? `round ${tx.round}` : "",
     tx.attempt > 1 ? `attempt ${tx.attempt}` : "",
-    tx.result === "unknown" ? unknownLabel(tx) : (OUTCOME[tx.result] ?? String(tx.result)),
+    tx.result === "unknown"
+      ? unknownLabel(tx)
+      : tx.result === "pending" && report.status === "running"
+        ? "pending: posted, its outcome was not known yet when this copy was saved"
+        : (OUTCOME[tx.result] ?? String(tx.result)),
     tx.ledger !== null ? `ledger ${grouped(tx.ledger)}` : "",
     tx.feeChargedStroops !== null
       ? `fee ${xlm(tx.feeChargedStroops)} (${grouped(tx.feeChargedStroops)} stroops) charged to ${payer}`
@@ -381,7 +385,13 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   const v = report.verification;
   if (v === null) {
     out.push(
-      ...wrap("not checked: the run stopped before the final Horizon check", 15, "  verified     "),
+      ...wrap(
+        report.status === "running"
+          ? "not checked yet: the run was still in progress when this copy was saved"
+          : "not checked: the run stopped before the final Horizon check",
+        15,
+        "  verified     ",
+      ),
     );
   } else {
     out.push(
@@ -416,6 +426,10 @@ function nextStep(report: CloseReport): string | null {
       return report.transactions.length === 0
         ? "Nothing was submitted. Review the plan and run the command again."
         : "Run the same command again to continue: Dustin re-reads the account and plans only what is left.";
+    case "running":
+      // A copy saved while the run was going (review round 3, R3-23): a second close of the same
+      // account started while it may still run would compete for its sequence numbers.
+      return "This copy was saved while the run was in progress. Do not start the same close again while that run may still be going: two runs would compete for the account's sequence numbers. If it is gone (the process was killed or crashed), look the pending hashes above up first, then run the same command again: Dustin re-reads the account and plans only what is left.";
     default:
       return "Run the same command again to continue: Dustin re-reads the account and plans only what is left.";
   }

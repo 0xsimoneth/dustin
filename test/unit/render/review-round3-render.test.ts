@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { formatStroops } from "../../../src/amounts.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
+import type { CloseReport } from "../../../src/execute/report.js";
 import type { ClosePlan } from "../../../src/plan/model.js";
 import { renderReport } from "../../../src/render/report-text.js";
 import { harness, reply, signers } from "../execute/harness.js";
@@ -141,5 +142,38 @@ describe("R3-24: the receipt gives each transaction's ledger and the fee charged
     expect(text).toContain(
       `${formatStroops(BigInt(paid))} XLM (${paid.toLocaleString("en-US")} stroops) in fees paid by the sponsor`,
     );
+  });
+});
+
+describe("R3-23: a copy saved while the run was going reads as a run in progress", () => {
+  it("never tells the reader to start the same close again while it may still run", async () => {
+    // The copy a --report file holds while the second transaction's POST is in flight.
+    let inFlight: CloseReport | null = null;
+    const { plans } = await closedRun();
+    const h = harness();
+    await executeClose(await h.plan(), signers(), {
+      confirm: true,
+      ...h.deps,
+      onReport: (copy) => {
+        const last = copy.transactions.at(-1);
+        if (copy.transactions.length === 2 && last?.result === "pending" && last.attempts === 1) {
+          inFlight = copy;
+        }
+      },
+    });
+    const copy = inFlight!;
+    expect(copy.status).toBe("running");
+    const text = renderReport(copy, { plans });
+    expect(text.split("\n")[0]).toContain("RUNNING");
+    // The envelope in flight is not a stopped run's leftover.
+    const line = txLine(text, copy.transactions[1]!.hash);
+    expect(line).not.toMatch(/when the run stopped/);
+    expect(line).toMatch(/not known yet when this copy was saved/);
+    expect(text).not.toMatch(/the run stopped before the final Horizon check/);
+    expect(text).toMatch(/not checked yet: the run was still in progress/);
+    // The next step: do not start a second close of the same account while this one may run.
+    const next = text.slice(text.indexOf("Next"));
+    expect(next).not.toMatch(/^Next {9}Run the same command again/);
+    expect(next.replace(/\s+/g, " ")).toMatch(/Do not start the same close again/);
   });
 });
