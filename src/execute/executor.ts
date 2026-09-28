@@ -273,8 +273,9 @@ class CloseRun {
       transactions: [],
       steps: fresh.steps.map((s) => ({ stepId: s.id, status: "not_run", txIndex: s.txIndex })),
       replans: [],
-      unclosable: fresh.unclosable,
-      blockers: fresh.blockers,
+      // Copies: a blocker the run finds must never be pushed into a plan it emitted (R3-19).
+      unclosable: [...fresh.unclosable],
+      blockers: [...fresh.blockers],
       warnings: [...fresh.warnings],
       recovery: {
         mergedXlm: null,
@@ -849,8 +850,9 @@ class CloseRun {
       drift,
       transactions: next.transactions.length,
     });
-    this.report.unclosable = next.unclosable;
-    this.report.blockers = next.blockers;
+    // Copies, as in the constructor: the re-plan was emitted as it is (review round 3, R3-19).
+    this.report.unclosable = [...next.unclosable];
+    this.report.blockers = [...next.blockers];
     for (const warning of next.warnings) {
       if (!this.report.warnings.includes(warning)) this.report.warnings.push(warning);
     }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { DustinError } from "../../../src/errors/dustin-error.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import type { CloseReport } from "../../../src/execute/report.js";
+import type { ClosePlan } from "../../../src/plan/model.js";
 import {
   lookupTransaction,
   submitAndConfirm,
@@ -902,5 +903,28 @@ describe("R3-15: an async observer whose promise rejects is caught like one that
     expect(report.warnings.join(" ")).toMatch(
       /onReport callback threw \(no space left \(async\)\)/,
     );
+  });
+});
+
+describe("R3-19: the report keeps its own blockers and unclosable items", () => {
+  it("does not push the run's blocker into the plan it emitted", async () => {
+    const plans: ClosePlan[] = [];
+    const { ledger, deps, plan } = harness();
+    ledger.faults.push(UNDERFUNDED, UNDERFUNDED);
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "plan") plans.push(e.plan);
+      },
+    });
+    expect(report.stop).toMatchObject({ code: "STEP_FAILED_TWICE" });
+    expect(report.blockers.map((b) => b.code)).toContain("STEP_FAILED_TWICE");
+    expect(plans).toHaveLength(2);
+    for (const p of plans) {
+      expect(p.blockers.map((b) => b.code)).not.toContain("STEP_FAILED_TWICE");
+      expect(p.blockers).not.toBe(report.blockers);
+      expect(p.unclosable).not.toBe(report.unclosable);
+    }
   });
 });
