@@ -514,29 +514,43 @@ const BAD_SEQ = answer({
 describe("edge case E1: a second tx_bad_seq looks the envelopes up before stopping", () => {
   it("finds the envelope that applied at the re-read sequence instead of reporting a conflict", async () => {
     let hidden: string | null = null;
-    const { ledger, deps, plan } = harness(
-      (l, fetch) => (url, init) =>
+    // The account read that checks attempt 2's 404 lags too, so the 404 is trusted and attempt 2
+    // is rebuilt (edge case E5): without it the run re-plans and never meets a second tx_bad_seq
+    // (review round 3, R3-2).
+    const stale = staleAccountOnce(messy.fixture);
+    const { ledger, deps, plan } = harness((l, fetch) =>
+      stale.wrap((url, init) =>
         // The lookup source lags: attempt 2's record is invisible until attempt 3 has been posted.
         hidden && l.submissions.length < 3 && url.endsWith(`/transactions/${hidden}`)
           ? reply(404)
           : fetch(url, init),
+      ),
     );
     ledger.faults.push(BAD_SEQ, "504-applied");
     const report = await executeClose(await plan(), signers(), {
       confirm: true,
       ...deps,
       onEvent: (e) => {
-        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 2) hidden = e.hash;
+        if (e.type === "tx:submitted" && e.index === 0 && e.attempt === 2) {
+          hidden = e.hash;
+          stale.arm(ledger);
+        }
       },
     });
-    const attempt2 = report.transactions.find(
-      (t) => t.round === 0 && t.index === 0 && t.attempt === 2,
-    )!;
-    expect(attempt2.result).toBe("applied");
+    const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
+    // The second tx_bad_seq happened: attempt 3 was refused at the number attempt 2 had used.
+    expect(tx0.map((t) => [t.attempt, t.result, t.resultCodes?.innerTransaction])).toEqual([
+      [1, "rejected", "tx_bad_seq"],
+      [2, "applied", undefined],
+      [3, "rejected", "tx_bad_seq"],
+    ]);
+    const attempt2 = tx0[1]!;
     expect(report.steps.find((s) => s.stepId === "S01")).toMatchObject({
       status: "applied",
       txHash: attempt2.hash,
     });
+    // Found by the lookup before the conflict check, not by a re-plan.
+    expect(report.replans).toEqual([]);
     expect(report.stop).toBeNull();
     expect(report.status).toBe("closed");
   });
