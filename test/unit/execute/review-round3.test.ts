@@ -701,3 +701,74 @@ describe("R3-16: a submitter whose lookup throws is a failed lookup, not an exce
     });
   });
 });
+
+const missing = () => Promise.resolve({ kind: "missing" as const });
+
+describe("R3-14: a failed ledger or account read inside the wait proves nothing", () => {
+  it("retries a ledger read that throws, then ends unknown with the error; it may still apply", async () => {
+    const { run, sleeps } = confirmLoop({ lookup: missing }, () =>
+      Promise.reject(new Error("HTTP 503")),
+    );
+    const outcome = await run;
+    expect(outcome).toMatchObject({ kind: "unknown", mayStillApply: true });
+    expect(outcome).toHaveProperty("readError", expect.stringMatching(/latest ledger.*HTTP 503/));
+    expect(sleeps()).toBeGreaterThan(1);
+  });
+
+  it("ends unknown with the error when the account read that checks the 404 throws", async () => {
+    // Past the bound (the ledger closed after it), a 404, and the account cannot be read.
+    const { run } = confirmLoop({ lookup: missing }, () => Promise.resolve(1_000_200), {
+      sequenceUsed: () => Promise.reject(new Error("HTTP 502")),
+    });
+    const outcome = await run;
+    expect(outcome).toMatchObject({ kind: "unknown" });
+    expect(outcome).not.toHaveProperty("mayStillApply");
+    expect(outcome).toHaveProperty("readError", expect.stringMatching(/account.*HTTP 502/));
+  });
+
+  it("stops the run with OUTCOME_UNKNOWN and the time bound when /ledgers fails after a 504", async () => {
+    let down = false;
+    const h = harness(
+      (_l, fetch) => (url, init) =>
+        down && url.includes("/ledgers") ? reply(503) : fetch(url, init),
+    );
+    h.ledger.faults.push("504-not-applied");
+    const report = await executeClose(await h.plan(), signers(), {
+      confirm: true,
+      ...h.deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.index === 0) down = true;
+      },
+    });
+    const [first] = report.transactions;
+    expect(first).toMatchObject({ result: "unknown", mayStillApply: true });
+    expect(first!.explanation).toMatch(/may still apply/);
+    expect(report.status).toBe("failed");
+    expect(report.stop).toMatchObject({
+      code: "OUTCOME_UNKNOWN",
+      hash: first!.hash,
+      maxTime: first!.maxTime,
+    });
+    expect(h.ledger.submissions).toHaveLength(1);
+  });
+
+  it("never rebuilds when the account read that would trust the 404 fails", async () => {
+    let failAccount = false;
+    const h = harness(
+      (_l, fetch) => (url, init) =>
+        failAccount && url.endsWith(`/accounts/${messy.fixture}`) ? reply(503) : fetch(url, init),
+    );
+    h.ledger.faults.push("504-not-applied");
+    const report = await executeClose(await h.plan(), signers(), {
+      confirm: true,
+      ...h.deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.index === 0) failAccount = true;
+      },
+    });
+    expect(h.ledger.submissions).toHaveLength(1);
+    expect(report.transactions[0]).toMatchObject({ result: "unknown", mayStillApply: false });
+    expect(report.transactions[0]!.explanation).toMatch(/could not be settled/);
+    expect(report.stop).toMatchObject({ code: "OUTCOME_UNKNOWN", verdict: "replan" });
+  });
+});

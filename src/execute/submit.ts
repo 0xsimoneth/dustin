@@ -12,11 +12,13 @@ export type { ResultCodes } from "./result-codes.js";
  *   a 400 without result codes or a 429 (status tells which);
  * - unknown: not found by hash (Horizon answered 404) after its upper time bound passed, so it
  *   never applied and never can; only then may a replacement for the same sequence number be
- *   built. Three flags mark the exceptions, when the envelope must not be replaced:
+ *   built. Four flags mark the exceptions, when the envelope must not be replaced:
  *   `mayStillApply` (no ledger has closed past the time bound yet), `lookupError` (the last
- *   lookups by hash failed, so whether it applied is not known; review finding 1) and
- *   `sequenceUsed` (the account shows its sequence number used, so the 404 came from a Horizon
- *   behind, or another transaction took the number; edge case E5).
+ *   lookups by hash failed, so whether it applied is not known; review finding 1), `readError`
+ *   (a read the wait needs failed: the latest ledger, so the bound could not be judged, or the
+ *   account, so a 404 could not be trusted; review round 3, R3-14) and `sequenceUsed` (the account
+ *   shows its sequence number used, so the 404 came from a Horizon behind, or another transaction
+ *   took the number; edge case E5).
  */
 export type SubmitOutcome =
   | { kind: "applied"; hash: string; ledger: number; feeChargedStroops: number; resultXdr: string }
@@ -35,6 +37,8 @@ export type SubmitOutcome =
       hash: string;
       mayStillApply?: boolean;
       lookupError?: string;
+      /** A read the wait needs failed (what, and why), so whether it applied is not known. */
+      readError?: string;
       /** Horizon answered 404, but the account shows the envelope's sequence number used. */
       sequenceUsed?: boolean;
     };
@@ -402,10 +406,32 @@ async function confirmByLocalClock(
 }
 
 /**
+ * A read the wait depends on, or what failed: a thrown read proves nothing about the envelope, so
+ * it is a failure to try again, never an exception out of the wait (review round 3, R3-14).
+ */
+async function guardedRead<T>(
+  what: string,
+  read: () => Promise<T>,
+): Promise<{ value: T } | { failed: string }> {
+  try {
+    return { value: await read() };
+  } catch (error) {
+    return {
+      failed: `${what} could not be read (${error instanceof Error ? error.message : String(error)})`,
+    };
+  }
+}
+
+/**
  * With a ledger clock: the time bound is judged by ledger close times, and the local clock only
  * measures how long the wait has lasted, so a skewed local clock can neither end the wait early
  * nor make it endless. Horizon is asked for the latest close time once at the start, and again
  * only when that reading plus the time waited says the bound has probably passed.
+ *
+ * Every read the wait depends on can fail: the lookup by hash, the latest ledger and the account
+ * that checks a 404. A failure proves nothing, so it is only tried again, within the same bound,
+ * and the wait then ends as `unknown` naming it, with `mayStillApply` while no ledger was seen
+ * past the bound (review round 3, R3-14).
  */
 async function confirmByLedgerClock(
   submitter: Submitter,
@@ -419,30 +445,41 @@ async function confirmByLedgerClock(
   // Set once a ledger closed after maxTime: no later ledger can include the envelope (close times
   // only grow), and every earlier ledger is already ingested, so a 404 from then on is conclusive.
   let pastBound = false;
+  const closeTime = () => guardedRead("the latest ledger", ledgerCloseTime);
   for (;;) {
     const found = await lookupTransaction(submitter, envelope.hash);
     if (found.kind === "found") return outcomeFromRecord(envelope.hash, found.record);
+    // What failed in this round, besides a lookup: a read of the account or of the ledger.
+    let readError: string | null = null;
     if (pastBound && found.kind === "missing") {
       // A 404 the account contradicts comes from a Horizon behind the one that read the account.
-      if (options.sequenceUsed && (await options.sequenceUsed())) {
-        return { kind: "unknown", hash: envelope.hash, sequenceUsed: true };
+      if (!options.sequenceUsed) return { kind: "unknown", hash: envelope.hash };
+      const used = await guardedRead("the account", options.sequenceUsed);
+      if ("value" in used) {
+        return used.value
+          ? { kind: "unknown", hash: envelope.hash, sequenceUsed: true }
+          : { kind: "unknown", hash: envelope.hash };
       }
-      return { kind: "unknown", hash: envelope.hash };
+      readError = used.failed;
     }
-    firstClose ??= await ledgerCloseTime();
+    if (firstClose === null) {
+      const first = await closeTime();
+      if ("value" in first) firstClose = first.value;
+      else readError ??= first.failed;
+    }
     const waited = now() - started;
-    if (
-      !pastBound &&
-      firstClose + waited > envelope.maxTime &&
-      (await ledgerCloseTime()) > envelope.maxTime
-    ) {
-      pastBound = true;
-      continue;
+    if (!pastBound && firstClose !== null && firstClose + waited > envelope.maxTime) {
+      const latest = await closeTime();
+      if ("value" in latest && latest.value > envelope.maxTime) {
+        pastBound = true;
+        continue;
+      }
+      if ("failed" in latest) readError ??= latest.failed;
     }
-    // A failed lookup proves nothing, so it is only tried again, within the same bound.
+    // A failure proves nothing, so it is only tried again, within the same bound; without any
+    // reading of the ledger the bound is measured from the start of the wait.
     const limit =
-      envelope.maxTime -
-      firstClose +
+      (firstClose === null ? 0 : envelope.maxTime - firstClose) +
       (options.graceSeconds ?? 10) +
       (options.ledgerWaitSeconds ?? 60);
     if (waited > limit) {
@@ -451,6 +488,7 @@ async function confirmByLedgerClock(
         hash: envelope.hash,
         ...(pastBound ? {} : { mayStillApply: true }),
         ...(found.kind === "error" ? { lookupError: found.detail } : {}),
+        ...(readError !== null ? { readError } : {}),
       };
     }
     await (options.sleep ?? timerSleep)(options.pollIntervalMs ?? 2000);

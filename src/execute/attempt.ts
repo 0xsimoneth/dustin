@@ -116,6 +116,12 @@ function unknownMeaning(outcome: Extract<SubmitOutcome, { kind: "unknown" }>): s
   if (outcome.lookupError) {
     return `It could not be looked up by hash (${outcome.lookupError}), so whether it applied is not known; ${bound}.`;
   }
+  if (outcome.readError) {
+    const unjudged = outcome.mayStillApply
+      ? "no ledger was seen closing past its time bound, so it may still apply"
+      : bound;
+    return `It could not be settled: ${outcome.readError}, so whether it applied is not known; ${unjudged}.`;
+  }
   if (outcome.sequenceUsed) {
     return "Not found by hash, but the account shows its sequence number used: it applied where Horizon has not caught up yet, or another transaction used the number. Either way it cannot apply any more.";
   }
@@ -315,6 +321,15 @@ export async function submitPlannedTransaction(
           "OUTCOME_UNKNOWN",
           "replan",
           `${label} (${hash}) could not be looked up by hash (${outcome.lookupError}), so whether it applied is not known; nothing was rebuilt. ${wait}`,
+          { hash, maxTime },
+        );
+      }
+      if (outcome.readError) {
+        // Nor does a read of the ledger or the account that failed (review round 3, R3-14).
+        return stop(
+          "OUTCOME_UNKNOWN",
+          "replan",
+          `${label} (${hash}) could not be settled: ${outcome.readError}, so whether it applied is not known; nothing was rebuilt. ${wait}`,
           { hash, maxTime },
         );
       }
