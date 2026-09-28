@@ -1,6 +1,6 @@
 # Wallet integration notes
 
-> Status: first version 2026-09-28, updated the same day for the Epic 3 code and the third review round (story E4-S4, PRD FR-26). The API below is what `src/index.ts` exports on the main branch on that date, with the names of PRD section 7 (rewritten on 2026-09-28, PRD decision D-2). **Not released yet:** the npm package `stellar-dustin` 0.1.0 is planned for week 4; until then, build it from source (section 1). While the version starts with 0, a minor release may still change the API.
+> Status: first version 2026-09-28, updated the same day for the Epic 3 code, the third review round and the closing review of Epic 3 (story E4-S4, PRD FR-26). The API below is what `src/index.ts` exports on the main branch on that date, with the names of PRD section 7 (rewritten on 2026-09-28, PRD decision D-2). **Not released yet:** the npm package `stellar-dustin` 0.1.0 is planned for week 4; until then, build it from source (section 1). While the version starts with 0, a minor release may still change the API.
 
 These notes are for a wallet developer who wants to offer "close this account" to users: plan the close, show it, get the account holder's approval, execute it with the wallet's own signer and a sponsor that pays every fee, and handle what can go wrong. Why the steps come in the order they do is in the [write-up](write-up.md).
 
@@ -120,7 +120,7 @@ Either print it or build a screen from it.
 - Show the destination in full and say that the merge cannot be undone. The CLI makes the user type the last four characters of the destination; a wallet can use its own confirmation (PIN, biometrics, a hardware button) as long as the destination is unmistakable.
 - Call `executeClose` with `confirm: true` only after that approval. Anything but the literal `true` throws `CONFIRMATION_REQUIRED` before anything is read or signed.
 - Pass the plan the user approved. `executeClose` plans again from the ledger and compares the two (section 8).
-- The plan hash leaves out market quotes, so `executeClose` also compares the approved plan's `recovery.xlmToDestination` with its fresh plan's: a lower amount (a sale's quote got worse while the user decided) is drift, and by default nothing is signed (`XLM_TO_DESTINATION_FELL`, section 8; review finding BH-7). Show the user the amount you pass in, since that is the one checked.
+- The plan hash leaves out market quotes, so `executeClose` also compares what the approved plan and its fresh plan recover: the balance plus the quoted sales, which is `recovery.xlmToDestination` for a plan that merges. A lower amount (a sale's quote got worse while the user decided) is drift, and by default nothing is signed (`XLM_TO_DESTINATION_FELL`, section 8; review finding BH-7, closing review CX-2). Show the user the amount you pass in, since that is the one checked.
 
 ## 6. Step 4: execute the close
 
@@ -180,7 +180,7 @@ Before anything is read, `executeClose` checks that the account signer's key is 
 
 1. The options are checked (`CONFIG_INVALID` for a value out of range) and the plan's network must be the testnet.
 2. Horizon must prove it serves the testnet (`GET /`).
-3. The account is read again and planned again with the approved plan's options (round 0). A different plan hash, or less XLM for the destination than the approved plan promised, is drift (section 8).
+3. The account is read again and planned again with the approved plan's options (round 0). A different plan hash, or less XLM recovered than the approved plan promised, is drift (section 8).
 4. The run ends before anything is signed, with status `aborted`, in these cases:
    - the account no longer exists (`ACCOUNT_MISSING`, with Horizon's 404 recorded in `verification`);
    - the plan changed and `onDrift` is `"abort"` (`PLAN_CHANGED`, or `XLM_TO_DESTINATION_FELL` when only the amount fell);
@@ -190,7 +190,7 @@ Before anything is read, `executeClose` checks that the account signer's key is 
 
    It throws `SPONSOR_UNDERFUNDED`, carrying the aborted report, when the sponsor cannot spend at least the budget. Just before the first submission the executor reads each reserve sponsor the plan names (section 6.4).
 5. Each planned transaction is built, signed by the account signer, wrapped and signed by the sponsor, recorded in the report, then posted. A merge runs after a fresh preflight when it follows other transactions, and also when its plan says the sequence guard does not hold yet.
-6. The sequence-guard wait (story E3-S4). When the guard is all that holds the merge back, the executor emits `wait` with `state: "start"`, reads the latest ledger every `pollIntervalMs`, and emits `wait` with `state: "end"` once the ledger before `untilLedger` has closed. It then checks again and submits the merge. The wait has two bounds: the plan's `maxWaitLedgers` (default 120 ledgers, about 10 minutes) counted from the latest ledger, and a limit on the local clock of twice the time of the ledgers to wait for plus two more, at about 5 s per ledger. Beyond either bound nothing more is signed and the run stops with `SEQNUM_TOO_FAR` and `stop.unblocksAtLedger` (section 10).
+6. The sequence-guard wait (story E3-S4). When the guard is all that holds the merge back, the executor emits `wait` with `state: "start"`, reads the latest ledger every `pollIntervalMs`, and emits `wait` with `state: "end"` once the ledger before `untilLedger` has closed. It then checks again and submits the merge. The wait has two bounds: the plan's `maxWaitLedgers` (default 120 ledgers, about 10 minutes) counted from the latest ledger, and a limit on the local clock of twice the time of the ledgers to wait for plus two more, at about 5 s per ledger. A read of the latest ledger that fails counts as a poll that did not reach the ledger, and the wait goes on. Beyond either bound nothing more is signed and the run stops with `SEQNUM_TOO_FAR` and `stop.unblocksAtLedger` (section 10); the detail names a failed last read when there was one. A merge refused on the ledger with `op_seq_num_too_far` is planned again and waited for within the bound; the run stops with `SEQNUM_TOO_FAR` instead when the new wait is beyond the bound, when the merge has failed with that code twice (failures with other codes do not count), or when no re-plan or budget is left (closing review CX-4, CX-5, CX-7). Live, through the CLI: [the wait and the merge in the unblocking ledger](../evidence/runs/20260928T125223Z-e3s4-wait/summary.md).
 7. Failures are retried, rebuilt or planned again from the ledger as the [write-up](write-up.md) describes (sections 4 and 6).
 8. Horizon is asked for the account; after a merge the executor waits up to `verifyTimeoutMs` for the 404. It then reads the reserve sponsors again.
 
@@ -212,10 +212,12 @@ Before anything is read, `executeClose` checks that the account signer's key is 
 | `maxRateLimitRetries` | `5` | Posts of one envelope after HTTP 429. |
 | `pollIntervalMs` | `2000` | Pause between lookups, and between reads of the latest ledger during the sequence-guard wait; from 200 ms (never 0, PRD decision D-5) to 2^31 - 1 ms, Node's timer limit. |
 | `backoffMs` | `1000` | First pause after a 429, doubled each time; from 200 to 2^31 - 1 ms, and the doubled pause stops at that limit. |
-| `graceSeconds` | `10` | How long to keep looking for an unconfirmed envelope after its time bound. |
-| `ledgerWaitSeconds` | `60` | How long to wait beyond that for a ledger closed after the bound. |
-| `verifyTimeoutMs` | `30000` | How long the final check waits for Horizon to answer 404 after a merge. |
+| `graceSeconds` | `10` | How long to keep looking for an unconfirmed envelope after its time bound; from 0 to 3600 seconds. |
+| `ledgerWaitSeconds` | `60` | How long to wait beyond that for a ledger closed after the bound; from 0 to 3600 seconds. |
+| `verifyTimeoutMs` | `30000` | How long the final check waits for Horizon to answer 404 after a merge; from 0 to 3,600,000 ms (one hour). |
 | `sleep`, `now` | a timer, `Date.now` | Injected in tests; a test that must not wait passes a `sleep` that returns at once, never a pause of 0. |
+
+Every numeric option is checked before anything is read or signed; a value out of its range throws `CONFIG_INVALID` (stage `config`). The grace, the ledger wait and `verifyTimeoutMs` have upper bounds because they extend waits that would otherwise have no end in practice (closing review CX-9). Every pause of a bounded wait (the sequence-guard wait, the confirmation of an envelope, the final check) is `pollIntervalMs` but never longer than the time left in that wait, and never below 200 ms (closing review CX-8).
 
 A custom `submitter` is also accepted; it is internal and not documented before 0.1.0.
 
@@ -226,7 +228,7 @@ A custom `submitter` is also accepted; it is internal and not documented before 
 | Field | Meaning |
 |---|---|
 | `status` | `closed` (a merge of this run applied), `partial` (everything possible ran; the account still exists), `aborted` (nothing was submitted), `failed` (stopped after something was submitted, with no merge of this run applied; run again to continue). Copies published during a run carry `running`. |
-| `stop` | Why the run stopped or did not start: `code`, `stage`, `verdict`, `detail`, and where relevant `txIndex`, `hash`, `stepId`, `resultCodes`, `unblocksAtLedger`, `maxTime`, and `xlmToDestination` (`{ approved, fresh }`, for `XLM_TO_DESTINATION_FELL`). `null` when the run did everything it could. |
+| `stop` | Why the run stopped or did not start: `code`, `stage`, `verdict`, `detail`, and where relevant `txIndex`, `hash`, `stepId`, `resultCodes`, `unblocksAtLedger`, `maxTime`, and `xlmToDestination` (`{ approved, fresh }`: what each plan recovers, for `XLM_TO_DESTINATION_FELL` and a `PLAN_CHANGED` whose amount fell too). `null` when the run did everything it could. |
 | `message` | The same in one sentence. |
 | `transactions[]` | Every envelope submitted: `hash` (the fee bump's, the one explorers show), `innerHash`, `sequence`, `baseFeeStroops`, `ledger`, `feeChargedStroops`, `feeAccount`, `result` (`pending`, `applied`, `failed`, `rejected`, `unknown`), `resultCodes`, `explanation`, both envelopes as XDR and `explorerUrl`. An envelope whose outcome is `unknown` also carries `mayStillApply`, `sequenceUsed` (not found by hash, but its sequence number is known used) and `lookupError` (why the outcome could not be settled). |
 | `steps[]` | Each step of the plan the run started with: `status` (`applied`, `failed`, `not_run`), `txHash`, and `rung` for a disposal, which after a fall down the ladder differs from the plan. There is no separate fallback status (PRD decision D-2). |
@@ -241,7 +243,7 @@ A merge of this run that applied always gives `status: "closed"` (review round 3
 - when Horizon still returns the account at the final check, the report is `closed` with the stop `ACCOUNT_STILL_EXISTS`, and the CLI exits 5. Look at the account on the explorer before doing anything else;
 - `closed` with `verification` null means the merge applied but the run was interrupted before the final check: call `verifyClosed(account)`. It returns `{ accountExists, horizonStatus, checkedAt, ledger, accountUrl }` and looks again every `intervalMs` (default 2 s) until Horizon answers 404 or `timeoutMs` (default 30 s) has passed.
 
-The account being gone proves a close only after this run posted a merge envelope that could have applied, one whose outcome is `unknown` or `pending`. When the run's merge was refused or failed on the ledger and someone else removed the account, the run's stop stands (R3-1).
+The account being gone proves a close only after this run posted a merge envelope that could have applied: one `pending` (its POST was in flight), or one `unknown` that may still apply (`mayStillApply`), may have applied (`sequenceUsed`) or could not be looked up (`lookupError`). When the run's merge was refused or failed on the ledger (R3-1), or the run found its merge envelope gone past its time bound with its sequence number unused, so that it can never apply (closing review CX-1), and someone else removed the account, the run keeps its stop: `failed`, CLI exit 5. The price of that rule: a merge that applied while a lagging Horizon showed its sequence number unused, and whose record Horizon never returns, is reported `failed`; running the close again then finds the account gone (`ACCOUNT_MISSING`, nothing submitted).
 
 On the live closes of 2026-09-28 the reserve sponsor showed `numSponsoring` 1 before and 0 after, and a minimum balance of 1.5 XLM before and 1.0 XLM after. Its balance was unchanged ([SDK close](../evidence/runs/20260928T112239Z-e3/summary.md), [CLI close](../evidence/runs/20260928T112252Z-e3-cli/summary.md)).
 
@@ -252,7 +254,7 @@ On the live closes of 2026-09-28 the reserve sponsor showed `numSponsoring` 1 be
 | `type` | When | Fields | Show |
 |---|---|---|---|
 | `plan` | The fresh plan before anything is signed (`round` 0), and each re-plan | `plan`, `round` | "Checking the account" or "Plan updated" |
-| `drift` | The ledger differs from the approved plan | `action` (`abort` or `replan`), `previousPlanHash`, `planHash`, and `xlmToDestination` (`{ approved, fresh }`) when the destination would receive less | "The account changed" or "The amount fell" |
+| `drift` | The ledger differs from the approved plan | `action` (`abort` or `replan`), `previousPlanHash`, `planHash`, and `xlmToDestination` (`{ approved, fresh }`) when the fresh plan recovers less (section 8) | "The account changed" or "The amount fell" |
 | `preflight` | Before a merge that follows other transactions or whose plan says the sequence guard does not hold yet | `index`, `ok`, `detail` | Only on failure |
 | `wait` | The sequence-guard wait before a merge begins (`state: "start"`) and ends (`state: "end"`); a wait that runs out ends with a failed `preflight` instead | `reason` (`"sequence"`), `state`, `index`, `untilLedger`, `currentLedger` | "Waiting for ledger N (about S s)" |
 | `tx:building` | An envelope is being built; a rebuild raises `attempt` | `index`, `phase`, `opCount`, `attempt`, `round` | "Transaction n of m" |
@@ -264,20 +266,20 @@ On the live closes of 2026-09-28 the reserve sponsor showed `numSponsoring` 1 be
 
 `index` is 0-based within the plan of its `round`.
 
-`onReport` receives a copy of the report whenever it changes: when it is created, before each post, after each outcome and re-plan, at the end, and right before an error is thrown. Save every copy. An envelope's hash is in the report before its POST starts, so a crash, a closed tab or a lost connection cannot lose a submitted hash. Copies of an unfinished run carry `running`; the last copy carries the final status. An observer that throws does not stop the run: its error becomes a warning in the report.
+`onReport` receives a copy of the report whenever it changes: when it is created, before each post, after each outcome and re-plan, at the end, and right before an error is thrown. Save every copy. An envelope's hash is in the report before its POST starts, so a crash, a closed tab or a lost connection cannot lose a submitted hash. Copies of an unfinished run carry `running`; the last copy carries the final status. An observer that throws does not stop the run: its error becomes a warning in the report. When the promise of an async `onEvent` or `onReport` rejects after the run has finished, its warning is added and the report is published once more, so the last copy says what the returned report says (closing review CX-6). `renderReport` on a copy saved while the run is going (`status: "running"`) says "not run yet" for a step that has not run, "attributed when the run ends" for the reserves (the executor attributes them at the end) and "not read yet" for the sponsor reading after the run, instead of words for a final outcome (closing review CC-9).
 
 ## 8. Drift
 
 Drift is a difference between the ledger and the plan the user approved. Dustin looks for it in three places:
 
 - at the start, when the fresh plan's hash differs from the approved plan's;
-- at the start, when the fresh plan sends less XLM to the destination (`recovery.xlmToDestination`, compared in stroops) than the approved plan. The plan hash leaves market quotes out, so a sale whose quote got worse while the user decided shows only here (review finding BH-7). A higher amount is not drift;
+- at the start, when the fresh plan recovers less XLM than the approved plan: the account's balance plus the quoted proceeds of its sales (`recovery.nativeBalance` plus `recovery.quotedProceedsXlm`, compared in stroops). That is `recovery.xlmToDestination` when a plan merges and what the account keeps when it does not, so a worse quote is seen in an `allowPartial` run too (closing review CX-2). The plan hash leaves market quotes out, so a sale whose quote got worse while the user decided shows only here (review finding BH-7). A higher amount is not drift;
 - after every mid-run re-plan, when the re-plan found a new offer, trustline, data entry or pool share, a larger balance, an asset moving up the ladder, or a merge the approved plan did not have.
 
 Steps that already applied disappearing, and balances falling down the ladder, are not drift, even though a sale that falls to the burn lowers the proceeds.
 
-- `onDrift: "abort"` (default): the run stops with `PLAN_CHANGED`, or with `XLM_TO_DESTINATION_FELL` when only the amount fell. When the amount fell, under either code, both amounts are in `stop.xlmToDestination` and on the `drift` event. A stop at the start has submitted nothing (`aborted`; the CLI exits 3). A stop mid-run leaves the transactions already applied on the ledger (`failed`; the CLI exits 5).
-- `onDrift: "replan"`: the run continues with the fresh plan without asking anyone. A fallen amount then adds a warning that names both amounts.
+- `onDrift: "abort"` (default): the run stops with `PLAN_CHANGED`, or with `XLM_TO_DESTINATION_FELL` when only the amount fell. When the amount fell, under either code, both amounts are in `stop.xlmToDestination` and on the `drift` event, and the detail says what they measure: the XLM the destination would receive, the XLM the account would keep, or the XLM the close would recover. A fresh plan that lost the approved plan's merge is named as such ("the fresh plan no longer merges", closing review CX-3). A stop at the start has submitted nothing (`aborted`; the CLI exits 3). A stop mid-run leaves the transactions already applied on the ledger (`failed`; the CLI exits 5).
+- `onDrift: "replan"`: the run continues with the fresh plan without asking anyone. A fallen amount then adds a warning that names both amounts. A fresh plan without the merge goes on only with `allowPartial`, and its warning says the run went on as a partial close; without `allowPartial` it stops with `PLAN_NOT_CLOSABLE`, and no warning claims it went on (CX-3).
 
 A wallet should keep the default, show the new plan (`planClose` again) and ask the user again.
 
@@ -285,7 +287,7 @@ A wallet should keep the default, show the new plan (`planClose` again) and ask 
 
 A plan with status `partial` or `blocked` cannot end in a merge. With `allowPartial: true`, `executeClose` runs every transaction except the merge: offers are cancelled, balances are sold or burned, trustlines and data entries are removed, and the account stays open with the items that could not be handled. The report ends `partial` and lists them in `unclosable` and `blockers`. Without `allowPartial` the run ends before anything is signed (`PLAN_NOT_CLOSABLE`), and a re-plan that makes the close impossible mid-run stops the same way.
 
-Because a partial run burns or sells balances on an account that will remain, offer it only as a separate choice that says so. The CLI's equivalent is `--partial`.
+Because a partial run burns or sells balances on an account that will remain, offer it only as a separate choice that says so. The CLI's equivalent is `--partial`. Two live runs through the CLI on 2026-09-28 show both paths: a trustline frozen by its issuer ([`edge-frozen`](../evidence/runs/20260928T125414Z-edge-frozen/summary.md)) and two balances with no route because their issuer requires a memo ([`e3s2-partial`](../evidence/runs/20260928T125528Z-e3s2-partial/summary.md)). Without `--partial` each exited 3 and the account's sequence number did not move; with it each exited 4, ran everything else, submitted no merge, and the receipt listed the items under "Not closed" with their reason and remedy.
 
 ## 10. Continuing a stopped run
 
@@ -298,11 +300,11 @@ Some stops say when to come back:
 | `stop.code` | Run again when |
 |---|---|
 | `OUTCOME_UNKNOWN` | A ledger has closed after `stop.maxTime`: until then the envelope `stop.hash` may still apply. |
-| `SEQNUM_TOO_FAR` with `stop.unblocksAtLedger` | At or after that ledger. The executor already waits for the sequence guard within the plan's `maxWaitLedgers` and its local-clock limit (section 6.2, step 6). This stop means the wait would have been longer, or ran out, or the sequence number moved on while it waited, or the merge failed with `op_seq_num_too_far` twice. |
+| `SEQNUM_TOO_FAR` with `stop.unblocksAtLedger` | At or after that ledger. The executor already waits for the sequence guard within the plan's `maxWaitLedgers` and its local-clock limit (section 6.2, step 6). This stop means the wait would have been longer, or ran out, or the sequence number moved on while it waited, or the merge failed with `op_seq_num_too_far` twice, or no re-plan or budget was left after such a failure (closing review CX-5). |
 | `MERGE_PREFLIGHT_FAILED` | The cause in `stop.detail` is gone: something other than the guard held the merge back, such as a subentry left, a sponsorship, or a destination that is missing or now requires a memo. |
 | `XLM_TO_DESTINATION_FELL`, `PLAN_CHANGED` | The user has seen and approved the new plan (section 8). |
 | `RETRY_LIMIT`, `FEE_LIMIT`, `OVER_BUDGET` | Network fees fall, or with a larger `budgetStroops` or `maxBaseFeeStroops`. |
-| `STEP_FAILED_TWICE`, `OPERATION_FAILED`, `TRANSACTION_REJECTED`, `REPLAN_LIMIT` | The cause in `stop.detail` is fixed, or with `allowPartial` to leave the item in place. |
+| `STEP_FAILED_TWICE`, `OPERATION_FAILED`, `TRANSACTION_REJECTED`, `REPLAN_LIMIT` | The cause in `stop.detail` is resolved, or has settled. `allowPartial` does not skip a step that failed twice: the next plan includes it again (review round 3, R3-5). When the two failures had different codes, the blocker names each in order (closing review CX-4). |
 | `SEQUENCE_CONFLICT` | No other client is submitting for the account. |
 | `ACCOUNT_MISSING` | Never: Horizon answered 404, so if an earlier run merged the account, the close is complete. |
 
@@ -372,12 +374,12 @@ The plan's `unclosable` and `blockers` codes, with their meaning and remedy, are
    - what the sponsor can spend, and the transactions and operations.
 
    The question is asked only when standard input, standard error (which carries the question) and the stream that carried the plan and the summary (standard output, or standard error with `--json`) are all terminals. Otherwise the run ends unconfirmed with exit code 3, and the message names the stream that is not a terminal (review round 3, R3-28, R3-31). A wrong answer, an empty answer, the end of input or Ctrl-C also leave everything untouched (exit 3). `--yes` skips the question for scripts and says so loudly; it is honoured only with `--execute`.
-6. Runs the plan through `executeClose`, which plans again after the answer. If a quote got worse in the meantime and the destination would receive less than the summary said, the run stops with exit code 3 and signs nothing; the progress line names both amounts (`XLM_TO_DESTINATION_FELL`). Every transaction is signed by the account and fee-bumped by the sponsor. Each one prints its hash and explorer link when it is submitted, then its ledger and the fee charged to the sponsor when it is confirmed, or its result codes when it fails. A merge held back by the sequence guard prints the start of the wait (the ledger it can land from, the latest ledger, about how long to go) and its end (the ledger that closed).
+6. Runs the plan through `executeClose`, which plans again after the answer. If a quote got worse in the meantime and the close would recover less than the summary said (the XLM the destination would receive or, in a plan without a merge, the XLM the account would keep), the run stops with exit code 3 and signs nothing; the progress line names both amounts (`XLM_TO_DESTINATION_FELL`). Every transaction is signed by the account and fee-bumped by the sponsor. Each one prints its hash and explorer link when it is submitted, then its ledger and the fee charged to the sponsor when it is confirmed, or its result codes when it fails. A merge held back by the sequence guard prints the start of the wait (the ledger it can land from, the latest ledger, about how long to go) and its end (the ledger that closed).
 7. Checks the account on Horizon (404 means it no longer exists) and prints a receipt:
    - every transaction with its outer and inner hash, ledger, fee and operations;
    - the XLM merged into the destination, and "Reserves released to sponsors" with each reserve sponsor's planned reserve and the `num_sponsoring`, minimum balance and XLM balance observed on Horizon before and after;
    - the fees paid by the account (0) and by the sponsor;
-   - a Disposals section with what became of each leftover balance: sold, burned by the return to its issuer, or sent to the destination, in which transaction, and which rung failed first after a fall down the ladder;
+   - a Disposals section with what became of each leftover balance: sold, burned by the return to its issuer, or sent to the destination, in which transaction, and, after a fall down the ladder, each rung that failed, in order, with its own code (closing review CC-8). While a merge envelope's outcome is not known, a sale's XLM is said to leave with the merge if that envelope applies, and the result says the merge has no known outcome (closing review CC-10);
    - a "Not closed" section with each unclosable item, the rungs ruled out and the remedy;
    - explorer links for the account and the destination.
 
@@ -388,7 +390,8 @@ Details of the options:
 - Without `--execute`, `dustin close` prints the same plan as `dustin plan` and changes nothing; `--yes`, `--partial` and `--report` then have no effect, and a note on standard error says so.
 - `--sponsor <G...>`: with `--execute` it must be the owner of `DUSTIN_SPONSOR_SECRET` (otherwise `WRONG_SIGNER`, exit 2); leave it out and the sponsor is that owner.
 - `--base-fee <stroops>`: with `--execute` it is both the bid and the ceiling: every re-plan keeps it, and a retry after `tx_insufficient_fee` cannot bid above it, so the run stops instead. Without it, a retry after a fee surge may raise the bid up to the per-operation cap, never beyond the 5 XLM budget.
-- `--json`: one JSON document on standard output, the plan or, with `--execute`, the final close report; the plan, the question, the progress and the receipt go to standard error. Progress as newline-delimited JSON events, and a non-interactive `--json`, are deferred to story E4-S1 (review finding AA-10).
+- `--json`: exactly one JSON document on standard output, in every case, once the plan was shown: the close report once the executor has one, and otherwise the plan (`kind: "dustin-close-plan"`) that was refused or could not run: a refused or unaskable confirmation, a `--report` refusal, a failed sponsor read, Horizon failing before the executor's first copy, or a budget or sponsor refusal. The exit code stays that of the refusal or the error (closing review CC-2). The plan, the question, the progress and the receipt go to standard error. Progress as newline-delimited JSON events, and a non-interactive `--json`, are deferred to story E4-S1 (review finding AA-10).
+- Standard output closed early (for example `dustin close ... | head`): the rest of the output goes to standard error, in order, after one notice ("dustin: standard output was closed; the rest of the output goes to standard error."), starting with the chunk that hit the broken pipe, so no hash, receipt or report is lost (closing review CC-1).
 - `--report <file>`: the close report (JSON with public keys, hashes and envelopes; never a secret), rewritten after every change so a stopped run still has every hash. An existing file at that path is kept under a timestamped name. A file named `.env` in any letter case (also `.env.<suffix>`), and any path that is the working directory's `.env` through a symbolic or hard link, is refused (review round 3, R3-26).
 
 The secrets come from `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` in the environment, else from `.env` in the working directory, and only `dustin close --execute` reads them; a value on the command line is refused (exit 2) without being echoed. `DUSTIN_HORIZON_URL` and `DUSTIN_EXPLORER_BASE` come from the environment only.
