@@ -554,6 +554,11 @@ describe("CP-9: a Horizon failure after the build submitted keeps the manifest a
     });
     expect(wrapped.remedy).toContain("The build stopped after 3 of its transactions applied");
     expect(exitCodeFor(wrapped)).toBe(ExitCode.STOPPED);
+    const first = afterSubmission(original, { submitted: 1, applied: 0 }) as DustinError;
+    expect(first.remedy).toBe(
+      "The build stopped after it submitted a transaction that did not apply; the keys are saved.",
+    );
+    expect(exitCodeFor(first)).toBe(ExitCode.STOPPED);
   });
 
   it("exitCodeFor: an error after a submission is 5, whatever its code or stage", () => {

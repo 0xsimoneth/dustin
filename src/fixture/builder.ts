@@ -156,7 +156,9 @@ export function afterSubmission(error: unknown, progress: BuildProgress): unknow
     verdict: error.verdict,
     remedy:
       (error.remedy ? `${error.remedy} ` : "") +
-      `The build stopped after ${progress.applied} of its transactions applied (their hashes are in the build log); the keys are saved.`,
+      (progress.applied > 0
+        ? `The build stopped after ${progress.applied} of its transactions applied (their hashes are in the build log); the keys are saved.`
+        : "The build stopped after it submitted a transaction that did not apply; the keys are saved."),
     details: {
       ...error.details,
       transactionsSubmitted: progress.submitted,
