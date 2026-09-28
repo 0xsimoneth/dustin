@@ -9,13 +9,15 @@ const { version } = require("../../package.json") as { version: string };
 
 // No `.env` is loaded into the process here (review R7): only `dustin close --execute` reads it,
 // and it takes nothing from it but DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET.
-process.exitCode = await run(
-  process.argv,
-  { stdout: guardedWriter(process.stdout), stderr: guardedWriter(process.stderr) },
-  version,
-  {
-    env: process.env,
-    cwd: process.cwd(),
-    prompt: terminalPrompt({ input: process.stdin, output: process.stderr }),
-  },
-);
+// If standard output is closed early (`dustin close ... | head`), the rest of it goes to standard
+// error after a notice, so no hash, receipt or report is lost without a trace.
+const stderr = guardedWriter(process.stderr);
+const stdout = guardedWriter(process.stdout, {
+  fallback: stderr,
+  notice: "dustin: standard output was closed; the rest of the output goes to standard error.\n",
+});
+process.exitCode = await run(process.argv, { stdout, stderr }, version, {
+  env: process.env,
+  cwd: process.cwd(),
+  prompt: terminalPrompt({ input: process.stdin, output: process.stderr }),
+});
