@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { exitCodeForReport } from "../../../src/cli/exit-codes.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
+import {
+  MAX_TIMEOUT_SECONDS,
+  MAX_VERIFY_TIMEOUT_MS,
+  validateExecuteOptions,
+} from "../../../src/execute/options.js";
 import { ledgerWaitLimitMs, waitForLedger } from "../../../src/execute/preflight.js";
 import type { CloseReport } from "../../../src/execute/report.js";
 import { submitAndConfirm, type Submitter } from "../../../src/execute/submit.js";
@@ -649,5 +654,52 @@ describe("CX-8: every pause is clipped to the time left in its wait, never below
     });
     expect(v.accountExists).toBe(true);
     expect(clock.sleeps).toEqual([30_000]);
+  });
+});
+
+describe("CX-9: the grace, the ledger wait and verifyTimeoutMs are bounded like the time window", () => {
+  const refused: Array<[string, number]> = [
+    // The review's probe: about 31,700 years each.
+    ["graceSeconds", 1e12],
+    ["ledgerWaitSeconds", 1e12],
+    ["verifyTimeoutMs", 1e15],
+    // One above the bound, and a value that made maxWaitSeconds overflow to Infinity (CB-5).
+    ["graceSeconds", MAX_TIMEOUT_SECONDS + 1],
+    ["ledgerWaitSeconds", MAX_TIMEOUT_SECONDS + 1],
+    ["verifyTimeoutMs", MAX_VERIFY_TIMEOUT_MS + 1],
+    ["graceSeconds", Number.MAX_VALUE],
+  ];
+
+  it.each(refused)("refuses %s = %s up front with CONFIG_INVALID", (name, value) => {
+    expect(() => validateExecuteOptions({ [name]: value })).toThrow(
+      expect.objectContaining({ code: "CONFIG_INVALID", stage: "config" }) as Error,
+    );
+  });
+
+  it("accepts each bound itself: an hour of grace, of ledger wait and of verification", () => {
+    expect(MAX_TIMEOUT_SECONDS).toBe(3600);
+    expect(MAX_VERIFY_TIMEOUT_MS).toBe(3_600_000);
+    expect(() =>
+      validateExecuteOptions({
+        graceSeconds: MAX_TIMEOUT_SECONDS,
+        ledgerWaitSeconds: MAX_TIMEOUT_SECONDS,
+        verifyTimeoutMs: MAX_VERIFY_TIMEOUT_MS,
+      }),
+    ).not.toThrow();
+  });
+
+  it("refuses them in executeClose before anything is read or signed", async () => {
+    let requests = 0;
+    const { ledger, deps, plan } = harness((_l, fetch) => (url, init) => {
+      requests += 1;
+      return fetch(url, init);
+    });
+    const approved = await plan();
+    const before = requests;
+    await expect(
+      executeClose(approved, signers(), { confirm: true, ...deps, ledgerWaitSeconds: 1e12 }),
+    ).rejects.toMatchObject({ code: "CONFIG_INVALID", stage: "config" });
+    expect(requests).toBe(before);
+    expect(ledger.submissions).toHaveLength(0);
   });
 });

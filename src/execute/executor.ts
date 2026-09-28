@@ -108,7 +108,10 @@ export interface ExecuteOptions {
    * most 2^31 - 1 (Node's timer limit).
    */
   pollIntervalMs?: number;
-  /** How long to keep looking for an unconfirmed envelope after its time bound; default 10 s. */
+  /**
+   * How long to keep looking for an unconfirmed envelope after its time bound; default 10 s, at
+   * most 3600 (closing review CX-9).
+   */
   graceSeconds?: number;
   /** Re-plans allowed after operations failed on the ledger; default 3 (architecture 7.2). */
   maxReplans?: number;
@@ -121,7 +124,10 @@ export interface ExecuteOptions {
    * and the doubled pause never goes beyond that limit either.
    */
   backoffMs?: number;
-  /** How long the final check waits for Horizon to answer 404 after a merge; default 30 s. */
+  /**
+   * How long the final check waits for Horizon to answer 404 after a merge; default 30 s, at most
+   * one hour (3,600,000 ms; closing review CX-9).
+   */
   verifyTimeoutMs?: number;
   /**
    * Waits between lookups and retries; default a timer. Pauses are at least 200 ms and never 0
@@ -135,7 +141,8 @@ export interface ExecuteOptions {
   now?: () => number;
   /**
    * How long to wait, beyond an unconfirmed envelope's time bound and the grace, for a ledger that
-   * closed after the bound; after it the run stops with OUTCOME_UNKNOWN. Default 60 s.
+   * closed after the bound; after it the run stops with OUTCOME_UNKNOWN. Default 60 s, at most 3600
+   * (closing review CX-9).
    */
   ledgerWaitSeconds?: number;
 }
