@@ -1,5 +1,5 @@
 import { assertTestnetPassphrase, resolveConfig, type DustinConfig } from "../config/network.js";
-import { MIN_PAUSE_MS, assertPause, timerSleep, type Sleep } from "../config/pauses.js";
+import { assertPause, clipPause, timerSleep, type Sleep } from "../config/pauses.js";
 import { DustinError } from "../errors/dustin-error.js";
 import { assertAccountAddress } from "../inspect/address.js";
 import { horizonJson } from "../reader/horizon-json.js";
@@ -70,6 +70,6 @@ export async function verifyClosed(
     };
     if (!result.accountExists || now() >= deadline) return result;
     // Never past the timeout by a whole pause, never below the 200 ms floor (closing review CX-8).
-    await sleep(Math.max(MIN_PAUSE_MS, Math.min(options.intervalMs ?? 2_000, deadline - now())));
+    await sleep(clipPause(options.intervalMs ?? 2_000, deadline - now()));
   }
 }

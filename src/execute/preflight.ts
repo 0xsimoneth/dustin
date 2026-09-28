@@ -1,4 +1,4 @@
-import { MIN_PAUSE_MS, assertPause, type Sleep } from "../config/pauses.js";
+import { assertPause, clipPause, type Sleep } from "../config/pauses.js";
 import { DustinError } from "../errors/dustin-error.js";
 import { destinationBaseAccount } from "../inspect/address.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
@@ -202,8 +202,6 @@ export async function waitForLedger(
     }
     // Never past the limit by a whole pause: the pause is clipped to the time left, and never
     // below the 200 ms floor (closing review CX-8).
-    await options.sleep(
-      Math.max(MIN_PAUSE_MS, Math.min(options.pollIntervalMs, options.limitMs - waitedMs)),
-    );
+    await options.sleep(clipPause(options.pollIntervalMs, options.limitMs - waitedMs));
   }
 }

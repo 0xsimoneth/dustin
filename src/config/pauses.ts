@@ -27,6 +27,17 @@ export const timerSleep: Sleep = (ms) =>
   new Promise<void>((resolve) => setTimeout(resolve, Math.min(ms, MAX_PAUSE_MS)));
 
 /**
+ * A pause of a bounded wait: `pauseMs`, but never longer than the time left in the wait
+ * (`leftMs`), so one long pause cannot outlast the wait's bound, and never below `MIN_PAUSE_MS`,
+ * so the clip can never make a tight loop. A time left that is not a finite number leaves the
+ * pause as it is (closing review CX-8).
+ */
+export function clipPause(pauseMs: number, leftMs: number): number {
+  if (!Number.isFinite(leftMs)) return pauseMs;
+  return Math.max(MIN_PAUSE_MS, Math.min(pauseMs, leftMs));
+}
+
+/**
  * True for a pause Dustin accepts: a finite number of milliseconds from `MIN_PAUSE_MS` to
  * `MAX_PAUSE_MS`.
  */

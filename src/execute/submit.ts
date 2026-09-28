@@ -1,4 +1,4 @@
-import { MIN_PAUSE_MS, assertPause, timerSleep, type Sleep } from "../config/pauses.js";
+import { assertPause, clipPause, timerSleep, type Sleep } from "../config/pauses.js";
 import type { FetchLike } from "../reader/horizon-json.js";
 import { feeChargedFromResultXdr, resultCodesFromXdr, type ResultCodes } from "./result-codes.js";
 
@@ -421,11 +421,10 @@ async function confirmByLocalClock(
 
 /**
  * A pause of the wait for an envelope: `pollIntervalMs`, but never longer than the time left in
- * the wait (`leftSeconds`), so a long pause cannot outlast the wait's bound, and never below the
- * 200 ms floor (closing review CX-8).
+ * the wait (`leftSeconds`) and never below the 200 ms floor (`clipPause`, closing review CX-8).
  */
 function clippedPause(pollIntervalMs: number | undefined, leftSeconds: number): number {
-  return Math.max(MIN_PAUSE_MS, Math.min(pollIntervalMs ?? 2000, leftSeconds * 1000));
+  return clipPause(pollIntervalMs ?? 2000, leftSeconds * 1000);
 }
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { exitCodeForReport } from "../../../src/cli/exit-codes.js";
+import { clipPause } from "../../../src/config/pauses.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import {
   MAX_TIMEOUT_SECONDS,
@@ -662,6 +663,44 @@ describe("CX-8: every pause is clipped to the time left in its wait, never below
     });
     expect(v.accountExists).toBe(true);
     expect(clock.sleeps).toEqual([30_000]);
+  });
+
+  it("clips to the time left, never below 200 ms, and never to a pause that is not a number", () => {
+    expect(clipPause(2000, 30_000)).toBe(2000);
+    expect(clipPause(HOUR, 30_000)).toBe(30_000);
+    expect(clipPause(2000, 150)).toBe(200);
+    expect(clipPause(2000, -5)).toBe(200);
+    // A clock that gives no time must not make a pause of NaN, which a timer fires at once.
+    expect(clipPause(2000, Number.NaN)).toBe(2000);
+    expect(clipPause(2000, Number.POSITIVE_INFINITY)).toBe(2000);
+  });
+
+  it("keeps whole pauses in a wait whose clock stops giving time", async () => {
+    const sleeps: number[] = [];
+    let reads = 0;
+    let started = false;
+    const waited = await waitForLedger(
+      {
+        latestLedger: () => Promise.resolve({ ...LEDGER, sequence: 100 + (reads++ >= 3 ? 1 : 0) }),
+      },
+      101,
+      {
+        pollIntervalMs: 2000,
+        limitMs: 30_000,
+        sleep: (ms) => {
+          sleeps.push(ms);
+          return Promise.resolve();
+        },
+        // A valid start, then no time at all.
+        now: () => {
+          if (started) return Number.NaN;
+          started = true;
+          return 0;
+        },
+      },
+    );
+    expect(waited.reached).toBe(true);
+    expect(sleeps).toEqual([2000, 2000, 2000]);
   });
 });
 
