@@ -68,7 +68,13 @@ describe("buildEdgeFixture key handover", () => {
         ),
       );
     await expect(
-      buildEdgeFixture({ fetch: fakeFetch, sleep: noSleep, onKeys: (k) => received.push(k) }),
+      buildEdgeFixture({
+        fetch: fakeFetch,
+        sleep: noSleep,
+        onKeys: (k) => {
+          received.push(k);
+        },
+      }),
     ).rejects.toBeInstanceOf(DustinError);
     expect(received).toEqual([]);
   });

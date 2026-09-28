@@ -29,6 +29,10 @@ export function exitCodeFor(error: DustinError): ExitCode {
   // An error that carries a report with a submitted transaction stopped a run midway: whatever its
   // code or stage, something reached the network, so it is never "nothing was submitted".
   if (error.report && error.report.transactions.length > 0) return ExitCode.STOPPED;
+  // The same for a fixture build that stopped after its first submission, which says so in
+  // `details.transactionsSubmitted` (closing review CP-9).
+  const submitted = error.details?.transactionsSubmitted;
+  if (typeof submitted === "number" && submitted > 0) return ExitCode.STOPPED;
   switch (error.code) {
     case "CONFIG_INVALID":
     case "MAINNET_REFUSED":

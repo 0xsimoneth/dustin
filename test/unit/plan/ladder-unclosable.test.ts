@@ -67,7 +67,7 @@ describe("AC-E3-S2-3 (planner): an item no route can dispose of", () => {
       expect(item.remedy).toMatch(/^Make one route possible, then run the plan again: /);
       expect(item.remedy).toContain(`pass the memo that issuer ${messy.issuer} requires (--memo`);
       expect(item.remedy).toContain(
-        `open a ${code} trustline on the destination ${messy.destination}`,
+        `open a ${code}:${messy.issuer} trustline on the destination account ${messy.destination}`,
       );
       expect(item.remedy).toContain(`a market that buys ${code} for XLM`);
     }

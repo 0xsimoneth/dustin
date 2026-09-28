@@ -38,6 +38,7 @@ import { hashHex, wrapInFeeBump } from "../sponsor/fee-bump.js";
 import type { FixtureKeys, FixtureManifest } from "./manifest.js";
 import {
   MESSY,
+  MESSY_ROLES,
   messyAsset,
   messySteps,
   type MessyAsset,
@@ -59,9 +60,11 @@ export interface BuildOptions {
   fetch?: FetchLike;
   /**
    * Receives the new secret keys before any account is funded, so a build that stops halfway
-   * still leaves the keys to every account it touched. Must store them before returning.
+   * still leaves the keys to every account it touched. Must store them before it returns or its
+   * promise resolves; the build waits for it, and a store that fails stops the build before
+   * anything is funded (closing review CP-12).
    */
-  onKeys?: (keys: FixtureKeys) => void;
+  onKeys?: (keys: FixtureKeys) => void | Promise<void>;
 }
 
 export interface RecordedResponse {
@@ -76,15 +79,6 @@ export interface BuildResult {
   /** Raw Horizon JSON of the finished fixture, for offline planner tests. */
   recorded: Record<string, RecordedResponse>;
 }
-
-const ROLES: MessyRole[] = [
-  "sponsor",
-  "reserveSponsor",
-  "issuer",
-  "marketMaker",
-  "destination",
-  "fixture",
-];
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -141,12 +135,56 @@ export function stepError(
   );
 }
 
+/** How far a build got: its transactions submitted and applied. */
+export interface BuildProgress {
+  submitted: number;
+  applied: number;
+}
+
+/**
+ * The error of a build that had already submitted a transaction. The ledger changed, so the error
+ * must not read as "nothing was submitted" (exit 6) or as an unexpected error (exit 1): it keeps
+ * its code and message and gains the counts in `details`, which the CLI maps to exit 5 (closing
+ * review CP-9). An error before the first submission, or one that is not a DustinError, is
+ * returned as it is.
+ */
+export function afterSubmission(error: unknown, progress: BuildProgress): unknown {
+  if (progress.submitted === 0 || !(error instanceof DustinError)) return error;
+  return new DustinError(error.code, error.message, {
+    stage: error.stage,
+    retryable: error.retryable,
+    verdict: error.verdict,
+    remedy:
+      (error.remedy ? `${error.remedy} ` : "") +
+      (progress.applied > 0
+        ? `The build stopped after ${progress.applied} of its transactions applied (their hashes are in the build log); the keys are saved.`
+        : "The build stopped after it submitted a transaction that did not apply; the keys are saved."),
+    details: {
+      ...error.details,
+      transactionsSubmitted: progress.submitted,
+      transactionsApplied: progress.applied,
+    },
+    ...(error.horizon ? { horizon: error.horizon } : {}),
+    cause: error,
+  });
+}
+
 /**
  * Builds a fresh `messy` fixture on testnet from Friendbot funding alone, drains it to exactly its
  * minimum balance and verifies it. Every call creates new keys, so it is repeatable after a testnet
- * reset (docs/README.md canonical decision 12).
+ * reset (docs/README.md canonical decision 12). An error after the first submission carries the
+ * transaction counts (`afterSubmission`).
  */
 export async function buildMessyFixture(options: BuildOptions = {}): Promise<BuildResult> {
+  const progress: BuildProgress = { submitted: 0, applied: 0 };
+  try {
+    return await buildMessy(options, progress);
+  } catch (error) {
+    throw afterSubmission(error, progress);
+  }
+}
+
+async function buildMessy(options: BuildOptions, progress: BuildProgress): Promise<BuildResult> {
   const config = resolveConfig(options.config);
   const log = options.log ?? (() => undefined);
   const createdAt = (options.now ?? (() => new Date()))();
@@ -158,26 +196,31 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
   });
   const client = horizonJson(config.horizonUrl, { fetch: doFetch });
   const submitter = horizonSubmitter(config.horizonUrl, { fetch: doFetch });
-  const keypairs = Object.fromEntries(ROLES.map((r) => [r, Keypair.random()])) as Record<
+  const keypairs = Object.fromEntries(MESSY_ROLES.map((r) => [r, Keypair.random()])) as Record<
     MessyRole,
     Keypair
   >;
-  const roles = Object.fromEntries(ROLES.map((r) => [r, keypairs[r].publicKey()])) as MessyRoles;
+  const roles = Object.fromEntries(
+    MESSY_ROLES.map((r) => [r, keypairs[r].publicKey()]),
+  ) as MessyRoles;
   const id = fixtureId(createdAt);
   const keys: FixtureKeys = {
     schemaVersion: 1,
     kind: "dustin-fixture-keys",
     id,
     note: "Testnet secret keys for this fixture. Never commit this file.",
-    secrets: Object.fromEntries(ROLES.map((r) => [r, keypairs[r].secret()])) as Record<
+    secrets: Object.fromEntries(MESSY_ROLES.map((r) => [r, keypairs[r].secret()])) as Record<
       MessyRole,
       string
     >,
   };
-  options.onKeys?.(keys);
+  await options.onKeys?.(keys);
 
   log(`Funding the fee sponsor ${roles.sponsor} from Friendbot`);
-  await friendbot(options.friendbotUrl ?? FRIENDBOT_URL, roles.sponsor, doFetch);
+  await friendbot(options.friendbotUrl ?? FRIENDBOT_URL, roles.sponsor, doFetch, {
+    horizonUrl: config.horizonUrl,
+  });
+  await awaitFunded(client, roles.sponsor, 30_000, sleep);
   const createdAtLedger = (await latestLedger(client)).sequence;
   const baseFee = baseFeeFromFeeStats(await server.feeStats());
   log(
@@ -216,12 +259,14 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
     const envelope = step.feeBumped
       ? wrapInFeeBump(inner, keypairs.sponsor, baseFee, config.networkPassphrase)
       : inner;
+    progress.submitted += 1;
     const outcome = await submitAndConfirm(submitter, {
       xdr: envelope.toXDR(),
       hash: hashHex(envelope),
       maxTime: Number(inner.timeBounds?.maxTime ?? 0),
     });
     if (outcome.kind !== "applied") throw stepError(step.name, outcome);
+    progress.applied += 1;
     record(step.name, envelope, outcome.ledger, step.feeBumped ? inner : undefined);
   };
 
@@ -341,13 +386,27 @@ async function mustGetAccount(client: HorizonJsonClient, id: string): Promise<Ho
   return account;
 }
 
-/** Funds a fresh testnet account from Friendbot, with three tries. `wait` pauses between tries. */
+export interface FriendbotOptions {
+  /** Pauses between tries; default a timer. */
+  sleep?: (ms: number) => Promise<unknown>;
+  /**
+   * Horizon to ask, after a try that failed, whether the account exists. A try can fund the
+   * account and still fail here (a timeout, a reset connection); every later try is then refused,
+   * because Friendbot funds with CreateAccount, which fails for an account that exists
+   * (https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#create-account;
+   * closing review CP-8).
+   */
+  horizonUrl?: string;
+}
+
+/** Funds a fresh testnet account from Friendbot, with three tries. */
 export async function friendbot(
   url: string,
   publicKey: string,
   doFetch: FetchLike,
-  wait: (ms: number) => Promise<unknown> = sleep,
+  options: FriendbotOptions = {},
 ): Promise<void> {
+  const wait = options.sleep ?? sleep;
   let problem = "";
   for (let attempt = 0; attempt < 3; attempt++) {
     if (attempt > 0) await wait(2000 * attempt);
@@ -360,6 +419,9 @@ export async function friendbot(
     } catch {
       problem = "unreachable";
     }
+    if (options.horizonUrl && (await accountExists(options.horizonUrl, publicKey, doFetch))) {
+      return;
+    }
   }
   throw new DustinError("FRIENDBOT_FAILED", `Friendbot could not fund ${publicKey} (${problem}).`, {
     stage: "build",
@@ -367,6 +429,68 @@ export async function friendbot(
     verdict: "retry-same",
     remedy: "Friendbot is rate limited; wait a minute and run the command again.",
   });
+}
+
+/**
+ * Reads an account from Horizon until `ready` holds for what it shows, pausing 1 s between reads,
+ * for at most `timeoutMs`; null when it never does. Horizon instances behind one address can lag
+ * the ledger and each other (edge case E5), so one read after a funding or a transaction proves
+ * nothing (closing review CP-10). A read that fails throws, as every Horizon read does.
+ */
+export async function pollAccount(
+  client: HorizonJsonClient,
+  id: string,
+  ready: (account: HorizonAccount | null) => boolean,
+  timeoutMs: number,
+  pause: (ms: number) => Promise<unknown>,
+): Promise<HorizonAccount | null> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const account = await client.get<HorizonAccount>(`/accounts/${id}`);
+    if (ready(account)) return account;
+    if (Date.now() > deadline) return null;
+    await pause(1000);
+  }
+}
+
+/** Waits until Horizon shows the account Friendbot funded (closing review CP-10). */
+export async function awaitFunded(
+  client: HorizonJsonClient,
+  publicKey: string,
+  timeoutMs: number,
+  pause: (ms: number) => Promise<unknown>,
+): Promise<void> {
+  if (await pollAccount(client, publicKey, (a) => a !== null, timeoutMs, pause)) return;
+  throw new DustinError(
+    "FRIENDBOT_FAILED",
+    `Friendbot answered, but Horizon did not show ${publicKey} within ${timeoutMs / 1000} s.`,
+    {
+      stage: "build",
+      retryable: true,
+      verdict: "retry-same",
+      remedy: "Wait a minute and run the command again.",
+    },
+  );
+}
+
+/**
+ * Whether Horizon shows the account: true on HTTP 200 only. A 404, another status or no answer
+ * proves nothing either way, and the Friendbot loop tries again.
+ */
+async function accountExists(
+  horizonUrl: string,
+  publicKey: string,
+  doFetch: FetchLike,
+): Promise<boolean> {
+  try {
+    const response = await doFetch(`${horizonUrl}/accounts/${publicKey}`, {
+      headers: { accept: "application/json" },
+      signal: AbortSignal.timeout(30_000),
+    });
+    return response.status === 200;
+  } catch {
+    return false;
+  }
 }
 
 /**

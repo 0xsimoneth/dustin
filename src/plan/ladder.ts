@@ -49,13 +49,18 @@ export function chooseRung(
   const issuer = line.asset.issuer;
   if (!line.authorized) {
     const maintain = line.authorizedToMaintainLiabilities;
+    // A clawback needs the trustline's clawback flag, which only a trustline created after its
+    // issuer set AUTH_CLAWBACK_ENABLED has and nothing can set later
+    // (https://developers.stellar.org/docs/build/guides/transactions/clawbacks#set-trust-line-flag;
+    // closing review CP-7).
+    const clawback = line.clawbackEnabled ? " or to claw the balance back" : "";
     return {
       ok: false,
       code: maintain ? "MAINTAIN_LIABILITIES_ONLY" : "TRUSTLINE_NOT_AUTHORIZED",
       reason: maintain
         ? `Issuer ${issuer} has limited the ${code} trustline to maintaining liabilities, so the balance of ${line.balance} ${code} cannot be sent anywhere, not even back to the issuer.`
         : `Issuer ${issuer} has not authorized the ${code} trustline (or revoked it), so the balance of ${line.balance} ${code} cannot be sent anywhere, not even back to the issuer.`,
-      remedy: `Ask the issuer ${issuer} to authorize the trustline again (SetTrustLineFlags) or to claw the balance back, then run the plan again.`,
+      remedy: `Ask the issuer ${issuer} to authorize the trustline again (SetTrustLineFlags)${clawback}, then run the plan again.`,
       ruledOut: [],
     };
   }
@@ -134,17 +139,19 @@ function evaluatePathPayment(
       (o) => assetKey(o.selling) === to && assetKey(o.buying) === from,
     );
     if (own) {
+      // The plan's cleanup cancels the offer, so a partial run reopens the rung: the next plan
+      // quotes the market without it (closing review CP-6).
       return {
         viable: false,
         reason: `the quoted path may use this account's own offer ${own.id}, which the plan cancels first`,
-        fix: noMarket,
+        fix: `cancel this account's own offer ${own.id} with a --partial run (if no other market buys ${code} for XLM once it is gone, wait for one)`,
       };
     }
   }
   const quoted = toStroops(quote.destinationAmount);
   // The protocol cannot deliver less than 1 stroop, so such a quote is no path (AC-E3-S1-3). The
-  // inspector already drops these quotes (src/inspect/inspect.ts, bestQuote); this keeps a snapshot
-  // built elsewhere and handed to planFromSnapshot from planning a sale that must fail.
+  // inspector keeps it (src/inspect/inspect.ts, bestQuote) so that this branch decides and the
+  // plan says why (closing review CP-5).
   if (quoted < 1n) {
     return {
       viable: false,
@@ -213,11 +220,13 @@ function evaluateDestination(
       fix: "pass the memo the destination requires (--memo; SEP-29)",
     };
   const t = d.trustlines.find((x) => assetKey(x.asset) === assetKey(line.asset));
+  // Trustlines live on the base G account behind a muxed address, and a code alone does not say
+  // which issuer's asset (closing review CP-15).
   if (!t)
     return {
       viable: false,
       reason: `the destination holds no ${code} trustline`,
-      fix: `open a ${code} trustline on the destination ${d.account}, or close into a destination that holds one`,
+      fix: `open a ${assetKey(line.asset)} trustline on the destination account ${d.baseAccount}, or close into a destination that holds one`,
     };
   if (!t.authorized)
     return {

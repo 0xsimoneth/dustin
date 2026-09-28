@@ -101,13 +101,20 @@ export async function fixtureCreate(
 /**
  * Profile `edge` (docs/README.md canonical decision 3): one throwaway account per D3 matrix variant,
  * written like the messy profile: the keys file first, then the public manifest and the recorded
- * Horizon JSON under `<dir>/<id>/`.
+ * Horizon JSON under `<dir>/<id>/`. The manifest is written as soon as the last build transaction
+ * settled, and again once verified; when Horizon fails after that, the command says how to verify
+ * the fixture and exits 5 (closing review CP-9).
  */
 async function fixtureCreateEdge(
   options: { dir: string; out?: string; json?: boolean },
   ctx: CommandContext,
 ): Promise<ExitCode> {
-  const { manifest, recorded } = await buildEdgeFixture({
+  const manifestPath = (id: string) => join(options.dir, id, "manifest.json");
+  const writeManifest = (manifest: EdgeFixtureManifest) => {
+    mkdirSync(join(options.dir, manifest.id, "horizon"), { recursive: true, mode: 0o700 });
+    writeFileSync(manifestPath(manifest.id), json(manifest));
+  };
+  const { manifest, recorded, readFailure } = await buildEdgeFixture({
     config: ctx.config(),
     ...(ctx.fetch ? { fetch: ctx.fetch } : {}),
     ...(ctx.horizon?.sleep ? { sleep: ctx.horizon.sleep } : {}),
@@ -117,10 +124,14 @@ async function fixtureCreateEdge(
       const path = writeFixtureKeys(options.dir, keys);
       ctx.io.stderr(`Secret keys saved to ${path} (mode 600, testnet only, never commit)\n`);
     },
+    // Stored before Horizon is read again, so a failed read keeps the fixture's manifest.
+    onManifest: (built) => {
+      writeManifest(built);
+      ctx.io.stderr(`Manifest saved to ${manifestPath(built.id)}; verifying\n`);
+    },
   });
   const dir = join(options.dir, manifest.id);
-  mkdirSync(join(dir, "horizon"), { recursive: true, mode: 0o700 });
-  writeFileSync(join(dir, "manifest.json"), json(manifest));
+  writeManifest(manifest);
   for (const [key, response] of Object.entries(recorded)) {
     writeFileSync(join(dir, "horizon", `${key}.json`), json(response));
   }
@@ -133,7 +144,7 @@ async function fixtureCreateEdge(
         `Fixture ${manifest.id} (profile edge) on testnet`,
         `  destination  ${manifest.accounts.destination}`,
         `  fee sponsor  ${manifest.accounts.sponsor}`,
-        `  pool         ${manifest.pool.id} (${manifest.pool.shares} shares held by pool-share)`,
+        `  pool         ${manifest.pool.id} (${manifest.pool.shares ?? "unknown"} shares held by pool-share)`,
         ...renderEdgeVariants(manifest),
         `  manifest     ${join(dir, "manifest.json")}`,
         `  secret keys  ${join(dir, "keys.json")} (mode 600, testnet only, never commit)`,
@@ -141,6 +152,14 @@ async function fixtureCreateEdge(
         renderVerify(manifest.verification),
       ].join("\n"),
     );
+  }
+  if (readFailure) {
+    // Every build transaction applied; only a read after them failed (exit 5: re-run to continue).
+    ctx.io.stderr(
+      `dustin: ${readFailure.code}: ${readFailure.message}\n` +
+        `  The fixture was built and its manifest saved${Object.keys(recorded).length > 0 ? "; the Horizon recording is incomplete" : ", without the Horizon recording"}. Check it with: dustin fixture verify ${manifestPath(manifest.id)}\n`,
+    );
+    return ExitCode.STOPPED;
   }
   return manifest.verification.pass ? ExitCode.OK : ExitCode.UNEXPECTED;
 }
