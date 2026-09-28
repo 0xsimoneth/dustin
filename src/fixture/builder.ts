@@ -38,6 +38,7 @@ import { hashHex, wrapInFeeBump } from "../sponsor/fee-bump.js";
 import type { FixtureKeys, FixtureManifest } from "./manifest.js";
 import {
   MESSY,
+  MESSY_ROLES,
   messyAsset,
   messySteps,
   type MessyAsset,
@@ -78,15 +79,6 @@ export interface BuildResult {
   /** Raw Horizon JSON of the finished fixture, for offline planner tests. */
   recorded: Record<string, RecordedResponse>;
 }
-
-const ROLES: MessyRole[] = [
-  "sponsor",
-  "reserveSponsor",
-  "issuer",
-  "marketMaker",
-  "destination",
-  "fixture",
-];
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -160,18 +152,20 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
   });
   const client = horizonJson(config.horizonUrl, { fetch: doFetch });
   const submitter = horizonSubmitter(config.horizonUrl, { fetch: doFetch });
-  const keypairs = Object.fromEntries(ROLES.map((r) => [r, Keypair.random()])) as Record<
+  const keypairs = Object.fromEntries(MESSY_ROLES.map((r) => [r, Keypair.random()])) as Record<
     MessyRole,
     Keypair
   >;
-  const roles = Object.fromEntries(ROLES.map((r) => [r, keypairs[r].publicKey()])) as MessyRoles;
+  const roles = Object.fromEntries(
+    MESSY_ROLES.map((r) => [r, keypairs[r].publicKey()]),
+  ) as MessyRoles;
   const id = fixtureId(createdAt);
   const keys: FixtureKeys = {
     schemaVersion: 1,
     kind: "dustin-fixture-keys",
     id,
     note: "Testnet secret keys for this fixture. Never commit this file.",
-    secrets: Object.fromEntries(ROLES.map((r) => [r, keypairs[r].secret()])) as Record<
+    secrets: Object.fromEntries(MESSY_ROLES.map((r) => [r, keypairs[r].secret()])) as Record<
       MessyRole,
       string
     >,

@@ -10,6 +10,16 @@ export type MessyRole =
 
 export type MessyRoles = Record<MessyRole, string>;
 
+/** Every account of a messy fixture, in the order the builder creates their keys. */
+export const MESSY_ROLES: readonly MessyRole[] = [
+  "sponsor",
+  "reserveSponsor",
+  "issuer",
+  "marketMaker",
+  "destination",
+  "fixture",
+];
+
 export type ExpectedRung = "path_payment" | "return_to_issuer";
 
 export interface MessyAsset {

@@ -1,15 +1,17 @@
 import { readFileSync } from "node:fs";
+import { StrKey } from "@stellar/stellar-sdk";
 import { DustinError } from "../errors/dustin-error.js";
-import type {
-  EdgeAccountRole,
-  EdgeExpectation,
-  EdgeIssuerRole,
-  EdgeKeyRole,
-  EdgeVariantName,
-  EdgeVariantRole,
+import {
+  EDGE_ACCOUNT_ROLES,
+  type EdgeAccountRole,
+  type EdgeExpectation,
+  type EdgeIssuerRole,
+  type EdgeKeyRole,
+  type EdgeVariantName,
+  type EdgeVariantRole,
 } from "./edge.js";
 import type { VerifyResult } from "./verify.js";
-import type { ExpectedRung, MessyRole } from "./messy.js";
+import { MESSY_ROLES, type ExpectedRung, type MessyRole } from "./messy.js";
 
 /**
  * The public description of a fixture: public keys, assets, offers, expected values and the
@@ -134,9 +136,33 @@ function notAManifest(path: string): DustinError {
   });
 }
 
+const isPublicKey = (value: unknown): boolean =>
+  typeof value === "string" && StrKey.isValidEd25519PublicKey(value);
+
+/** Every role holds a G... public key, so no read goes to `/accounts/undefined`. */
+function allPublicKeys(accounts: unknown, roles: readonly string[]): boolean {
+  const record = (accounts ?? {}) as Record<string, unknown>;
+  return typeof accounts === "object" && roles.every((role) => isPublicKey(record[role]));
+}
+
+/** The network the manifest was built on; `fixture verify` checks it is the testnet. */
+const hasPassphrase = (network: { passphrase?: unknown } | undefined): boolean =>
+  typeof network?.passphrase === "string" && network.passphrase.length > 0;
+
+/**
+ * A manifest that is truncated or edited by hand is refused here with MANIFEST_INVALID, before
+ * anything reads Horizon: a missing role would become a read of `/accounts/undefined`, answered
+ * with HTTP 400 and reported as HORIZON_UNAVAILABLE, and a missing network a TypeError (closing
+ * review CP-14).
+ */
 export function readManifest(path: string): FixtureManifest {
   const m = parseManifest(path) as Partial<FixtureManifest>;
-  if (m.kind !== "dustin-fixture" || m.schemaVersion !== 1 || !m.accounts?.fixture) {
+  if (
+    m.kind !== "dustin-fixture" ||
+    m.schemaVersion !== 1 ||
+    !allPublicKeys(m.accounts, MESSY_ROLES) ||
+    !hasPassphrase(m.network)
+  ) {
     throw notAManifest(path);
   }
   return m as FixtureManifest;
@@ -146,7 +172,16 @@ export function readManifest(path: string): FixtureManifest {
 export function readAnyManifest(path: string): FixtureManifest | EdgeFixtureManifest {
   const m = parseManifest(path) as Partial<EdgeFixtureManifest>;
   if (m.kind === "dustin-fixture" && m.schemaVersion === 1 && m.profile === "edge") {
-    if (!m.accounts?.destination || !Array.isArray(m.variants) || !m.pool?.id) {
+    // Every account role and the multisig signer are public keys, the network is named and the
+    // pool id is Horizon's 64 lowercase hex digits (closing review CP-14).
+    if (
+      !allPublicKeys(m.accounts, EDGE_ACCOUNT_ROLES) ||
+      !isPublicKey(m.multisigSigner) ||
+      !hasPassphrase(m.network) ||
+      typeof m.pool?.id !== "string" ||
+      !/^[0-9a-f]{64}$/.test(m.pool.id) ||
+      !Array.isArray(m.variants)
+    ) {
       throw notAManifest(path);
     }
     return m as EdgeFixtureManifest;
