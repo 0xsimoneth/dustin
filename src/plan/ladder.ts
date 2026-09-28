@@ -134,10 +134,12 @@ function evaluatePathPayment(
       (o) => assetKey(o.selling) === to && assetKey(o.buying) === from,
     );
     if (own) {
+      // The plan's cleanup cancels the offer, so a partial run reopens the rung: the next plan
+      // quotes the market without it (closing review CP-6).
       return {
         viable: false,
         reason: `the quoted path may use this account's own offer ${own.id}, which the plan cancels first`,
-        fix: noMarket,
+        fix: `cancel this account's own offer ${own.id} with a --partial run (if no other market buys ${code} for XLM once it is gone, wait for one)`,
       };
     }
   }

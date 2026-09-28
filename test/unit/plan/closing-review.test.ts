@@ -362,3 +362,34 @@ describe("CP-5: a strict-send path that pays less than a stroop, as Horizon retu
     );
   });
 });
+
+describe("CP-6: a sale ruled out by the account's own offer", () => {
+  it("the fix names the offer and how to reopen the rung: a --partial run cancels it", () => {
+    const s = copy(base);
+    s.issuers.find((i) => i.account === messy.issuer)!.memoRequired = true;
+    // The only DUSTA -> XLM liquidity may be this offer selling XLM for DUSTA (edge case B-24).
+    s.offers.push({
+      id: "999",
+      selling: { type: "native" },
+      buying: DUSTA,
+      amount: "0.0000007",
+      price: { n: 1, d: 1 },
+      sponsor: null,
+      lastModifiedLedger: null,
+    });
+    const plan = planFromSnapshot(s, opts());
+    const dusta = item(plan, "DUSTA");
+    expect(dusta.code).toBe("NO_DISPOSAL_ROUTE");
+    expect(dusta.rungsRuledOut![0]!.reason).toMatch(/own offer 999/);
+    expect(dusta.remedy).toMatch(
+      /^Make one route possible, then run the plan again: cancel this account's own offer 999 with a --partial run \(if no other market buys DUSTA for XLM once it is gone, wait for one\); or /,
+    );
+    // The plan's cleanup cancels offer 999, so a partial run reopens the rung.
+    expect(
+      plan.steps.some(
+        (st) =>
+          st.kind === "cancel_offer" && st.subject.type === "offer" && st.subject.offerId === "999",
+      ),
+    ).toBe(true);
+  });
+});
