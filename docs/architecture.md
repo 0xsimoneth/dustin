@@ -213,14 +213,13 @@ Idempotency argument: an inner transaction is pinned to one sequence number, so 
 
 ### 4.9 CLI (`src/cli`)
 
-`dustin` (bin of the `stellar-dustin` package):
+`dustin` (bin of the `stellar-dustin` package). The commands and options listed here are the ones that are built (PRD decision D-13); PRD section 6 has the exit codes of each.
 
-- `dustin plan <G...> --destination <G...> [--memo m] [--json]` reads only; prints the plan as a table and, with `--json`, the exact `ClosePlan` document. No secret is read.
-- `dustin close <G...> --destination <G...> --execute [--yes] [--memo m] [--journal file] [--max-base-fee n] [--budget xlm]` requires `DUSTIN_ACCOUNT_SECRET` (or `--account-secret-stdin`) and `DUSTIN_SPONSOR_SECRET`. Without `--execute` it behaves like `plan`. As built (canonical decision 4) there is one typed confirmation, before anything is signed: after the fresh plan and a summary (the destination and the XLM it receives, the sponsor, the bid and the close budget), the user types the last four characters of the destination address. It is asked only when standard input, standard error and the stream that carried the plan are terminals; otherwise, or on a wrong answer, nothing is signed and the command exits 3. `--yes` replaces the question for scripts and the demo recording, is honoured only with `--execute`, and is printed loudly. There is no second confirmation before the merge.
-- As built, the commands are `plan`, `close`, `fixture create` and `fixture verify`, with the options listed in the README and PRD section 6 (`--to`, with `--destination` as an alias, `--sponsor`, `--memo`, `--prefer-destination`, `--base-fee`, `--partial`, `--report`, `--json`); `--journal`, `--account-secret-stdin`, `--max-base-fee`, `--budget`, `dustin baseline record` and `dustin doctor` are not built, and `fixture build` is `fixture create`.
-- `dustin fixture build --profile messy|edge --out fixture.json` builds the D3 accounts (4.10).
-- `dustin baseline record --fixture fixture.json` captures before/after Horizon state around a manual Demolisher run (4.11).
-- `dustin doctor` checks Node version, network reachability, passphrase, sponsor balance, and that no secret appears in argv.
+- `dustin plan <G...> --to <G...> [--sponsor <G...>] [--prefer-destination] [--memo m] [--base-fee n] [--json]` reads only; prints the plan as a table and, with `--json`, the exact `ClosePlan` document. No secret is read and `.env` is never opened.
+- `dustin close <G...> --to <G...> [--execute] [--yes] [--partial] [--sponsor <G...>] [--prefer-destination] [--memo m] [--base-fee n] [--json] [--report file]`. Without `--execute` it behaves like `plan`. With it, it requires `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET`, from the environment or else from `.env` in the working directory (canonical decision 4). There is one typed confirmation, before anything is signed (canonical decision 4): after the fresh plan and a summary (the destination and the XLM it receives, the sponsor, the bid and the close budget), the user types the last four characters of the destination address. It is asked only when standard input, standard error and the stream that carried the plan are terminals; otherwise, or on a wrong answer, nothing is signed and the command exits 3. `--yes` replaces the question for scripts and the demo recording, is honoured only with `--execute`, and is printed loudly. There is no second confirmation before the merge. `--report` keeps the close report as JSON in a file, updated as the run goes.
+- `dustin fixture create [--profile messy|edge] [--dir path] [--out file] [--json]` builds the D3 accounts (4.10) and writes the public manifest, the keys (mode 600, gitignored) and the recorded Horizon JSON under `--dir` (default `.fixture`).
+- `dustin fixture verify <manifest> [--snapshot file] [--json]` re-checks a fixture against SOW Appendix B, read-only.
+- `--to` is canonical, `--destination` its alias; the only global option is `--network testnet`. The baseline recording is a manual protocol (`evidence/baseline/README.md`, section 4.11), not a command.
 
 ### 4.10 Fixture builder (`src/fixture`)
 
@@ -234,9 +233,9 @@ Builds deterministic testnet accounts from a friendbot-funded sponsor. Profile `
 
 Every fixture transaction is itself fee-bumped by the sponsor, so the same layer is exercised before the first close. The builder writes `fixture.json` (public keys, asset codes, issuers, offer ids); secrets stay in memory or in a `.env` file that is git-ignored.
 
-### 4.11 Baseline recorder (`src/baseline`)
+### 4.11 Baseline recording
 
-The Demolisher is a browser tool [F20]; the baseline is a recorded manual run. `dustin baseline record` snapshots the fixture (account, offers) before, prints the exact steps and expected stopping point (the closed account cannot pay the first transaction's fee: `tx_insufficient_balance` or an equivalent client-side error, since its transactions are sourced from and paid by that account [F20]), waits for the operator, and snapshots after. Two identical `messy` fixtures are built so the baseline run and the Dustin run start from the same state.
+The Demolisher is a browser tool [F20]; the baseline is a recorded manual run. As built there is no `src/baseline` module and no `dustin baseline record` command (PRD decision D-13): the protocol is `evidence/baseline/README.md`, and `dustin fixture verify --snapshot` snapshots the fixture before and after. The protocol names the exact steps and the expected stopping point (the closed account cannot pay the first transaction's fee: `tx_insufficient_balance` or an equivalent client-side error, since its transactions are sourced from and paid by that account [F20]). Two identical `messy` fixtures are built so the baseline run and the Dustin run start from the same state.
 
 ### 4.12 Component diagram
 

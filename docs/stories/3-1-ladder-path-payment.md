@@ -18,8 +18,8 @@ As written in `docs/epics-and-stories.md` (Story 3.1). AC-1 is the text correcte
    - **Met**, live (twice) and offline.
 3. AC-E3-S1-3: Given a balance too small to buy 1 stroop of XLM, then the planner already routes it to issuer return (unit test).
    - **Met**, by unit tests, and live as matrix row X-10.
-4. AC-E3-S1-4: Then `destMin` is never below 1 stroop and slippage is configurable (`maxSlippageBps`, default 500).
-   - **Met as a documented deviation.** `destMin` is never below 1 stroop, and the slippage is configurable. The option is `slippageBps` with a default of 100 (1%), not `maxSlippageBps` with 500. Reasons:
+4. AC-E3-S1-4 (as corrected on 2026-09-28): Then `destMin` is never below 1 stroop and slippage is configurable (`slippageBps`, default 100, that is 1%). The original wording named `maxSlippageBps` with a default of 500.
+   - **Met; the name and the 1% default were confirmed by the builder on 2026-09-28 (decision D-9).** Before that decision it was recorded as a documented deviation: `destMin` is never below 1 stroop, and the slippage is configurable. The option is `slippageBps` with a default of 100 (1%), not `maxSlippageBps` with 500. Reasons:
      - PRD decision D-2 (2026-09-28) keeps the SDK's names as built.
      - Architecture section 4.4 sets the 1% default.
      - The quote comes from the fresh plan made right before signing, so the bound only has to absorb the market's move between that quote and the sale.
@@ -242,3 +242,4 @@ dev-story workflow (AI developer agent)
 - 2026-09-28: BH-7 closed; AA-14 settled in the epics; dust guard; receipt Disposals section; offline and live tests; two live runs. Status: review.
 - 2026-09-28: closing review of Epic 3 (record updated by the documentation pass): CX-2 and CX-3 in the BH-7 section, CC-8 in the receipt's Disposals line, CP-5 in AC-3 and CP-6, with their commits in the section "Closing review (2026-09-28)".
 - 2026-09-28: Status: done (`docs/reviews/2026-09-28-e3-review.md`, verdicts). The 1% default of `slippageBps` (AC-4) is listed there for the builder to confirm; it does not hold the story.
+- 2026-09-28: the builder kept the 1% default (decision D-9); AC-4 was corrected to `slippageBps`, default 100.

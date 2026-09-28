@@ -309,7 +309,7 @@ Dustin is not the first tool that closes Stellar accounts, and not the only proj
 - **The SCF #44 "Account Demolisher" RFP** ([round recap](https://medium.com/stellar-community/scf-44-round-recap-b5e8acd87045), 2026-07-24) funded two responses:
   - [LumenWipe](https://github.com/LumenWipe/lumenwipe): a web app, a hosted API and a thin SDK client (`@lumenwipe/sdk`, an HTTP client of the hosted API that builds no transactions itself). A hosted fee-bump sponsor endpoint for reserve-locked accounts was merged on 2026-09-08 ([pull request 216](https://github.com/LumenWipe/lumenwipe/pull/216); API key required, sponsored fee capped at 0.1 XLM per transaction), while its README still lists sponsored fees on the roadmap; whether it is enabled in production is not known.
   - [Account Demolisher](https://communityfund.stellar.org/submissions/recqvIs2iRu34ESGo) (demolisher.app): a web app that rejects fee-bump envelopes, so the account being closed pays its own fees; it is not published as a library and has no CLI.
-- **An unfunded prior-art planner**, `@bleu/account-demolisher` ([repository](https://github.com/bleu/scf-account-demolisher), a single commit of 2026-05-30, not on npm): a standalone TypeScript planner with a mandatory dry-run preview, merge preconditions including the sequence-number bound, a packer of at most 100 operations and a dry-run CLI. It has no signing, submission, fee bump or sponsorship unwinding. It is prior art for Dustin's planner (Deliverable 1).
+- **An unfunded prior-art planner**, scf-account-demolisher ([repository](https://github.com/bleu/scf-account-demolisher), a single commit of 2026-05-30, not on npm): a standalone TypeScript planner with a mandatory dry-run preview, merge preconditions including the sequence-number bound, a packer of at most 100 operations and a dry-run CLI. It has no signing, submission, fee bump or sponsorship unwinding. It is prior art for Dustin's planner (Deliverable 1).
 - **[js-stellar-wallets issue 98](https://github.com/stellar/js-stellar-wallets/issues/98)**, "Add helper that closes a user's account": opened on 2019-08-12, never commented on, still open, in a repository archived on 2024-02-08.
 
 What Dustin adds, and how to check each point:
@@ -397,7 +397,7 @@ Prior art:
 - SCF #44 round recap: https://medium.com/stellar-community/scf-44-round-recap-b5e8acd87045
 - LumenWipe: https://github.com/LumenWipe/lumenwipe and pull request 216: https://github.com/LumenWipe/lumenwipe/pull/216
 - Account Demolisher (SCF #44 submission): https://communityfund.stellar.org/submissions/recqvIs2iRu34ESGo
-- `@bleu/account-demolisher`: https://github.com/bleu/scf-account-demolisher
+- scf-account-demolisher: https://github.com/bleu/scf-account-demolisher
 - js-stellar-wallets issue 98: https://github.com/stellar/js-stellar-wallets/issues/98
 
 Repository:

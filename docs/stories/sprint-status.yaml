@@ -46,13 +46,13 @@ development_status:
   2-5-disposal-route-resolution: done
   2-6-live-simple-close: done
   epic-2-retrospective: optional
-  epic-3: in-progress
+  epic-3: done
   3-1-ladder-path-payment: done
   3-2-ladder-issuer-destination-unclosable: done
   3-3-sponsored-trustline-unwind: done
   3-4-seqnum-too-far-guard: done
   3-5-detection-only-blockers: done
-  3-6-edge-case-test-matrix: review # done once the builder accepts the AC-3 deviation (docs/reviews/2026-09-28-e3-review.md)
+  3-6-edge-case-test-matrix: done
   3-7-full-fixture-close: done
   epic-3-retrospective: optional
   epic-4: backlog
@@ -274,7 +274,7 @@ stories:
     title: Edge-case test matrix
     epic: E3
     week: 3
-    status: review
+    status: done
     estimate_hours: 18
     deliverable: D3
   - key: 3-7-full-fixture-close

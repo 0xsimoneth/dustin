@@ -187,7 +187,7 @@ File: `docs/write-up.md` (the name in story E4-S5; first version 2026-09-28). Sk
 5. Addresses: full 56-character keys in evidence files and tables; truncated (`GDME...7Q2K`) only in prose.
 6. XLM amounts with seven decimals in evidence (`4.0000000 XLM`); rounded in prose.
 7. Timestamps in ISO 8601 UTC. Every evidence file states the capture date and the testnet reset window it predates.
-8. Never a secret key, never a `.env` value, never a local file path, never a personal name. The builder is "the builder"; the reviewer is "the reviewer".
+8. Never a secret key, never a `.env` value, never a local file path, never a personal name. The builder is "the builder"; the reviewer is "the reviewer". Other projects are cited by project name and URL; prose never names a third-party user or organisation handle (canonical decision 15).
 9. Every document ends with `## Assumptions` and `## Sources`.
 10. Explorer links use `https://stellar.expert/explorer/testnet/...` first and `https://horizon-testnet.stellar.org/...` as the raw, machine-checkable second link.
 

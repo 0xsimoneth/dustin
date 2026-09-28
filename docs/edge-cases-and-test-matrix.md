@@ -418,10 +418,12 @@ Resulting fixture: 4 trustlines with non-zero balances (3 required + the sponsor
 - U5. The StellarExpert Account Demolisher's source location and its "server co-signs merges above 1 XLM"
   and fee behaviour: no repository named demolisher exists under the stellar-expert organisation as of
   2026-09-25 and `stellar.expert/demolisher` renders only an app shell. Update 2026-09-25: the competitive landscape document located the client source inside the explorer monorepo (stellar-expert/stellar-expert-explorer, MIT, `business-logic/demolisher/demolisher-tx-builder.js`), found the route present in current source, observed the testnet co-sign endpoint responding, and confirmed the below-1-XLM refusal by a black-box probe (0.5 and 0.9999999 XLM payouts rejected with HTTP 400, 1 and 5 XLM signed); U5 is therefore observed behaviour, still to be shown in the B-01 recording. The GitHub search instead surfaced
-  three unrelated repositories (`bleu/scf-account-demolisher` "SCF RFP MVP: TS SDK to safely drain
+  three unrelated repositories: scf-account-demolisher ("SCF RFP MVP: TS SDK to safely drain
   subentries and ACCOUNT_MERGE a Stellar account with mandatory dry-run preview", pushed 2026-09-10;
-  `bytemaster333/account-demolisher`; `AlphaTechini/Stellar-Account-Demolisher`) — prior art the write-up
-  should acknowledge; their capabilities were not reviewed.
+  https://github.com/bleu/scf-account-demolisher), account-demolisher
+  (https://github.com/bytemaster333/account-demolisher) and Stellar-Account-Demolisher
+  (https://github.com/AlphaTechini/Stellar-Account-Demolisher) — prior art the write-up should
+  acknowledge; the last two were not reviewed. Cited by project name and URL (canonical decision 15).
 - U6. The SDF-hosted testnet Horizon's actual rate limit and RPC retention window (defaults are documented;
   deployments may differ).
 - U7. Whether `Operation.manageData` can address a data entry whose name is not valid UTF-8 (js-xdr may

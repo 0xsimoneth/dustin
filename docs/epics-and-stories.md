@@ -494,7 +494,7 @@ A user whose account holds dust, illiquid tokens, a sponsored trustline or a bum
 
 ### Story 3.1 (E3-S1): Ladder execution, path-payment sale (`3-1-ladder-path-payment`)
 
-> Note (2026-09-28, review findings AA-14 and BH-7 of `docs/reviews/2026-09-27-e2-integration-review.md`): AC-E3-S1-1 and the technical note said the sale pays the destination directly. The code, architecture section 4.4 and both E2-S6 evidence runs send the proceeds to the closing account itself, and the merge then moves its whole balance, proceeds included, to the destination: one delivery to the destination, one SEP-29 memo consideration, one recovered amount (`recovery.mergedXlm`). The code is kept and both texts are corrected below. AC-E3-S1-4's option name and default are met as a documented deviation: the SDK keeps `slippageBps`, default 100 (1%), under PRD decision D-2; see `docs/stories/3-1-ladder-path-payment.md`.
+> Note (2026-09-28, review findings AA-14 and BH-7 of `docs/reviews/2026-09-27-e2-integration-review.md`): AC-E3-S1-1 and the technical note said the sale pays the destination directly. The code, architecture section 4.4 and both E2-S6 evidence runs send the proceeds to the closing account itself, and the merge then moves its whole balance, proceeds included, to the destination: one delivery to the destination, one SEP-29 memo consideration, one recovered amount (`recovery.mergedXlm`). The code is kept and both texts are corrected below. AC-E3-S1-4 names the option as built since 2026-09-28: `slippageBps`, default 100 (1%), confirmed by the builder (decision D-9; the name follows PRD decision D-2); see `docs/stories/3-1-ladder-path-payment.md`.
 
 As a user,
 I want leftover balances that have a market sold for XLM in the same transaction that removes their trustline,
@@ -505,7 +505,7 @@ So that my dust becomes XLM that reaches my destination.
 - AC-E3-S1-1: **Given** LIQ in the fixture with a live bid, **When** executed, **Then** one transaction contains pathPaymentStrictSend(LIQ to XLM, to the closing account itself) followed by changeTrust(LIQ, 0) and succeeds, the proceeds reach the closing account, **And** the merge then moves its whole balance, proceeds included, to the destination, whose XLM increases by the merged amount that the receipt records as `recovery.mergedXlm` (corrected 2026-09-28, see the note above).
 - AC-E3-S1-2: **Given** the market disappears between planning and execution (the market maker cancels its bid in the test), **Then** the transaction fails with `op_too_few_offers`, the executor re-plans and the asset takes the issuer-return route on the next attempt, **And** the receipt shows both attempts.
 - AC-E3-S1-3: **Given** a balance too small to buy 1 stroop of XLM, **Then** the planner already routes it to issuer return (unit test).
-- AC-E3-S1-4: **Then** `destMin` is never below 1 stroop and slippage is configurable (`maxSlippageBps`, default 500).
+- AC-E3-S1-4: **Then** `destMin` is never below 1 stroop and slippage is configurable (`slippageBps`, default 100, that is 1%; corrected 2026-09-28, builder decision D-9).
 
 **Technical notes:** Proceeds go to the closing account itself (architecture section 4.4; day-1 experiment 14) and leave with the merge, so the destination receives them in the merged amount (corrected 2026-09-28, see the note above). The quote is refreshed at execution time: before anything is signed, a fresh plan that sends less XLM to the destination than the approved plan is drift (review finding BH-7). `op_too_few_offers` and `op_under_dest_min` trigger a re-plan of that asset only, thanks to per-asset transactions.
 **Dependencies:** E2-S5, E2-S3. **Estimate:** 8 h. **Evidence:** transaction hashes (SOW 6.1, D2). **SOW deliverable:** D2.
@@ -587,7 +587,7 @@ So that my users are not led into a close that cannot complete.
 
 ### Story 3.6 (E3-S6): Edge-case test matrix (`3-6-edge-case-test-matrix`)
 
-> Implementation (2026-09-28): see `docs/stories/3-6-edge-case-test-matrix.md` and `docs/test-matrix.md` (all 32 rows of the D3 matrix, which the documents call 31). The profiles `authreq`, `clawback`, `lp` and `multisig` are variants of the one `edge` profile, one account each (`dustin fixture create --profile edge`; canonical decision 3). Deviation awaiting the builder's acceptance: AC-E3-S6-3's forced payment is a negative probe plus a trustline revoked after planning, because the planner never plans a payment it knows will fail. AC-E3-S6-2 is met for five of the seven SOW cases; S-03 and S-04 wait for their live tests (E3-S3, E3-S4).
+> Implementation (2026-09-28): see `docs/stories/3-6-edge-case-test-matrix.md` and `docs/test-matrix.md` (all 32 rows of the D3 matrix, which the documents call 31). The profiles `authreq`, `clawback`, `lp` and `multisig` are variants of the one `edge` profile, one account each (`dustin fixture create --profile edge`; canonical decision 3). AC-E3-S6-3 was rewritten on 2026-09-28 (builder decision D-8, PRD "Decisions after review"): the forced payment is a negative probe plus a trustline revoked after planning, because the planner never plans a payment it knows will fail. AC-E3-S6-2 is met for all seven SOW cases since the merge of E3-S3 and E3-S4 (their live tests cover S-03 and S-04).
 
 As another team evaluating Dustin,
 I want a test matrix I can run myself that covers the cases that break naive implementations,
@@ -597,7 +597,7 @@ So that I can inspect the close flow before adopting it.
 
 - AC-E3-S6-1: **Then** `npm test` runs every offline matrix case in under 60 s with no network, **And** `npm run test:testnet` runs the live cases against variant accounts it builds itself with fresh keys.
 - AC-E3-S6-2: **Then** each SOW-named case (illiquid leftover balance, sponsored trustline, sequence number too far, authorization-required trustline, clawback-enabled trustline, liquidity pool shares, raised multisig thresholds) has at least one live test and one offline test named after its matrix row.
-- AC-E3-S6-3: **Then** the deauthorized authorization-required case asserts the plan is unclosable before any submission and, when forced with `allowPartial`, that the payment to the issuer fails with `op_src_not_authorized` and is reported.
+- AC-E3-S6-3: **Then** the deauthorized authorization-required case asserts the plan is unclosable before any submission, **And** the payment to the issuer that the planner never plans is forced in two ways, each asserted to fail with `op_src_not_authorized` and to be reported: a negative probe outside any plan, fee-bumped by the sponsor, and a trustline the issuer revokes after planning, whose planned return fails, is recorded on the transaction, the step and the re-plan, after which `allowPartial` runs the rest (corrected 2026-09-28, builder decision D-8).
 - AC-E3-S6-4: **Then** the clawback case asserts `is_clawback_enabled` is surfaced by the inspector and that the issuer-return route succeeds.
 - AC-E3-S6-5: **Then** `docs/test-matrix.md` maps each row to its test files and last result.
 

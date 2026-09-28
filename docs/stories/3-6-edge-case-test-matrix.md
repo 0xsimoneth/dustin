@@ -1,6 +1,6 @@
 # Story 3.6: Edge-case test matrix
 
-Status: review
+Status: done
 
 ## Story
 
@@ -10,13 +10,13 @@ so that I can inspect the close flow before adopting it.
 
 ## Acceptance Criteria
 
-As written in `docs/epics-and-stories.md` (Story 3.6). One is not met yet because two of its cases belong to other stories; one is met in another form than its wording, marked as a documented deviation.
+As written in `docs/epics-and-stories.md` (Story 3.6). AC-3 was rewritten on 2026-09-28 to the two proofs below, when the builder accepted them (decision D-8, PRD "Decisions after review").
 
 1. AC-E3-S6-1: Then `npm test` runs every offline matrix case in under 60 s with no network, and `npm run test:testnet` runs the live cases against variant accounts it builds itself with fresh keys.
 2. AC-E3-S6-2: Then each SOW-named case (illiquid leftover balance, sponsored trustline, sequence number too far, authorization-required trustline, clawback-enabled trustline, liquidity pool shares, raised multisig thresholds) has at least one live test and one offline test named after its matrix row.
    - **Met since the merge of E3-S3 and E3-S4 (2026-09-28).** Illiquid leftover balance (S-01), authorization-required (S-02, S-05, S-06), clawback-enabled (S-07), liquidity pool shares (S-08) and raised thresholds (S-09) have row-named tests at both levels from this story. The sponsored trustline (S-03) and the sequence guard (S-04) got theirs from E3-S3 and E3-S4: offline `test/unit/execute/sponsors-observed.test.ts` (S-03), `test/unit/plan/guard-boundary.test.ts` and `test/unit/execute/sequence-guard.test.ts` (S-04); live `test/testnet/sponsored-unwind.test.ts` and `test/testnet/sequence-guard.test.ts`. The whole live tier passed on the integrated code (commit 562d542, 2026-09-28 11:29 to 11:34 UTC: 10 files, 51 tests). Before that merge this criterion was five of seven.
-3. AC-E3-S6-3: Then the deauthorized authorization-required case asserts the plan is unclosable before any submission and, when forced with `allowPartial`, that the payment to the issuer fails with `op_src_not_authorized` and is reported.
-   - **Documented deviation.** The planner never plans a payment it knows will fail: a trustline that is not authorized is unclosable before any rung is tried (day-1 experiment 13), so a run with `allowPartial` on the frozen account never submits that payment. The payment is forced in two ways instead. As a negative probe outside any plan, fee-bumped by the sponsor: `op_src_not_authorized`. On the `auth-revoke` variant, which is authorized when planned and revoked by its issuer right before the executor's first submission: the planned return fails with `op_src_not_authorized`, and the failure is recorded on the transaction, on the step and on the re-plan; the re-plan reports the asset unclosable (`TRUSTLINE_NOT_AUTHORIZED`), `allowPartial` runs the rest, and without `allowPartial` the run stops with `PLAN_NOT_CLOSABLE`.
+3. AC-E3-S6-3 (as rewritten on 2026-09-28): Then the deauthorized authorization-required case asserts the plan is unclosable before any submission, and the payment to the issuer that the planner never plans is forced in two ways, each asserted to fail with `op_src_not_authorized` and to be reported: a negative probe outside any plan, and a trustline the issuer revokes after planning, after which `allowPartial` runs the rest. The original wording asked for the payment to be forced with `allowPartial`.
+   - **Met; accepted by the builder on 2026-09-28 (decision D-8).** The planner never plans a payment it knows will fail: a trustline that is not authorized is unclosable before any rung is tried (day-1 experiment 13), so a run with `allowPartial` on the frozen account never submits that payment. The payment is forced in two ways instead. As a negative probe outside any plan, fee-bumped by the sponsor: `op_src_not_authorized`. On the `auth-revoke` variant, which is authorized when planned and revoked by its issuer right before the executor's first submission: the planned return fails with `op_src_not_authorized`, and the failure is recorded on the transaction, on the step and on the re-plan; the re-plan reports the asset unclosable (`TRUSTLINE_NOT_AUTHORIZED`), `allowPartial` runs the rest, and without `allowPartial` the run stops with `PLAN_NOT_CLOSABLE`.
 4. AC-E3-S6-4: Then the clawback case asserts `is_clawback_enabled` is surfaced by the inspector and that the issuer-return route succeeds.
 5. AC-E3-S6-5: Then `docs/test-matrix.md` maps each row to its test files and last result.
 
@@ -93,3 +93,4 @@ Findings of the closing review (`docs/reviews/2026-09-28-e3-review.md`) that con
 
 - 2026-09-28: `edge` fixture profile, its recorded vectors, the edge rows offline and live, `docs/test-matrix.md`. Status: review (AC-2 waits for the S-03 and S-04 live tests of other stories; the deviation in AC-3 needs the builder's acceptance).
 - 2026-09-28: closing review CA-1, CA-5, CA-15, CP-7 and CP-8 to CP-14 fixed; the unclosable exit on the `edge` fixture recorded through the CLI; the matrix's "Last run" column filled from the final run of both tiers.
+- 2026-09-28: the builder accepted the AC-3 proofs (decision D-8) and AC-3 was rewritten to them. Status: done.

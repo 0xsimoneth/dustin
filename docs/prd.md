@@ -46,7 +46,7 @@ The builder acts as operator of the fixture builder and the baseline recording. 
 - **UJ-1. P-1 previews a close inside a wallet.** The integrator calls `planClose({ account, destination, feeSponsor })`, renders `plan.steps` with their `reason` strings and the recovery summary, shows the `unclosable` and `blockers` lists with remedies, and only when the user confirms calls `executeClose(plan, signers, { confirm: true })` with the wallet's own signer callback. Climax: the report's `verification.accountExists === false`. Edge case: state drifted between preview and execution; `onDrift: 'abort'` returns without submitting, and the wallet re-runs the preview.
 - **UJ-2. P-2 closes a stuck account from the CLI.** `dustin plan G... --to G...` prints the ordered plan, the fee the sponsor will pay, and the XLM the destination will receive. `dustin close G... --to G...` with `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` set prints the same plan, asks for confirmation (or `--yes`), prints each transaction hash with its explorer link as it lands, and ends with "account G... no longer exists". Edge case: one leftover balance cannot be moved; the CLI stops before burning anything unless `--partial` was given, and prints the unclosable reason and remedy.
 - **UJ-3. P-3 verifies the evidence.** Opens `evidence/README.md`, follows the Appendix B checklist row by row: fixture verification snapshot, baseline recording, transaction links, the explorer lookup that returns "account not found", the test results screenshot, the video. Every row resolves to a link or a committed file.
-- **UJ-4. The builder records the baseline.** Builds Fixture A with `dustin fixture create`, verifies it with `dustin fixture verify`, snapshots it with `dustin baseline`, records the existing tool stopping on it, re-verifies the fixture is unchanged, then closes the same account with Dustin.
+- **UJ-4. The builder records the baseline.** Builds Fixture A with `dustin fixture create`, verifies it with `dustin fixture verify` (with `--snapshot` for the Horizon evidence), records the existing tool stopping on it following `evidence/baseline/README.md`, re-verifies the fixture is unchanged, then closes the same account with Dustin.
 
 ## 3. Glossary
 
@@ -328,7 +328,7 @@ Acceptance:
 
 #### FR-25: Baseline recording of the existing tool
 
-`dustin baseline <G...> --out <dir>` snapshots the Account (Horizon JSON, `dustin fixture verify` result) and prints the recording protocol. The builder records the existing tool (StellarExpert's Account Demolisher, run against testnet, or its MIT-licensed source run locally against testnet Horizon if the hosted tool offers no testnet mode) attempting to close Fixture A, captures the exact stopping point (message, screen, and any submitted transaction), snapshots the Account again, and re-runs the verifier to prove the fixture is unchanged before Dustin closes the same account.
+The recording protocol is `evidence/baseline/README.md`; `dustin fixture verify <manifest> --snapshot <file>` snapshots the Account (Horizon JSON and the verification result) before and after (there is no `dustin baseline` command, decision D-13). The builder records the existing tool (StellarExpert's Account Demolisher, run against testnet, or its MIT-licensed source run locally against testnet Horizon if the hosted tool offers no testnet mode) attempting to close Fixture A, captures the exact stopping point (message, screen, and any submitted transaction), snapshots the Account again, and re-runs the verifier to prove the fixture is unchanged before Dustin closes the same account.
 
 Acceptance:
 - `evidence/baseline/` contains the recording (or a durable link), the before and after snapshots, and a note stating the account id, the timestamp, the tool version or commit, and the observed stopping point.
@@ -365,7 +365,7 @@ Acceptance:
 
 #### FR-29: Evidence Package
 
-`evidence/README.md` maps every row of SOW section 6.1 and every item of Appendix B to a link or committed file: fixture manifest and verification snapshot; committed `dustin plan` output for Fixture A (text and JSON); baseline recording and snapshots; Close Report with every transaction hash and Explorer link; inner and fee-bump envelope XDR per transaction; Horizon transaction records showing the fee account; the Horizon 404 snapshot for the closed account; test results screenshot and text; the video link. `dustin evidence build --report <path> --out <dir>` assembles the transaction-related files.
+`evidence/README.md` maps every row of SOW section 6.1 and every item of Appendix B to a link or committed file: fixture manifest and verification snapshot; committed `dustin plan` output for Fixture A (text and JSON); baseline recording and snapshots; Close Report with every transaction hash and Explorer link; inner and fee-bump envelope XDR per transaction; Horizon transaction records showing the fee account; the Horizon 404 snapshot for the closed account; test results screenshot and text; the video link. The transaction-related files of a run are written by `scripts/evidence-cli.mjs` (through the CLI) and by `test/testnet/execute-close.test.ts` with `DUSTIN_EVIDENCE=1` (through the SDK); there is no `dustin evidence build` command (decision D-13).
 
 Acceptance:
 - Every Appendix B item has a checked box next to a link that resolves.
@@ -397,19 +397,16 @@ Acceptance:
 
 ## 6. CLI command surface
 
+The commands and options below are the ones that are built (decision D-13); nothing else exists.
+
 | Command | Purpose | Secrets needed | Exit codes |
 |---|---|---|---|
-| `dustin plan <G...> --to <G...> [--sponsor <G...>] [--json] [--base-fee <stroops>]` | Print the Close Plan (Dry Run) | none | canonical decision 5: 0 plan printed, 2 usage error, 6 Horizon unreachable, 1 error |
-| `dustin close <G...> --to <G...> --execute [--yes] [--partial] [--json] [--memo <m>] [--prefer-destination] [--base-fee <stroops>] [--report <path>]` | Execute the close with fee-bumped transactions; without `--execute` it is `plan` | `DUSTIN_ACCOUNT_SECRET`, `DUSTIN_SPONSOR_SECRET` | canonical decision 5: 0 closed and verified gone, 3 nothing executed, 4 partial, 5 stopped or failed, 2 usage error, 6 Horizon unreachable, 1 error |
+| `dustin plan <G...> --to <G...> [--sponsor <G...>] [--prefer-destination] [--memo <m>] [--base-fee <stroops>] [--json]` | Print the Close Plan (Dry Run) | none | canonical decision 5: 0 plan printed, 2 usage error, 6 Horizon unreachable, 1 error |
+| `dustin close <G...> --to <G...> [--execute] [--yes] [--partial] [--sponsor <G...>] [--prefer-destination] [--memo <m>] [--base-fee <stroops>] [--json] [--report <file>]` | Execute the close with fee-bumped transactions; without `--execute` it is `plan` | with `--execute`: `DUSTIN_ACCOUNT_SECRET`, `DUSTIN_SPONSOR_SECRET` | canonical decision 5: 0 closed and verified gone, 3 nothing executed, 4 partial, 5 stopped or failed, 2 usage error, 6 Horizon unreachable, 1 error |
 | `dustin fixture create [--profile messy\|edge] [--dir <path>] [--out <file>] [--json]` | Build a fixture on testnet from friendbot (FR-21) | none (creates its own keys) | 0 built and verified; 1 its verification failed, or an unexpected error before any submission; 2 usage error (an unknown profile); 5 the build stopped after a submission, or an `edge` build whose last Horizon read failed after every build transaction applied; 6 Horizon unreachable before any submission (closing review CP-9) |
 | `dustin fixture verify <manifest> [--snapshot <file>] [--json]` | Prove Appendix B preconditions with Horizon evidence (FR-22) | none | 0 pass, 3 fail; a malformed manifest is refused with `MANIFEST_INVALID` before any request (exit 1; closing review CP-14) |
-| `dustin baseline <G...> --out <dir>` | Snapshot the Account and print the baseline recording protocol | none | 0 |
-| `dustin evidence build --report <path> --out <dir>` | Assemble transaction evidence (XDR, Horizon records, links, 404 proof) | none | 0 |
-| `dustin verify-closed <G...>` | Confirm the Account no longer exists on Horizon | none | 0 gone, 3 still exists |
 
-Global options: `--network testnet` (only value accepted in v1), `--horizon <url>`, `--explorer <base-url>`, `--verbose`. Progress lines are human-readable by default and NDJSON events with `--json`.
-
-As built (2026-09-28): the CLI has `plan`, `close`, `fixture create` and `fixture verify`. `dustin baseline`, `dustin evidence build` and `dustin verify-closed` are not built: the SDK exports `verifyClosed()`, the evidence runs are written by `scripts/evidence-cli.mjs` and the live test `test/testnet/execute-close.test.ts`, and the baseline recording follows `evidence/baseline/README.md`. The only global option is `--network testnet`; the Horizon URL and the explorer base come from `DUSTIN_HORIZON_URL` and `DUSTIN_EXPLORER_BASE`, and every Horizon must serve the testnet. The plan, the progress and the receipt go to standard output, or to standard error with `--json`; then standard output carries exactly one JSON document once the plan was shown: the report once the executor has one, and otherwise the plan (closing review CC-2).
+`--to` is canonical and `--destination` is its alias. `--yes`, `--partial` and `--report` take effect only with `--execute`; without it `close` prints a note that they have no effect. The global options are `--network testnet` (the only value accepted), `--help` and `--version`. The Horizon URL and the explorer base come from `DUSTIN_HORIZON_URL` and `DUSTIN_EXPLORER_BASE`, and every Horizon must serve the testnet. The plan, the progress and the receipt go to standard output, or to standard error with `--json`; then standard output carries exactly one JSON document once the plan was shown: the report once the executor has one, and otherwise the plan (closing review CC-2). The baseline recording follows `evidence/baseline/README.md`, the evidence runs are written by `scripts/evidence-cli.mjs` and `test/testnet/execute-close.test.ts`, and the SDK's `verifyClosed()` checks that an account is gone.
 
 ## 7. SDK API surface
 
@@ -947,6 +944,12 @@ Candidates only; none is committed, scheduled, or budgeted.
 - D-5 (2026-09-28, builder, review decision 5 of 2026-09-27): pauses between requests to Horizon (`pollIntervalMs`, `backoffMs`, `verifyClosed`'s `intervalMs`, the read client's retry backoff) are at least 200 ms and never 0; the pause function is injected (`sleep`), a timer by default, and tests inject one that returns at once.
 - D-6 (2026-09-28, builder): an over-budget refusal and `SPONSOR_UNDERFUNDED` exit with code 3, "nothing executed"; canonical decision 5 in `docs/README.md` now reads "3 = nothing executed: no confirmation, blockers without `--partial`, or a sponsor or budget precondition failed".
 - D-7 (2026-09-28, builder): the history rewrite for review findings R4 and R5 is postponed; the rest of the work goes on without it.
+- D-8 (2026-09-28, builder, review decision 2 of `docs/reviews/2026-09-28-e3-review.md`): the E3-S6 AC-3 proofs are accepted. The planner never plans a payment it knows will fail, so the forced payment of a frozen balance is proven by a negative probe outside any plan and by a trustline the issuer revokes after planning; AC-E3-S6-3 is rewritten to them and E3-S6 is done.
+- D-9 (2026-09-28, builder): `slippageBps` keeps its default of 100 (1%); AC-E3-S1-4 is corrected to it, and the integration notes explain the choice.
+- D-10 (2026-09-28, builder, review finding CA-11): the fields of the sequence guard that depend only on time (`unblocksAtLedger`, the wait estimate, and the regrouping of the merge they cause) leave the plan hash, so a guard that clears while the confirmation waits is not drift; drift is raised only when the ledger state of the account changes. One time-dependent change stays drift on purpose: a plan that gains or loses its merge (a far guard that comes within `maxWaitLedgers`), because the user confirmed a plan with or without the irreversible step ("what is executed is what is on screen", `docs/ux-design.md` section 2.2). Fixed in E4-S2 with a regression test.
+- D-11 (2026-09-28, builder, review finding CA-18): `close --execute` asks for a missing secret with a hidden prompt when standard input is a terminal (E4-S2); canonical decision 4 no longer lists a file as a secret source.
+- D-12 (2026-09-28, builder, review decision 4): third-party work is cited by project name and URL; prose names no third-party user or organisation handle (canonical decision 15 in `docs/README.md`).
+- D-13 (2026-09-28, builder): section 6 of this document and section 4.9 of the architecture list only the commands and options that are built; the rest was removed rather than marked "not built".
 
 ## Assumptions
 
