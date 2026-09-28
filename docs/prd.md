@@ -111,8 +111,8 @@ For every Dust balance the planner selects the first Rung whose preconditions ho
 Acceptance:
 - Fixture A asset A1 (direct XLM book) plans `path_payment` with path, estimated XLM out, and `destMin`.
 - Fixture A asset A2 (2-hop book) plans `path_payment` with a 2-hop path.
-- Fixture A asset A3 (no book, live issuer, authorized) plans `return_to_issuer` with the reason "no strict-send path found".
-- Fixture B asset A5 (no book, frozen by issuer) plans `unclosable` with `TRUSTLINE_NOT_AUTHORIZED`, a reason naming the issuer, and the remedy "issuer must re-authorize or claw back".
+- Fixture A asset A3 (no book, live issuer, authorized) plans `return_to_issuer`, with the path payment ruled out as "Horizon found no strict-send path to XLM for the full balance". A path that pays less than 1 stroop for the full balance is ruled out as "the best strict-send quote pays less than 1 stroop of XLM for the full balance" (closing review CP-5).
+- Fixture B asset A5 (no book, frozen by issuer) plans `unclosable` with `TRUSTLINE_NOT_AUTHORIZED`, a reason naming the issuer, and the remedy "Ask the issuer G... to authorize the trustline again (SetTrustLineFlags), then run the plan again."; for a clawback-enabled trustline the remedy adds "or to claw the balance back" (closing review CP-7: a clawback needs the trustline's clawback flag).
 - Variant ISS (issuer account merged away) plans `return_to_issuer` like any authorized balance: the payment to the merged-away issuer succeeds and burns the balance, and the emptied trustline can then be deleted. This was settled on 2026-09-26 by day-1 experiment 4 (`docs/progress-log.md`; `docs/README.md` open question 3, resolved); a missing issuer is informational in the step's reason and never an unclosable reason. The outcome is recorded in the write-up (`docs/write-up.md`, section 4).
 
 #### FR-04: Transaction grouping
@@ -154,6 +154,8 @@ Acceptance:
 #### FR-08: Blockers and detect-and-report items
 
 The planner never emits operations for conditions the SOW places out of automation; it reports them with codes and remedies and sets Plan Status accordingly: pool share trustlines (`LIQUIDITY_POOL_SHARES`, item), Account sponsoring reserves or claimable balances (`ACCOUNT_IS_SPONSORING`, blocker), raised thresholds that the master key cannot meet for medium or high operations (`THRESHOLD_UNMET`, blocker), master key weight 0 (`MASTER_KEY_DISABLED`, blocker), `AUTH_IMMUTABLE` set (`AUTH_IMMUTABLE`, blocker), sequence number not less than `ledgerSeq << 32` beyond the configured wait (`SEQNUM_TOO_FAR`, blocker with the earliest ledger), Destination missing (`DESTINATION_MISSING`, blocker), Destination unable to receive (`DESTINATION_FULL`, blocker), Account missing or a C address (`ACCOUNT_MISSING`, `CONTRACT_ACCOUNT`, blocker).
+
+As built (acceptance audit CA-16; the codes are those of section 7, PRD decision D-2): the blockers are `ACCOUNT_MISSING`, `AUTH_IMMUTABLE_SET` (not `AUTH_IMMUTABLE`), `IS_SPONSOR` (not `ACCOUNT_IS_SPONSORING`), `MASTER_KEY_DISABLED`, `THRESHOLD_UNMET`, `DESTINATION_MISSING`, `DESTINATION_IS_SELF`, `DESTINATION_REQUIRES_MEMO`, `SEQNUM_TOO_FAR` and `LIQUIDITY_POOL_SHARES` (held shares). There is no `DESTINATION_FULL`: a destination that cannot take a balance only rules out the transfer to it (rung 3). A C address is refused before planning with the error `CONTRACT_ACCOUNT` (CLI exit 2), not reported as a blocker. Held pool shares are a blocker, so such a plan is `blocked`, not `partial` as the LP acceptance below expects, although its other cleanup (the data entry) can still run with `--partial`; the tests pin `blocked`, and the choice between the two is left to the builder. The remedies are worded so that each one can work (closing review, 2026-09-28): a `--partial` sentence appears only when the plan runs something before its merge and names it (the cleanup, the sale or sales, or both); `AUTH_IMMUTABLE_SET` says the account stays on the ledger and keeps its XLM; `THRESHOLD_UNMET`, and `MASTER_KEY_DISABLED` with other signers, say the account can never be closed when every signer together stays below the weight the merge needs, since SetOptions needs that weight too; `MASTER_KEY_DISABLED` with no other signer says no key can ever sign for the account; `THRESHOLD_UNMET` is not reported for a cleanup the account does not need (review findings CP-1 to CP-4).
 
 Acceptance:
 - Variant LP yields Plan Status `partial`, one item `LIQUIDITY_POOL_SHARES` with the remedy "withdraw pool shares (LiquidityPoolWithdraw) before closing; not automated", and no merge step.
@@ -200,7 +202,7 @@ Acceptance:
 - Recorded-response test: a `PATH_PAYMENT_STRICT_SEND_TOO_FEW_OFFERS` result on A1 causes a rebuild in which A1 is on `return_to_issuer`, and the second submission succeeds.
 - Fixture B: A5 ends as `unclosable` with `TRUSTLINE_NOT_AUTHORIZED`; every other subentry is removed; no merge is attempted; Close Status is `partial`.
 - The Close Report's `steps[]` record the Rung each disposal actually applied with (`rung`); a disposal that fell down the ladder shows the later Rung, and `replans[]` shows the re-plan that moved it with the triggering result codes. There is no separate `fallback` status (decision of 2026-09-28, section 7).
-- The receipt (`renderReport()`, printed by `dustin close --execute`) has a Disposals section: for each leftover balance, whether it was sold for XLM by path payment, burned by the return to its issuer, or sent to the destination, in which transaction and plan round, and, after a fall down the ladder, which rung failed first and with which code. Each unclosable item is listed under "Not closed" with its code, every rung ruled out and the remedy (stories E3-S1, E3-S2).
+- The receipt (`renderReport()`, printed by `dustin close --execute`) has a Disposals section: for each leftover balance, whether it was sold for XLM by path payment, burned by the return to its issuer, or sent to the destination, in which transaction and plan round, and, after a fall down the ladder, each rung that failed, in order, with its own code, read from the envelopes that failed and the plans of their rounds (closing review CC-8). A sale's XLM is said to have left with the merge, to leave with a merge envelope whose outcome is not known yet if that envelope applies (CC-10), or to stay on the account. A copy saved while the run is going says "not run yet", "attributed when the run ends" and "not read yet" instead of final outcomes (CC-9). Each unclosable item is listed under "Not closed" with its code, every rung ruled out and the remedy (stories E3-S1, E3-S2).
 
 #### FR-13: Sponsored trustline unwinding
 
@@ -217,9 +219,9 @@ Acceptance:
 
 The planner evaluates the guard for the merge's own sequence number (the Account's sequence number plus the merge transaction's index plus one) against the earliest ledger the merge can land in (the observed ledger plus one), and reports it in `plan.sequenceGuard` (`ok`, `unblocksAtLedger`, `etaSeconds`) (canonical decision 10). When the guard fails:
 
-- within the plan option `maxWaitLedgers` (default 120 ledgers, about 10 minutes), the plan stays `closable`, the merge runs alone in the last transaction, and a warning names the ledger. There is no separate wait step. Before that merge, and before every rebuild of it, the executor runs the merge preflight. When the guard is all that holds the merge back, the executor emits the `wait` event (`state: "start"`), polls Horizon's latest ledger every `pollIntervalMs`, and emits `state: "end"` once the ledger before `unblocksAtLedger` has closed. It then checks again and submits the merge. The wait has two bounds: the plan's `maxWaitLedgers`, counted from the latest ledger, and a local-clock limit of twice the time of the ledgers to wait for plus two more, at about 5 s per ledger. Beyond either bound the run stops before the merge with `SEQNUM_TOO_FAR` and `unblocksAtLedger`; a preflight that fails on the guard alone no longer gives `MERGE_PREFLIGHT_FAILED`;
+- within the plan option `maxWaitLedgers` (default 120 ledgers, about 10 minutes), the plan stays `closable`, the merge runs alone in the last transaction, and a warning names the ledger and what runs first: the cleanup, the sale or sales, or both (closing review CP-17). There is no separate wait step. Before that merge, and before every rebuild of it, the executor runs the merge preflight. When the guard is all that holds the merge back, the executor emits the `wait` event (`state: "start"`), polls Horizon's latest ledger every `pollIntervalMs`, and emits `state: "end"` once the ledger before `unblocksAtLedger` has closed. It then checks again and submits the merge. The wait has two bounds: the plan's `maxWaitLedgers`, counted from the latest ledger, and a local-clock limit of twice the time of the ledgers to wait for plus two more, at about 5 s per ledger. A read of the latest ledger that fails during the wait counts as a poll that did not reach the ledger, and the wait goes on (closing review CX-7). Beyond either bound the run stops before the merge with `SEQNUM_TOO_FAR` and `unblocksAtLedger`, naming a failed last read when there was one; a preflight that fails on the guard alone no longer gives `MERGE_PREFLIGHT_FAILED`;
 - beyond `maxWaitLedgers` when planned, the plan has the Blocker `SEQNUM_TOO_FAR` with the ledger and an ETA in minutes, no merge step, and status `blocked`;
-- a merge that fails on the ledger with `op_seq_num_too_far` (another client bumped the sequence number) makes the executor read the account again and recompute the guard. Within the bound the rest is planned again and the new merge waits; beyond it, or on a second such failure, the run stops with `SEQNUM_TOO_FAR` and the ledger.
+- a merge that fails on the ledger with `op_seq_num_too_far` (another client bumped the sequence number) makes the executor read the account again and recompute the guard. Within the bound the rest is planned again and the new merge waits. The run stops with `SEQNUM_TOO_FAR`, `verdict: "replan"` and the ledger when the new wait is beyond the bound, when the merge has failed with `op_seq_num_too_far` twice (failures with other codes do not count, closing review CX-4), or when no re-plan (`maxReplans`) or budget is left for the re-plan (closing review CX-5).
 
 The CLI prints the wait's start and end. A guard stop exits 3 when nothing was signed (a plan refused without `--partial`, or a merge-only run whose wait ran out), 4 for a partial run with `--partial`, and 5 for a run stopped part-way; the stop and the receipt name the ledger at which to run the close again (story E3-S4, review finding R8).
 
@@ -239,7 +241,7 @@ Acceptance:
 
 #### FR-16: Pre-flight verification and Drift handling
 
-Before submitting anything, `executeClose()` refreshes the Account snapshot, plans again from it and compares the fresh plan's `planHash` with the approved plan's. It also compares the approved plan's `recovery.xlmToDestination` with the fresh plan's, in stroops, because the plan hash leaves market quotes out: a lower fresh amount (for example a sale's quote that got worse while the confirmation waited) is Drift too, and a higher one is not (review finding BH-7, story E3-S1). On Drift it either aborts (`onDrift: 'abort'`, default) or re-plans and continues (`'replan'`). An abort caused by the amount alone ends `aborted` with stop `XLM_TO_DESTINATION_FELL`; both amounts are in `stop.xlmToDestination` and on the `drift` event. Under `'replan'` the run goes on with the fresh plan and a warning that names both amounts. Through the CLI such an abort exits 3 with nothing signed. It also verifies the Fee Sponsor and Destination exist and that Account, Destination and Fee Sponsor are three different accounts (as built, the Destination may be the Fee Sponsor, with a warning in the report; story E2-S2).
+Before submitting anything, `executeClose()` refreshes the Account snapshot, plans again from it and compares the fresh plan's `planHash` with the approved plan's. It also compares, in stroops, what the two plans recover, because the plan hash leaves market quotes out: the Account's native balance plus the quoted proceeds of its sales (`recovery.nativeBalance` plus `recovery.quotedProceedsXlm`). That is `recovery.xlmToDestination` when a plan merges and what the Account keeps when it does not; `xlmToDestination` is 0 in a plan without a merge, so comparing it alone would hide a worse quote from an `allowPartial` run (closing review CX-2). A lower fresh amount (for example a sale's quote that got worse while the confirmation waited) is Drift too, and a higher one is not (review finding BH-7, story E3-S1). On Drift it either aborts (`onDrift: 'abort'`, default) or re-plans and continues (`'replan'`). An abort caused by the amount alone ends `aborted` with stop `XLM_TO_DESTINATION_FELL`; both amounts are in `stop.xlmToDestination` and on the `drift` event (the code and the field keep their names), and the texts word them by whether the plans merge: the XLM the destination would receive, the XLM the Account would keep, or the XLM the close would recover. A fresh plan that lost the approved plan's merge is named for what it is ("the fresh plan no longer merges"), in a `PLAN_CHANGED` stop or in the warning of a run that goes on (closing review CX-3). Under `'replan'` the run goes on with the fresh plan and a warning that names both amounts; the warning is added only once every refusal before signing has passed, so a run that then stops with `PLAN_NOT_CLOSABLE` does not claim it went on, and a run that goes on without the merge (with `allowPartial`) says it went on as a partial close. Through the CLI such an abort exits 3 with nothing signed. It also verifies the Fee Sponsor and Destination exist and that Account, Destination and Fee Sponsor are three different accounts (as built, the Destination may be the Fee Sponsor, with a warning in the report; story E2-S2).
 
 Acceptance:
 - Recorded-response test: an issuer clawback between plan and execution (variant CLW) causes `abort` by default with a report status `aborted` and no submission; with `'replan'` the new plan omits the clawed-back balance and the run completes.
@@ -288,6 +290,8 @@ Acceptance:
 
 `dustin fixture create [--variant a|a0|b|simple|seq-near|seq-far|lp|ms|clw|auth|iss] [--out <manifest.json>] [--secrets <path>]` builds the requested fixture on testnet as specified in section 9 using only friendbot-funded accounts, writes a public manifest (public keys, assets, issuers, expected plan summary) and a separate secrets file that is gitignored. The canonical Fixture A ends with Spendable XLM exactly 0. The command is repeatable after a testnet reset. The `simple` variant is not built: the Week 2 close used fresh Fixture A accounts instead (PRD decision D-4).
 
+As built (canonical decision 3; acceptance audit CA-17): `dustin fixture create [--profile messy|edge] [--dir <path>] [--out <file>] [--json]`. Profile `messy`, the default, is Fixture A, the metric account; profile `edge` builds one throwaway account per matrix variant (FR-23). There is no `--variant` and no `--secrets` flag: the keys are written to `<dir>/<id>/keys.json` (default directory `.fixture`, mode 600, gitignored, never overwritten) before anything is funded, and the public manifest and the recorded Horizon JSON beside them. A build that stops after its first submission keeps its error code, says how many transactions it submitted and how many applied, and exits 5; the `edge` profile saves its manifest as soon as its last build step settled, so a Horizon read that fails after that still leaves the manifest, and the command says to check it with `dustin fixture verify` (closing review CP-9). Horizon unreachable before any submission exits 6.
+
 Acceptance:
 - `dustin fixture create --variant a` followed by `dustin fixture verify` passes every check in FR-22.
 - The manifest contains no secret key; the secrets file path is listed in `.gitignore`.
@@ -297,6 +301,8 @@ Acceptance:
 
 `dustin fixture verify <manifest.json>` checks and prints, with Horizon evidence, every Appendix B precondition: Spendable XLM equals 0; at least 3 trustlines with non-zero balances; at least 1 open offer; at least 1 data entry; plus the fixture's own invariants (sponsored trustline present with the Reserve Sponsor, expected minimum balance), and writes a JSON snapshot for the Evidence Package.
 
+As built: it reads a manifest of either profile (`--snapshot <file>` writes the evidence, `--json` prints it) and exits 0 when every check passes and 3 when one fails. An `edge` manifest is checked variant by variant against its recipe (62 checks on the fixture of `evidence/runs/20260928T125414Z-edge-frozen/`). A manifest that is truncated or edited by hand (an account role that is not a public key, no network passphrase, a pool id that is not 64 hexadecimal digits) is refused with `MANIFEST_INVALID` before any request, exit 1 (closing review CP-14).
+
 Acceptance:
 - On Fixture A every check passes and the snapshot shows balance 4.0000000 XLM, `subentry_count` 7, `num_sponsored` 1.
 - Draining one more stroop from a copy of the fixture, or adding 0.0000001 XLM, makes the spendable check fail.
@@ -305,18 +311,20 @@ Acceptance:
 
 The builder can produce the variants in section 9: A0 (fully sponsored, literal 0 XLM balance), B (stranded asset frozen by its issuer), SIMPLE (no leftover balances; not built, PRD decision D-4), SEQ-NEAR and SEQ-FAR (`BumpSequence`), LP (pool share trustline with a deposit), MS (additional signer and raised high threshold), CLW (clawback-enabled asset), AUTH (authorization-required issuer in each authorization state), ISS (issuer account merged away).
 
+As built (canonical decision 3): the variants are the accounts of the one `edge` profile, not separate flags. B is `auth-frozen`; AUTH is `auth-authorized`, `auth-maintain` and `auth-revoke`; CLW is `clawback` and `clawback-drift`; LP is `pool-share`; MS is `multisig`; the profile adds `claimable` (matrix X-01) and `immutable` (X-04). SEQ-NEAR and SEQ-FAR are fresh `messy` fixtures given a sponsor-paid `BumpSequence` by the live tests and by `scripts/evidence-cli.mjs seq-wait`. A0 and SIMPLE are not built; ISS was settled by day-1 experiment 4 rather than by a fixture.
+
 Acceptance:
 - Each variant builds on testnet and its manifest states the expected Plan Status and expected codes.
 - The matrix tests (FR-24) consume variants by manifest, never by hard-coded keys.
 
 #### FR-24: Test matrix
 
-The repository ships the test matrix in section 9 under a single `npm test` (offline tier, recorded Horizon responses, runs in CI) and `npm run test:live` (testnet tier, builds its own fixtures), with a results summary that can be screenshotted for the Evidence Package. Cases required by the SOW: illiquid leftover balance, sponsored trustlines where the reserve returns to the sponsor rather than the user, `ACCOUNT_MERGE_SEQNUM_TOO_FAR`, authorization-required trustlines, clawback-enabled trustlines, liquidity pool shares (detected and reported, not withdrawn), raised multisig thresholds (detected and reported).
+The repository ships the test matrix in section 9 under a single `npm test` (offline tier, recorded Horizon responses, runs in CI) and `npm run test:testnet` (testnet tier, builds its own fixtures; it runs only with `DUSTIN_TESTNET=1`; the tier was first named `test:live`, acceptance audit CA-17), with a results summary that can be screenshotted for the Evidence Package. Cases required by the SOW: illiquid leftover balance, sponsored trustlines where the reserve returns to the sponsor rather than the user, `ACCOUNT_MERGE_SEQNUM_TOO_FAR`, authorization-required trustlines, clawback-enabled trustlines, liquidity pool shares (detected and reported, not withdrawn), raised multisig thresholds (detected and reported).
 
 Acceptance:
 - Every case in section 9 exists as a named test mapped to its FR; the offline tier passes in CI on every supported Node LTS line; the live tier passes against testnet before delivery.
 - The committed screenshot and text summary in `evidence/tests/` match the test names in the repository.
-- A reviewer following `README.md` can clone, install, and run `npm test` and `npm run test:live` against fresh fixtures.
+- A reviewer following `README.md` can clone, install, and run `npm test` and `DUSTIN_TESTNET=1 npm run test:testnet` against fresh fixtures.
 
 #### FR-25: Baseline recording of the existing tool
 
@@ -393,13 +401,15 @@ Acceptance:
 |---|---|---|---|
 | `dustin plan <G...> --to <G...> [--sponsor <G...>] [--json] [--base-fee <stroops>]` | Print the Close Plan (Dry Run) | none | canonical decision 5: 0 plan printed, 2 usage error, 6 Horizon unreachable, 1 error |
 | `dustin close <G...> --to <G...> --execute [--yes] [--partial] [--json] [--memo <m>] [--prefer-destination] [--base-fee <stroops>] [--report <path>]` | Execute the close with fee-bumped transactions; without `--execute` it is `plan` | `DUSTIN_ACCOUNT_SECRET`, `DUSTIN_SPONSOR_SECRET` | canonical decision 5: 0 closed and verified gone, 3 nothing executed, 4 partial, 5 stopped or failed, 2 usage error, 6 Horizon unreachable, 1 error |
-| `dustin fixture create [--variant <name>] [--out <manifest>] [--secrets <path>]` | Build a fixture on testnet from friendbot | none (creates its own keys) | 0 built, 1 error |
-| `dustin fixture verify <manifest>` | Prove Appendix B preconditions with Horizon evidence | none | 0 pass, 3 fail |
+| `dustin fixture create [--profile messy\|edge] [--dir <path>] [--out <file>] [--json]` | Build a fixture on testnet from friendbot (FR-21) | none (creates its own keys) | 0 built and verified; 1 its verification failed, or an unexpected error before any submission; 2 usage error (an unknown profile); 5 the build stopped after a submission, or an `edge` build whose last Horizon read failed after every build transaction applied; 6 Horizon unreachable before any submission (closing review CP-9) |
+| `dustin fixture verify <manifest> [--snapshot <file>] [--json]` | Prove Appendix B preconditions with Horizon evidence (FR-22) | none | 0 pass, 3 fail; a malformed manifest is refused with `MANIFEST_INVALID` before any request (exit 1; closing review CP-14) |
 | `dustin baseline <G...> --out <dir>` | Snapshot the Account and print the baseline recording protocol | none | 0 |
 | `dustin evidence build --report <path> --out <dir>` | Assemble transaction evidence (XDR, Horizon records, links, 404 proof) | none | 0 |
 | `dustin verify-closed <G...>` | Confirm the Account no longer exists on Horizon | none | 0 gone, 3 still exists |
 
 Global options: `--network testnet` (only value accepted in v1), `--horizon <url>`, `--explorer <base-url>`, `--verbose`. Progress lines are human-readable by default and NDJSON events with `--json`.
+
+As built (2026-09-28): the CLI has `plan`, `close`, `fixture create` and `fixture verify`. `dustin baseline`, `dustin evidence build` and `dustin verify-closed` are not built: the SDK exports `verifyClosed()`, the evidence runs are written by `scripts/evidence-cli.mjs` and the live test `test/testnet/execute-close.test.ts`, and the baseline recording follows `evidence/baseline/README.md`. The only global option is `--network testnet`; the Horizon URL and the explorer base come from `DUSTIN_HORIZON_URL` and `DUSTIN_EXPLORER_BASE`, and every Horizon must serve the testnet. The plan, the progress and the receipt go to standard output, or to standard error with `--json`; then standard output carries exactly one JSON document once the plan was shown: the report once the executor has one, and otherwise the plan (closing review CC-2).
 
 ## 7. SDK API surface
 
@@ -410,6 +420,8 @@ Updated later on 2026-09-28 for the Epic 3 code and the third review round:
 - the `wait` event (story E3-S4);
 - `recovery.sponsorsObserved`, with the exported types `SponsorObservation` and `SponsorState` (story E3-S3);
 - `SubmittedTransaction.sequenceUsed` and `lookupError`, the upper bounds of the pauses and of `timeoutSeconds`, and the `closed` status rules (review round 3: R3-1, R3-10, R3-18, R3-22).
+
+Updated again on 2026-09-28 for the closing review of Epic 3: what the drift check compares (CX-2), the upper bounds of `graceSeconds`, `ledgerWaitSeconds` and `verifyTimeoutMs` (CX-9), and a merge envelope that can never apply no longer proving a close (CX-1). No name changed.
 
 ```ts
 import type { FeeBumpTransaction, Keypair, Transaction } from "@stellar/stellar-sdk";
@@ -563,20 +575,29 @@ export interface ExecuteOptions {
                                           // the pace of the sequence-guard wait (FR-14)
   backoffMs?: number;                     // default 1000, doubled after each 429; a pause from 200 to
                                           // 2^31 - 1 ms, and the doubled pause never goes beyond that
-  graceSeconds?: number;                  // default 10
-  ledgerWaitSeconds?: number;             // default 60
-  verifyTimeoutMs?: number;               // default 30000
+  graceSeconds?: number;                  // default 10, from 0 to 3600
+  ledgerWaitSeconds?: number;             // default 60, from 0 to 3600
+  verifyTimeoutMs?: number;               // default 30000, from 0 to 3,600,000 (one hour)
   sleep?: (ms: number) => Promise<void>;  // default a timer; tests inject one that returns at once
   now?: () => number;                     // default Date.now
 }
 // A custom `submitter` is also accepted; it is internal and undocumented until 0.1.0.
+// The numeric options are checked before anything is read or signed: a value out of its range is
+// CONFIG_INVALID at stage "config" (closing review CX-9 bounded the grace, the ledger wait and
+// verifyTimeoutMs, which extend the waits for an unconfirmed envelope and for the final check).
+// Every pause of a bounded wait (the sequence-guard wait, the confirm loops, the final check) is
+// clipped to the time left in that wait, and never below 200 ms (closing review CX-8).
 
 export type CloseStatus = "closed" | "partial" | "aborted" | "failed" | "running";
 // "running" appears only on copies published while a run is in progress (2026-09-27).
 // "closed": a merge of this run applied, seen by hash, or proven by the account being gone after
-// this run posted a merge envelope that could have applied (outcome unknown, or pending mid-POST).
-// A merge envelope refused or failed on the ledger proves nothing, so the stop stands (review
-// round 3, R3-1). A merge of this run that applied is always "closed" (R3-10):
+// this run posted a merge envelope that could have applied: one "pending" mid-POST, or one
+// "unknown" that may still apply (mayStillApply), may have applied (sequenceUsed) or could not be
+// looked up (lookupError). A merge envelope refused or failed on the ledger proves nothing (review
+// round 3, R3-1), nor does one the run found gone past its time bound with its sequence number
+// unused, which can never apply (closing review CX-1): with only such envelopes the account's
+// removal is someone else's, and the run keeps its stop ("failed", CLI exit 5). A merge of this
+// run that applied is always "closed" (R3-10):
 // - verified gone: "closed" with verification.accountExists === false and no stop (CLI exit 0);
 // - Horizon still returns the account at the final check: "closed" with stop ACCOUNT_STILL_EXISTS (CLI exit 5);
 // - interrupted after the merge, before the final check: "closed" with verification null (CLI exit 5).
@@ -614,9 +635,10 @@ export type StopCode =
   | "ACCOUNT_MISSING" | "OVER_BUDGET" | "OPERATION_FAILED" | "STEP_FAILED_TWICE" | "REPLAN_LIMIT"
   | "TRANSACTION_REJECTED" | "SEQUENCE_CONFLICT" | "FEE_LIMIT" | "RETRY_LIMIT" | "OUTCOME_UNKNOWN"
   | "MERGE_PREFLIGHT_FAILED" | "SEQNUM_TOO_FAR" | "ACCOUNT_STILL_EXISTS";
-// XLM_TO_DESTINATION_FELL (review BH-7): the fresh plan made before signing sends less XLM to the
-// destination than the approved plan; the plan hash leaves quotes out, so the amounts are compared
-// separately (FR-16). SEQNUM_TOO_FAR comes from the plan's guard, from the merge preflight when the
+// XLM_TO_DESTINATION_FELL (review BH-7): the fresh plan made before signing recovers less XLM than
+// the approved plan: the Account's balance plus the quoted sales, which is the XLM the destination
+// would receive when the plan merges and the XLM the Account keeps when it does not (closing review
+// CX-2); the plan hash leaves quotes out, so the amounts are compared separately (FR-16). SEQNUM_TOO_FAR comes from the plan's guard, from the merge preflight when the
 // wait for the guard would pass the plan's maxWaitLedgers or its local-clock limit runs out, or from
 // a merge that failed with op_seq_num_too_far (FR-14); a preflight that fails on the guard alone
 // gives SEQNUM_TOO_FAR, not MERGE_PREFLIGHT_FAILED.
@@ -628,7 +650,7 @@ export interface StopReason {
   detail: string;
   round?: number; txIndex?: number; hash?: string; stepId?: string; resultCodes?: SubmittedTransaction["resultCodes"];
   unblocksAtLedger?: number;      // sequence-guard stops: the first ledger the merge can land in
-  xlmToDestination?: { approved: string; fresh: string }; // drift before signing: both amounts, when the fresh one is lower
+  xlmToDestination?: { approved: string; fresh: string }; // drift before signing: what each plan recovers (balance plus quoted sales), when the fresh one is lower
   maxTime?: number;               // OUTCOME_UNKNOWN: the envelope's upper time bound; run again after a ledger closed past it
 }
 
@@ -673,7 +695,7 @@ export interface CloseReport {
 export type CloseEvent =
   | { type: "plan"; plan: ClosePlan; round?: number }
   | { type: "drift"; action: "abort" | "replan"; previousPlanHash: string; planHash: string;
-      xlmToDestination?: { approved: string; fresh: string } } // set when the fresh amount is lower (BH-7)
+      xlmToDestination?: { approved: string; fresh: string } } // set when the fresh plan recovers less (BH-7, CX-2)
   | { type: "preflight"; index: number; ok: boolean; detail: string }
   | { type: "wait"; reason: "sequence"; state: "start" | "end"; index: number;
       untilLedger: number; currentLedger: number } // the sequence-guard wait before a merge (FR-14)
@@ -764,7 +786,7 @@ Fixture A plus Trustline A5: asset `FRZ` from issuer I3 with `AUTH_REQUIRED` and
 | SIMPLE | 2 offers, 2 zero-balance trustlines, 1 data entry, zero spendable XLM | `closable`; Week 2 milestone account. Not built: the Week 2 close used fresh Fixture A (`messy`) accounts instead, a harder account, and the builder accepted the substitution on 2026-09-28 (story E2-S6) |
 | SEQ-NEAR | A plus `BumpSequence` to `(currentLedger + 3) << 32` | `closable`, the merge alone in the last transaction; the executor waits for the guard, then the merge succeeds (FR-14) |
 | SEQ-FAR | A plus `BumpSequence` to `(currentLedger + 100000) << 32` | `blocked`, `SEQNUM_TOO_FAR` with earliest ledger |
-| LP | A plus a pool share trustline with a deposit | `partial`, `LIQUIDITY_POOL_SHARES` |
+| LP | A plus a pool share trustline with a deposit | `partial`, `LIQUIDITY_POOL_SHARES` (as built: `blocked`, see FR-08) |
 | MS | A plus an extra signer and high threshold above the master weight | `blocked`, `THRESHOLD_UNMET` |
 | CLW | A with `LIQ` replaced by a clawback-enabled asset; issuer claws back between plan and execution in the recorded test | Drift handling per FR-16 |
 | AUTH | Authorization-required issuer in three states: authorized (normal), unauthorized with zero balance (removable), authorized-to-maintain-liabilities with dust (unclosable) | Per state |
@@ -846,7 +868,7 @@ Anything else is stretch (section 14).
 |---|---|---|
 | D1 `planClose()` read-only planner, CLI dry run | FR-01, FR-02, FR-03, FR-04, FR-05, FR-06, FR-07, FR-08, FR-09, FR-10; NFR-01, NFR-05, NFR-10 | Public repo; `dustin plan` runnable against any testnet account (FR-09); committed plan output for Fixture A in `evidence/plan/` (FR-29) |
 | D2 `executeClose()` live on testnet, fee-sponsored, ladder, sponsored unwinding, seqnum guard, retry and recovery | FR-11, FR-12, FR-13, FR-14, FR-15, FR-16, FR-17, FR-18, FR-19, FR-20; NFR-02, NFR-03, NFR-04, NFR-09, NFR-11 | Transaction hashes with Explorer links and the Horizon 404 for the Account in `evidence/runs/<UTC stamp>/` (FR-18, FR-29; the layout is `evidence/runs/README.md`); 60-second video (FR-28) |
-| D3 Edge cases, fixture, baseline recording, test matrix | FR-21, FR-22, FR-23, FR-24, FR-25 | Test results screenshot and text in `evidence/tests/` (FR-24); public repo with `npm test` and `npm run test:live` (FR-24, FR-26); baseline recording and snapshots in `evidence/baseline/` (FR-25) |
+| D3 Edge cases, fixture, baseline recording, test matrix | FR-21, FR-22, FR-23, FR-24, FR-25 | Test results screenshot and text in `evidence/tests/` (FR-24); public repo with `npm test` and `npm run test:testnet` (FR-24, FR-26); baseline recording and snapshots in `evidence/baseline/` (FR-25) |
 | D4 README, integration notes, write-up, 60-second demo, evidence package, npm package | FR-26, FR-27, FR-28, FR-29, FR-30; NFR-06, NFR-07, NFR-08, NFR-12 | Public repo (FR-30); write-up `docs/write-up.md` (FR-27); video (FR-28); `evidence/README.md` (FR-29) |
 
 ### 12.2 Appendix B checklist to requirements
