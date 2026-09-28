@@ -71,10 +71,11 @@ export interface ExecuteOptions {
   /** Run the cleanup even when the plan cannot end in a merge; default false. */
   allowPartial?: boolean;
   /**
-   * When the account changed since the plan, when the fresh plan made before signing sends less
-   * XLM to the destination than the approved plan (a worse quote; review BH-7), or when a mid-run
-   * re-plan finds something the approved plan did not have: stop (default) or continue with the
-   * fresh plan.
+   * When the account changed since the plan, when the fresh plan made before signing recovers less
+   * XLM than the approved plan (a worse quote; review BH-7): the account's balance plus the quoted
+   * sales, which the merge sends to the destination or, in a plan without a merge, the account
+   * keeps (closing review CX-2), or when a mid-run re-plan finds something the approved plan did
+   * not have: stop (default) or continue with the fresh plan.
    */
   onDrift?: "abort" | "replan";
   onEvent?: (event: CloseEvent) => void;
@@ -141,8 +142,8 @@ export interface ExecuteOptions {
 /**
  * Executes a close plan (SOW Deliverable 2). Every transaction is an inner transaction signed by
  * the account and wrapped in a fee bump signed by the sponsor (ADR-0003). Before anything is signed
- * the account is re-inspected and re-planned; a changed plan, or one that sends less XLM to the
- * destination than the approved plan (review BH-7), aborts unless `onDrift: "replan"`.
+ * the account is re-inspected and re-planned; a changed plan, or one that recovers less XLM than
+ * the approved plan (review BH-7, closing review CX-2), aborts unless `onDrift: "replan"`.
  * A merge in its own transaction runs only after a fresh preflight. Submissions are retried and
  * rebuilt safely, and operation failures re-plan from live state (E2-S3). The ledger is the source
  * of truth: running again after any stop continues from wherever the account is.
@@ -403,9 +404,10 @@ class CloseRun {
         detail: `The account ${plan.account} does not exist on the testnet ledger (Horizon answered 404); if an earlier run merged it, the close is complete. Nothing was submitted.`,
       });
     }
-    // Drift before anything is signed: a changed structure (plan hash), or less XLM for the
-    // destination than the caller approved. The plan hash leaves quotes and destMin out, so a
-    // sale quoted lower while the confirmation waited changes only the amount (review BH-7).
+    // Drift before anything is signed: a changed structure (plan hash), or less XLM recovered than
+    // the caller approved, for the destination or, without a merge, for the account (closing
+    // review CX-2). The plan hash leaves quotes and destMin out, so a sale quoted lower while the
+    // confirmation waited changes only the amount (review BH-7).
     // Mid-run re-plans are judged by replanDrift() instead, where a failed sale may fall down the
     // ladder and lower the proceeds by design.
     const hashChanged = fresh.planHash !== plan.planHash;
@@ -420,7 +422,7 @@ class CloseRun {
         ...(fell ? { xlmToDestination: fell } : {}),
       });
       const amounts = fell
-        ? `the XLM the destination would receive fell from ${fell.approved} XLM to ${fell.fresh} XLM`
+        ? `${recoveredXlmWords(plan, fresh)} fell from ${fell.approved} XLM to ${fell.fresh} XLM`
         : "";
       if (action === "abort") {
         if (hashChanged) {
@@ -1541,17 +1543,36 @@ function isThenable(value: unknown): value is PromiseLike<unknown> {
 }
 
 /**
- * Both amounts when the fresh plan sends less XLM to the destination than the approved one
- * (`recovery.xlmToDestination`, BigInt stroops); null when it sends as much or more, which is not
- * drift (review BH-7).
+ * Both amounts when the fresh plan recovers less XLM than the approved one; null when it recovers
+ * as much or more, which is not drift (review BH-7). What a plan recovers is the account's native
+ * balance plus the quoted proceeds of its sales, in BigInt stroops: `recovery.xlmToDestination`
+ * when the plan merges, and what the account keeps when it does not, where `xlmToDestination` is
+ * 0 and would hide a worse quote (closing review CX-2).
  */
 function xlmFell(
   approved: ClosePlan,
   fresh: ClosePlan,
 ): { approved: string; fresh: string } | null {
-  const before = toStroops(approved.recovery.xlmToDestination);
-  const now = toStroops(fresh.recovery.xlmToDestination);
+  const recovered = (p: ClosePlan) =>
+    toStroops(p.recovery.nativeBalance) + toStroops(p.recovery.quotedProceedsXlm);
+  const before = recovered(approved);
+  const now = recovered(fresh);
   return now < before ? { approved: formatStroops(before), fresh: formatStroops(now) } : null;
+}
+
+/**
+ * What the two amounts of a fall (`xlmFell`) measure, in words, from whether the plans merge: the
+ * XLM the destination would receive when both do, the XLM the account would keep when neither does,
+ * and the XLM the close would recover otherwise (closing review CX-2). The CLI's progress line uses
+ * the same words.
+ */
+export function recoveredXlmWords(approved: ClosePlan, fresh: ClosePlan): string {
+  const merges = (p: ClosePlan) => p.steps.some((s) => s.kind === "merge");
+  if (merges(approved) && merges(fresh)) return "the XLM the destination would receive";
+  if (!merges(approved) && !merges(fresh)) {
+    return "the XLM the account would keep (its balance plus the quoted sales; the plan does not merge)";
+  }
+  return "the XLM the close would recover (the account's balance plus the quoted sales)";
 }
 
 /** An error in a few words for a warning: its code and message when it is a DustinError. */

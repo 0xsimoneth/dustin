@@ -134,9 +134,11 @@ export interface RunBlocker {
 export type StopCode =
   | "PLAN_CHANGED"
   /**
-   * The fresh plan made before signing sends less XLM to the destination than the plan the caller
-   * approved (`recovery.xlmToDestination`), for example because a sale's quote got worse while the
-   * confirmation waited; the plan hash leaves quotes out, so it does not show this (review BH-7).
+   * The fresh plan made before signing recovers less XLM than the plan the caller approved, for
+   * example because a sale's quote got worse while the confirmation waited; the plan hash leaves
+   * quotes out, so it does not show this (review BH-7). What a plan recovers is the account's
+   * balance plus the quoted sales: `recovery.xlmToDestination` when it merges, what the account
+   * keeps when it does not (closing review CX-2).
    */
   | "XLM_TO_DESTINATION_FELL"
   | "PLAN_NOT_CLOSABLE"
@@ -174,8 +176,10 @@ export interface StopReason {
   /** For a sequence-number stop: the first ledger the merge can land in. */
   unblocksAtLedger?: number;
   /**
-   * For a drift stop before anything was signed: the XLM the destination would receive in the
-   * approved plan and in the fresh plan, when the fresh amount is lower (review BH-7).
+   * For a drift stop before anything was signed: the XLM the approved plan and the fresh plan
+   * recover, when the fresh amount is lower (review BH-7): the account's balance plus the quoted
+   * sales, which is the XLM the destination would receive when the plan merges and the XLM the
+   * account would keep when it does not (closing review CX-2).
    */
   xlmToDestination?: { approved: string; fresh: string };
   /**

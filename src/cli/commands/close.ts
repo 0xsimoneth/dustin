@@ -15,7 +15,7 @@ import { verifyHorizonIsTestnet } from "../../config/network.js";
 import type { Sleep } from "../../config/pauses.js";
 import { DustinError } from "../../errors/dustin-error.js";
 import { redact, redactValue } from "../../errors/redact.js";
-import { executeClose, type CloseEvent } from "../../execute/executor.js";
+import { executeClose, recoveredXlmWords, type CloseEvent } from "../../execute/executor.js";
 import type { CloseReport } from "../../execute/report.js";
 import { horizonSubmitter } from "../../execute/submit.js";
 import { reserveFromHorizon } from "../../inspect/reserve.js";
@@ -462,14 +462,16 @@ function progressPrinter(
       case "done":
         return;
       case "drift": {
-        // Two kinds of drift: a changed plan structure (its hash), and less XLM for the destination
-        // than the plan shown, which the hash does not show (a worse quote; review BH-7).
+        // Two kinds of drift: a changed plan structure (its hash), and less XLM recovered than in
+        // the plan shown, which the hash does not show (a worse quote; review BH-7): for the
+        // destination, or for the account when the plans do not merge (closing review CX-2). The
+        // plan shown is the first of `plans`, the executor's fresh plan the latest.
         const what = [
           event.previousPlanHash !== event.planHash
             ? `the account changed since the plan was shown (plan hash ${event.previousPlanHash} is now ${event.planHash})`
             : "",
           event.xlmToDestination
-            ? `the XLM the destination receives fell from ${event.xlmToDestination.approved} XLM to ${event.xlmToDestination.fresh} XLM since the plan was shown (a worse quote for a sale, or a lower balance)`
+            ? `${recoveredXlmWords(plans[0]!, latestPlan())} fell from ${event.xlmToDestination.approved} XLM to ${event.xlmToDestination.fresh} XLM since the plan was shown (a worse quote for a sale, or a lower balance)`
             : "",
         ].filter(Boolean);
         const text = what.join(", and ") || "the plan changed since it was shown";

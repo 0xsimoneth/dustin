@@ -97,3 +97,84 @@ describe("CX-1: a merge envelope the run judged unable to apply proves no close"
     expect(exitCodeForReport(report)).toBe(0);
   });
 });
+
+describe("CX-2: a worse quote in a plan without a merge is drift too (BH-7)", () => {
+  /** A plan that cannot merge (the guard is beyond the bound) and still sells DUSTA. */
+  async function farGuardPlan() {
+    const h = harness();
+    bump(h.ledger, 720);
+    const approved = await h.plan();
+    expect(approved.status).toBe("blocked");
+    expect(approved.steps.some((s) => s.kind === "merge")).toBe(false);
+    expect(approved.recovery).toMatchObject({
+      xlmToDestination: "0.0000000",
+      nativeBalance: "4.0000000",
+      quotedProceedsXlm: "0.0000007",
+    });
+    // The quote falls 7 times while the confirmation waits.
+    h.ledger.quotes.set([...h.ledger.quotes.keys()][0]!, "0.0000001");
+    return { ...h, approved };
+  }
+
+  it("aborts with nothing signed, comparing what the account would keep", async () => {
+    const { ledger, clock, deps, approved } = await farGuardPlan();
+    const events: CloseEvent[] = [];
+    const report = await executeClose(approved, signers(), {
+      confirm: true,
+      ...deps,
+      sleep: tickingSleep(ledger, clock),
+      allowPartial: true,
+      onEvent: (e) => events.push(e),
+    });
+    const amounts = { approved: "4.0000007", fresh: "4.0000001" };
+    expect(events.find((e) => e.type === "drift")).toMatchObject({
+      action: "abort",
+      xlmToDestination: amounts,
+    });
+    expect(report.status).toBe("aborted");
+    expect(report.stop).toMatchObject({
+      code: "XLM_TO_DESTINATION_FELL",
+      xlmToDestination: amounts,
+    });
+    expect(report.stop!.detail).toMatch(
+      /the XLM the account would keep \(its balance plus the quoted sales; the plan does not merge\) fell from 4\.0000007 XLM to 4\.0000001 XLM/,
+    );
+    expect(report.stop!.detail).not.toMatch(/destination would receive/);
+    expect(ledger.submissions).toHaveLength(0);
+  });
+
+  it("goes on under onDrift replan with a warning that names what the account keeps", async () => {
+    const { ledger, clock, deps, approved } = await farGuardPlan();
+    const report = await executeClose(approved, signers(), {
+      confirm: true,
+      ...deps,
+      sleep: tickingSleep(ledger, clock),
+      allowPartial: true,
+      onDrift: "replan",
+    });
+    expect(report.status).toBe("partial");
+    expect(report.transactions.map((t) => [t.phase, t.result])).toEqual([
+      ["cleanup", "applied"],
+      ["convert", "applied"],
+    ]);
+    const warning = report.warnings.find((w) => w.includes("fell from"));
+    expect(warning).toMatch(
+      /the XLM the account would keep .* fell from 4\.0000007 XLM to 4\.0000001 XLM/,
+    );
+    expect(warning).toMatch(/the run went on with the fresh plan/);
+  });
+
+  it("keeps the words of a plan that merges (control)", async () => {
+    const { ledger, deps, plan } = harness();
+    const approved = await plan();
+    ledger.quotes.set([...ledger.quotes.keys()][0]!, "0.0000001");
+    const report = await executeClose(approved, signers(), { confirm: true, ...deps });
+    expect(report.stop).toMatchObject({
+      code: "XLM_TO_DESTINATION_FELL",
+      xlmToDestination: { approved: "4.0000007", fresh: "4.0000001" },
+    });
+    expect(report.stop!.detail).toMatch(
+      /the XLM the destination would receive fell from 4\.0000007 XLM to 4\.0000001 XLM/,
+    );
+  });
+});
