@@ -32,7 +32,7 @@ The destination received exactly 4.0000007 XLM: the fixture's 4.0000000 XLM plus
 | Directory | What it holds |
 |---|---|
 | [`plan/`](plan/) | The dry-run plan of the builder's baseline fixture, as text and JSON (Deliverable 1, 2026-09-26) |
-| [`runs/`](runs/README.md) | Every live close: the layout, and how to reproduce a run |
+| [`runs/`](runs/README.md) | Every live close: the layout, and how to reproduce a run, through the SDK (`test/testnet/execute-close.test.ts`) or through the command line (`node scripts/evidence-cli.mjs <case>`, cases `metric`, `edge-frozen`, `memo-partial` and `seq-wait`) |
 | [`runs/20260926T125350Z/`](runs/20260926T125350Z/summary.md), [`runs/20260927T200015Z-cli/`](runs/20260927T200015Z-cli/summary.md) | The first live closes of week 2 (story E2-S6) |
 | [`baseline/`](baseline/README.md) | The recording protocol for the StellarExpert Demolisher baseline (Deliverable 3); the recording is pending (builder, story E1-S2) |
 | [`../docs/test-matrix.md`](../docs/test-matrix.md) | The D3 test matrix: every row, its tests and their status |
