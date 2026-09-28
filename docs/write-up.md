@@ -268,7 +268,7 @@ The same wait through the CLI, with its transcript ([`e3s4-wait`](../evidence/ru
 
 ### 8.2 Set by the protocol or by the account
 
-Every unclosable code and blocker code of PRD section 7, with the remedy the planner prints. An unclosable item stays on the account, its trustline stays, and the plan has no merge; with `--partial` (SDK `allowPartial: true`) everything else runs and the account remains open (CLI exit code 4).
+Every unclosable code and blocker code of PRD section 7, with the remedy the planner prints. An unclosable item stays on the account, its trustline stays, and the plan has no merge; with `--partial` (SDK `allowPartial: true`) everything else runs and the account remains open (CLI exit code 4). A partial run never moves native XLM: the account keeps its balance, and the proceeds of any sale stay on it too.
 
 | Code | Kind | Meaning | What a user can do |
 |---|---|---|---|
