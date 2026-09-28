@@ -383,3 +383,49 @@ describe("R3-9: an included failure with no operation code spent only a number a
     expect(report.message).toMatch(/Run the close again/);
   });
 });
+
+/**
+ * The merge applies behind a 504 while its lookups answer 503, so the run stops with
+ * OUTCOME_UNKNOWN; after the stop the lookups work, but the account reads come from a Horizon that
+ * still has the account as it was before the merge.
+ */
+function mergeSettledLate() {
+  let merge: string | null = null;
+  let settled = false;
+  let copy: unknown = null;
+  const h = harness((_l, fetch) => (url, init) => {
+    if (merge && !settled && url.endsWith(`/transactions/${merge}`)) return reply(503);
+    if (settled && copy && url.endsWith(`/accounts/${messy.fixture}`)) {
+      return Promise.resolve(new Response(JSON.stringify(copy)));
+    }
+    return fetch(url, init);
+  });
+  const onEvent = (e: CloseEvent) => {
+    if (e.type === "tx:building" && e.index === 2 && e.attempt === 1) {
+      copy = structuredClone(h.ledger.accounts.get(messy.fixture));
+      h.ledger.faults.push("504-applied");
+    }
+    if (e.type === "tx:submitted" && e.index === 2 && e.attempt === 1) merge = e.hash;
+    if (e.type === "tx:failed" && e.index === 2) settled = true;
+  };
+  return { ...h, onEvent, mergeHash: () => merge };
+}
+
+describe("R3-10: a merge of this run that applied makes the run closed, verified or not", () => {
+  it("ends closed, not failed with the stale stop, when a settled merge still shows on Horizon", async () => {
+    const { deps, plan, onEvent, mergeHash } = mergeSettledLate();
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      verifyTimeoutMs: 10_000,
+      onEvent,
+    });
+    const merges = report.transactions.filter((t) => t.phase === "merge");
+    expect(merges.map((t) => t.result)).toEqual(["applied"]);
+    expect(report.steps.find((s) => s.stepId === "S12")).toMatchObject({ status: "applied" });
+    expect(report.status).toBe("closed");
+    expect(report.verification).toMatchObject({ accountExists: true });
+    expect(report.stop).toMatchObject({ code: "ACCOUNT_STILL_EXISTS", hash: mergeHash() });
+    expect(report.message).toMatch(/Horizon still returned the account at the final check/);
+  });
+});

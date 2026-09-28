@@ -856,16 +856,17 @@ class CloseRun {
     return entry ? { hash: entry.hash, ledger: entry.ledger ?? 0 } : null;
   }
 
-  /** A stop during the run: `failed` once something was submitted, `aborted` if not. */
+  /**
+   * A stop during the run: `failed` once something was submitted, `aborted` if not, and `closed`
+   * when a merge of this run turns out to have applied after all.
+   */
   private async stopped(stop: StopReason): Promise<CloseReport> {
     if (!this.report.transactions.some((t) => t.attempts > 0)) return this.abort(stop);
     await this.settleUnknown();
     const verification = await this.verifyOrWarn();
-    if (this.merge && verification?.accountExists === false) {
-      // The merge was found applied after all (a lagging lookup settled): a close like any other.
-      this.recoverReserves();
-      return this.finish("closed", null, null);
-    }
+    // The merge was found applied after all (a lagging lookup settled): a close like any other,
+    // verified or not, and the stop it settled no longer stands (review round 3, R3-10).
+    if (this.merge) return this.merged(verification);
     const closed = verification ? await this.closedUnseen(verification) : null;
     if (closed) return closed;
     this.recoverReserves();
@@ -880,30 +881,40 @@ class CloseRun {
   private async complete(): Promise<CloseReport> {
     await this.settleUnknown();
     const verification = await this.verifyOrWarn();
+    if (this.merge) return this.merged(verification);
     const closed = verification ? await this.closedUnseen(verification) : null;
     if (closed) return closed;
     this.recoverReserves();
-    if (this.merge) {
-      if (verification?.accountExists) {
-        return this.finish(
-          "failed",
-          "The merge was reported applied but the account still exists; check it on the explorer.",
-          {
-            code: "ACCOUNT_STILL_EXISTS",
-            stage: "confirm",
-            verdict: "stop",
-            detail: `The merge (${this.merge.hash}) applied in ledger ${this.merge.ledger}, but Horizon still returns the account.`,
-            hash: this.merge.hash,
-          },
-        );
-      }
-      return this.finish("closed", null, null);
-    }
     const left = this.report.unclosable.length + this.report.blockers.length;
     return this.finish(
       "partial",
       `Everything that could run has run; the account still exists because ${left} item(s) block the merge (see unclosable and blockers).`,
       null,
+    );
+  }
+
+  /**
+   * A merge of this run applied, seen by hash: the run is `closed` (decision EX-10; `CloseStatus`
+   * in report.ts), whether it ended the planned way or after a stop that a later lookup settled. A
+   * verified close has the final check's 404 and no stop. When Horizon still returned the account
+   * at the final check, the message says so and the stop ACCOUNT_STILL_EXISTS names the merge;
+   * the CLI exits 5 for it, never 0 (review round 3, R3-10: `complete()` returned `failed` and
+   * `stopped()` kept its stale stop for the same state).
+   */
+  private merged(verification: CloseReport["verification"]): CloseReport {
+    const merge = this.merge!;
+    this.recoverReserves();
+    if (verification?.accountExists !== true) return this.finish("closed", null, null);
+    return this.finish(
+      "closed",
+      `The merge (${merge.hash}) applied in ledger ${merge.ledger}, but Horizon still returned the account at the final check; check it on the explorer.`,
+      {
+        code: "ACCOUNT_STILL_EXISTS",
+        stage: "confirm",
+        verdict: "stop",
+        detail: `The merge (${merge.hash}) applied in ledger ${merge.ledger}, but Horizon still returns the account.`,
+        hash: merge.hash,
+      },
     );
   }
 
