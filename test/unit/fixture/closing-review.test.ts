@@ -6,11 +6,14 @@ import { run } from "../../../src/cli/run.js";
 import { TESTNET_PASSPHRASE } from "../../../src/config/network.js";
 import { DustinError } from "../../../src/errors/dustin-error.js";
 import { buildMessyFixture } from "../../../src/fixture/builder.js";
-import { buildEdgeFixture } from "../../../src/fixture/edge-builder.js";
+import { buildEdgeFixture, openSettleChecks } from "../../../src/fixture/edge-builder.js";
+import { edgeSteps, type EdgeAccountRole } from "../../../src/fixture/edge.js";
+import { verifyEdgeFixture, type EdgeVerifyInput } from "../../../src/fixture/edge-verify.js";
 import { readAnyManifest } from "../../../src/fixture/manifest.js";
-import { EDGE_DIR } from "../../helpers/edge-ledger.js";
+import type { HorizonAccount, HorizonOffer } from "../../../src/inspect/horizon-types.js";
+import { EDGE_DIR, edgeManifest, edgeRoles } from "../../helpers/edge-ledger.js";
 import { noSleep } from "../../helpers/no-sleep.js";
-import { MESSY_DIR } from "../../helpers/recorded-horizon.js";
+import { MESSY_DIR, loadRecorded } from "../../helpers/recorded-horizon.js";
 
 // The closing review of 2026-09-28, fixture half (findings CP-8 to CP-14 of the edge case hunt):
 // every test here failed on the code before its fix.
@@ -222,5 +225,66 @@ describe("CP-14: a fixture manifest is checked before anything reads Horizon", (
       expect(exit).toBe(1);
       expect(requests).toEqual([]);
     }
+  });
+});
+
+/** The verification input of the recorded edge fixture, every account present. */
+function recordedVerifyInput(): EdgeVerifyInput {
+  const manifest = edgeManifest();
+  const roles = edgeRoles(manifest);
+  const recorded = loadRecorded(EDGE_DIR);
+  const accountRoles = Object.keys(manifest.accounts).filter(
+    (r) => r !== "sponsor",
+  ) as EdgeAccountRole[];
+  const offers = recorded.get(`/accounts/${roles.authMaintain}/offers?limit=200&order=asc`) as {
+    _embedded: { records: HorizonOffer[] };
+  };
+  return {
+    roles,
+    poolId: manifest.pool.id,
+    baseReserve: 5_000_000n,
+    accounts: Object.fromEntries(
+      accountRoles.map((role) => [
+        role,
+        structuredClone(recorded.get(`/accounts/${roles[role]}`) as HorizonAccount),
+      ]),
+    ),
+    offers: { authMaintain: offers._embedded.records },
+    claimableSponsored: { claimable: 1 },
+  };
+}
+
+describe("CP-11: a step settles only on checks that ran and passed", () => {
+  it("every id a build step waits for is a check the verification runs", () => {
+    const input = recordedVerifyInput();
+    const ids = new Set(verifyEdgeFixture(input).checks.map((c) => c.id));
+    for (const step of edgeSteps(input.roles, input.baseReserve)) {
+      for (const id of step.settles) expect(ids.has(id), `${step.name}: ${id}`).toBe(true);
+    }
+  });
+
+  it("a settle id whose check was skipped (its account is missing) counts as open", () => {
+    const input = recordedVerifyInput();
+    input.accounts.clawback = null;
+    input.accounts.authAuthorized = null;
+    const result = verifyEdgeFixture(input);
+    const step = edgeSteps(input.roles, input.baseReserve).find((s) => s.name === "dust-payments")!;
+    expect(step.settles).toEqual(["clawback/claw-dust", "authAuthorized/auth-dust"]);
+    expect(result.checks.some((c) => step.settles.includes(c.id))).toBe(false);
+    expect(openSettleChecks(result, step.settles)).toEqual([
+      "clawback/claw-dust: not checked (Horizon did not return its account)",
+      "authAuthorized/auth-dust: not checked (Horizon did not return its account)",
+    ]);
+  });
+
+  it("a check that ran and failed is open with what Horizon shows; one that passed is settled", () => {
+    const input = recordedVerifyInput();
+    const result = verifyEdgeFixture(input);
+    expect(openSettleChecks(result, ["clawback/claw-dust"])).toEqual([]);
+    const claw = input.accounts.clawback!.balances.find((b) => b.asset_code === "CLAW")!;
+    claw.balance = "0.0000000";
+    expect(openSettleChecks(verifyEdgeFixture(input), ["clawback/claw-dust"])).toEqual([
+      "clawback holds 0.0000004 CLAW: balance 0.0000000, is_authorized true, is_authorized_to_maintain_liabilities true, is_clawback_enabled true",
+    ]);
   });
 });

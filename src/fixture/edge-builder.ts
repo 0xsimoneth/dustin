@@ -40,6 +40,7 @@ import {
 } from "./edge.js";
 import { loadEdgeVerifyInput, verifyEdgeFixture } from "./edge-verify.js";
 import type { EdgeFixtureKeys, EdgeFixtureManifest, FixtureManifest } from "./manifest.js";
+import type { VerifyResult } from "./verify.js";
 
 export interface EdgeBuildOptions {
   config?: DustinConfig;
@@ -129,6 +130,21 @@ function recordingFetch(doFetch: FetchLike, horizonUrl: string) {
   return { fetch, responses };
 }
 
+/**
+ * The checks a build step waits for that do not hold yet, as "label: what Horizon shows". A check
+ * the verification did not run counts as open: per-variant checks are skipped while Horizon
+ * answers 404 for the account, so a skipped check never lets a step count as settled (closing
+ * review CP-11).
+ */
+export function openSettleChecks(result: VerifyResult, settles: readonly string[]): string[] {
+  const byId = new Map(result.checks.map((c) => [c.id, c]));
+  return settles.flatMap((id) => {
+    const check = byId.get(id);
+    if (!check) return [`${id}: not checked (Horizon did not return its account)`];
+    return check.pass ? [] : [`${check.label}: ${check.observed}`];
+  });
+}
+
 /** A readable file name for a recorded path: account-auth-frozen, offers-auth-maintain, ... */
 export function recordName(path: string, roleOf: ReadonlyMap<string, string>): string {
   const who = (id: string) => kebab(roleOf.get(id) ?? id);
@@ -202,12 +218,10 @@ export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<
     const deadline = Date.now() + settleTimeoutMs;
     for (;;) {
       const result = verifyEdgeFixture(await loadEdgeVerifyInput(client, roles, pool.id));
-      const open = result.checks.filter((c) => step.settles.includes(c.id) && !c.pass);
+      const open = openSettleChecks(result, step.settles);
       if (open.length === 0) return;
       if (Date.now() > deadline) {
-        throw invalid(
-          `after step "${step.name}" Horizon still shows ${open.map((c) => `${c.label}: ${c.observed}`).join("; ")}`,
-        );
+        throw invalid(`after step "${step.name}" Horizon still shows ${open.join("; ")}`);
       }
       await sleep(1000);
     }
