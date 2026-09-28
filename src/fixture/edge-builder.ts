@@ -36,6 +36,7 @@ import {
 import {
   EDGE,
   EDGE_ACCOUNT_ROLES,
+  EDGE_ASSET_CODES,
   EDGE_KEY_ROLES,
   edgeIssuerOf,
   edgePool,
@@ -350,7 +351,7 @@ async function buildEdge(
       ? (input.accounts.poolShare?.balances.find((b) => b.liquidity_pool_id === pool.id)?.balance ??
         "0.0000000")
       : undefined;
-    const codes: EdgeAssetCode[] = ["FRZ", "MNT", "AUTH", "RVK", "CLAW", "ILQX", "LPA", "LPB"];
+    const codes: readonly EdgeAssetCode[] = EDGE_ASSET_CODES;
     return {
       schemaVersion: 1,
       kind: "dustin-fixture",

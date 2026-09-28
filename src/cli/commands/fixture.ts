@@ -255,10 +255,12 @@ async function fixtureVerifyEdge(
     ...(ctx.fetch ? { fetch: ctx.fetch } : {}),
     ...ctx.horizon,
   });
+  // Only the variants this fixture was built with: an older build has none of the newer ones.
   const loaded = await loadEdgeVerifyInput(
     client,
     { ...manifest.accounts, multisigSigner: manifest.multisigSigner },
     manifest.pool.id,
+    manifest.variants.map((v) => v.role),
   );
   const { closed } = await assertNoReset(client, {
     manifestId: manifest.id,

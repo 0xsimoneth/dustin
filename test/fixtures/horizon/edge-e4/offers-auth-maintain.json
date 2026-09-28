@@ -1,0 +1,50 @@
+{
+  "path": "/accounts/GDWH2SMDWFM6X3GTW47XACCVLXDN2USJAMCFCEHFS67OEZGHODQNLO72/offers?limit=200&order=asc",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GDWH2SMDWFM6X3GTW47XACCVLXDN2USJAMCFCEHFS67OEZGHODQNLO72/offers?cursor=&limit=200&order=asc"
+      },
+      "next": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GDWH2SMDWFM6X3GTW47XACCVLXDN2USJAMCFCEHFS67OEZGHODQNLO72/offers?cursor=835928&limit=200&order=asc"
+      },
+      "prev": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GDWH2SMDWFM6X3GTW47XACCVLXDN2USJAMCFCEHFS67OEZGHODQNLO72/offers?cursor=835928&limit=200&order=desc"
+      }
+    },
+    "_embedded": {
+      "records": [
+        {
+          "_links": {
+            "self": {
+              "href": "https://horizon-testnet.stellar.org/offers/835928"
+            },
+            "offer_maker": {
+              "href": "https://horizon-testnet.stellar.org/accounts/GDWH2SMDWFM6X3GTW47XACCVLXDN2USJAMCFCEHFS67OEZGHODQNLO72"
+            }
+          },
+          "id": "835928",
+          "paging_token": "835928",
+          "seller": "GDWH2SMDWFM6X3GTW47XACCVLXDN2USJAMCFCEHFS67OEZGHODQNLO72",
+          "selling": {
+            "asset_type": "credit_alphanum4",
+            "asset_code": "MNT",
+            "asset_issuer": "GAE72TZHLFSGOC2BGSFFOXWISN3ZC7LT5BB2CKZDWTY2V344RN6ERIEQ"
+          },
+          "buying": {
+            "asset_type": "native"
+          },
+          "amount": "0.0000002",
+          "price_r": {
+            "n": 1000,
+            "d": 1
+          },
+          "price": "1000.0000000",
+          "last_modified_ledger": 4921124,
+          "last_modified_time": "2026-09-28T21:00:07Z"
+        }
+      ]
+    }
+  }
+}

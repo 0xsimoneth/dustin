@@ -1,11 +1,20 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { run } from "../../../src/cli/run.js";
 import { recordName } from "../../../src/fixture/edge-builder.js";
 import type { EdgeAccountRole } from "../../../src/fixture/edge.js";
-import { verifyEdgeFixture, type EdgeVerifyInput } from "../../../src/fixture/edge-verify.js";
+import {
+  loadEdgeVerifyInput,
+  verifyEdgeFixture,
+  type EdgeVerifyInput,
+} from "../../../src/fixture/edge-verify.js";
+import { readAnyManifest } from "../../../src/fixture/manifest.js";
 import type { HorizonAccount, HorizonOffer } from "../../../src/inspect/horizon-types.js";
-import { EDGE_DIR, edgeManifest, edgeRoles } from "../../helpers/edge-ledger.js";
-import { loadRecorded, recordedFetch } from "../../helpers/recorded-horizon.js";
+import { horizonJson } from "../../../src/reader/horizon-json.js";
+import { EDGE_DIR, EDGE_E4_DIR, edgeManifest, edgeRoles } from "../../helpers/edge-ledger.js";
+import { TESTNET_HORIZON, loadRecorded, recordedFetch } from "../../helpers/recorded-horizon.js";
 
 // The edge fixture's own checks (src/fixture/edge-verify.ts) on the Horizon JSON recorded right
 // after its live build, and `dustin fixture verify` on the edge manifest.
@@ -41,6 +50,8 @@ function recordedInput(): EdgeVerifyInput {
     accounts,
     offers: { authMaintain: structuredClone(offers._embedded.records) },
     claimableSponsored: { claimable: claimable._embedded.records.length },
+    // This build predates the variants E4-S3 added; its manifest lists the ten it had.
+    variants: manifest.variants.map((v) => v.role),
   };
 }
 
@@ -160,6 +171,91 @@ describe("dustin fixture verify on the edge manifest (recorded Horizon)", () => 
     expect(c.text()).toMatch(/FAIL\s+auth-frozen: the FRZ trustline is not authorized/);
   });
 });
+
+describe("E4-S3: an edge manifest lists the variants it was built with", () => {
+  const E4_MANIFEST = `${EDGE_E4_DIR}/manifest.json`;
+  const e4 = edgeManifest(EDGE_E4_DIR);
+  const write = (m: unknown) => {
+    const path = join(mkdtempSync(join(tmpdir(), "dustin-")), "manifest.json");
+    writeFileSync(path, JSON.stringify(m));
+    return path;
+  };
+  const verdict = (path: string) => {
+    try {
+      readAnyManifest(path);
+      return "valid";
+    } catch (error) {
+      return (error as { code: string }).code;
+    }
+  };
+
+  it("accepts the build before the new variants (ten) and the build after them (thirteen)", () => {
+    expect(manifest.variants).toHaveLength(10);
+    expect(verdict(MANIFEST)).toBe("valid");
+    expect(e4.variants.map((v) => v.name).slice(10)).toEqual([
+      "offer-types",
+      "offer-stale",
+      "claimant",
+    ]);
+    expect(verdict(E4_MANIFEST)).toBe("valid");
+  });
+
+  it("refuses a listed variant the recipe does not know, or one listed without its account", () => {
+    const unknown = structuredClone(e4) as unknown as { variants: Array<{ role: string }> };
+    unknown.variants[0]!.role = "sponsor";
+    expect(verdict(write(unknown))).toBe("MANIFEST_INVALID");
+    const noAccount = structuredClone(e4) as unknown as { accounts: Record<string, string> };
+    delete noAccount.accounts.offerTypes;
+    expect(verdict(write(noAccount))).toBe("MANIFEST_INVALID");
+  });
+
+  it("verifies an older build without reading anything for the variants it does not have", async () => {
+    const c = capture();
+    const { fetch, requests } = recordedFetch(recorded);
+    const code = await run(["node", "dustin", "fixture", "verify", MANIFEST], c.io, "0.0.0", {
+      env: {},
+      fetch,
+    });
+    expect(code).toBe(0);
+    expect(requests.filter((q) => q.path.includes("undefined"))).toEqual([]);
+    expect(c.text()).not.toMatch(/offer-types|offer-stale|claimant:/);
+  });
+
+  it("passes every check of the newer build on its recording (exit 0), the new ones included", async () => {
+    const c = capture();
+    const { fetch } = recordedFetch(loadRecorded(EDGE_E4_DIR));
+    const code = await run(["node", "dustin", "fixture", "verify", E4_MANIFEST], c.io, "0.0.0", {
+      env: {},
+      fetch,
+    });
+    expect(code).toBe(0);
+    const text = c.text().replace(/\s+/g, " ");
+    for (const label of [
+      "PASS offer-types: an offer selling XLM for OFA, a buy offer paying OFB for XLM, a passive offer selling OFA for OFB",
+      "PASS offer-types: its offer selling XLM holds native selling liabilities",
+      "PASS offer-stale: one open offer selling its OFC for XLM",
+      "PASS claimant: named as a claimant of the plain issuer's two claimable balances",
+    ]) {
+      expect(text).toContain(label);
+    }
+    expect(e4.verification.checks.map((c2) => c2.id)).toEqual(
+      verifyEdgeFixture(await loadE4Input()).checks.map((c2) => c2.id),
+    );
+  });
+});
+
+/** The E4 recording's verification input, read through the loader itself (GET only, offline). */
+async function loadE4Input(): Promise<EdgeVerifyInput> {
+  const e4 = edgeManifest(EDGE_E4_DIR);
+  const { fetch } = recordedFetch(loadRecorded(EDGE_E4_DIR));
+  const client = horizonJson(TESTNET_HORIZON, { fetch, retries: 0 });
+  return loadEdgeVerifyInput(
+    client,
+    { ...e4.accounts, multisigSigner: e4.multisigSigner },
+    e4.pool.id,
+    e4.variants.map((v) => v.role),
+  );
+}
 
 describe("dustin fixture create --profile", () => {
   it("refuses an unknown profile and names the two it has (exit 2)", async () => {

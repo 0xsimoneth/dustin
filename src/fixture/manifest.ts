@@ -2,7 +2,8 @@ import { readFileSync } from "node:fs";
 import { StrKey } from "@stellar/stellar-sdk";
 import { DustinError } from "../errors/dustin-error.js";
 import {
-  EDGE_ACCOUNT_ROLES,
+  EDGE,
+  EDGE_HELPER_ROLES,
   type EdgeAccountRole,
   type EdgeExpectation,
   type EdgeIssuerRole,
@@ -101,6 +102,10 @@ export interface EdgeFixtureManifest {
   network: { passphrase: string; horizonUrl: string; explorerBaseUrl: string };
   createdAtLedger: number;
   recipeHash: string;
+  /**
+   * The helpers and the variants in `variants`; a manifest written before a variant was added to
+   * the recipe (E4-S3) has no key for it.
+   */
   accounts: Record<EdgeAccountRole, string>;
   /** The multisig variant's second signer: a key only, never funded. */
   multisigSigner: string;
@@ -178,9 +183,14 @@ export function readAnyManifest(path: string): FixtureManifest | EdgeFixtureMani
   const m = parseManifest(path) as Partial<EdgeFixtureManifest>;
   if (m.kind === "dustin-fixture" && m.schemaVersion === 1 && m.profile === "edge") {
     // Every account role and the multisig signer are public keys, the network is named and the
-    // pool id is Horizon's 64 lowercase hex digits (closing review CP-14).
+    // pool id is Horizon's 64 lowercase hex digits (closing review CP-14). The variant roles are
+    // those the manifest lists: a fixture built before a variant was added has no account for it
+    // (E4-S3), and every listed variant must be one the recipe knows.
+    const listed = Array.isArray(m.variants) ? m.variants.map((v) => v?.role) : null;
     if (
-      !allPublicKeys(m.accounts, EDGE_ACCOUNT_ROLES) ||
+      !listed ||
+      !listed.every((role) => EDGE.variants.some((v) => v.role === role)) ||
+      !allPublicKeys(m.accounts, [...EDGE_HELPER_ROLES, ...listed]) ||
       !isPublicKey(m.multisigSigner) ||
       !hasPassphrase(m.network) ||
       typeof m.pool?.id !== "string" ||

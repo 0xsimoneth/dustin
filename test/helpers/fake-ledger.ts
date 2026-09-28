@@ -13,6 +13,7 @@ import { formatStroops, toStroops } from "../../src/amounts.js";
 import type {
   HorizonAccount,
   HorizonBalance,
+  HorizonClaimableBalance,
   HorizonOffer,
 } from "../../src/inspect/horizon-types.js";
 import { hashHex } from "../../src/sponsor/fee-bump.js";
@@ -100,6 +101,11 @@ export class FakeLedger {
   liquidityPools = new Map<string, FakeLiquidityPool>();
   /** Pools that exist on the ledger but that Horizon answers 404 for (review finding R13). */
   unlistedPools = new Set<string>();
+  /**
+   * Claimable balances, answered to `GET /claimable_balances?claimant=` and `?sponsor=` (X-03).
+   * Nothing here claims or removes one: a merge leaves them on the ledger, as the protocol does.
+   */
+  claimableBalances: HorizonClaimableBalance[] = [];
 
   constructor(ledgerSeq: number) {
     this.ledgerSeq = ledgerSeq;
@@ -324,7 +330,19 @@ export class FakeLedger {
         : [];
       return json({ _embedded: { records } });
     }
-    if (path.startsWith("/claimable_balances")) return json({ _embedded: { records: [] } });
+    if (path.startsWith("/claimable_balances")) {
+      const q = new URLSearchParams(path.split("?")[1]);
+      const claimant = q.get("claimant");
+      const sponsor = q.get("sponsor");
+      const records = this.claimableBalances
+        .filter(
+          (b) =>
+            (claimant === null || (b.claimants ?? []).some((c) => c.destination === claimant)) &&
+            (sponsor === null || b.sponsor === sponsor),
+        )
+        .map((b) => ({ ...b, paging_token: b.id }));
+      return json({ _embedded: { records } });
+    }
     const pool = /^\/liquidity_pools\/([0-9a-f]{64})$/.exec(path);
     if (pool && !this.unlistedPools.has(pool[1]!) && this.liquidityPools.has(pool[1]!)) {
       return json(this.liquidityPools.get(pool[1]!));

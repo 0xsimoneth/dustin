@@ -1,0 +1,37 @@
+{
+  "path": "/liquidity_pools/b66faf5305a443eef8eaabe7d68804e8fc91a53b1f2c29c7d82bafa56cd8888b",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/liquidity_pools/b66faf5305a443eef8eaabe7d68804e8fc91a53b1f2c29c7d82bafa56cd8888b"
+      },
+      "transactions": {
+        "href": "https://horizon-testnet.stellar.org/liquidity_pools/b66faf5305a443eef8eaabe7d68804e8fc91a53b1f2c29c7d82bafa56cd8888b/transactions{?cursor,limit,order}",
+        "templated": true
+      },
+      "operations": {
+        "href": "https://horizon-testnet.stellar.org/liquidity_pools/b66faf5305a443eef8eaabe7d68804e8fc91a53b1f2c29c7d82bafa56cd8888b/operations{?cursor,limit,order}",
+        "templated": true
+      }
+    },
+    "id": "b66faf5305a443eef8eaabe7d68804e8fc91a53b1f2c29c7d82bafa56cd8888b",
+    "paging_token": "b66faf5305a443eef8eaabe7d68804e8fc91a53b1f2c29c7d82bafa56cd8888b",
+    "fee_bp": 30,
+    "type": "constant_product",
+    "total_trustlines": "1",
+    "total_shares": "1.0000000",
+    "reserves": [
+      {
+        "asset": "LPA:GCV3BS3E4PXEN3YCL5JTJJHRHMDR2U3NQVINTON2KUOPZ7PQKU5MMC3Q",
+        "amount": "1.0000000"
+      },
+      {
+        "asset": "LPB:GCV3BS3E4PXEN3YCL5JTJJHRHMDR2U3NQVINTON2KUOPZ7PQKU5MMC3Q",
+        "amount": "1.0000000"
+      }
+    ],
+    "last_modified_ledger": 4921124,
+    "last_modified_time": "2026-09-28T21:00:07Z"
+  }
+}
