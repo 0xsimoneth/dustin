@@ -92,6 +92,10 @@ export interface StepOutcome {
   /** Times the step failed on the ledger, with the last codes and what they mean (AC-E2-S3-4). */
   failures?: number;
   resultCodes?: ResultCodes;
+  /**
+   * What the codes of the last failure mean; or, for a step that counts as applied without a
+   * confirmation by hash (its envelope applied unseen before a verified close), why it counts.
+   */
   explanation?: string;
 }
 

@@ -1085,28 +1085,32 @@ class CloseRun {
    * merge, the sponsored signers and account entry the merge removed are credited too, as the plan
    * that carried the merge listed them; an unconfirmed merge counts as applied then, with the rest
    * of its transaction, because the account being gone proves every entry of it is gone.
+   * For the same reason, every sponsored entry that any round's plan named is credited then, with
+   * the sponsor of the latest plan naming it, whether a confirmed removal of this run, an envelope
+   * that applied unseen or another party removed it (review round 3, R3-12).
    * Units follow the planner (src/plan/recovery.ts): one base reserve per trustline, offer and
    * signer, two per pool share and for the account entry (CAP-33).
    */
   private recoverReserves(): void {
     const gone = this.report.verification?.accountExists === false;
-    const released = [...this.appliedSteps];
     const unconfirmed = gone && !this.merge ? this.postedMerge() : null;
-    if (unconfirmed) {
-      const steps = this.envelopeSteps.get(unconfirmed.hash) ?? [];
-      released.push(...steps.map((step) => ({ step, round: unconfirmed.round })));
-    }
+    const mergedByRun = gone && (this.merge !== null || unconfirmed !== null);
+    if (mergedByRun) this.markGoneSteps(unconfirmed);
     const bySponsor = new Map<string, { stroops: bigint; entries: string[] }>();
-    for (const { step, round } of released) {
+    const credit = (
+      plan: ClosePlan,
+      sponsor: string | null | undefined,
+      units: bigint,
+      entry: string,
+    ) => {
+      if (!sponsor) return;
+      const current = bySponsor.get(sponsor) ?? { stroops: 0n, entries: [] };
+      current.stroops += units * toStroops(plan.reserve.baseReserve);
+      current.entries.push(entry);
+      bySponsor.set(sponsor, current);
+    };
+    for (const { step, round } of this.appliedSteps) {
       const plan = this.roundPlans[round] ?? this.input.fresh;
-      const reserve = toStroops(plan.reserve.baseReserve);
-      const credit = (sponsor: string | null | undefined, units: bigint, entry: string) => {
-        if (!sponsor) return;
-        const current = bySponsor.get(sponsor) ?? { stroops: 0n, entries: [] };
-        current.stroops += units * reserve;
-        current.entries.push(entry);
-        bySponsor.set(sponsor, current);
-      };
       // A step names the sponsor of a trustline or pool share; the sponsors of offers, signers and
       // the account entry are recorded only in the plan's recovery summary, under these labels.
       const listed = new Map(
@@ -1116,15 +1120,28 @@ class CloseRun {
       );
       const { subject } = step;
       if (step.kind === "remove_trustline" && subject.type === "trustline") {
-        credit(subject.sponsor, 1n, `trustline ${assetKey(subject.asset)}`);
+        credit(plan, subject.sponsor, 1n, `trustline ${assetKey(subject.asset)}`);
       } else if (step.kind === "remove_trustline" && subject.type === "pool_share") {
-        credit(subject.sponsor, 2n, `pool share ${subject.poolId}`);
+        credit(plan, subject.sponsor, 2n, `pool share ${subject.poolId}`);
       } else if (step.kind === "cancel_offer" && subject.type === "offer") {
-        credit(listed.get(`offer ${subject.offerId}`), 1n, `offer ${subject.offerId}`);
+        credit(plan, listed.get(`offer ${subject.offerId}`), 1n, `offer ${subject.offerId}`);
       } else if (step.kind === "merge" && gone) {
         for (const [entry, sponsor] of listed) {
-          if (entry.startsWith("signer ")) credit(sponsor, 1n, entry);
-          if (entry === "account entry") credit(sponsor, 2n, entry);
+          if (entry.startsWith("signer ")) credit(plan, sponsor, 1n, entry);
+          if (entry === "account entry") credit(plan, sponsor, 2n, entry);
+        }
+      }
+    }
+    if (mergedByRun) {
+      const credited = new Set([...bySponsor.values()].flatMap((v) => v.entries));
+      for (const plan of [...this.roundPlans].reverse()) {
+        for (const { sponsor, entries } of plan.recovery.reservesReturnedToSponsors) {
+          for (const entry of entries) {
+            if (credited.has(entry)) continue;
+            credited.add(entry);
+            const double = entry.startsWith("pool share ") || entry === "account entry";
+            credit(plan, sponsor, double ? 2n : 1n, entry);
+          }
         }
       }
     }
@@ -1135,6 +1152,29 @@ class CloseRun {
         xlm: formatStroops(stroops),
         entries,
       }));
+  }
+
+  /**
+   * With the account verified gone after this run's merge every entry of it is gone, so the steps
+   * of an envelope that may have applied unseen count as applied, not confirmed by hash (review
+   * round 3, R3-12): those of the unconfirmed merge, and those of an envelope whose sequence number
+   * is known used. Only steps still `not_run` are marked; one another envelope applied keeps it.
+   */
+  private markGoneSteps(unconfirmed: SubmittedTransaction | null): void {
+    for (const entry of this.report.transactions) {
+      const unseen = entry.result === "unknown" && entry.sequenceUsed === true;
+      if (entry !== unconfirmed && !unseen) continue;
+      for (const step of this.envelopeSteps.get(entry.hash) ?? []) {
+        const outcome = this.outcomes.get(stepIdentity(step));
+        if (outcome?.status !== "not_run") continue;
+        outcome.status = "applied";
+        outcome.txHash = entry.hash;
+        if (entry.round > 0) outcome.round = entry.round;
+        if (step.disposal) outcome.rung = step.disposal.rung;
+        outcome.explanation = `Not confirmed by hash: Horizon never returned envelope ${entry.hash}, but the account was verified gone after this run's merge, so this entry is gone too.`;
+        this.appliedSteps.push({ step, round: entry.round });
+      }
+    }
   }
 
   /** The last merge-carrying envelope this run posted that could have applied. */

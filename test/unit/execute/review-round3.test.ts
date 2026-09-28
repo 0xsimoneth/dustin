@@ -555,3 +555,43 @@ describe("R3-11: a re-plan waits for an account read that shows the run's own tr
     expect(report.status).toBe("closed");
   });
 });
+
+describe("R3-12: a verified close credits and marks what an unseen envelope removed", () => {
+  it("credits the sponsored trustline and marks the cleanup steps of the unseen envelope", async () => {
+    let lost: string | null = null;
+    const stale = staleAccountOnce(messy.fixture);
+    const { ledger, deps, plan } = harness((_l, fetch) =>
+      stale.wrap((url, init) =>
+        lost && url.endsWith(`/transactions/${lost}`) ? reply(404) : fetch(url, init),
+      ),
+    );
+    ledger.faults.push("504-applied");
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.round === 0 && e.index === 0 && e.attempt === 1) {
+          lost = e.hash;
+          stale.arm(ledger);
+        }
+      },
+    });
+    expect(report.status).toBe("closed");
+    expect(report.verification).toMatchObject({ accountExists: false });
+    // The reserve sponsor got the SPTA trustline's reserve back when the cleanup applied unseen.
+    expect(report.recovery.reservesReturnedToSponsors).toEqual([
+      {
+        sponsor: messy.reserveSponsor,
+        xlm: "0.5000000",
+        entries: [`trustline SPTA:${messy.issuer}`],
+      },
+    ]);
+    // The cleanup's steps count as applied by the unseen envelope, not confirmed by hash.
+    const cleanup = report.steps.filter((s) => s.txIndex === 0);
+    expect(cleanup.length).toBeGreaterThan(0);
+    for (const step of cleanup) {
+      expect(step).toMatchObject({ status: "applied", txHash: lost });
+      expect(step.explanation).toMatch(/not confirmed by hash/i);
+    }
+  });
+});
