@@ -14,6 +14,7 @@ import {
   type SignalSource,
 } from "./commands/close.js";
 import { fixtureCreate, fixtureVerify, type CommandContext } from "./commands/fixture.js";
+import type { SecretPrompt } from "./secrets.js";
 import { buildPlan, planCommand, printPlan, type PlanCommandOptions } from "./commands/plan.js";
 import type { ExitCode } from "./exit-codes.js";
 
@@ -38,6 +39,12 @@ export interface CliDeps {
    * terminal). Without it the input counts as non-interactive.
    */
   prompt?: Prompt;
+  /**
+   * The hidden prompt of `close --execute` for a secret that neither the environment nor `.env`
+   * holds (review finding CA-18, PRD decision D-11). It asks only when standard input and standard
+   * error are terminals, never with --json; without it a missing secret is refused (exit 2).
+   */
+  secretPrompt?: SecretPrompt;
   /**
    * Executor overrides for tests: the pause function (pauses are at least 200 ms, so a test that
    * must not wait injects one that returns at once), or the executor itself.
@@ -169,8 +176,9 @@ export function buildProgram(
     )
     .addHelpText(
       "after",
-      "\nWith --execute, the secrets come from DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET in the\n" +
-        "environment, else from .env in the working directory; never from the command line.\n",
+      "\nWith --execute, the secrets DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET come from the\n" +
+        "environment, else from .env in the working directory, else from a hidden prompt when standard\n" +
+        "input and standard error are terminals and --json is not given; never from the command line.\n",
     )
     .action(async (account: string, options: CloseCommandOptions) => {
       if (options.execute) {
@@ -179,6 +187,7 @@ export function buildProgram(
           // Secrets and `.env` are reachable only from here (review R7).
           secrets: { env: deps.env, ...(deps.cwd !== undefined ? { cwd: deps.cwd } : {}) },
           ...(deps.prompt ? { prompt: deps.prompt } : {}),
+          ...(deps.secretPrompt ? { secretPrompt: deps.secretPrompt } : {}),
           ...(deps.execute ? { execute: deps.execute } : {}),
           ...(deps.signals ? { signals: deps.signals } : {}),
           ...(deps.exit ? { exit: deps.exit } : {}),

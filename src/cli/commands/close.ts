@@ -28,7 +28,13 @@ import { renderPlan, short, unclosableLines } from "../../render/plan-text.js";
 import { nextStep, renderReport } from "../../render/report-text.js";
 import { textOf, type Channel } from "../channel.js";
 import { ExitCode, exitCodeForReport } from "../exit-codes.js";
-import { loadCloseSigners, type CloseSigners, type SecretSources } from "../secrets.js";
+import {
+  askCloseSigners,
+  loadCloseSigners,
+  type CloseSigners,
+  type SecretPrompt,
+  type SecretSources,
+} from "../secrets.js";
 import type { CommandContext } from "./fixture.js";
 import { checkAddresses, destinationOf, parseBaseFee, type PlanCommandOptions } from "./plan.js";
 
@@ -80,6 +86,11 @@ export interface CloseContext extends CommandContext {
   /** The typed confirmation; without it the input counts as non-interactive. */
   prompt?: Prompt;
   /**
+   * The hidden prompt for a secret that neither the environment nor `.env` holds (review finding
+   * CA-18, PRD decision D-11); never used with --json. Without it a missing secret is refused.
+   */
+  secretPrompt?: SecretPrompt;
+  /**
    * SIGINT and SIGTERM while the executor runs (review finding CL-1): the first stops the run at
    * the next safe point, the second exits at once through `exit`. Without it no handler is added.
    */
@@ -121,7 +132,11 @@ export async function closeExecute(
   checkAddresses(account, destination);
   const baseFee = parseBaseFee(options.baseFee);
 
-  const signers = loadCloseSigners(account, ctx.secrets);
+  // Canonical decision 4: the environment, then `.env`, then a hidden prompt in a terminal (review
+  // finding CA-18, PRD decision D-11). Machine mode never asks (review finding AA-10).
+  const signers = options.json
+    ? loadCloseSigners(account, ctx.secrets)
+    : await askCloseSigners(account, ctx.secrets, ctx.secretPrompt);
   const sponsor = signers.feeSponsor.publicKey();
   if (options.sponsor !== undefined && options.sponsor !== sponsor) {
     throw new DustinError(

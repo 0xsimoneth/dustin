@@ -1,6 +1,7 @@
 import { createInterface } from "node:readline";
-import type { Readable, Writable } from "node:stream";
+import { Writable, type Readable } from "node:stream";
 import type { Prompt, PromptContext } from "./commands/close.js";
+import type { SecretPrompt } from "./secrets.js";
 
 export interface PromptStreams {
   /** Standard input; a prompt is asked only when it is a terminal. */
@@ -67,6 +68,65 @@ export function terminalPrompt(streams: PromptStreams): Prompt {
       rl.once("close", () => settle(null));
       rl.once("SIGINT", () => settle(null));
       rl.question(question, (answer) => settle(answer));
+    });
+  };
+}
+
+/**
+ * The hidden prompt for a secret that is in neither the environment nor `.env` (review finding
+ * CA-18, PRD decision D-11). It is asked only when standard input and standard error are both
+ * terminals, and names the one that is not otherwise. The question goes to standard error; the
+ * readline interface writes to a stream that drops everything, so nothing typed is ever echoed
+ * (readline in terminal mode writes the line as it is edited to its `output`,
+ * https://nodejs.org/api/readline.html#readlinecreateinterfaceoptions), and `historySize: 0` keeps
+ * no history of it (same page: "To disable the history set this value to 0"). Resolves with the
+ * line on Enter (https://nodejs.org/api/readline.html#event-line); with null at the end of input
+ * (Ctrl-D) or on Ctrl-C, which readline reports as "close" and "SIGINT"
+ * (https://nodejs.org/api/readline.html#event-close, https://nodejs.org/api/readline.html#event-sigint).
+ * The value is handed to the caller only; it is never written anywhere.
+ */
+export function hiddenPrompt(streams: {
+  input: Readable & { isTTY?: boolean };
+  output: Writable & { isTTY?: boolean };
+}): SecretPrompt {
+  return (question) => {
+    if (streams.input.isTTY !== true) {
+      return Promise.resolve({
+        unasked:
+          "standard input is not a terminal (it is redirected or piped), so nothing can be typed",
+      });
+    }
+    if (streams.output.isTTY !== true) {
+      return Promise.resolve({
+        unasked:
+          "standard error is not a terminal (it is redirected), so the question would not be seen",
+      });
+    }
+    return new Promise((resolve) => {
+      streams.output.write(question);
+      const muted = new Writable({
+        write(_chunk, _encoding, callback) {
+          callback();
+        },
+      });
+      const rl = createInterface({
+        input: streams.input,
+        output: muted,
+        terminal: true,
+        historySize: 0,
+      });
+      let settled = false;
+      const settle = (answer: string | null) => {
+        if (settled) return;
+        settled = true;
+        rl.close();
+        // The Enter was not echoed either: end the question's line.
+        streams.output.write("\n");
+        resolve(answer);
+      };
+      rl.once("close", () => settle(null));
+      rl.once("SIGINT", () => settle(null));
+      rl.once("line", (line) => settle(line));
     });
   };
 }

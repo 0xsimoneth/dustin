@@ -3,6 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Keypair } from "@stellar/stellar-sdk";
 import type { SignalSource } from "../../../src/cli/commands/close.js";
+import type { SecretPrompt } from "../../../src/cli/secrets.js";
 import { run } from "../../../src/cli/run.js";
 import type { executeClose } from "../../../src/execute/executor.js";
 import type { HorizonBalance } from "../../../src/inspect/horizon-types.js";
@@ -124,6 +125,8 @@ export async function closeCli(
     exit?: (code: number) => void;
     /** Receives every text written to standard output, as it is written. */
     onStdout?: (text: string) => void;
+    /** The hidden prompt for a missing secret (review CA-18); without it none is asked. */
+    secretPrompt?: SecretPrompt;
   } = {},
 ): Promise<CliRun> {
   const out: string[] = [];
@@ -151,6 +154,7 @@ export async function closeCli(
       },
       ...(deps.signals ? { signals: deps.signals } : {}),
       ...(deps.exit ? { exit: deps.exit } : {}),
+      ...(deps.secretPrompt ? { secretPrompt: deps.secretPrompt } : {}),
       ...(answer === undefined
         ? {}
         : {
