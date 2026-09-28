@@ -401,9 +401,20 @@ function progressPrinter(
       case "plan":
       case "done":
         return;
-      case "drift":
+      case "drift": {
+        // Two kinds of drift: a changed plan structure (its hash), and less XLM for the destination
+        // than the plan shown, which the hash does not show (a worse quote; review BH-7).
+        const what = [
+          event.previousPlanHash !== event.planHash
+            ? `the account changed since the plan was shown (plan hash ${event.previousPlanHash} is now ${event.planHash})`
+            : "",
+          event.xlmToDestination
+            ? `the XLM the destination receives fell from ${event.xlmToDestination.approved} XLM to ${event.xlmToDestination.fresh} XLM since the plan was shown (a worse quote for a sale, or a lower balance)`
+            : "",
+        ].filter(Boolean);
+        const text = what.join(", and ") || "the plan changed since it was shown";
         say(
-          `\nThe account changed since the plan was shown (plan hash ${event.previousPlanHash} is now ${event.planHash}); ` +
+          `\n${text.charAt(0).toUpperCase()}${text.slice(1)}; ` +
             (event.action === "replan"
               ? "continuing with the fresh plan.\n"
               : anySubmitted()
@@ -411,6 +422,7 @@ function progressPrinter(
                 : "nothing was submitted.\n"),
         );
         return;
+      }
       case "preflight":
         say(
           `\n${label(event.index)}  merge preflight ${event.ok ? "ok" : "FAILED"}: ${event.detail}\n`,
