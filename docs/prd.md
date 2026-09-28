@@ -117,7 +117,7 @@ Acceptance:
 
 #### FR-04: Transaction grouping
 
-Close Steps are packed in dependency order into the minimum number of Planned Transactions: a new transaction starts only when the 100-operation cap is reached or a `wait_for_ledger` barrier (FR-14) intervenes. The merge is the last operation of the last transaction.
+Close Steps are packed in dependency order into the minimum number of Planned Transactions: a new transaction starts only when the 100-operation cap is reached or the merge has to wait for the sequence guard (FR-14), in which case it runs alone. The merge is the last operation of the last transaction.
 
 Acceptance:
 - Fixture A produces 1 Planned Transaction with 11 operations.
@@ -200,23 +200,33 @@ Acceptance:
 - Recorded-response test: a `PATH_PAYMENT_STRICT_SEND_TOO_FEW_OFFERS` result on A1 causes a rebuild in which A1 is on `return_to_issuer`, and the second submission succeeds.
 - Fixture B: A5 ends as `unclosable` with `TRUSTLINE_NOT_AUTHORIZED`; every other subentry is removed; no merge is attempted; Close Status is `partial`.
 - The Close Report's `steps[]` record the Rung each disposal actually applied with (`rung`); a disposal that fell down the ladder shows the later Rung, and `replans[]` shows the re-plan that moved it with the triggering result codes. There is no separate `fallback` status (decision of 2026-09-28, section 7).
+- The receipt (`renderReport()`, printed by `dustin close --execute`) has a Disposals section: for each leftover balance, whether it was sold for XLM by path payment, burned by the return to its issuer, or sent to the destination, in which transaction and plan round, and, after a fall down the ladder, which rung failed first and with which code. Each unclosable item is listed under "Not closed" with its code, every rung ruled out and the remedy (stories E3-S1, E3-S2).
 
 #### FR-13: Sponsored trustline unwinding
 
 A sponsored trustline is unwound by the Account itself: dispose of its balance if any (ladder), then `ChangeTrust` with limit 0. The plan and report state that its reserve returns to the Reserve Sponsor, not to the Account.
 
+The executor also records what Horizon showed for each Reserve Sponsor the plans name, before the first submission and after the final check, in `recovery.sponsorsObserved` (`num_sponsoring`, XLM balance, Minimum Balance and the ledger of each read; a read that fails leaves its figure null and adds a warning, and never changes the outcome). The receipt prints them under "Reserves released to sponsors", next to the planned reserve (story E3-S3).
+
 Acceptance:
-- After closing Fixture A, the Reserve Sponsor's `num_sponsoring` on Horizon has decreased by 1 and its Minimum Balance requirement dropped by 0.5 XLM; the Account's actual recovery excludes that 0.5 XLM.
+- After closing Fixture A, the Reserve Sponsor's `num_sponsoring` on Horizon has decreased by 1 and its Minimum Balance requirement dropped by 0.5 XLM; the Account's actual recovery excludes that 0.5 XLM. Observed live on 2026-09-28 and recorded in `recovery.sponsorsObserved`: `num_sponsoring` 1 to 0, Minimum Balance 1.5 to 1.0 XLM, XLM balance unchanged (story E3-S3, matrix row S-03; the metric closes `evidence/runs/20260928T112239Z-e3/` and `evidence/runs/20260928T112252Z-e3-cli/`).
 - The Close Report's `recovery.reservesReturnedToSponsors` lists the Reserve Sponsor and trustline A4.
 - Variant with dust on the sponsored trustline (offline, recorded) plans disposal then removal in that order.
 
 #### FR-14: `ACCOUNT_MERGE_SEQNUM_TOO_FAR` guard
 
-Before building the merge, the executor (and the planner, as a warning or Blocker) compares the Account's sequence number plus the number of Planned Transactions with `currentLedgerSeq << 32`. If the merge would fail, it computes the earliest ledger at which it can succeed; if that is within `seqnumGuard.maxWaitLedgers` (default 60) it inserts a `wait_for_ledger` barrier, waits by polling Horizon's latest ledger, then proceeds; otherwise it reports Blocker `SEQNUM_TOO_FAR` with the ledger number and never submits a merge destined to fail.
+The planner evaluates the guard for the merge's own sequence number (the Account's sequence number plus the merge transaction's index plus one) against the earliest ledger the merge can land in (the observed ledger plus one), and reports it in `plan.sequenceGuard` (`ok`, `unblocksAtLedger`, `etaSeconds`) (canonical decision 10). When the guard fails:
+
+- within the plan option `maxWaitLedgers` (default 120 ledgers, about 10 minutes), the plan stays `closable`, the merge runs alone in the last transaction, and a warning names the ledger. There is no separate wait step. Before that merge, and before every rebuild of it, the executor runs the merge preflight. When the guard is all that holds the merge back, the executor emits the `wait` event (`state: "start"`), polls Horizon's latest ledger every `pollIntervalMs`, and emits `state: "end"` once the ledger before `unblocksAtLedger` has closed. It then checks again and submits the merge. The wait has two bounds: the plan's `maxWaitLedgers`, counted from the latest ledger, and a local-clock limit of twice the time of the ledgers to wait for plus two more, at about 5 s per ledger. Beyond either bound the run stops before the merge with `SEQNUM_TOO_FAR` and `unblocksAtLedger`; a preflight that fails on the guard alone no longer gives `MERGE_PREFLIGHT_FAILED`;
+- beyond `maxWaitLedgers` when planned, the plan has the Blocker `SEQNUM_TOO_FAR` with the ledger and an ETA in minutes, no merge step, and status `blocked`;
+- a merge that fails on the ledger with `op_seq_num_too_far` (another client bumped the sequence number) makes the executor read the account again and recompute the guard. Within the bound the rest is planned again and the new merge waits; beyond it, or on a second such failure, the run stops with `SEQNUM_TOO_FAR` and the ledger.
+
+The CLI prints the wait's start and end. A guard stop exits 3 when nothing was signed (a plan refused without `--partial`, or a merge-only run whose wait ran out), 4 for a partial run with `--partial`, and 5 for a run stopped part-way; the stop and the receipt name the ledger at which to run the close again (story E3-S4, review finding R8).
 
 Acceptance:
-- Variant SEQ-NEAR (sequence bumped to `(currentLedger + 3) << 32`): the plan shows a `wait_for_ledger` step with the target ledger; the executor waits and the merge succeeds; no `ACCOUNT_MERGE_SEQNUM_TOO_FAR` result appears in the report.
-- Variant SEQ-FAR (bumped by 100,000 ledgers): Plan Status `blocked` with `SEQNUM_TOO_FAR` and the earliest ledger; `executeClose()` refuses to start unless `allowPartial` is set, in which case it removes subentries and skips the merge.
+- Variant SEQ-NEAR (sequence bumped a few ledgers ahead): the plan is `closable` with the merge alone in the last transaction and the unblocking ledger; the executor runs the cleanup, waits for the ledger and the merge applies; no `ACCOUNT_MERGE_SEQNUM_TOO_FAR` result appears in the report. Live on 2026-09-28: a bump of 16 ledgers, a wait of 60 s, and the merge applied in the unblocking ledger itself (story E3-S4, matrix row S-04).
+- Variant SEQ-FAR (bumped far beyond `maxWaitLedgers`): Plan Status `blocked` with `SEQNUM_TOO_FAR` and the earliest ledger; `executeClose()` refuses to start unless `allowPartial` is set, in which case it removes subentries and skips the merge.
+- The boundary: a merge whose sequence number is s applies only from ledger `(s >> 32) + 1`. Live, a merge submitted for the ledger before that failed with `op_seq_num_too_far`, and the executor's merge in that ledger applied.
 
 #### FR-15: Submission, retry and failure recovery
 
@@ -229,10 +239,11 @@ Acceptance:
 
 #### FR-16: Pre-flight verification and Drift handling
 
-Before submitting anything, `executeClose()` refreshes the Account snapshot and compares its hash with `plan.snapshotHash`. On Drift it either aborts (`onDrift: 'abort'`, default) or re-plans and continues (`'replan'`). It also verifies the Fee Sponsor and Destination exist and that Account, Destination and Fee Sponsor are three different accounts.
+Before submitting anything, `executeClose()` refreshes the Account snapshot, plans again from it and compares the fresh plan's `planHash` with the approved plan's. It also compares the approved plan's `recovery.xlmToDestination` with the fresh plan's, in stroops, because the plan hash leaves market quotes out: a lower fresh amount (for example a sale's quote that got worse while the confirmation waited) is Drift too, and a higher one is not (review finding BH-7, story E3-S1). On Drift it either aborts (`onDrift: 'abort'`, default) or re-plans and continues (`'replan'`). An abort caused by the amount alone ends `aborted` with stop `XLM_TO_DESTINATION_FELL`; both amounts are in `stop.xlmToDestination` and on the `drift` event. Under `'replan'` the run goes on with the fresh plan and a warning that names both amounts. Through the CLI such an abort exits 3 with nothing signed. It also verifies the Fee Sponsor and Destination exist and that Account, Destination and Fee Sponsor are three different accounts (as built, the Destination may be the Fee Sponsor, with a warning in the report; story E2-S2).
 
 Acceptance:
 - Recorded-response test: an issuer clawback between plan and execution (variant CLW) causes `abort` by default with a report status `aborted` and no submission; with `'replan'` the new plan omits the clawed-back balance and the run completes.
+- A quote that falls between the approved plan and the fresh plan aborts with `XLM_TO_DESTINATION_FELL`, nothing signed, both amounts in the stop; with `'replan'` the run goes on with a warning; a quote that rises goes on silently. Mid-run re-plans keep their own rule: a sale that fails and falls down the ladder lowers the proceeds by design and is not Drift.
 - Passing the Account as Destination or as Fee Sponsor throws `DustinError` before any network write.
 
 #### FR-17: Idempotency and resumability
@@ -394,6 +405,12 @@ Global options: `--network testnet` (only value accepted in v1), `--horizon <url
 
 Package exports (TypeScript), as implemented in `src/index.ts`. Names are normative. This section was rewritten on 2026-09-28 to match the code before the 0.1.0 publish freezes the API (builder decision on review finding AA-11): the code's names were kept, the earlier draft names (`verifyClosed(account, config)` returning `{ exists }`, `maxRetriesPerTransaction`, `submitTimeoutSeconds`, `tx_*` events) are gone, and so are the `resume` option and the `fallback` step status. Running a close again is how it resumes, because the ledger is the source of truth; the rung a disposal actually used is recorded on its step outcome (`rung`). Option defaults are stated inline.
 
+Updated later on 2026-09-28 for the Epic 3 code and the third review round:
+- the stop code `XLM_TO_DESTINATION_FELL`, `StopReason.xlmToDestination` and the same field on the `drift` event (review finding BH-7, story E3-S1);
+- the `wait` event (story E3-S4);
+- `recovery.sponsorsObserved`, with the exported types `SponsorObservation` and `SponsorState` (story E3-S3);
+- `SubmittedTransaction.sequenceUsed` and `lookupError`, the upper bounds of the pauses and of `timeoutSeconds`, and the `closed` status rules (review round 3: R3-1, R3-10, R3-18, R3-22).
+
 ```ts
 import type { FeeBumpTransaction, Keypair, Transaction } from "@stellar/stellar-sdk";
 
@@ -414,7 +431,8 @@ export interface PlanOptions {
   baseFeeStroops?: number;     // override of the bid per operation; default from GET /fee_stats (p80), at least 100
   maxBaseFeeStroops?: number;  // default 1,000,000: cap on the bid per operation
   budgetStroops?: number;      // default 50,000,000 (5 XLM): the sponsor's budget per close
-  maxWaitLedgers?: number;     // default 120: longest sequence-guard wait absorbed by a separate merge
+  maxWaitLedgers?: number;     // default 120 (about 10 min): longest sequence-guard wait; within it the merge runs
+                               // alone and the executor waits for it (FR-14), beyond it the plan is blocked (SEQNUM_TOO_FAR)
   maxOpsPerTransaction?: number; // default and maximum 100
 }
 export interface PlanCloseInput extends PlanOptions { account: string }   // the G... to close
@@ -537,12 +555,14 @@ export interface ExecuteOptions {
   reader?: LedgerReader;
   budgetStroops?: number;                 // overrides the plan's (default 5 XLM)
   maxBaseFeeStroops?: number;             // overrides the plan's (default 1,000,000)
-  timeoutSeconds?: number;                // default 120: validity of each inner transaction
+  timeoutSeconds?: number;                // default 120, from 1 to 3600: validity of each inner transaction
   maxAttemptsPerTransaction?: number;     // default 5: envelopes per planned transaction
   maxReplans?: number;                    // default 3
   maxRateLimitRetries?: number;           // default 5: posts of one envelope after HTTP 429
-  pollIntervalMs?: number;                // default 2000; a pause: at least 200, never 0
-  backoffMs?: number;                     // default 1000; a pause: at least 200, never 0
+  pollIntervalMs?: number;                // default 2000; a pause from 200 to 2^31 - 1 ms, never 0; also
+                                          // the pace of the sequence-guard wait (FR-14)
+  backoffMs?: number;                     // default 1000, doubled after each 429; a pause from 200 to
+                                          // 2^31 - 1 ms, and the doubled pause never goes beyond that
   graceSeconds?: number;                  // default 10
   ledgerWaitSeconds?: number;             // default 60
   verifyTimeoutMs?: number;               // default 30000
@@ -552,8 +572,16 @@ export interface ExecuteOptions {
 // A custom `submitter` is also accepted; it is internal and undocumented until 0.1.0.
 
 export type CloseStatus = "closed" | "partial" | "aborted" | "failed" | "running";
-// "running" appears only on copies published while a run is in progress (2026-09-27). "closed"
-// means this run's merge applied; a verified close is "closed" with verification.accountExists === false.
+// "running" appears only on copies published while a run is in progress (2026-09-27).
+// "closed": a merge of this run applied, seen by hash, or proven by the account being gone after
+// this run posted a merge envelope that could have applied (outcome unknown, or pending mid-POST).
+// A merge envelope refused or failed on the ledger proves nothing, so the stop stands (review
+// round 3, R3-1). A merge of this run that applied is always "closed" (R3-10):
+// - verified gone: "closed" with verification.accountExists === false and no stop (CLI exit 0);
+// - Horizon still returns the account at the final check: "closed" with stop ACCOUNT_STILL_EXISTS (CLI exit 5);
+// - interrupted after the merge, before the final check: "closed" with verification null (CLI exit 5).
+// "partial": an allowPartial run did everything else. "aborted": nothing was submitted.
+// "failed": stopped part-way after a submission, with no merge of this run applied; run again to continue.
 
 export interface SubmittedTransaction {
   index: number; phase: "cleanup" | "convert" | "merge"; stepIds: string[];
@@ -564,6 +592,8 @@ export interface SubmittedTransaction {
   hash: string; innerHash: string;
   result: "pending" | "applied" | "failed" | "rejected" | "unknown";
   mayStillApply?: boolean;        // only while result is "unknown"
+  sequenceUsed?: true;            // only while "unknown": not found by hash, but its sequence number is known used
+  lookupError?: string;           // only while "unknown": why the outcome could not be settled (failed lookups or reads)
   ledger: number | null; feeChargedStroops: number | null; feeAccount: string;
   innerEnvelopeXdr: string; feeBumpEnvelopeXdr: string; explorerUrl: string;
   resultCodes?: { transaction?: string; innerTransaction?: string; operations?: string[] };
@@ -577,6 +607,41 @@ export interface StepOutcome {
   rung?: DisposalRung;            // the rung the disposal applied with; after a fall down the ladder it differs from the plan
   round?: number;                 // the plan round that applied the step, when not the first
   failures?: number; resultCodes?: SubmittedTransaction["resultCodes"]; explanation?: string;
+}
+
+export type StopCode =
+  | "PLAN_CHANGED" | "XLM_TO_DESTINATION_FELL" | "PLAN_NOT_CLOSABLE" | "NOTHING_TO_EXECUTE"
+  | "ACCOUNT_MISSING" | "OVER_BUDGET" | "OPERATION_FAILED" | "STEP_FAILED_TWICE" | "REPLAN_LIMIT"
+  | "TRANSACTION_REJECTED" | "SEQUENCE_CONFLICT" | "FEE_LIMIT" | "RETRY_LIMIT" | "OUTCOME_UNKNOWN"
+  | "MERGE_PREFLIGHT_FAILED" | "SEQNUM_TOO_FAR" | "ACCOUNT_STILL_EXISTS";
+// XLM_TO_DESTINATION_FELL (review BH-7): the fresh plan made before signing sends less XLM to the
+// destination than the approved plan; the plan hash leaves quotes out, so the amounts are compared
+// separately (FR-16). SEQNUM_TOO_FAR comes from the plan's guard, from the merge preflight when the
+// wait for the guard would pass the plan's maxWaitLedgers or its local-clock limit runs out, or from
+// a merge that failed with op_seq_num_too_far (FR-14); a preflight that fails on the guard alone
+// gives SEQNUM_TOO_FAR, not MERGE_PREFLIGHT_FAILED.
+
+export interface StopReason {
+  code: StopCode | DustinErrorCode; // a run outcome, or the code of the DustinError that interrupted the run
+  stage: ErrorStage;
+  verdict: ErrorVerdict;          // "replan": running the close again is the remedy; "stop": something must change first
+  detail: string;
+  round?: number; txIndex?: number; hash?: string; stepId?: string; resultCodes?: SubmittedTransaction["resultCodes"];
+  unblocksAtLedger?: number;      // sequence-guard stops: the first ledger the merge can land in
+  xlmToDestination?: { approved: string; fresh: string }; // drift before signing: both amounts, when the fresh one is lower
+  maxTime?: number;               // OUTCOME_UNKNOWN: the envelope's upper time bound; run again after a ledger closed past it
+}
+
+export interface SponsorState {   // a reserve sponsor as Horizon showed it
+  numSponsoring: number;          // Horizon num_sponsoring
+  balance: string;                // its XLM balance; a close leaves it unchanged
+  minimumBalance: string;         // (2 + subentries + num_sponsoring - num_sponsored) x base reserve
+  ledger: number;                 // the latest ledger Horizon reported just before the read
+}
+export interface SponsorObservation {
+  sponsor: string;
+  before: SponsorState | null;    // read before the first submission; null when the read failed or only a re-plan named it
+  after: SponsorState | null;     // read after the final check; null when the read failed
 }
 
 export interface CloseReport {
@@ -597,6 +662,8 @@ export interface CloseReport {
     mergedXlm: string | null;     // read from the merge result
     reservesReturnedToSponsors: Array<{ sponsor: string; xlm: string; entries: string[] }>;
     feesPaidByAccount: "0"; feesPaidBySponsorStroops: number;
+    sponsorsObserved?: SponsorObservation[]; // each reserve sponsor the plans name, before and after (FR-13);
+                                             // absent in reports written before story E3-S3
   };
   verification: {
     accountExists: boolean; horizonStatus: 200 | 404; checkedAt: string; accountUrl: string; ledger?: number;
@@ -605,8 +672,11 @@ export interface CloseReport {
 
 export type CloseEvent =
   | { type: "plan"; plan: ClosePlan; round?: number }
-  | { type: "drift"; action: "abort" | "replan"; previousPlanHash: string; planHash: string }
+  | { type: "drift"; action: "abort" | "replan"; previousPlanHash: string; planHash: string;
+      xlmToDestination?: { approved: string; fresh: string } } // set when the fresh amount is lower (BH-7)
   | { type: "preflight"; index: number; ok: boolean; detail: string }
+  | { type: "wait"; reason: "sequence"; state: "start" | "end"; index: number;
+      untilLedger: number; currentLedger: number } // the sequence-guard wait before a merge (FR-14)
   | { type: "tx:building"; index: number; phase: PlannedTransaction["phase"]; opCount: number; attempt?: number; round?: number }
   | { type: "tx:submitted"; index: number; hash: string; explorerUrl: string; attempt?: number; round?: number }
   | { type: "tx:confirmed"; index: number; hash: string; ledger: number; feeChargedStroops: number }
@@ -617,7 +687,7 @@ export type CloseEvent =
 export interface VerifyClosedOptions {
   config?: DustinConfig; reader?: LedgerReader;
   timeoutMs?: number;             // default 30000; 0 checks once
-  intervalMs?: number;            // default 2000; a pause: at least 200, never 0
+  intervalMs?: number;            // default 2000; a pause from 200 to 2^31 - 1 ms, never 0
   now?: () => number; sleep?: (ms: number) => Promise<void>;
 }
 export interface ClosedVerification {
@@ -656,7 +726,7 @@ Implementation binds to `@stellar/stellar-sdk`: `Horizon.Server` for reads and s
 - **R4. Sponsored trustlines.** Removed by the Account like any other trustline once empty; their reserve returns to the Reserve Sponsor and is excluded from the Account's recovery figure.
 - **R5. Data entries.** Removed at any point before the merge; placed after trustline removals in the same transaction for readability.
 - **R6. Merge last.** The merge is the final operation of the final transaction. Preconditions: no non-signer Subentries remain, `num_sponsoring` is 0, no open sponsorship in the transaction, `AUTH_IMMUTABLE` not set, the Destination exists, the sequence number is less than `ledgerSeq << 32`, and the master key meets the high threshold.
-- **R7. Grouping.** Fill transactions in dependency order up to 100 operations; start a new transaction only at the cap or at a `wait_for_ledger` barrier. A transaction is atomic: one failing operation fails the whole transaction and nothing is applied, so a single transaction is the default whenever the plan fits, and recovery re-plans from refreshed state.
+- **R7. Grouping.** Fill transactions in dependency order up to 100 operations; start a new transaction only at the cap or when the merge must run alone to wait for the sequence guard (FR-14). A transaction is atomic: one failing operation fails the whole transaction and nothing is applied, so a single transaction is the default whenever the plan fits, and recovery re-plans from refreshed state.
 - **R8. Detect-and-report never emits operations.** Pool shares, sponsoring reserves and claimable balances, raised thresholds, master weight 0, `AUTH_IMMUTABLE`, C addresses, and far-future sequence numbers produce Unclosable Items or Blockers with remedies; the merge is omitted when a Blocker exists.
 - **R9. Stable order within a class.** Offers by offer id ascending; trustlines by asset code then issuer; data entries by key; deterministic output.
 - **R10. Fees.** Base fee `max(100 stroops, fee_stats-derived)` capped; inner fee `ops x base`; fee-bump fee `(ops + 1) x base`, paid by the Fee Sponsor; per-step estimate `ops in step x base`; per-transaction estimate includes the extra base fee.
@@ -692,7 +762,7 @@ Fixture A plus Trustline A5: asset `FRZ` from issuer I3 with `AUTH_REQUIRED` and
 |---|---|---|
 | A0 | Account created inside a sponsorship sandwich so its base reserve is sponsored; literal balance 0 XLM; otherwise as A | `closable`; plan shows the base reserve returning to the Reserve Sponsor |
 | SIMPLE | 2 offers, 2 zero-balance trustlines, 1 data entry, zero spendable XLM | `closable`; Week 2 milestone account. Not built: the Week 2 close used fresh Fixture A (`messy`) accounts instead, a harder account, and the builder accepted the substitution on 2026-09-28 (story E2-S6) |
-| SEQ-NEAR | A plus `BumpSequence` to `(currentLedger + 3) << 32` | `wait_for_ledger` step, then merge succeeds |
+| SEQ-NEAR | A plus `BumpSequence` to `(currentLedger + 3) << 32` | `closable`, the merge alone in the last transaction; the executor waits for the guard, then the merge succeeds (FR-14) |
 | SEQ-FAR | A plus `BumpSequence` to `(currentLedger + 100000) << 32` | `blocked`, `SEQNUM_TOO_FAR` with earliest ledger |
 | LP | A plus a pool share trustline with a deposit | `partial`, `LIQUIDITY_POOL_SHARES` |
 | MS | A plus an extra signer and high threshold above the master weight | `blocked`, `THRESHOLD_UNMET` |
@@ -862,7 +932,7 @@ Candidates only; none is committed, scheduled, or budgeted.
 - A-2. The "1 sponsored trustline" is a fourth trustline in addition to the "3 trustlines with dust", so both readings of the SOW are satisfied; the sponsored trustline holds a zero balance in Fixture A and dust in an offline variant.
 - A-3. The SOW's requirement that "the deliberately illiquid asset exits through the unclosable path with a stated reason" and its requirement that the fixture be "fully closed and merged" cannot both hold on one account. Resolution: Fixture A (success metric) has an illiquid asset that exits by `return_to_issuer`; Fixture B has an illiquid, issuer-frozen asset that exits by `unclosable` with a stated reason. Both are in D3.
 - A-4. Fee Sponsor and Reserve Sponsor are distinct roles and distinct accounts in the fixture, so the evidence attributes every XLM movement unambiguously.
-- A-5. "Minimum number of transactions" is read together with atomicity: a single transaction is the default whenever the plan fits in 100 operations; splits happen only at the cap or at a `wait_for_ledger` barrier.
+- A-5. "Minimum number of transactions" is read together with atomicity: a single transaction is the default whenever the plan fits in 100 operations; splits happen only at the cap or when the merge must run alone to wait for the sequence guard (FR-14).
 - A-6. The Disposal Ladder keeps the SOW order (path payment, issuer return, destination transfer, unclosable) as the default; changing the order is stretch.
 - A-7. The baseline is recorded on the same Fixture A instance that Dustin later closes; if the existing tool changes the state, a fresh instance is built and recorded, and the note says so.
 - A-8. `executeClose()` refuses to run on a plan that cannot end in a merge unless `allowPartial` is set, to avoid burning or selling assets on an account that will remain.
