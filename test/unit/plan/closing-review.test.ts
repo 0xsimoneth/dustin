@@ -1,3 +1,4 @@
+import { Account, MuxedAccount } from "@stellar/stellar-sdk";
 import { beforeAll, describe, expect, it } from "vitest";
 import type { HorizonAccount } from "../../../src/inspect/horizon-types.js";
 import { inspectAccount } from "../../../src/inspect/inspect.js";
@@ -431,5 +432,21 @@ describe("CP-7: the unauthorized-trustline remedy offers a clawback only where o
     expect(item(planFromSnapshot(s, opts()), "DUSTA").remedy).toBe(
       `Ask the issuer ${messy.issuer} to authorize the trustline again (SetTrustLineFlags) or to claw the balance back, then run the plan again.`,
     );
+  });
+});
+
+describe("CP-15: the destination fix names the account that holds trustlines and the full asset", () => {
+  it("a muxed destination: the trustline goes on the base G account, and the asset is CODE:ISSUER", async () => {
+    const muxed = new MuxedAccount(new Account(messy.destination, "0"), "7").accountId();
+    expect(muxed.startsWith("M")).toBe(true);
+    const plan = await planClose(
+      { account: messy.fixture, destination: muxed, feeSponsor: messy.sponsor },
+      { reader: messyReader({}, { memoIssuer: true }) },
+    );
+    const { remedy } = item(plan, "DUSTB");
+    expect(remedy).toContain(
+      `open a DUSTB:${messy.issuer} trustline on the destination account ${messy.destination}, or close into a destination that holds one`,
+    );
+    expect(remedy).not.toContain(muxed);
   });
 });

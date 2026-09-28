@@ -220,11 +220,13 @@ function evaluateDestination(
       fix: "pass the memo the destination requires (--memo; SEP-29)",
     };
   const t = d.trustlines.find((x) => assetKey(x.asset) === assetKey(line.asset));
+  // Trustlines live on the base G account behind a muxed address, and a code alone does not say
+  // which issuer's asset (closing review CP-15).
   if (!t)
     return {
       viable: false,
       reason: `the destination holds no ${code} trustline`,
-      fix: `open a ${code} trustline on the destination ${d.account}, or close into a destination that holds one`,
+      fix: `open a ${assetKey(line.asset)} trustline on the destination account ${d.baseAccount}, or close into a destination that holds one`,
     };
   if (!t.authorized)
     return {
