@@ -1,0 +1,73 @@
+# Story 3.5: Detection-only blockers: pool shares, raised thresholds, AUTH_IMMUTABLE, active sponsoring
+
+Status: review
+
+## Story
+
+As an integrator,
+I want out-of-scope situations detected and reported with a reason, never acted on,
+so that my users are not led into a close that cannot complete.
+
+## Acceptance Criteria
+
+As written in `docs/epics-and-stories.md` (Story 3.5). Three are met in another form than their wording; each is marked as a documented deviation, with the reason.
+
+1. AC-E3-S5-1: Given a pool share trustline (`asset_type: liquidity_pool_shares`), then blocker `LIQUIDITY_POOL_SHARES` is reported with the remediation "withdraw from pool <id> first (LiquidityPoolWithdraw); Dustin does not withdraw", no changeTrust is planned for it, and a live test on the `lp` profile confirms it.
+   - **Documented deviation.** The live test runs on the `pool-share` variant of the `edge` profile, not on an `lp` profile: canonical decision 3 defines two fixture profiles, `messy` and `edge`, and every edge case is one account of `edge`. The remedy is a sentence, so it starts with a capital: "Withdraw from pool <id> first (LiquidityPoolWithdraw); Dustin does not withdraw." Several pools are named in one sentence ("from pool A and from pool B").
+2. AC-E3-S5-2: Given a master key weight below the high threshold or additional required signers, then blocker `RAISED_THRESHOLDS` explains which threshold blocks which step (merge needs high; changeTrust, manageData, payments and offers need medium; bumpSequence needs low).
+   - **Documented deviation.** The code is `THRESHOLD_UNMET`, as PRD section 7 lists it: the builder's decision D-2 (2026-09-28) keeps the names the SDK was built with, and PRD FR-08 already used `THRESHOLD_UNMET`. The text says everything the AC asks, plus the low threshold every transaction needs for its source account.
+3. AC-E3-S5-3: Given `flags.auth_immutable`, then blocker `AUTH_IMMUTABLE` is reported because the merge would fail with `ACCOUNT_MERGE_IMMUTABLE_SET`.
+   - **Documented deviation.** The code is `AUTH_IMMUTABLE_SET`, as PRD section 7 lists it (decision D-2).
+4. AC-E3-S5-4: Given `num_sponsoring > 0`, then blocker `IS_SPONSOR` is reported with the remediation "revoke or transfer your sponsorships first".
+5. AC-E3-S5-5: Then with `allowPartial` the executor still performs the safe steps and stops before the merge; without it, it refuses.
+
+How each is met, and the test that proves it:
+
+| AC | Behaviour | Tests |
+|---|---|---|
+| 1 | The blocker names every pool whose shares are held, with its share balance, the two base reserves of a share trustline and `CHANGE_TRUST_CANNOT_DELETE` for the pool's asset trustlines. The remedy is "Withdraw from pool <id> first (LiquidityPoolWithdraw); Dustin does not withdraw. Then run the plan again: an emptied share trustline and the pool's asset trustlines are removed like any other trustline." No changeTrust is planned for a held share trustline or for its pool's asset trustlines, which stay as `POOL_ASSET_TRUSTLINE` items. An empty share trustline is not named: the planner removes it (architecture 4.4). | `test/unit/plan/blockers.test.ts` "S-08: the remedy names the pool: withdraw from pool <id> first (LiquidityPoolWithdraw); Dustin does not withdraw", "S-08: plans no changeTrust for held shares or for the pool's asset trustlines, and no merge", "names every pool whose shares are held, and not an empty share trustline the plan removes"; `test/unit/plan/edge-recorded.test.ts` "S-08 (recorded, AC-E3-S5-1): ..."; live: `test/testnet/edge.test.ts` "S-08: pool shares block the merge with the pool id in the remedy; ChangeTrust(0) on LPA fails with op_cannot_delete; the partial close removes only the data entry" |
+| 2 | `THRESHOLD_UNMET` says the master key's weight, the thresholds, which threshold each step needs (the merge high; changeTrust, manageData, payments and offers medium; bumpSequence low; every transaction low for its source account), then what is blocked: "the merge needs weight 2", or "the cleanup needs weight 2 and the merge needs weight 2, so nothing can be signed", or "every transaction needs weight 5 for its source account (low threshold)". It names the account's other signers with their weights. The remedy says multisig closing is out of scope and adds "The cleanup can run now with --partial." only when the master key reaches the medium threshold. `MASTER_KEY_DISABLED` also names the other signers. | `test/unit/plan/blockers.test.ts` "S-09: names the weight the merge needs and the master key's weight, and which threshold blocks which step", "S-09: keeps the cleanup (medium) in the plan and leaves the merge (high) out", "names the medium threshold when it blocks the cleanup, so nothing can be signed", "names the low threshold when the source account alone cannot sign any transaction", "keeps naming the cleanup when only the medium threshold is out of reach", "explains a master key of weight 0 and names the signers that could sign"; `test/unit/plan/edge-recorded.test.ts` "S-09 (recorded, AC-E3-S5-2): ..."; live: `test/testnet/edge.test.ts` "S-09 (AC-E3-S5-5): ..." |
+| 3 | `AUTH_IMMUTABLE_SET` is the first blocker, since nothing can ever lift it (edge case A-06): "The account has the AUTH_IMMUTABLE flag, so it can never be merged: the merge would fail with ACCOUNT_MERGE_IMMUTABLE_SET, and the flag can never be cleared." | `test/unit/plan/blockers.test.ts` "X-04: reports that the merge would fail with ACCOUNT_MERGE_IMMUTABLE_SET, first among the blockers"; `test/unit/plan/edge-recorded.test.ts` "X-04 (recorded, AC-E3-S5-3): ..."; live: `test/testnet/edge.test.ts` "X-04: AUTH_IMMUTABLE_SET is reported first and nothing is submitted; a merge attempt fails with op_immutable_set" |
+| 4 | The remedy starts "Revoke or transfer your sponsorships first (RevokeSponsorship; ...)". When the account created claimable balances, the reason counts them and the remedy adds that a claimable balance's sponsorship can only be transferred (`REVOKE_SPONSORSHIP_ONLY_TRANSFERABLE`) and otherwise ends when the balance is claimed by its claimant or clawed back by its issuer (`ClawbackClaimableBalance`). | `test/unit/plan/blockers.test.ts` "X-02: the remedy says to revoke or transfer the sponsorships first", "X-01: names the claimable balances the account created and how their sponsorship ends"; `test/unit/plan/edge-recorded.test.ts` "X-01 (recorded, AC-E3-S5-4): ..."; live: `test/testnet/edge.test.ts` "X-01: a claimable balance the account created blocks the merge (IS_SPONSOR); a merge attempt fails with op_is_sponsor" |
+| 5 | The planner lists the safe cleanup steps next to a blocker and never the merge; the executor refuses a plan that cannot merge (`PLAN_NOT_CLOSABLE`, nothing posted) unless `allowPartial`, and then runs the cleanup and finishes `partial`. A raised medium threshold leaves nothing signable, so even `allowPartial` stops with `NOTHING_TO_EXECUTE`. | Offline, fake ledger: `test/unit/execute/edge-partial.test.ts` "S-09/X-04/X-02/S-08: <code> refuses without allowPartial and signs nothing", "... with allowPartial runs the safe steps and stops before the merge", "S-09: a raised medium threshold leaves nothing signable, even with allowPartial"; `test/unit/execute/edge-recorded.test.ts` "S-08 (recorded)", "S-09 (recorded)", "X-01/X-04 (recorded): ... leaves nothing to run, with or without allowPartial". Live: `test/testnet/edge.test.ts` "S-09 (AC-E3-S5-5): THRESHOLD_UNMET names both weights; without allowPartial nothing is signed; with it the data entry goes and the merge is left out" (hash below), and the S-08 partial close |
+
+## Tasks / Subtasks
+
+- [x] Task 1: blocker tests first (`test/unit/plan/blockers.test.ts`): 11 of 13 failed before the change (AC: 1-4)
+- [x] Task 2: blocker texts (`src/plan/blockers.ts`): the pool remedy with the pool ids, the threshold explanation, `AUTH_IMMUTABLE_SET` first, the sponsoring remedy (AC: 1-4)
+- [x] Task 3: AC-5 offline on the fake ledger for each detection-only blocker (`test/unit/execute/edge-partial.test.ts`)
+- [x] Task 4: live proof on the `edge` fixture (`test/testnet/edge.test.ts`, with Story 3.6)
+
+## Dev Notes
+
+- Scope: canonical decision 11 (merge blockers reported, not resolved) and PRD rule R8 (detect-and-report never emits operations). The SOW puts pool-share withdrawal and multisig closing out of scope.
+- Threshold categories (https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations): AccountMerge high; ChangeTrust, ManageData, Payment, PathPaymentStrictSend and ManageSellOffer medium; BumpSequence and SetTrustLineFlags low; SetOptions high when it changes signers or thresholds. The transaction source must meet its low threshold: "Combined weight of the signatures for the source account of the transaction meets the low threshold for the source account" (https://developers.stellar.org/docs/learn/fundamentals/transactions/operations-and-transactions#list-of-signatures). A master key of weight 0 "cannot be used to sign transactions, even for operations with a threshold value of 0" (https://developers.stellar.org/docs/learn/fundamentals/transactions/signatures-multisig#thresholds). Dustin signs with the master key only, so the weight needed is max(low, medium) for the cleanup and max(low, high) for the merge (`signingCapability`, unchanged).
+- `AUTH_IMMUTABLE`: "the issuing account can't be merged" and no other flag can be set once it is (https://developers.stellar.org/docs/tokens/control-asset-access#authorization-immutable-0x4); the merge fails with `ACCOUNT_MERGE_IMMUTABLE_SET` (https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/account-merge). Live: `op_immutable_set`.
+- Sponsoring: `RevokeSponsorship` removes or transfers a sponsorship; `REVOKE_SPONSORSHIP_ONLY_TRANSFERABLE` "will happen if the user tries to remove the sponsorship from a ClaimableBalanceEntry" (https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#revoke-sponsorship). The creator of a claimable balance pays its reserve and gets it back when the balance is claimed (https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves#effect-on-claimable-balances); the issuer can claw it back (https://developers.stellar.org/docs/build/guides/transactions/claimable-balances#clawback-claimable-balance). Live: `op_is_sponsor`.
+- Pool shares: "A pool share trustline requires 2 base reserves instead of 1" (https://developers.stellar.org/docs/learn/fundamentals/liquidity-on-stellar-sdex-liquidity-pools#trustlines); `CHANGE_TRUST_CANNOT_DELETE`: "The asset trustline is still referenced by a liquidity pool" (https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#change-trust). Live: `op_cannot_delete`.
+- Plan status with a blocker stays `blocked` (the existing rule in `src/plan/order.ts`), also for held pool shares, where PRD FR-08 expects `partial`; `test/unit/plan/review-e1.test.ts` pins `blocked`. Not changed here: `src/plan/order.ts` belongs to another story.
+- AC-5 needed no code: the executor refuses a non-closable plan without `allowPartial` since E2-S2 and E2-S3. The AC-5 tests passed on their first run and pin that behaviour for each blocker.
+- The blocker order changed (`AUTH_IMMUTABLE_SET` first). The structural plan hash includes the blocker codes in order, so a plan with `AUTH_IMMUTABLE_SET` and another blocker gets a new hash; the committed plan of the messy fixture has no blocker and keeps its hash.
+
+### References
+
+- docs/epics-and-stories.md, Story 3.5; docs/prd.md FR-08, section 7, decision D-2
+- docs/architecture.md sections 4.3, 4.4, 5.3
+- docs/edge-cases-and-test-matrix.md rows S-08, S-09, X-01, X-02, X-04; edge cases A-01, A-02, A-06, A-09, A-10, A-13
+
+## Dev Agent Record
+
+### Completion Notes List
+
+- Offline tier after this story and Story 3.6: 65 files, 580 tests (58 files, 514 tests before), about 6 s.
+- Live, 2026-09-28, fixture `edge-20260928T100439Z-d5767b`: the multisig partial close `816ad91249c5217b83420cc54befe9338c9c5c876f543fc4b4852f5f865375c0` (ledger 4913284, data entry removed, no merge; the refusal before it posted nothing), the pool-share partial close `b203b7cad02bfb35aa89514d2374238736500c5ee23eff3b390da88fc15bdc0c`, the probes `73ea619ff8542fc04c38d7fdfea18b797e62c1f160eb3451b966badcbabd16c1` (`op_cannot_delete`), `f2af42a2ea9bc28aa160bad3d604384158ad85ce0839def9f6c153aa2625efea` (`op_is_sponsor`) and `d834586024d7c360f347e2ee6f54dfd9ed95c07d3d63f9b1fde275386f33e084` (`op_immutable_set`). Every hash of the run is in `docs/test-matrix.md`.
+
+### File List
+
+- `src/plan/blockers.ts` (modified)
+- `test/unit/plan/blockers.test.ts`, `test/unit/execute/edge-partial.test.ts` (new)
+- live and recorded proof shared with Story 3.6: `test/testnet/edge.test.ts`, `test/unit/plan/edge-recorded.test.ts`, `test/unit/execute/edge-recorded.test.ts`
+
+## Change Log
+
+- 2026-09-28: blocker texts for pool shares, thresholds, `AUTH_IMMUTABLE_SET` and sponsoring, tests first; AC-5 pinned offline for each blocker and proved live on the multisig variant. Status: review (the deviations in AC-1 to AC-3 need the builder's acceptance).
