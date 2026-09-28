@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, linkSync, readdirSync, readFileSync, symlinkSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import type { CloseReport } from "../../../src/execute/report.js";
@@ -133,5 +133,51 @@ describe("R3-27: with --json, every refusal before signing prints the refused pl
     expect(r.err).toContain("SPONSOR_UNDERFUNDED");
     expect(JSON.parse(r.out)).toMatchObject({ kind: "dustin-close-plan" });
     expect(world.ledger.submissions).toHaveLength(0);
+  });
+});
+
+describe("R3-26: --report can never name the working directory's .env", () => {
+  /** A working directory whose .env holds the two secrets, and the run's options for it. */
+  function secretsInDotEnv(world: World) {
+    const text = [
+      `DUSTIN_ACCOUNT_SECRET=${world.account.secret()}`,
+      `DUSTIN_SPONSOR_SECRET=${world.sponsor.secret()}`,
+      "",
+    ].join("\n");
+    const cwd = emptyDir(text);
+    return { cwd, text, deps: { env: {}, cwd } };
+  }
+
+  const cases: Array<[string, (cwd: string) => string]> = [
+    // On a case-insensitive filesystem (macOS, Windows) this is the .env file itself.
+    ["another case of the name", (cwd) => join(cwd, ".ENV")],
+    ["another case of a .env variant", (cwd) => join(cwd, ".Env.local")],
+    [
+      "a symbolic link to it",
+      (cwd) => {
+        symlinkSync(join(cwd, ".env"), join(cwd, "receipt.json"));
+        return join(cwd, "receipt.json");
+      },
+    ],
+    [
+      "a hard link to it",
+      (cwd) => {
+        linkSync(join(cwd, ".env"), join(cwd, "receipt.json"));
+        return join(cwd, "receipt.json");
+      },
+    ],
+  ];
+
+  it.each(cases)("refuses %s before anything is signed (exit 2)", async (_name, target) => {
+    const world = zeroSpendableWorld();
+    const { cwd, text, deps } = secretsInDotEnv(world);
+    const path = target(cwd);
+    const r = await closeCli(world, executeArgs(world, "--yes", "--report", path), deps);
+    expect(r.code).toBe(2);
+    expect(r.err).toMatch(/Cannot write the report file .*\.env/);
+    expect(world.ledger.submissions).toHaveLength(0);
+    // The secrets file is where it was, as it was.
+    expect(readFileSync(join(cwd, ".env"), "utf8")).toBe(text);
+    expect(readdirSync(cwd).filter((f) => /^\.env\./i.test(f))).toEqual([]);
   });
 });

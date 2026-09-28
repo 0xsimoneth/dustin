@@ -9,7 +9,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { randomBytes } from "node:crypto";
-import { basename, dirname } from "node:path";
+import { basename, dirname, join } from "node:path";
 import { formatStroops } from "../../amounts.js";
 import { verifyHorizonIsTestnet } from "../../config/network.js";
 import type { Sleep } from "../../config/pauses.js";
@@ -557,6 +557,13 @@ function stoppedReport(known: CloseReport | null, error: unknown, account: strin
  * rename so a reader never sees half a file. It is checked before anything is signed; a write
  * that fails later only warns, because stopping a close half way would be worse.
  */
+/** True when both paths exist and are the same file (links followed): same device and inode. */
+function sameFile(a: string, b: string): boolean {
+  const x = statSync(a, { throwIfNoEntry: false });
+  const y = statSync(b, { throwIfNoEntry: false });
+  return x !== undefined && y !== undefined && x.dev === y.dev && x.ino === y.ino;
+}
+
 function receiptFile(path: string, ctx: CloseContext) {
   const refuse = (detail: string) =>
     new DustinError("CONFIG_INVALID", `Cannot write the report file ${path}: ${detail}.`, {
@@ -565,8 +572,15 @@ function receiptFile(path: string, ctx: CloseContext) {
     });
   try {
     if (path.trim() === "") throw refuse("the path is empty");
-    // A report must never take the place of the secrets file (and rotate it away).
-    if (/^\.env(\..*)?$/.test(basename(path))) throw refuse("it is a .env file");
+    // A report must never take the place of the secrets file (and rotate it away): no name that is
+    // .env in any case, since a case-insensitive filesystem (macOS, Windows) opens .env for .ENV,
+    // and no other name for the working directory's .env, a symbolic or hard link to it (review
+    // round 3, R3-26).
+    if (/^\.env(\..*)?$/i.test(basename(path))) throw refuse("it is a .env file");
+    const secrets = ctx.secrets.cwd === undefined ? null : join(ctx.secrets.cwd, ".env");
+    if (secrets !== null && sameFile(path, secrets)) {
+      throw refuse("it is the working directory's .env file");
+    }
     if (statSync(path, { throwIfNoEntry: false })?.isDirectory()) throw refuse("it is a directory");
     mkdirSync(dirname(path), { recursive: true });
     accessSync(dirname(path), constants.W_OK);
