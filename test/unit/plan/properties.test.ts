@@ -18,6 +18,9 @@ import { randomSnapshot } from "../../helpers/generate.js";
 const SEEDS = 600;
 
 type PathPayment = Extract<OperationDescriptor, { type: "pathPaymentStrictSend" }>;
+/** Entries the close removes before the merge, with medium-threshold operations. */
+const hasCleanup = (s: ExistingAccountSnapshot) =>
+  s.trustlines.length + s.poolShares.length + s.offers.length + s.data.length > 0;
 const subjectKey = (st: CloseStep) =>
   st.subject.type === "trustline" ? assetKey(st.subject.asset) : null;
 
@@ -36,8 +39,14 @@ function optionsFor(seed: number, s: ExistingAccountSnapshot): PlanOptions {
 function expectedBlockers(s: ExistingAccountSnapshot, memo: string | undefined): BlockerCode[] {
   const codes: BlockerCode[] = [];
   const { low, medium, high } = s.thresholds;
+  // The merge's transaction needs max(low, high); a cleanup, when there is one, max(low, medium).
   if (s.masterWeight === 0) codes.push("MASTER_KEY_DISABLED");
-  else if (s.masterWeight < Math.max(low, medium, high)) codes.push("THRESHOLD_UNMET");
+  else if (
+    s.masterWeight < Math.max(low, high) ||
+    (hasCleanup(s) && s.masterWeight < Math.max(low, medium))
+  ) {
+    codes.push("THRESHOLD_UNMET");
+  }
   if (s.flags.authImmutable) codes.push("AUTH_IMMUTABLE_SET");
   // Only held shares block; an empty share trustline is removed (architecture section 4.4).
   if (s.poolShares.some((p) => toStroops(p.balance) > 0n)) codes.push("LIQUIDITY_POOL_SHARES");
@@ -68,7 +77,9 @@ function checkPlan(s: ExistingAccountSnapshot, plan: ClosePlan, options: PlanOpt
       .filter((c) => c !== "SEQNUM_TOO_FAR")
       .sort(),
   ).toEqual(expectedBlockers(s, options.memo));
-  if (!cleanupSignable) expect(steps).toEqual([]);
+  // Without a signable cleanup no step runs before the merge; with nothing to clean up the merge
+  // may still be planned (closing review CP-1).
+  if (!cleanupSignable) expect(steps.filter((st) => st.kind !== "merge")).toEqual([]);
 
   // Every step, transaction, blocker and unclosable item explains itself (1-5 AC5).
   for (const x of [...steps, ...plan.transactions, ...plan.blockers, ...plan.unclosable]) {

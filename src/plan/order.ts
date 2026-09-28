@@ -8,7 +8,7 @@ import type {
   TrustlineInfo,
 } from "../inspect/snapshot.js";
 import { assetKey } from "../inspect/snapshot.js";
-import { mergeBlockers, signingCapability } from "./blockers.js";
+import { cleanupBlocked, mergeBlockers } from "./blockers.js";
 import { LADDER_ORDERS, chooseRung } from "./ladder.js";
 import type {
   Blocker,
@@ -53,10 +53,11 @@ export function orderClose(s: ExistingAccountSnapshot, options: PlanOptions): Or
   const ladderOrder: LadderOrder = options.preferDestination ? "prefer-destination" : "sow";
   const memo = options.memo ?? null;
   const blockers = mergeBlockers(s, memo);
-  const signing = signingCapability(s);
   const unclosable: UnclosableItem[] = [];
   const warnings: string[] = [];
-  if (!signing.cleanup) {
+  // Nothing can be signed before the merge, so nothing is planned; the threshold blocker says why.
+  // An account with nothing to clean up goes on to its merge (closing review CP-1).
+  if (cleanupBlocked(s)) {
     return { units: [], unclosable, blockers, warnings, status: "blocked", ladderOrder };
   }
 

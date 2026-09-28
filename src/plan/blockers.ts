@@ -21,6 +21,21 @@ export function signingCapability(s: ExistingAccountSnapshot): SigningCapability
   return { cleanup: w > 0 && w >= Math.max(low, medium), merge: w > 0 && w >= Math.max(low, high) };
 }
 
+/**
+ * The account holds entries the close removes before the merge: trustlines (pool shares
+ * included), offers and data entries, all removed by medium-threshold operations. Signers need no
+ * step, the merge removes them. Without such an entry there is no cleanup, and the medium
+ * threshold does not matter (closing review CP-1).
+ */
+export function hasCleanup(s: ExistingAccountSnapshot): boolean {
+  return s.trustlines.length + s.poolShares.length + s.offers.length + s.data.length > 0;
+}
+
+/** The master key cannot sign a cleanup the account needs, so nothing can run before the merge. */
+export function cleanupBlocked(s: ExistingAccountSnapshot): boolean {
+  return hasCleanup(s) && !signingCapability(s).cleanup;
+}
+
 /** The account's signers other than the master key, as "G... (weight n)"; empty when none. */
 function otherSigners(s: ExistingAccountSnapshot): string[] {
   return s.signers
@@ -52,7 +67,13 @@ function thresholdReason(s: ExistingAccountSnapshot): string {
     `Thresholds: low ${low}, medium ${medium}, high ${high}; ` +
     "the merge (accountMerge) needs the high threshold, changeTrust, manageData, payments and offers need the medium threshold, bumpSequence needs the low threshold, and every transaction needs the low threshold for its source account.";
   let blocked: string;
-  if (w < low) {
+  if (!hasCleanup(s)) {
+    // Only the merge's own transaction matters: max(low, high) (closing review CP-1).
+    blocked =
+      w < low
+        ? `Blocked: every transaction needs weight ${low} for its source account (low threshold), so the merge, which needs weight ${mergeNeed}, cannot be signed. The account has nothing to clean up.`
+        : `Blocked: the merge needs weight ${mergeNeed}. The account has nothing to clean up.`;
+  } else if (w < low) {
     blocked = `Blocked: every transaction needs weight ${low} for its source account (low threshold), so nothing can be signed: the cleanup needs weight ${cleanupNeed} and the merge needs weight ${mergeNeed}.`;
   } else if (w < cleanupNeed) {
     blocked =
@@ -114,8 +135,9 @@ export function mergeBlockers(s: ExistingAccountSnapshot, memo: string | null): 
         "Multisig closing is out of scope: sign with the account's other signers outside Dustin.",
       permanent: true,
     });
-  } else if (!signing.merge || !signing.cleanup) {
-    // A raised medium or low threshold stops the cleanup too, and with it the merge.
+  } else if (!signing.merge || cleanupBlocked(s)) {
+    // A raised medium or low threshold stops the cleanup too, and with it the merge; without a
+    // cleanup only the merge's thresholds count (closing review CP-1).
     blockers.push({
       code: "THRESHOLD_UNMET",
       reason: thresholdReason(s),
