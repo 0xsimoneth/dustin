@@ -824,3 +824,48 @@ describe("R3-17: no answer of Horizon makes the wait endless", () => {
     expect((h.clock.now() - started) / 1000).toBeLessThanOrEqual(260 + 10);
   });
 });
+
+describe("R3-21: failed lookups are retried even when the bound passed long before", () => {
+  it("measures the retry window from the first failed lookup", async () => {
+    let t = 1_000_000;
+    let lookups = 0;
+    let sleeps = 0;
+    const record = {
+      hash: HASH,
+      ledger: 7,
+      successful: true,
+      fee_charged: "200",
+      result_xdr: "AAAA",
+    };
+    const submitter: Submitter = {
+      submit: () => Promise.resolve({ status: 504, body: null }),
+      transaction: () => Promise.resolve(null),
+      // Two lookups fail; the third finds the transaction applied.
+      lookup: () => {
+        lookups += 1;
+        return Promise.resolve(
+          lookups <= 2 ? { kind: "error", detail: "HTTP 503" } : { kind: "found", record },
+        );
+      },
+    };
+    const outcome = await submitAndConfirm(
+      submitter,
+      // The POST came back 100 s after the envelope's bound (slow 504s after 429 back-offs).
+      { xdr: "ENV", hash: HASH, maxTime: t - 100 },
+      {
+        pollIntervalMs: 5000,
+        now: () => t,
+        sleep: (ms) => {
+          sleeps += 1;
+          t += ms / 1000;
+          return Promise.resolve();
+        },
+        ledgerCloseTime: () => Promise.resolve(t),
+      },
+    );
+    // Before the fix: two lookups back to back, no pause, and unknown with the lookup error.
+    expect(outcome).toMatchObject({ kind: "applied", ledger: 7 });
+    expect(lookups).toBe(3);
+    expect(sleeps).toBeGreaterThan(0);
+  });
+});

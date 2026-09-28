@@ -457,6 +457,8 @@ async function confirmByLedgerClock(
   const maxWait =
     options.maxWaitSeconds ?? Math.max(0, envelope.maxTime - started) + 2 * (grace + ledgerWait);
   let firstClose: number | null = null;
+  // Seconds into the wait of its first failed read: failures get their retries from then on.
+  let firstFailure: number | null = null;
   // Set once a ledger closed after maxTime: no later ledger can include the envelope (close times
   // only grow), and every earlier ledger is already ingested, so a 404 from then on is conclusive.
   let pastBound = false;
@@ -505,10 +507,16 @@ async function confirmByLedgerClock(
       if ("failed" in latest) readError ??= latest.failed;
     }
     // A failure proves nothing, so it is only tried again, within the same bound; without any
-    // reading of the ledger the bound is measured from the start of the wait. The local clock
-    // bounds the whole wait (R3-17).
+    // reading of the ledger the bound is measured from the start of the wait. Failures also get
+    // the grace and the ledger wait from the first of them, even when the first reading of the
+    // ledger was already long past the bound (review round 3, R3-21). The local clock bounds the
+    // whole wait (R3-17).
+    if (found.kind === "error" || readError !== null) firstFailure ??= waited;
     const limit = Math.min(
-      (firstClose === null ? 0 : envelope.maxTime - firstClose) + grace + ledgerWait,
+      Math.max(
+        (firstClose === null ? 0 : envelope.maxTime - firstClose) + grace + ledgerWait,
+        firstFailure === null ? Number.NEGATIVE_INFINITY : firstFailure + grace + ledgerWait,
+      ),
       maxWait,
     );
     if (waited > limit) {
