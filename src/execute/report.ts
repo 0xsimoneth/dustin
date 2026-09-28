@@ -235,7 +235,14 @@ export type StopCode =
   | "OUTCOME_UNKNOWN"
   | "MERGE_PREFLIGHT_FAILED"
   | "SEQNUM_TOO_FAR"
-  | "ACCOUNT_STILL_EXISTS";
+  | "ACCOUNT_STILL_EXISTS"
+  /**
+   * The caller aborted `ExecuteOptions.signal` (the CLI does on SIGINT or SIGTERM; review finding
+   * CL-1, story E4-S2). The run stopped at the next safe point: no envelope was posted after the
+   * abort, and one posted before it was settled or recorded as unknown, in which case `hash` and
+   * `maxTime` name it. `aborted` when nothing was posted, `failed` otherwise.
+   */
+  | "INTERRUPTED";
 
 export interface StopReason {
   /** A run outcome, or the code of the DustinError that interrupted the run. */
@@ -263,8 +270,8 @@ export interface StopReason {
    */
   xlmToDestination?: { approved: string; fresh: string };
   /**
-   * For OUTCOME_UNKNOWN: the upper time bound (Unix seconds) of the envelope `hash`, which may
-   * still apply or may have applied. A re-run must wait until a ledger has closed after it: until
+   * For OUTCOME_UNKNOWN, and for INTERRUPTED while an envelope's outcome was open: the upper time
+   * bound (Unix seconds) of the envelope `hash`, which may still apply or may have applied. A re-run must wait until a ledger has closed after it: until
    * then a new envelope for the same sequence number could only replace it with a tenfold bid,
    * which Dustin never relies on (canonical decision 7).
    */
