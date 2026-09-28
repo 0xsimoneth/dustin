@@ -1,0 +1,11 @@
+{
+  "note": "Recorded from testnet Horizon on 2026-09-28: the answer for the operations of a freshly generated key that was never funded, as for every account after a testnet reset.",
+  "path": "/accounts/GBZKBBOISOKOMXMPBCBGIAO7FGHYJV5L562UUQDNEWRFPAFAY37Q4AWY/operations?order=desc&limit=10",
+  "status": 404,
+  "body": {
+    "type": "https://stellar.org/horizon-errors/not_found",
+    "title": "Resource Missing",
+    "status": 404,
+    "detail": "The resource at the url requested was not found.  This usually occurs for one of two reasons:  The url requested is not valid, or no data in our database could be found with the parameters provided."
+  }
+}

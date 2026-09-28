@@ -3,6 +3,7 @@ import type { HorizonAccount, HorizonOffer } from "../inspect/horizon-types.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
 import { accountOffers, latestLedger, type HorizonJsonClient } from "../reader/horizon-json.js";
 import type { FixtureManifest } from "./manifest.js";
+import { describeClosed, type MergeRecord } from "./reset.js";
 
 export interface VerifyExpectation {
   reserveSponsor: string;
@@ -19,6 +20,10 @@ export interface VerifyInput {
   baseReserve: bigint;
   destinationExists: boolean;
   expected: VerifyExpectation;
+  /** Horizon's latest ledger when the input was read (the reset check compares it, X-15). */
+  latestLedger?: number;
+  /** The merge that removed the fixture, when it answers 404 and Horizon holds the merge (X-15). */
+  closed?: MergeRecord;
 }
 
 export interface VerifyCheck {
@@ -51,7 +56,9 @@ export function verifyFixture(input: VerifyInput): VerifyResult {
           label: "fixture account exists",
           appendixB: false,
           pass: false,
-          observed: "Horizon answered 404: the account does not exist",
+          observed: input.closed
+            ? `Horizon answered 404: ${describeClosed(input.closed)}`
+            : "Horizon answered 404: the account does not exist",
           expected: "the account exists",
         },
       ],
@@ -228,5 +235,6 @@ export async function loadVerifyInput(
     baseReserve: BigInt(ledger.base_reserve_in_stroops),
     destinationExists: destination !== null,
     expected,
+    latestLedger: ledger.sequence,
   };
 }

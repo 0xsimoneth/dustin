@@ -27,7 +27,8 @@ export type DustinErrorCode =
   | "SPONSOR_UNDERFUNDED"
   | "CONFIRMATION_REQUIRED"
   | "WRONG_SIGNER"
-  | "ACCOUNT_NOT_FOUND";
+  | "ACCOUNT_NOT_FOUND"
+  | "RESET_SUSPECTED";
 
 export type ErrorStage =
   "config" | "inspect" | "plan" | "build" | "sponsor" | "submit" | "confirm" | "merge";

@@ -10,11 +10,16 @@ import { buildEdgeFixture, openSettleChecks } from "../../../src/fixture/edge-bu
 import { edgeSteps, type EdgeAccountRole } from "../../../src/fixture/edge.js";
 import { verifyEdgeFixture, type EdgeVerifyInput } from "../../../src/fixture/edge-verify.js";
 import { readAnyManifest } from "../../../src/fixture/manifest.js";
-import type { HorizonAccount, HorizonOffer } from "../../../src/inspect/horizon-types.js";
+import type {
+  HorizonAccount,
+  HorizonClaimableBalance,
+  HorizonOffer,
+} from "../../../src/inspect/horizon-types.js";
 import { ExitCode, exitCodeFor } from "../../../src/cli/exit-codes.js";
 import type { EdgeFixtureManifest } from "../../../src/fixture/manifest.js";
 import {
   EDGE_DIR,
+  EDGE_E4_DIR,
   badSequenceAnswer,
   edgeManifest,
   edgeRoles,
@@ -237,16 +242,25 @@ describe("CP-14: a fixture manifest is checked before anything reads Horizon", (
   });
 });
 
-/** The verification input of the recorded edge fixture, every account present. */
+/**
+ * The verification input of the recorded edge fixture of the current recipe (every variant it
+ * builds, E4-S3's included), every account present.
+ */
 function recordedVerifyInput(): EdgeVerifyInput {
-  const manifest = edgeManifest();
+  const manifest = edgeManifest(EDGE_E4_DIR);
   const roles = edgeRoles(manifest);
-  const recorded = loadRecorded(EDGE_DIR);
+  const recorded = loadRecorded(EDGE_E4_DIR);
   const accountRoles = Object.keys(manifest.accounts).filter(
     (r) => r !== "sponsor",
   ) as EdgeAccountRole[];
-  const offers = recorded.get(`/accounts/${roles.authMaintain}/offers?limit=200&order=asc`) as {
-    _embedded: { records: HorizonOffer[] };
+  const offersOf = (role: EdgeAccountRole) =>
+    (
+      recorded.get(`/accounts/${roles[role]}/offers?limit=200&order=asc`) as {
+        _embedded: { records: HorizonOffer[] };
+      }
+    )._embedded.records;
+  const claimant = recorded.get(`/claimable_balances?claimant=${roles.claimant}&limit=200`) as {
+    _embedded: { records: HorizonClaimableBalance[] };
   };
   return {
     roles,
@@ -258,8 +272,13 @@ function recordedVerifyInput(): EdgeVerifyInput {
         structuredClone(recorded.get(`/accounts/${roles[role]}`) as HorizonAccount),
       ]),
     ),
-    offers: { authMaintain: offers._embedded.records },
+    offers: {
+      authMaintain: offersOf("authMaintain"),
+      offerTypes: offersOf("offerTypes"),
+      offerStale: offersOf("offerStale"),
+    },
     claimableSponsored: { claimable: 1 },
+    claimableClaimant: { claimant: claimant._embedded.records },
   };
 }
 
@@ -397,7 +416,8 @@ describe("the re-keyed recorded edge fixture (the harness of the tests below)", 
       "restrict",
     ]);
     expect(manifest.verification.pass).toBe(true);
-    expect(manifest.verification.checks).toHaveLength(62);
+    // 62 checks for the ten variants of E3-S6, 16 more for the three E4-S3 added.
+    expect(manifest.verification.checks).toHaveLength(78);
     expect(manifest.accounts.claimable).toBe(horizon.roles().claimable);
     expect(Object.keys(recorded)).toContain("account-auth-frozen");
   });

@@ -100,6 +100,8 @@ describe("inspectAccount on the recorded messy fixture", () => {
         `${accountPath}/offers`,
         `/accounts/${m.destination}`,
         `/accounts/${m.issuer}`,
+        // X-03: the claimable balances that name the account as a claimant.
+        "/claimable_balances",
         "/paths/strict-send",
         "/paths/strict-send",
         "/paths/strict-send",

@@ -1,6 +1,13 @@
 import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { Account, Keypair, Operation, TransactionBuilder, type xdr } from "@stellar/stellar-sdk";
+import {
+  Account,
+  Asset,
+  Keypair,
+  Operation,
+  TransactionBuilder,
+  type xdr,
+} from "@stellar/stellar-sdk";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import { toStroops } from "../../src/amounts.js";
 import { baseFeeFromFeeStats, type FeeStatsLike } from "../../src/config/fees.js";
@@ -34,9 +41,11 @@ import { describeTestnet } from "./gate.js";
  *
  * DUSTIN_TESTNET=1 npx vitest run --project testnet test/testnet/edge.test.ts
  * With DUSTIN_RECORD=1 the Horizon JSON the planner read right after the build (before any test
- * touched an account) is saved as the offline vectors in test/fixtures/horizon/edge/.
+ * touched an account) is saved as the offline vectors of the current recipe in
+ * test/fixtures/horizon/edge-e4/ (test/fixtures/horizon/edge/ keeps the recording of the recipe
+ * before E4-S3 added three variants).
  */
-const RECORD_DIR = "test/fixtures/horizon/edge";
+const RECORD_DIR = "test/fixtures/horizon/edge-e4";
 
 let built: EdgeBuildResult;
 const client = horizonJson(DEFAULT_HORIZON_URL);
@@ -104,11 +113,11 @@ async function probe(
   return outcome;
 }
 
-/** An issuer's own operations (a revocation, a clawback), fee-bumped by the sponsor. */
+/** An issuer's own operations (a revocation, a clawback, a trade, a claim), fee-bumped by the sponsor. */
 async function asIssuer(
   row: string,
   purpose: string,
-  role: "authIssuer" | "clawbackIssuer",
+  role: "authIssuer" | "clawbackIssuer" | "plainIssuer",
   operations: xdr.Operation[],
 ): Promise<void> {
   const source = (await account(role))!;
@@ -155,12 +164,34 @@ function actingBeforeFirstPost(before: () => Promise<void>): Submitter {
   };
 }
 
-const credit = (code: "FRZ" | "LPA", role: "authIssuer" | "plainIssuer") => ({
+const credit = (code: "FRZ" | "LPA" | "OFA", role: "authIssuer" | "plainIssuer") => ({
   type: "credit_alphanum4" as const,
   code,
   issuer: pub(role),
 });
 const kinds = (p: ClosePlan) => p.steps.map((s) => s.kind);
+const roles = () => ({ ...built.manifest.accounts, multisigSigner: built.manifest.multisigSigner });
+
+/**
+ * Every transaction of a report as Horizon recorded it: a fee bump whose fee account is the
+ * sponsor, sourced by the closed account, with an inner fee of 0 (the account pays nothing).
+ */
+async function expectSponsoredFeeBumps(report: CloseReport, role: EdgeVariantRole): Promise<void> {
+  for (const t of report.transactions.filter(
+    (x) => x.result === "applied" || x.result === "failed",
+  )) {
+    const tx = await client.get<{
+      fee_account: string;
+      source_account: string;
+      inner_transaction?: { max_fee: string };
+    }>(`/transactions/${t.hash}`);
+    expect(tx, t.hash).toMatchObject({
+      fee_account: pub("sponsor"),
+      source_account: pub(role),
+      inner_transaction: { max_fee: "0" },
+    });
+  }
+}
 /** The account's non-native balances, sorted (Horizon lists a pool share before the others). */
 const lines = (a: HorizonAccount | null) =>
   (a?.balances ?? [])
@@ -552,6 +583,183 @@ describeTestnet("edge fixture and the D3 edge rows (live testnet)", () => {
     expect(outcome).toMatchObject({ kind: "failed", codes: { operations: ["op_immutable_set"] } });
     expect(await account("immutable")).not.toBeNull();
   }, 180_000);
+
+  // The rows E4-S3 added (X-11, X-07, X-08, X-03), on the variants built for them.
+
+  it("X-11: Horizon quotes OFA to XLM only through the account's own offer; the plan burns OFA instead, and a sale forced through the offer fails with op_cross_self", async () => {
+    const paths = await client.get<{
+      _embedded: { records: Array<{ destination_amount: string; path: unknown[] }> };
+    }>(
+      `/paths/strict-send?source_asset_type=credit_alphanum4&source_asset_code=OFA&source_asset_issuer=${pub("plainIssuer")}&source_amount=0.0000003&destination_assets=native`,
+    );
+    expect(paths?._embedded.records.map((r) => [r.destination_amount, r.path])).toEqual([
+      ["0.0000003", []],
+    ]);
+    const p = await plan("offerTypes");
+    const ofa = p.steps.find(
+      (s) =>
+        s.kind === "dispose_balance" &&
+        s.subject.type === "trustline" &&
+        s.subject.asset.code === "OFA",
+    )!;
+    expect(ofa.disposal).toMatchObject({ rung: "return_to_issuer", to: pub("plainIssuer") });
+    expect(ofa.disposal!.ruledOut[0]!.reason).toMatch(
+      /^the quoted path may use this account's own offer \d+, which the plan cancels first$/,
+    );
+    const outcome = await probe(
+      "X-11",
+      "negative probe: sell OFA through the account's own offer",
+      "offerTypes",
+      [
+        {
+          type: "pathPaymentStrictSend",
+          sendAsset: credit("OFA", "plainIssuer"),
+          sendAmount: "0.0000001",
+          destination: pub("offerTypes"),
+          destAsset: { type: "native" },
+          destMin: "0.0000001",
+          path: [],
+        },
+      ],
+    );
+    expect(outcome).toMatchObject({
+      kind: "failed",
+      codes: { innerTransaction: "tx_failed", operations: ["op_cross_self"] },
+    });
+  }, 180_000);
+
+  it("X-07: the buy offer, the passive offer and the offer selling XLM are cancelled with manageSellOffer amount 0 and their own assets and price; the account closes, every transaction a fee bump paid by the sponsor", async () => {
+    const offers = await client.get<{
+      _embedded: {
+        records: Array<{
+          id: string;
+          selling: { asset_type: string; asset_code?: string };
+          buying: { asset_type: string; asset_code?: string };
+          price_r: { n: number; d: number };
+        }>;
+      };
+    }>(`/accounts/${pub("offerTypes")}/offers?limit=200&order=asc`);
+    const horizonOffers = offers!._embedded.records;
+    expect(horizonOffers).toHaveLength(3);
+    const p = await plan("offerTypes");
+    expect(p.status).toBe("closable");
+    expect(p.reserve.spendable).toBe("0.0000000");
+    expect(toStroops(p.reserve.balance) - toStroops(p.reserve.minimum)).toBe(10n);
+    const cancels = p.steps.filter((s) => s.kind === "cancel_offer");
+    expect(
+      cancels.map((s) =>
+        s.operation.type === "manageSellOffer"
+          ? {
+              id: s.operation.offerId,
+              selling: s.operation.selling.type === "native" ? "XLM" : s.operation.selling.code,
+              buying: s.operation.buying.type === "native" ? "XLM" : s.operation.buying.code,
+              amount: s.operation.amount,
+              price: s.operation.price,
+            }
+          : null,
+      ),
+    ).toEqual(
+      horizonOffers.map((o) => ({
+        id: o.id,
+        selling: o.selling.asset_code ?? "XLM",
+        buying: o.buying.asset_code ?? "XLM",
+        amount: "0",
+        price: o.price_r,
+      })),
+    );
+    const destinationBefore = await account("destination");
+    const report = await executeClose(p, signersFor("offerTypes"), { confirm: true });
+    recordReport("X-07", "offer-types full close (3 offer types cancelled)", report);
+    expect(report.status).toBe("closed");
+    expect(report.verification).toMatchObject({ accountExists: false, horizonStatus: 404 });
+    expect(report.transactions.map((t) => t.result)).toEqual(["applied"]);
+    await expectSponsoredFeeBumps(report, "offerTypes");
+    expect(report.recovery.mergedXlm).toBe("3.5000010");
+    const nativeOf = (a: HorizonAccount | null) =>
+      toStroops(a!.balances.find((b) => b.asset_type === "native")!.balance);
+    expect(nativeOf(await account("destination")) - nativeOf(destinationBefore)).toBe(
+      toStroops("3.5000010"),
+    );
+    const effects = await client.get<{ _embedded: { records: Array<{ type: string }> } }>(
+      `/transactions/${report.transactions[0]!.hash}/effects?limit=200`,
+    );
+    const types = effects!._embedded.records.map((e) => e.type);
+    // Cancelled, not filled: no trade, and the account is removed.
+    expect(types).not.toContain("trade");
+    expect(types).toContain("account_removed");
+  }, 300_000);
+
+  it("X-08: a counterparty takes the open offer after the plan; the cancellation fails with op_offer_not_found, the executor re-plans and closes, and the report records both", async () => {
+    const p = await plan("offerStale");
+    expect(p.status).toBe("closable");
+    expect(kinds(p)).toEqual(["cancel_offer", "dispose_balance", "remove_trustline", "merge"]);
+    const take = () =>
+      asIssuer("X-08", "counterparty takes the OFC offer after the plan (C-04)", "plainIssuer", [
+        Operation.pathPaymentStrictReceive({
+          sendAsset: Asset.native(),
+          sendMax: "0.0000005",
+          destination: pub("plainIssuer"),
+          destAsset: edgeAsset("OFC", roles()),
+          destAmount: "0.0000005",
+          path: [],
+        }),
+      ]);
+    const report = await executeClose(p, signersFor("offerStale"), {
+      confirm: true,
+      submitter: actingBeforeFirstPost(take),
+    });
+    recordReport("X-08", "offer-stale close (the offer was taken after the plan)", report);
+    expect(report.status).toBe("closed");
+    expect(report.verification).toMatchObject({ accountExists: false, horizonStatus: 404 });
+    const [first, ...rest] = report.transactions;
+    expect(first).toMatchObject({ result: "failed" });
+    expect(first!.resultCodes?.operations?.[0]).toBe("op_offer_not_found");
+    expect(report.replans).toHaveLength(1);
+    expect(report.replans[0]!.trigger.resultCodes.operations).toContain("op_offer_not_found");
+    expect(report.replans[0]!.drift).toEqual([]);
+    expect(rest.map((t) => t.result)).toEqual(["applied"]);
+    await expectSponsoredFeeBumps(report, "offerStale");
+    // The whole balance merges: the 2 XLM it held and the 0.0000005 XLM the counterparty paid.
+    expect(report.recovery.mergedXlm).toBe("2.0000005");
+  }, 300_000);
+
+  it("X-03: the plan warns about the two claimable balances that name the account; the account closes; both stay on the ledger and another claimant can still claim one", async () => {
+    const p = await plan("claimant");
+    expect(p.status).toBe("closable");
+    expect(kinds(p)).toEqual(["merge"]);
+    const warning = p.warnings.find((w) =>
+      w.startsWith("This account is a claimant of 2 claimable balances"),
+    );
+    expect(warning).toContain(`1 of CBA issued by ${pub("plainIssuer")} (0.0000002 CBA)`);
+    expect(warning).toContain("1 of XLM (0.0000001 XLM)");
+    const listed = await client.get<{
+      _embedded: { records: Array<{ id: string; asset: string }> };
+    }>(`/claimable_balances?claimant=${pub("claimant")}&limit=200`);
+    const ids = listed!._embedded.records.map((b) => b.id).sort();
+    expect(ids).toHaveLength(2);
+    const report = await executeClose(p, signersFor("claimant"), { confirm: true });
+    recordReport("X-03", "claimant full close (its claimable balances stay)", report);
+    expect(report.status).toBe("closed");
+    expect(report.verification).toMatchObject({ accountExists: false, horizonStatus: 404 });
+    expect(report.warnings).toContain(warning);
+    await expectSponsoredFeeBumps(report, "claimant");
+    for (const id of ids) {
+      const balance = await client.get<{ id: string }>(`/claimable_balances/${id}`);
+      expect(balance?.id, id).toBe(id);
+    }
+    const after = await client.get<{ _embedded: { records: Array<{ id: string }> } }>(
+      `/claimable_balances?claimant=${pub("claimant")}&limit=200`,
+    );
+    expect(after!._embedded.records.map((b) => b.id).sort()).toEqual(ids);
+    // Whoever else a predicate allows can still claim: the issuer, the CBA balance's other claimant.
+    const cba = listed!._embedded.records.find((b) => b.asset.startsWith("CBA:"))!;
+    await asIssuer("X-03", "the issuer claims the CBA balance after the merge", "plainIssuer", [
+      Operation.claimClaimableBalance({ balanceId: cba.id }),
+    ]);
+    expect(await client.get(`/claimable_balances/${cba.id}`)).toBeNull();
+    const xlm = ids.find((id) => id !== cba.id)!;
+    expect((await client.get<{ id: string }>(`/claimable_balances/${xlm}`))?.id).toBe(xlm);
+  }, 300_000);
 });
 
 /** Writes the recorded responses and the public manifest, in the format of test/fixtures/horizon/messy. */

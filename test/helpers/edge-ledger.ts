@@ -4,7 +4,11 @@ import { FeeBumpTransaction, Keypair, TransactionBuilder } from "@stellar/stella
 import { TESTNET_PASSPHRASE } from "../../src/config/network.js";
 import { edgePool, type EdgeRoles, type EdgeVariantRole } from "../../src/fixture/edge.js";
 import type { EdgeFixtureKeys, EdgeFixtureManifest } from "../../src/fixture/manifest.js";
-import type { HorizonAccount, HorizonOffer } from "../../src/inspect/horizon-types.js";
+import type {
+  HorizonAccount,
+  HorizonClaimableBalance,
+  HorizonOffer,
+} from "../../src/inspect/horizon-types.js";
 import { horizonJson } from "../../src/reader/horizon-json.js";
 import { horizonReader, type LedgerReader } from "../../src/reader/ledger-reader.js";
 import { FakeLedger, type FakeLiquidityPool } from "./fake-ledger.js";
@@ -16,8 +20,16 @@ import { TESTNET_HORIZON, loadRecorded, recordedFetch } from "./recorded-horizon
  */
 export const EDGE_DIR = "test/fixtures/horizon/edge";
 
-export function edgeManifest(): EdgeFixtureManifest {
-  return JSON.parse(readFileSync(join(EDGE_DIR, "manifest.json"), "utf8")) as EdgeFixtureManifest;
+/**
+ * The `edge` fixture as the recipe builds it since E4-S3, with the variants offer-types,
+ * offer-stale and claimant: recorded on testnet right after a live build (`dustin fixture create
+ * --profile edge`, fixture edge-20260928T205933Z-3a366d, ledgers 4921119 to 4921125), before any
+ * account was touched. Public Horizon JSON only. The ten earlier variants are recorded here too.
+ */
+export const EDGE_E4_DIR = "test/fixtures/horizon/edge-e4";
+
+export function edgeManifest(dir = EDGE_DIR): EdgeFixtureManifest {
+  return JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")) as EdgeFixtureManifest;
 }
 
 /** The fixture's public keys by role, as the recipe functions take them. */
@@ -26,22 +38,26 @@ export function edgeRoles(manifest = edgeManifest()): EdgeRoles {
 }
 
 /** A read-only reader over the recorded responses (404 for anything not recorded). */
-export function edgeRecordedReader(overrides: Record<string, unknown> = {}): {
+export function edgeRecordedReader(
+  overrides: Record<string, unknown> = {},
+  dir = EDGE_DIR,
+): {
   reader: LedgerReader;
   requests: Array<{ method: string; path: string }>;
 } {
-  const { fetch, requests } = recordedFetch(loadRecorded(EDGE_DIR), overrides);
+  const { fetch, requests } = recordedFetch(loadRecorded(dir), overrides);
   return { reader: horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 })), requests };
 }
 
 /**
  * The recorded edge fixture on the fake ledger (test/helpers/fake-ledger.ts): every recorded
- * account, the auth-maintain offer and the LPA/LPB pool, at the recorded ledger. The fee sponsor
- * is the recorded one, with its real balance.
+ * account, the recorded offers and the LPA/LPB pool, at the recorded ledger, and the claimable
+ * balances the recorded claimant pages list (X-03). The fee sponsor is the recorded one, with its
+ * real balance.
  */
-export function edgeLedger(): { ledger: FakeLedger; manifest: EdgeFixtureManifest } {
-  const recorded = loadRecorded(EDGE_DIR);
-  const manifest = edgeManifest();
+export function edgeLedger(dir = EDGE_DIR): { ledger: FakeLedger; manifest: EdgeFixtureManifest } {
+  const recorded = loadRecorded(dir);
+  const manifest = edgeManifest(dir);
   const page = recorded.get("/ledgers?order=desc&limit=1") as {
     _embedded: { records: Array<{ sequence: number }> };
   };
@@ -56,6 +72,14 @@ export function edgeLedger(): { ledger: FakeLedger; manifest: EdgeFixtureManifes
     }
     const pool = /^\/liquidity_pools\/([0-9a-f]{64})$/.exec(path);
     if (pool) ledger.liquidityPools.set(pool[1]!, structuredClone(body) as FakeLiquidityPool);
+    if (path.startsWith("/claimable_balances?claimant=")) {
+      const page = body as { _embedded: { records: HorizonClaimableBalance[] } };
+      for (const b of page._embedded.records) {
+        if (!ledger.claimableBalances.some((x) => x.id === b.id)) {
+          ledger.claimableBalances.push(structuredClone(b));
+        }
+      }
+    }
   }
   return { ledger, manifest };
 }
@@ -82,7 +106,8 @@ const json = (status: number, body: unknown) =>
   Promise.resolve(new Response(JSON.stringify(body), { status }));
 
 /**
- * A fake testnet Horizon and Friendbot for `buildEdgeFixture`: the recorded edge fixture re-keyed
+ * A fake testnet Horizon and Friendbot for `buildEdgeFixture`: the recorded edge fixture of the
+ * current recipe (`EDGE_E4_DIR`, since a build reads every variant the recipe has) re-keyed
  * to the keys the build creates (every role, the multisig signer and the pool id), so every read
  * is answered as right after the live build and every step settles at once. Every submission is
  * answered as applied, unless `onSubmit` answers it; `onGet` may answer any read first. The keys
@@ -96,9 +121,10 @@ export function rekeyedEdgeHorizon(
     onSubmit?: (submission: EdgeBuildSubmission) => Promise<Response> | undefined;
   } = {},
 ) {
-  const manifest = edgeManifest();
+  // The recording of the current recipe: a build of it reads every variant the recipe has.
+  const manifest = edgeManifest(EDGE_E4_DIR);
   const oldRoles = edgeRoles(manifest);
-  const recorded = loadRecorded(EDGE_DIR);
+  const recorded = loadRecorded(EDGE_E4_DIR);
   let world: Map<string, unknown> | null = null;
   let roles: EdgeRoles | null = null;
   const submissions: EdgeBuildSubmission[] = [];

@@ -1,0 +1,115 @@
+# npm test -- --reporter=default
+# UTC 2026-09-28T21:35:25Z (start); commit 0da27ebc784e7bec8c21f37217caf5e26d2c87b3; Node v24.15.0
+# The complete output follows, unchanged except that the local working directory on vitest's RUN line reads <repository root>.
+
+
+> stellar-dustin@0.0.1 test
+> vitest run --project unit --reporter=default
+
+
+ RUN  v5.0.2 <repository root>
+
+ ✓ |unit| test/unit/execute/sequence-guard.test.ts (15 tests) 170ms
+ ✓ |unit| test/unit/render/review-round3-render.test.ts (6 tests) 173ms
+ ✓ |unit| test/unit/cli/close-confirmed-amount.test.ts (3 tests) 130ms
+ ✓ |unit| test/unit/cli/close-ladder.test.ts (7 tests) 190ms
+ ✓ |unit| test/unit/cli/review-round3-cli.test.ts (13 tests) 235ms
+ ✓ |unit| test/unit/cli/closing-review-cli.test.ts (11 tests) 323ms
+ ✓ |unit| test/unit/cli/close-execute.test.ts (41 tests) 509ms
+ ✓ |unit| test/unit/plan/properties.test.ts (1 test) 885ms
+   ✓ planner invariants over generated snapshots (1)
+     ✓ hold for 600 seeded accounts, including partial and blocked ones 884ms
+ ✓ |unit| test/unit/fixture/closing-review.test.ts (27 tests) 701ms
+ ✓ |unit| test/unit/execute/executor.test.ts (17 tests) 251ms
+ ✓ |unit| test/unit/execute/closing-review.test.ts (37 tests) 275ms
+ ✓ |unit| test/unit/execute/review-round3.test.ts (42 tests) 417ms
+ ✓ |unit| test/unit/render/closing-review-render.test.ts (7 tests) 258ms
+ ✓ |unit| test/unit/execute/review-fixes.test.ts (56 tests) 594ms
+ ✓ |unit| test/unit/render/report-text.test.ts (10 tests) 232ms
+ ✓ |unit| test/unit/render/report-ladder.test.ts (6 tests) 175ms
+ ✓ |unit| test/unit/execute/recovery.test.ts (30 tests) 459ms
+ ✓ |unit| test/unit/helpers/evidence.test.ts (11 tests) 137ms
+ ✓ |unit| test/unit/execute/edge-recorded.test.ts (12 tests) 211ms
+ ✓ |unit| test/unit/render/report-sponsors.test.ts (6 tests) 180ms
+ ✓ |unit| test/unit/plan/edge-e4-recorded.test.ts (9 tests) 117ms
+ ✓ |unit| test/unit/cli/run.test.ts (10 tests) 60ms
+ ✓ |unit| test/unit/execute/pool-share-removal.test.ts (8 tests) 101ms
+ ✓ |unit| test/unit/execute/ladder-execution.test.ts (11 tests) 195ms
+ ✓ |unit| test/unit/execute/confirmed-amounts.test.ts (5 tests) 173ms
+ ✓ |unit| test/unit/cli/close-sequence-guard.test.ts (4 tests) 241ms
+ ✓ |unit| test/unit/execute/edge-partial.test.ts (9 tests) 99ms
+ ✓ |unit| test/unit/cli/close-execute-stub.test.ts (6 tests) 264ms
+ ✓ |unit| test/unit/execute/sponsors-observed.test.ts (6 tests) 201ms
+ ✓ |unit| test/unit/fixture/edge-e4-close.test.ts (3 tests) 104ms
+ ✓ |unit| test/unit/execute/submit.test.ts (17 tests) 62ms
+ ✓ |unit| test/unit/cli/review-e1-cli.test.ts (7 tests) 109ms
+ ✓ |unit| test/unit/render/report-sequence-guard.test.ts (4 tests) 160ms
+ ✓ |unit| test/unit/fixture/builder.test.ts (6 tests) 65ms
+ ✓ |unit| test/unit/plan/pool-resolution.test.ts (14 tests) 293ms
+ ✓ |unit| test/unit/plan/claimable-warning.test.ts (6 tests) 38ms
+ ✓ |unit| test/unit/cli/network-guard.test.ts (8 tests) 96ms
+ ✓ |unit| test/unit/sponsor/sponsor.test.ts (13 tests) 51ms
+ ✓ |unit| test/unit/helpers/fake-ledger-pools.test.ts (8 tests) 93ms
+ ✓ |unit| test/unit/inspect/inspect.test.ts (8 tests) 73ms
+ ✓ |unit| test/unit/plan/closing-review.test.ts (28 tests) 43ms
+ ✓ |unit| test/unit/plan/blockers.test.ts (13 tests) 33ms
+ ✓ |unit| test/unit/execute/preflight.test.ts (5 tests) 46ms
+ ✓ |unit| test/unit/plan/recovery.test.ts (2 tests) 34ms
+ ✓ |unit| test/unit/fixture/reset-cli.test.ts (7 tests) 54ms
+ ✓ |unit| test/unit/cli/dotenv-secrets.test.ts (17 tests) 163ms
+ ✓ |unit| test/unit/reader/horizon-json.test.ts (8 tests) 20ms
+ ✓ |unit| test/unit/plan/pool-shares.test.ts (4 tests) 49ms
+ ✓ |unit| test/unit/fixture/edge-builder.test.ts (3 tests) 51ms
+ ✓ |unit| test/unit/inspect/claimant.test.ts (5 tests) 31ms
+ ✓ |unit| test/unit/plan/order.test.ts (12 tests) 37ms
+ ✓ |unit| test/unit/plan/pool-share-recorded.test.ts (3 tests) 49ms
+ ✓ |unit| test/unit/fixture/edge.test.ts (15 tests) 81ms
+ ✓ |unit| test/unit/plan/plan.test.ts (11 tests) 52ms
+ ✓ |unit| test/unit/plan/review-e1.test.ts (10 tests) 86ms
+ ✓ |unit| test/unit/execute/preflight-wait.test.ts (8 tests) 43ms
+ ✓ |unit| test/unit/plan/ladder.test.ts (10 tests) 21ms
+ ✓ |unit| test/unit/plan/dry-run.test.ts (7 tests) 25ms
+ ✓ |unit| test/unit/plan/edge-recorded.test.ts (11 tests) 51ms
+ ✓ |unit| test/unit/plan/fees.test.ts (3 tests) 31ms
+ ✓ |unit| test/unit/plan/ladder-dust.test.ts (6 tests) 39ms
+ ✓ |unit| test/unit/plan/ladder-unclosable.test.ts (8 tests) 54ms
+ ✓ |unit| test/unit/plan/guard-plan.test.ts (4 tests) 86ms
+ ✓ |unit| test/unit/smoke.test.ts (7 tests) 32ms
+ ✓ |unit| test/unit/execute/verify.test.ts (6 tests) 26ms
+ ✓ |unit| test/unit/errors/dustin-error.test.ts (7 tests) 26ms
+ ✓ |unit| test/unit/config/network.test.ts (8 tests) 33ms
+ ✓ |unit| test/unit/plan/plan-options.test.ts (4 tests) 38ms
+ ✓ |unit| test/unit/cli/plan-command.test.ts (8 tests) 113ms
+ ✓ |unit| test/unit/fixture/edge-verify.test.ts (11 tests) 52ms
+ ✓ |unit| test/unit/setup-isolation.test.ts (2 tests) 17ms
+ ✓ |unit| test/unit/execute/classify.test.ts (35 tests) 6ms
+ ✓ |unit| test/unit/scripts/evidence-check.test.ts (14 tests) 22ms
+ ✓ |unit| test/unit/tx/build-inner.test.ts (3 tests) 12ms
+ ✓ |unit| test/unit/execute/preflight-guard.test.ts (1 test) 26ms
+ ✓ |unit| test/unit/execute/replan.test.ts (7 tests) 35ms
+ ✓ |unit| test/unit/cli/fixture-verify.test.ts (3 tests) 22ms
+ ✓ |unit| test/unit/plan/route-resolution.test.ts (5 tests) 26ms
+ ✓ |unit| test/unit/tx/operations.test.ts (7 tests) 18ms
+ ✓ |unit| test/unit/fixture/reset.test.ts (12 tests) 35ms
+ ✓ |unit| test/unit/render/plan-text.test.ts (3 tests) 47ms
+ ✓ |unit| test/unit/cli/output.test.ts (3 tests) 5ms
+ ✓ |unit| test/unit/cli/prompt.test.ts (7 tests) 9ms
+ ✓ |unit| test/unit/plan/guard.test.ts (3 tests) 2ms
+ ✓ |unit| test/unit/config/no-mainnet.test.ts (1 test) 6ms
+ ✓ |unit| test/unit/execute/result-codes.test.ts (5 tests) 10ms
+ ✓ |unit| test/unit/config/fees.test.ts (4 tests) 4ms
+ ✓ |unit| test/unit/inspect/reserve.test.ts (3 tests) 4ms
+ ✓ |unit| test/unit/fixture/messy.test.ts (6 tests) 19ms
+ ✓ |unit| test/unit/plan/guard-boundary.test.ts (5 tests) 4ms
+ ✓ |unit| test/unit/errors/redact.test.ts (8 tests) 7ms
+ ✓ |unit| test/unit/execute/report.test.ts (2 tests) 2ms
+ ✓ |unit| test/unit/amounts.test.ts (4 tests) 5ms
+ ✓ |unit| test/unit/fixture/verify.test.ts (6 tests) 3ms
+ ✓ |unit| test/unit/cli/exit-codes-report.test.ts (5 tests) 3ms
+ ✓ |unit| test/unit/cli/exit-codes.test.ts (3 tests) 2ms
+
+ Test Files  96 passed (96)
+      Tests  928 passed (928)
+   Start at  00:35:26
+   Duration  7.01s (import 65%, tests 22%, transform 11%, setup 2%, worker 1%)
+

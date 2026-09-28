@@ -66,3 +66,17 @@ export interface HorizonOffer {
   sponsor?: string;
   last_modified_ledger?: number;
 }
+
+/**
+ * A claimable balance as `GET /claimable_balances` returns it (the fields Dustin reads; the SDK's
+ * `ServerApi.ClaimableBalanceRecord`, lib/esm/horizon/server_api.d.ts). `asset` is "native" or
+ * "CODE:ISSUER"; `sponsor` is the account that pays its reserve.
+ */
+export interface HorizonClaimableBalance {
+  id: string;
+  asset: string;
+  amount: string;
+  sponsor?: string;
+  claimants?: Array<{ destination: string; predicate: unknown }>;
+  last_modified_ledger?: number;
+}

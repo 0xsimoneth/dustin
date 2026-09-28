@@ -1,0 +1,890 @@
+# DUSTIN_TESTNET=1 npm run test:testnet -- --reporter=verbose
+# UTC 2026-09-28T21:37:48Z to 2026-09-28T21:42:52Z; commit 0da27ebc784e7bec8c21f37217caf5e26d2c87b3; Node v24.15.0
+# The complete output follows, unchanged except that the local working directory on vitest's RUN line reads <repository root>.
+
+
+> stellar-dustin@0.0.1 test:testnet
+> vitest run --project testnet --reporter=verbose
+
+
+ RUN  v5.0.2 <repository root>
+
+stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Funding the fee sponsor GD75NQQXX2F5BIL6TFVOX6R3VRN6HXYQ7NG4GI2L2JF6BFPQWUPEWM4R from Friendbot
+
+stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Fee bid 86816 stroops per operation; base reserve 0.5000000 XLM
+Building the edge variants
+
+stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+  create-accounts  ok  ledger 4921578  853e989ceaede6c55f45e83be18625eff8afb25a6467ea0d12ac021edb56ccc4
+
+stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+  issuer-flags     ok  ledger 4921579  d6499e1bcdfd3745dd4dcdd75bffda9508f2fccbe9fc31efc6f7c959e6a69534
+
+ ✓ |testnet| test/testnet/literal-zero.test.ts > X-16: a fully sponsored account with 0.0000000 XLM (live testnet) > X-16: the account holds 0.0000000 XLM, its entry and its trustline sponsored by the reserve sponsor (num_sponsoring 3) 170ms
+ ✓ |testnet| test/testnet/literal-zero.test.ts > X-16: a fully sponsored account with 0.0000000 XLM (live testnet) > X-16: the plan is closable: it removes the trustline and merges 0 XLM, and returns 1.5 XLM of reserves to the reserve sponsor 857ms
+stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+  trustlines       ok  ledger 4921580  2fe9c38efae5e90702f6c68f579598c00da26b38f6c4a453a387f221e3340934
+
+stdout | test/testnet/pool-share-removal.test.ts > pool-share trustline removal (live testnet) > removes an empty pool-share trustline before its asset trustlines and merges, every fee paid by the sponsor
+{
+  "holder": "GB6DWWLTYQZSY4B3TUSUHVGORCQQN2DWNQD5GTPEM67X3UH7FPH2E75J",
+  "destination": "GC5EYWQM2B3L7GLS6LR5IKZAJUBSKCUGFTHMY7FQANKS5LQIT37DFRB4",
+  "sponsor": "GCH6CTZCY4FWBK5JLEYH2T2WNNRGSY4IAXC7UMXJKZR3P2W2NGQKHMJ7",
+  "issuer": "GBENTCB5Q4KENMHV5ZZ3TD6PHU6YBJW35SVXIU3B4HMLU5RWI3E275NF",
+  "poolId": "842730df1f745c2bb3688bec26f1906102d8efef18d91bdefd08bab7c5dfde4d",
+  "setup": "5ca48504a13901b69793202f393b38d14928b608c750dd06a8782da6c6d42dc6",
+  "cannotDeleteProbe": "103910a2cd9898a1dd9a510df10c1dedafdf18bd05ed939c1add2463f4aae42d",
+  "close": [
+    {
+      "hash": "d49cedebc8512ab3cfbb4a826a32ec3e4cd3c285f96c65dccb498854bd2b8003",
+      "ledger": 4921580
+    }
+  ]
+}
+
+ ✓ |testnet| test/testnet/pool-share-removal.test.ts > pool-share trustline removal (live testnet) > removes an empty pool-share trustline before its asset trustlines and merges, every fee paid by the sponsor 20023ms
+ ✓ |testnet| test/testnet/literal-zero.test.ts > X-16: a fully sponsored account with 0.0000000 XLM (live testnet) > X-16: the close merges 0 XLM in one fee bump paid by the fee sponsor; the reserve sponsor's num_sponsoring falls by 3 (the account entry's 2 and the trustline's 1), its XLM unchanged 5397ms
+stdout | test/testnet/literal-zero.test.ts > X-16: a fully sponsored account with 0.0000000 XLM (live testnet)
+{
+  "accounts": {
+    "zero": "GDLBNZURWP5CEVCQQYICG7IDJ6NPSKLF4LLLY6LK75WBILKUQIKFTBVF",
+    "feeSponsor": "GDCRDXCQH2NYRJEL54S3YXR7EJOJAZZU27QJ6PFO2TVXJEF3YKOUKACD",
+    "reserveSponsor": "GCK4DDBVBWRE7GDP7ITGYG5XNZ433GT6X6KXTQ75NKNHJQKVAU2EMZW2",
+    "issuer": "GCXRH26XBDPIKOEMHJ7OCLF6FQUKWKDV3SRMC5QHSN3P7M263UEG2ML5",
+    "destination": "GARQSFOBLEJYAOBNRQYW4PRYQSHR7HBGGC7MUROOVD5XFQNUJ5V2DNZI"
+  },
+  "hashes": [
+    {
+      "purpose": "create the reserve sponsor, the issuer and the destination",
+      "hash": "077e99c578bee8536ae6a3b2f3bd3b66a8d332657a3c04dd654a185f6f1f8f19",
+      "ledger": 4921578
+    },
+    {
+      "purpose": "sponsorship sandwich: create the account with startingBalance 0 and a sponsored ZTL trustline",
+      "hash": "845263e5d5c72bd2e61dd410b34ee295d4e50fae0e9ff9e741800dac1d607de8",
+      "ledger": 4921579
+    },
+    {
+      "purpose": "close (cleanup, applied)",
+      "hash": "e4d9f16673d610f89a79b9c2bb758e65fc24035bfa5b58a91c5a88c65ffca5b9",
+      "ledger": 4921580
+    }
+  ]
+}
+
+ ✓ |testnet| test/testnet/horizon.test.ts > public testnet Horizon > answers with the testnet network passphrase 687ms
+stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+  authorize        ok  ledger 4921581  7695f6713058640d53a7769f70bb3b747e357ccf31c3c2361649cc26bff12440
+
+stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+  dust-payments    ok  ledger 4921582  732da183d23245daf501e1e838f84e3562b0ef4d90a95cf5c70142f2ad9986a5
+
+stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+  holder-state     ok  ledger 4921583  5cd126591802d10927340d3acd3b5b41534a061fab52915b0bae25b1a7dd44ba
+
+stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+  restrict         ok  ledger 4921584  313cf7d0a3d8d0d6a8ad7515d7ebf2514c7748ab5196a48515099fa77fdb1d6f
+
+ ✓ |testnet| test/testnet/fee-bump-engine.test.ts > fee-bump engine (live testnet) > submits sponsor-paid transactions from a zero-spendable account without charging it 18515ms
+ ✓ |testnet| test/testnet/fixture-messy.test.ts > messy fixture (live testnet) > builds a fresh fixture that meets SOW Appendix B and holds zero spendable XLM 44175ms
+stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2)
+{"at":"2026-09-28T21:38:33.624Z","case":"S-03","fixture":"messy-20260928T213749Z-a046ca","accounts":{"sponsor":"GDHATT4N6NDFB7AECSHIBTAU2K5IEBSCZ4D2IOJR3FZJBCK2TPH5AC62","reserveSponsor":"GBT3SMKTLLJCBRMGI5Q77HKQHQ4IFENKWEBTMMSKFHTIB5ZRIB6GAPAS","issuer":"GC5CLA6DDIYUZ7OXGNFIWSNDZTUFENOVGVEGSFO3TPEI4CIVJTZ53ATD","marketMaker":"GAWPNPT57JMBIQUNNQUHNFOKLGDLZTQRWEC5FQQCJJEQ2RW232LUO6FG","destination":"GDAGMQBL3NHMKXZXH6V2NTOU35T4LAWRZPKSJAAAFODLVXRZTZ3AWE4Y","fixture":"GBQ4Q3KVB5LNOHRAEYNTF3626X33PLAWVQ6UKSHJEMLWQCZXBWB6U5IB"}}
+{"at":"2026-09-28T21:38:33.625Z","case":"S-03","purpose":"fixture: create-accounts","hash":"1411e39920c8902f64f0e952aa02b0c4640b712a9c455ba14a4a8cb33c4135e7","ledger":4921578}
+{"at":"2026-09-28T21:38:33.625Z","case":"S-03","purpose":"fixture: trustlines","hash":"931c5684c3a6d50afd1d73a627fe92305100c6ba99ed746435cafdf268bcbc17","ledger":4921579}
+{"at":"2026-09-28T21:38:33.625Z","case":"S-03","purpose":"fixture: sponsored-trustline","hash":"67d5ee90f6321ef98129d9c8dfb82b9f1ca157437555a7290f054ad40e973625","ledger":4921580}
+{"at":"2026-09-28T21:38:33.625Z","case":"S-03","purpose":"fixture: dust-payments","hash":"1f67bd189defa3b97e8997c2d46165d7a78d8fba0d6fe427f1aa836f4970c5cb","ledger":4921581}
+{"at":"2026-09-28T21:38:33.625Z","case":"S-03","purpose":"fixture: market-maker-bid","hash":"7b48071a1fc8f04461ae95b9c0b8bcb3464ae0bce4d1576a350b6981997a487a","ledger":4921582}
+{"at":"2026-09-28T21:38:33.625Z","case":"S-03","purpose":"fixture: offers-and-data","hash":"4209be7e5c8581c0846c370ef1cc3e3721e8bda7427500dfaf270405a833ec91","ledger":4921583}
+{"at":"2026-09-28T21:38:33.625Z","case":"S-03","purpose":"fixture: drain-to-minimum","hash":"48d8f5e3a7d062699d8f5fec6c14380e07ddb4aa43d3c50cfd8bc8fecd1af164","ledger":4921584}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+{"at":"2026-09-28T21:38:33.645Z","case":"S-04 near","fixture":"messy-20260928T213749Z-8183b4","accounts":{"sponsor":"GCIP47HK5RMK5Y6LFWGFAUDMHRMGSOYOQBEBCTJR3VSDHFGTAPWU37X7","reserveSponsor":"GB52JPRNA5MAY5KV6JY6WZG45UFK3B25DDDVCCUJBYVBKHONDHYE64PH","issuer":"GAWI5MVYECYUS6I2R2WOPNHSXZ7LVAOUVQTRO56QYNDDOIAN643UGKRN","marketMaker":"GA6JSGP7I2FD3LYEDI2LBBNFFVAD7LHNH76LGY5B4ESTXIU6M4N7R4QE","destination":"GBQ7UX6MZBX3MZVES2MQ2R4RLFKTGL7QAEOVLLF6NMV2NAW7R57OQKEK","fixture":"GD5CIHDFACP3BMCWBEVKGNE726FKWSQZD7J5RZC6XQRBZLHSPOMLRB6D"}}
+{"at":"2026-09-28T21:38:33.646Z","case":"S-04 near","purpose":"fixture: create-accounts","hash":"09555944d2369f810ecdcd0f78814c07febb3643ce686ea6879d4c6a32b0e576","ledger":4921578}
+{"at":"2026-09-28T21:38:33.646Z","case":"S-04 near","purpose":"fixture: trustlines","hash":"644ec1676a9adaded209a952d3d11028a9a30c066b9025d1821e09de0678abab","ledger":4921579}
+{"at":"2026-09-28T21:38:33.646Z","case":"S-04 near","purpose":"fixture: sponsored-trustline","hash":"5eebcf8a3a0e1c5310b0e17737d996aba32052ab22fe05d4972c7371f0749696","ledger":4921580}
+{"at":"2026-09-28T21:38:33.646Z","case":"S-04 near","purpose":"fixture: dust-payments","hash":"7503782708bd6be961f7390a2907c156a2a3e957523bd7d50e675931f5ed4b6a","ledger":4921581}
+{"at":"2026-09-28T21:38:33.646Z","case":"S-04 near","purpose":"fixture: market-maker-bid","hash":"f2c91c71d7260c6fed9d7233160fa14b95d571b66112cbd54b6938d7fe1406ed","ledger":4921582}
+{"at":"2026-09-28T21:38:33.646Z","case":"S-04 near","purpose":"fixture: offers-and-data","hash":"a46d10ef060d8bb00b809eddf1c9c58aac38b3eac24025e429046c227a21febd","ledger":4921583}
+{"at":"2026-09-28T21:38:33.646Z","case":"S-04 near","purpose":"fixture: drain-to-minimum","hash":"08618a64fd9af96640cba2799f0e5126f140c841869752bba63955dec8dd0f03","ledger":4921584}
+
+stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2)
+{"at":"2026-09-28T21:38:33.998Z","case":"S-03","reserveSponsorBefore":{"numSponsoring":1,"balance":"10.0000000","minimumBalance":"1.5000000","ledger":4921585}}
+
+stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2)
+{"at":"2026-09-28T21:38:35.211Z","case":"S-03","purpose":"negative control: SPTA burned and removed, the inner transaction also signed by the reserve sponsor","hash":"584e9c2e5e37eacc0c0d43e7253a56e23d7547b5fcacf73c5f4aec311cb3f31a","innerHash":"ba70ccc4676c278e58c69bd9e89af8de27e51319a3da37b7ad9de7c4073417c1","result":"rejected","codes":{"transaction":"tx_fee_bump_inner_failed","innerTransaction":"tx_bad_auth_extra"}}
+
+ ✓ |testnet| test/testnet/plan-readonly.test.ts > planClose on a live fixture (testnet) > plans a closable close and leaves the account untouched 46151ms
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+{"at":"2026-09-28T21:38:37.938Z","case":"S-04 near","purpose":"BumpSequence to (4921585 + 16) << 32","hash":"f500bfa5ec9c43466a29d82ae3c75bce1cfa130563d3d88acdece87692afde9d","innerHash":"0d12070b0daa0b9e75b2c6eace02e18485d50d572bb76a56105d624006018f03","sequence":"21138016554713093","result":"applied","ledger":4921586}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+{"at":"2026-09-28T21:38:39.311Z","case":"S-04 near","plan":"closable","transactions":["cleanup","convert","merge"],"sequenceGuard":{"sequenceAtMerge":"21138115338960899","earliestLedger":4921587,"ok":false,"unblocksAtLedger":4921602,"etaSeconds":80}}
+
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > builds every variant as its recipe says, and the planner makes of each what the manifest expects 7423ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > S-01: the illiquid ILQX (no market, live issuer) has no strict-send path, so the plan returns it to its issuer 1139ms
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+{"at":"2026-09-28T21:38:48.285Z","case":"S-04 near","event":{"type":"wait","reason":"sequence","state":"start","index":2,"untilLedger":4921602,"currentLedger":4921588}}
+
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > S-02 (with S-01 applied): the frozen FRZ is unclosable before any submission; the partial close burns ILQX, removes it and the data entry, and stops before the merge 6630ms
+stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2)
+{"at":"2026-09-28T21:38:53.460Z","case":"S-03","purpose":"close tx 1 (cleanup), round 0, attempt 1: applied","hash":"55971d08b86688692970a31f51c8ae33c6e2dcf3e07c867b6f06d37fb380780d","innerHash":"f976cd5e71c3fa2ee00ee434791a46cf51125e6a036f3835c11a2fcd1b95397f","ledger":4921587}
+{"at":"2026-09-28T21:38:53.460Z","case":"S-03","purpose":"close tx 2 (convert), round 0, attempt 1: applied","hash":"82c64e71b72bafa5374ae2e98ed4cc9c4ac39c3e5cf48feb5b1bb5a8d5ba83ec","innerHash":"3c88d3f3a9328b0efe15a88ce46c9e222d9ce976a763178ed397315acf3ed2a4","ledger":4921588}
+{"at":"2026-09-28T21:38:53.460Z","case":"S-03","purpose":"close tx 3 (merge), round 0, attempt 1: applied","hash":"1f7455692ff40ad3dbf19feebd58f1e48abfd36dd7f65ad4e3607e72cd8ee217","innerHash":"67c0b59d5bc297a91803dc1a30d10235559bc2c7757bb8b057f86a90898b3c1d","ledger":4921589}
+{"at":"2026-09-28T21:38:53.460Z","case":"S-03","status":"closed","recovery":{"mergedXlm":"4.0000007","reservesReturnedToSponsors":[{"sponsor":"GBT3SMKTLLJCBRMGI5Q77HKQHQ4IFENKWEBTMMSKFHTIB5ZRIB6GAPAS","xlm":"0.5000000","entries":["trustline SPTA:GC5CLA6DDIYUZ7OXGNFIWSNDZTUFENOVGVEGSFO3TPEI4CIVJTZ53ATD"]}],"feesPaidByAccount":"0","feesPaidBySponsorStroops":1500,"sponsorsObserved":[{"sponsor":"GBT3SMKTLLJCBRMGI5Q77HKQHQ4IFENKWEBTMMSKFHTIB5ZRIB6GAPAS","before":{"numSponsoring":1,"balance":"10.0000000","minimumBalance":"1.5000000","ledger":4921586},"after":{"numSponsoring":0,"balance":"10.0000000","minimumBalance":"1.0000000","ledger":4921589}}]}}
+
+stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2)
+{"at":"2026-09-28T21:38:53.815Z","case":"S-03","reserveSponsorAfter":{"numSponsoring":0,"balance":"10.0000000","minimumBalance":"1.0000000","ledger":4921589}}
+Dustin close receipt   CLOSED: the account was merged and no longer exists
+Network      testnet, Horizon https://horizon-testnet.stellar.org
+Account      GBQ4Q3KVB5LNOHRAEYNTF3626X33PLAWVQ6UKSHJEMLWQCZXBWB6U5IB
+Destination  GDAGMQBL3NHMKXZXH6V2NTOU35T4LAWRZPKSJAAAFODLVXRZTZ3AWE4Y
+Sponsor      GDHATT4N6NDFB7AECSHIBTAU2K5IEBSCZ4D2IOJR3FZJBCK2TPH5AC62   paid every fee
+Run          started 2026-09-28T21:38:37.307Z, finished 2026-09-28T21:38:53.460Z
+Plan hash    d144e1bd0b5be87657efd95936172c998b54636f6c8aab69896fb4ae89c3049d
+
+Transactions (3 submitted; every fee was paid by the sponsor, the account paid nothing)
+  tx 1  cleanup  applied  ledger 4,921,587  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+        outer hash  55971d08b86688692970a31f51c8ae33c6e2dcf3e07c867b6f06d37fb380780d
+        inner hash  f976cd5e71c3fa2ee00ee434791a46cf51125e6a036f3835c11a2fcd1b95397f
+        https://stellar.expert/explorer/testnet/tx/55971d08b86688692970a31f51c8ae33c6e2dcf3e07c867b6f06d37fb380780d
+        operations  cancel offer 837718: sells 0.0000002 DUSTA for XLM
+                    cancel offer 837719: sells 0.0000002 DUSTC for DUSTB
+                    return 0.0000003 DUSTB to issuer GC5C...3ATD (burn)
+                    remove trustline DUSTB
+                    return 0.0000005 DUSTC to issuer GC5C...3ATD (burn)
+                    remove trustline DUSTC
+                    return 0.0000001 SPTA to issuer GC5C...3ATD (burn)
+                    remove trustline SPTA (reserve sponsored by GBT3...APAS)
+                    delete data entry "dustin.fixture"
+  tx 2  convert  applied  ledger 4,921,588  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+        outer hash  82c64e71b72bafa5374ae2e98ed4cc9c4ac39c3e5cf48feb5b1bb5a8d5ba83ec
+        inner hash  3c88d3f3a9328b0efe15a88ce46c9e222d9ce976a763178ed397315acf3ed2a4
+        https://stellar.expert/explorer/testnet/tx/82c64e71b72bafa5374ae2e98ed4cc9c4ac39c3e5cf48feb5b1bb5a8d5ba83ec
+        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+                    remove trustline DUSTA
+  tx 3  merge  applied  ledger 4,921,589  fee 0.0000200 XLM (200 stroops) charged to the sponsor
+        outer hash  1f7455692ff40ad3dbf19feebd58f1e48abfd36dd7f65ad4e3607e72cd8ee217
+        inner hash  67c0b59d5bc297a91803dc1a30d10235559bc2c7757bb8b057f86a90898b3c1d
+        https://stellar.expert/explorer/testnet/tx/1f7455692ff40ad3dbf19feebd58f1e48abfd36dd7f65ad4e3607e72cd8ee217
+        operations  merge into GDAG...WE4Y (cannot be undone)
+
+Result
+  4.0000007 XLM merged into the destination GDAG...WE4Y (read from the merge result)
+  Reserves released to sponsors: 0.5000000 XLM, never this account's
+    0.5000000 XLM reserve returned to sponsor GBT3...APAS, never this account's (trustline SPTA)
+      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+  0 XLM in fees paid by the account
+  0.0001500 XLM (1,500 stroops) in fees paid by the sponsor
+
+Disposals (what became of each leftover balance)
+  DUSTB 0.0000003  burned: returned to its issuer GC5C...3ATD in tx 1
+  DUSTC 0.0000005  burned: returned to its issuer GC5C...3ATD in tx 1
+  SPTA 0.0000001  burned: returned to its issuer GC5C...3ATD in tx 1
+  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM left with the merge
+
+Verify it yourself
+  account      https://stellar.expert/explorer/testnet/account/GBQ4Q3KVB5LNOHRAEYNTF3626X33PLAWVQ6UKSHJEMLWQCZXBWB6U5IB
+  destination  https://stellar.expert/explorer/testnet/account/GDAGMQBL3NHMKXZXH6V2NTOU35T4LAWRZPKSJAAAFODLVXRZTZ3AWE4Y
+  verified     account GBQ4Q3KVB5LNOHRAEYNTF3626X33PLAWVQ6UKSHJEMLWQCZXBWB6U5IB no longer exists on Horizon (404)
+               checked 2026-09-28T21:38:52.811Z at ledger 4,921,589
+
+
+ ✓ |testnet| test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2) > S-03 negative control: the removal also signed by the reserve sponsor is refused with tx_bad_auth_extra, nothing consumed 170ms
+ ✓ |testnet| test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2) > AC-E3-S3-2: the plan returns the SPTA reserve to the reserve sponsor, and xlmToDestination leaves it out 1ms
+stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2) > S-03: the transaction that removed SPTA carries the account's signature only, and Horizon shows trustline_sponsorship_removed
+{"at":"2026-09-28T21:38:54.340Z","case":"S-03","removalTx":"55971d08b86688692970a31f51c8ae33c6e2dcf3e07c867b6f06d37fb380780d","sponsorshipEffects":[{"_links":{"operation":{"href":"https://horizon-testnet.stellar.org/operations/21138055209431048"},"succeeds":{"href":"https://horizon-testnet.stellar.org/effects?order=desc&cursor=21138055209431048-2"},"precedes":{"href":"https://horizon-testnet.stellar.org/effects?order=asc&cursor=21138055209431048-2"}},"id":"0021138055209431048-0000000002","paging_token":"21138055209431048-2","account":"GBQ4Q3KVB5LNOHRAEYNTF3626X33PLAWVQ6UKSHJEMLWQCZXBWB6U5IB","type":"trustline_sponsorship_removed","type_i":65,"created_at":"2026-09-28T21:38:42Z","asset_type":"credit_alphanum4","asset":"SPTA:GC5CLA6DDIYUZ7OXGNFIWSNDZTUFENOVGVEGSFO3TPEI4CIVJTZ53ATD","former_sponsor":"GBT3SMKTLLJCBRMGI5Q77HKQHQ4IFENKWEBTMMSKFHTIB5ZRIB6GAPAS"}]}
+
+ ✓ |testnet| test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2) > S-03: the transaction that removed SPTA carries the account's signature only, and Horizon shows trustline_sponsorship_removed 336ms
+ ✓ |testnet| test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2) > AC-E3-S3-1: num_sponsoring falls by 1, the minimum balance by 0.5 XLM, and the XLM balance is unchanged 1ms
+ ✓ |testnet| test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2) > AC-E3-S3-1, AC-E3-S3-2: the report's observed figures say the same, next to the planned reserve 1ms
+ ✓ |testnet| test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2) > AC-E3-S3-4: the receipt shows Reserves released to sponsors on its own line, planned and observed 2ms
+ ✓ |testnet| test/testnet/execute-close.test.ts > executeClose (live testnet) > closes a fresh zero-spendable messy fixture with every fee paid by the sponsor 66383ms
+stdout | test/testnet/ladder.test.ts > E3-S1 live: the market vanishes between the fresh plan and the sale
+Dustin close receipt   CLOSED: the account was merged and no longer exists
+Network      testnet, Horizon https://horizon-testnet.stellar.org
+Account      GBMV3XNRGRJ4PQQVKWN24DFATYPPM65IBCCQYX6Z5E2DV7EN2HXMDIPQ
+Destination  GCSKDURFN6EWAMLHFRNCKXM4Q7JWZU2R5DQQAUR3XZDCQPVQNVHQWJA5
+Sponsor      GCIJMZSKJ6NWY4A73NMOCD7LXFTZDSBUUYHECA3EF3GSXLMWGNFG7O3X   paid every fee
+Run          started 2026-09-28T21:38:36.306Z, finished 2026-09-28T21:38:59.161Z
+Plan hash    bcec3ffc1f90c3e981757430680b77fd979e2d953f601aed2c9391f6f7a44145
+
+Transactions (3 submitted; every fee was paid by the sponsor, the account paid nothing)
+  tx 1  cleanup  applied  ledger 4,921,587  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+        outer hash  1b8ce09f236bcc1304f5e32d736db44e22f4a134506a9259857fb86d46c07810
+        inner hash  2b8b62215e9860be50f76d5241529a93fcde16077a7a2a4be3a9b517823e05a8
+        https://stellar.expert/explorer/testnet/tx/1b8ce09f236bcc1304f5e32d736db44e22f4a134506a9259857fb86d46c07810
+        operations  cancel offer 837707: sells 0.0000002 DUSTA for XLM
+                    cancel offer 837708: sells 0.0000002 DUSTC for DUSTB
+                    return 0.0000003 DUSTB to issuer GDYG...6JZF (burn)
+                    remove trustline DUSTB
+                    return 0.0000005 DUSTC to issuer GDYG...6JZF (burn)
+                    remove trustline DUSTC
+                    return 0.0000001 SPTA to issuer GDYG...6JZF (burn)
+                    remove trustline SPTA (reserve sponsored by GCVL...3AMC)
+                    delete data entry "dustin.fixture"
+  tx 2 convert failed on the ledger (the sponsor paid the fee) ledger 4,921,589 fee 0.0000300 XLM (300 stroops) charged
+        to the sponsor
+        outer hash  c6eb6fe6f24054532f029833f02d79203e719f005db5487a0e22c7a502b5b844
+        inner hash  b58fbe7c708f0f685a9d74ae5eed28aa06ac6fb2cd628933d1a2edb7805c0c0e
+        https://stellar.expert/explorer/testnet/tx/c6eb6fe6f24054532f029833f02d79203e719f005db5487a0e22c7a502b5b844
+        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+                    remove trustline DUSTA
+        result      tx_fee_bump_inner_failed, tx_failed, op_too_few_offers, op_invalid_limit
+        meaning     tx_fee_bump_inner_failed / tx_failed / op_too_few_offers, op_invalid_limit: No path of offers
+                    converts the asset to XLM any more, so the sale falls to the next rung of the ladder.
+  tx 1  cleanup  round 1  applied  ledger 4,921,590  fee 0.0000400 XLM (400 stroops) charged to the sponsor
+        outer hash  e773b98ca033e56f553101448ce4af46201ea2807f61cf8f3f6d97d9e992956a
+        inner hash  68fa93da4153c295b930980448f6a51e1c701d89548524b9d6704d72a48b3794
+        https://stellar.expert/explorer/testnet/tx/e773b98ca033e56f553101448ce4af46201ea2807f61cf8f3f6d97d9e992956a
+        operations  return 0.0000007 DUSTA to issuer GDYG...6JZF (burn)
+                    remove trustline DUSTA
+                    merge into GCSK...WJA5 (cannot be undone)
+
+Re-plans (1; the ledger was read again after a failure)
+  round 1 after tx 2 of round 0 failed (tx_fee_bump_inner_failed, tx_failed, op_too_few_offers, op_invalid_limit): No
+    path of offers converts the asset to XLM any more, so the sale falls to the next rung of the ladder. No more path
+    payments for DUSTA. 1 transaction left.
+
+Result
+  4.0000000 XLM merged into the destination GCSK...WJA5 (read from the merge result)
+  Reserves released to sponsors: 0.5000000 XLM, never this account's
+    0.5000000 XLM reserve returned to sponsor GCVL...3AMC, never this account's (trustline SPTA)
+      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+  0 XLM in fees paid by the account
+  0.0001700 XLM (1,700 stroops) in fees paid by the sponsor
+
+Disposals (what became of each leftover balance)
+  DUSTB 0.0000003  burned: returned to its issuer GDYG...6JZF in tx 1
+  DUSTC 0.0000005  burned: returned to its issuer GDYG...6JZF in tx 1
+  SPTA 0.0000001  burned: returned to its issuer GDYG...6JZF in tx 1
+  DUSTA 0.0000007  burned: returned to its issuer GDYG...6JZF in tx 1 of round 1, after the sale by path payment failed
+    with op_too_few_offers
+
+Verify it yourself
+  account      https://stellar.expert/explorer/testnet/account/GBMV3XNRGRJ4PQQVKWN24DFATYPPM65IBCCQYX6Z5E2DV7EN2HXMDIPQ
+  destination  https://stellar.expert/explorer/testnet/account/GCSKDURFN6EWAMLHFRNCKXM4Q7JWZU2R5DQQAUR3XZDCQPVQNVHQWJA5
+  verified     account GBMV3XNRGRJ4PQQVKWN24DFATYPPM65IBCCQYX6Z5E2DV7EN2HXMDIPQ no longer exists on Horizon (404)
+               checked 2026-09-28T21:38:58.309Z at ledger 4,921,590
+
+
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S1 live: the market vanishes between the fresh plan and the sale > AC-E3-S1-2: the fresh plan sold DUSTA by path payment, and the bid was cancelled before the sale 1ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S1 live: the market vanishes between the fresh plan and the sale > AC-E3-S1-2: the sale is included and fails with op_too_few_offers, spending its sequence number and fee 169ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S1 live: the market vanishes between the fresh plan and the sale > AC-E3-S1-2: the re-plan moves DUSTA to return_to_issuer and the close completes 1ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S1 live: the market vanishes between the fresh plan and the sale > AC-E3-S1-2: the report and the receipt show both attempts and the re-plan with its trigger codes 0ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S1 live: the market vanishes between the fresh plan and the sale > S-01, AC-E3-S2-1: the illiquid DUSTB is burned: a payment to its issuer, then its trustline is removed 178ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > S-02 negative probe (AC-E3-S6-3): a payment of the frozen FRZ to its issuer fails with op_src_not_authorized 10435ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > S-02 forced with allowPartial (AC-E3-S6-3): the trustline is revoked after planning, the planned return fails with op_src_not_authorized and is reported, and the rest runs 14370ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > S-05: an authorized trustline of an AUTH_REQUIRED issuer is returned to the issuer and the account closes 10911ms
+stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+{"at":"2026-09-28T21:39:37.417Z","case":"X-18","fixture":"messy-20260928T213854Z-c16e61","accounts":{"sponsor":"GBFQM6QE573USJ7XRDAA2DPLAHNQFDN2FMJND5PHOTGSDRY2L5BW4H67","reserveSponsor":"GD5CCUAAS5QEG4RRZ34QKKH4ZGYLAT5O3CIAIHTTSPRP5MKU6WGH7SXB","issuer":"GDPQCMKPMKCV7B2HJLOE6RHHRA6D2LTAO5GYTCTTLCVTL26WKUUA4PFO","marketMaker":"GD67P3EXMVADJ4Q5RLTTFUB2TWOORJWETVVIIDVCXSYNMENVUQHMXVXK","destination":"GDN3CLFNMQA3G6R4QWDHQ7GMZ2X7SLVVQO3EYBJWKIDMWBHC7G2FB5HB","fixture":"GDO7EZELTOVULVJESEM344H2E3HPPUDE3P2WH5BSYI72OXTS3IABK75K"}}
+{"at":"2026-09-28T21:39:37.418Z","case":"X-18","purpose":"fixture: create-accounts","hash":"6893816f4978b735ce651ef407c29b144aae0fa98547e177a8df0ad6b27e3c98","ledger":4921591}
+{"at":"2026-09-28T21:39:37.418Z","case":"X-18","purpose":"fixture: trustlines","hash":"b6c5d3619d318390cbec4efb6e0db8898a3c869b84763ab129d262cc2ce17442","ledger":4921592}
+{"at":"2026-09-28T21:39:37.418Z","case":"X-18","purpose":"fixture: sponsored-trustline","hash":"e4f7eb52a265ddee0642cb5f5ad988bcf490861b038b493cf8f79352846af7a7","ledger":4921593}
+{"at":"2026-09-28T21:39:37.418Z","case":"X-18","purpose":"fixture: dust-payments","hash":"2adefe8f33a4286233796ada223fd3eff7d8dad2edfb5310d2b794d1175d44c6","ledger":4921594}
+{"at":"2026-09-28T21:39:37.418Z","case":"X-18","purpose":"fixture: market-maker-bid","hash":"412cb7c9a8a0aa6fb4a70685cdbdd202e86c287582eaa4036cee49cdffe64ad8","ledger":4921595}
+{"at":"2026-09-28T21:39:37.418Z","case":"X-18","purpose":"fixture: offers-and-data","hash":"9363b11dad5ee3d977b00908372465a8116398bad546c051e650aae39f2372e6","ledger":4921596}
+{"at":"2026-09-28T21:39:37.418Z","case":"X-18","purpose":"fixture: drain-to-minimum","hash":"56d4c0d459411a403392b9ba6699e3436f4e21c64a45cb10e8d837c933889252","ledger":4921597}
+
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > S-06: the maintain-liabilities MNT stays unclosable while its open offer is cancelled; the account keeps only the MNT trustline 9761ms
+stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+{"at":"2026-09-28T21:39:42.939Z","case":"X-18","purpose":"fixture: the reserve sponsor sponsors signer K3 on the fixture","hash":"0553a40baab1652dd5f144920340c693b6ecc514e8ea709722fa7fa7f23e286f","innerHash":"86b90b90b4b66dc9fea459a59299ce41a31f39bc3d4a487600ef14e5c73bddfc","result":"applied","ledger":4921599}
+
+stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+{"at":"2026-09-28T21:39:42.940Z","case":"X-18","sponsoredSigner":"GB75S3DC4TJR6FCEKI4B6GAO6PXRTOV25CSUDJU2I3FBBAKFN7RK63QW"}
+
+stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+{"at":"2026-09-28T21:39:43.288Z","case":"X-18","reserveSponsorBefore":{"numSponsoring":2,"balance":"10.0000000","minimumBalance":"2.0000000","ledger":4921599}}
+
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > S-07 (AC-E3-S6-4): the inspector surfaces is_clawback_enabled, the planner warns, and the return to the issuer closes the account 9390ms
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+{"at":"2026-09-28T21:39:52.460Z","case":"S-04 near","event":{"type":"wait","reason":"sequence","state":"end","index":2,"untilLedger":4921602,"currentLedger":4921601}}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+{"at":"2026-09-28T21:39:53.214Z","case":"S-04 near","event":{"type":"preflight","index":2,"ok":true,"detail":"no subentries left, nothing sponsored, destination exists, sequence guard ok"}}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+{"at":"2026-09-28T21:39:58.603Z","case":"S-04 near","purpose":"close tx 1 (cleanup), round 0, attempt 1: applied","hash":"1f50d3ffbc5fddbed29968ddce8f36b44df4462539a264a7570be54a02988e95","innerHash":"ecbe38ec7fbb61fa25c43795254b84b77cf4ae1022fe8bdfe37b562bc36f0ca6","sequence":"21138115338960897","ledger":4921587}
+{"at":"2026-09-28T21:39:58.603Z","case":"S-04 near","purpose":"close tx 2 (convert), round 0, attempt 1: applied","hash":"40b7766ebe3c36f6e331f1ff823b3315461f059f494b26541b7ebbcb3d65ce06","innerHash":"557fc1168deb392d9a7136c7a1912399532e1caf099d0cc12172f0fe483efb76","sequence":"21138115338960898","ledger":4921588}
+{"at":"2026-09-28T21:39:58.603Z","case":"S-04 near","purpose":"close tx 3 (merge), round 0, attempt 1: applied","hash":"ad121bb20aeef8fc9fdf57cd31d033f38a197e76f710a403b9918295fcb15c55","innerHash":"c2ac5c1357f474c003b391d804849c5da700c088a818c7490c49e60edf48b06e","sequence":"21138115338960899","ledger":4921602}
+{"at":"2026-09-28T21:39:58.603Z","case":"S-04 near","status":"closed","stop":null,"message":null}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+Dustin close receipt   CLOSED: the account was merged and no longer exists
+Network      testnet, Horizon https://horizon-testnet.stellar.org
+Account      GD5CIHDFACP3BMCWBEVKGNE726FKWSQZD7J5RZC6XQRBZLHSPOMLRB6D
+Destination  GBQ7UX6MZBX3MZVES2MQ2R4RLFKTGL7QAEOVLLF6NMV2NAW7R57OQKEK
+Sponsor      GCIP47HK5RMK5Y6LFWGFAUDMHRMGSOYOQBEBCTJR3VSDHFGTAPWU37X7   paid every fee
+Run          started 2026-09-28T21:38:40.255Z, finished 2026-09-28T21:39:58.603Z
+Plan hash    79297f6b04e3afa8147a81ca5fb87ba02b679efc01f8bd7b2e525486ee8948fb
+
+Transactions (3 submitted; every fee was paid by the sponsor, the account paid nothing)
+  tx 1  cleanup  applied  ledger 4,921,587  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+        outer hash  1f50d3ffbc5fddbed29968ddce8f36b44df4462539a264a7570be54a02988e95
+        inner hash  ecbe38ec7fbb61fa25c43795254b84b77cf4ae1022fe8bdfe37b562bc36f0ca6
+        https://stellar.expert/explorer/testnet/tx/1f50d3ffbc5fddbed29968ddce8f36b44df4462539a264a7570be54a02988e95
+        operations  cancel offer 837703: sells 0.0000002 DUSTA for XLM
+                    cancel offer 837704: sells 0.0000002 DUSTC for DUSTB
+                    return 0.0000003 DUSTB to issuer GAWI...GKRN (burn)
+                    remove trustline DUSTB
+                    return 0.0000005 DUSTC to issuer GAWI...GKRN (burn)
+                    remove trustline DUSTC
+                    return 0.0000001 SPTA to issuer GAWI...GKRN (burn)
+                    remove trustline SPTA (reserve sponsored by GB52...64PH)
+                    delete data entry "dustin.fixture"
+  tx 2  convert  applied  ledger 4,921,588  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+        outer hash  40b7766ebe3c36f6e331f1ff823b3315461f059f494b26541b7ebbcb3d65ce06
+        inner hash  557fc1168deb392d9a7136c7a1912399532e1caf099d0cc12172f0fe483efb76
+        https://stellar.expert/explorer/testnet/tx/40b7766ebe3c36f6e331f1ff823b3315461f059f494b26541b7ebbcb3d65ce06
+        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+                    remove trustline DUSTA
+  tx 3  merge  applied  ledger 4,921,602  fee 0.0000200 XLM (200 stroops) charged to the sponsor
+        outer hash  ad121bb20aeef8fc9fdf57cd31d033f38a197e76f710a403b9918295fcb15c55
+        inner hash  c2ac5c1357f474c003b391d804849c5da700c088a818c7490c49e60edf48b06e
+        https://stellar.expert/explorer/testnet/tx/ad121bb20aeef8fc9fdf57cd31d033f38a197e76f710a403b9918295fcb15c55
+        operations  merge into GBQ7...QKEK (cannot be undone)
+
+Result
+  4.0000007 XLM merged into the destination GBQ7...QKEK (read from the merge result)
+  Reserves released to sponsors: 0.5000000 XLM, never this account's
+    0.5000000 XLM reserve returned to sponsor GB52...64PH, never this account's (trustline SPTA)
+      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+  0 XLM in fees paid by the account
+  0.0001500 XLM (1,500 stroops) in fees paid by the sponsor
+
+Disposals (what became of each leftover balance)
+  DUSTB 0.0000003  burned: returned to its issuer GAWI...GKRN in tx 1
+  DUSTC 0.0000005  burned: returned to its issuer GAWI...GKRN in tx 1
+  SPTA 0.0000001  burned: returned to its issuer GAWI...GKRN in tx 1
+  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM left with the merge
+
+Warnings
+  - The account's sequence number is ahead of the ledger: the merge must wait until ledger 4921602 (about 80 s). The
+    cleanup and the sale run first; the executor waits before submitting the merge.
+
+Verify it yourself
+  account      https://stellar.expert/explorer/testnet/account/GD5CIHDFACP3BMCWBEVKGNE726FKWSQZD7J5RZC6XQRBZLHSPOMLRB6D
+  destination  https://stellar.expert/explorer/testnet/account/GBQ7UX6MZBX3MZVES2MQ2R4RLFKTGL7QAEOVLLF6NMV2NAW7R57OQKEK
+  verified     account GD5CIHDFACP3BMCWBEVKGNE726FKWSQZD7J5RZC6XQRBZLHSPOMLRB6D no longer exists on Horizon (404)
+               checked 2026-09-28T21:39:57.892Z at ledger 4,921,602
+
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2) > S-04, AC-E3-S4-2: the merge applies in or after the unblocking ledger, and the account is gone
+{"at":"2026-09-28T21:39:58.983Z","case":"S-04 near","unblocksAtLedger":4921602,"mergeLedger":4921602,"firstValidLedgerIsolated":true}
+
+stdout | test/testnet/ladder.test.ts > E3-S2 live: --prefer-destination (canonical decision 8)
+Dustin close receipt   CLOSED: the account was merged and no longer exists
+Network      testnet, Horizon https://horizon-testnet.stellar.org
+Account      GAM33XKP5HD7BTBI34WU4SRQGTMZRB2WK6O6T6FP77N4OVOY2JRPISNL
+Destination  GC3JANO3LYLWJHVOULXNLSGZI5W27I2IPNLUYHS45W7YP2FIPDPLPJPN
+Sponsor      GBITYXH3WRONUEHNEPT3ALHLRLX6R3NPURTTV2SV2GQPWMSW5ZZRVXM4   paid every fee
+Run          started 2026-09-28T21:39:44.513Z, finished 2026-09-28T21:39:58.617Z
+Plan hash    092336dcd5ddf90a2262d3b506695b79d21b7af550665b02e0af68baa52aa0e9
+
+Transactions (3 submitted; every fee was paid by the sponsor, the account paid nothing)
+  tx 1  cleanup  applied  ledger 4,921,600  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+        outer hash  db796a0d4aeb3639756005d9b33a663c86578eba398697eac8a21dc6ddf97c1a
+        inner hash  98d901d0d2b63b03b5ebe99f840cc387db3565822f77987b5035aee4ada01025
+        https://stellar.expert/explorer/testnet/tx/db796a0d4aeb3639756005d9b33a663c86578eba398697eac8a21dc6ddf97c1a
+        operations  cancel offer 837724: sells 0.0000002 DUSTA for XLM
+                    cancel offer 837725: sells 0.0000002 DUSTC for DUSTB
+                    return 0.0000003 DUSTB to issuer GBEW...LJNO (burn)
+                    remove trustline DUSTB
+                    send 0.0000005 DUSTC to destination GC3J...PJPN
+                    remove trustline DUSTC
+                    return 0.0000001 SPTA to issuer GBEW...LJNO (burn)
+                    remove trustline SPTA (reserve sponsored by GAHK...K6PL)
+                    delete data entry "dustin.fixture"
+  tx 2  convert  applied  ledger 4,921,601  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+        outer hash  ca7a3aad185d682db88a2f383d0449e3c737753f3483e1f4a4c8f477253a69f2
+        inner hash  8a3b00db9409530c7f4648ebd140acb04281d5e729e48bf08f4a92de15f6ad44
+        https://stellar.expert/explorer/testnet/tx/ca7a3aad185d682db88a2f383d0449e3c737753f3483e1f4a4c8f477253a69f2
+        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+                    remove trustline DUSTA
+  tx 3  merge  applied  ledger 4,921,602  fee 0.0000200 XLM (200 stroops) charged to the sponsor
+        outer hash  e15be75d48f119d7291c0430034f96c838b38086a0f8aecfbd5b41b064c8592c
+        inner hash  81a880eac86c1dc6d3062d129fdb9ccad6412bee4785b7b1c2934e0c4b237ab9
+        https://stellar.expert/explorer/testnet/tx/e15be75d48f119d7291c0430034f96c838b38086a0f8aecfbd5b41b064c8592c
+        operations  merge into GC3J...PJPN (cannot be undone)
+
+Result
+  4.0000007 XLM merged into the destination GC3J...PJPN (read from the merge result)
+  Reserves released to sponsors: 0.5000000 XLM, never this account's
+    0.5000000 XLM reserve returned to sponsor GAHK...K6PL, never this account's (trustline SPTA)
+      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+  0 XLM in fees paid by the account
+  0.0001500 XLM (1,500 stroops) in fees paid by the sponsor
+
+Disposals (what became of each leftover balance)
+  DUSTB 0.0000003  burned: returned to its issuer GBEW...LJNO in tx 1
+  DUSTC 0.0000005  sent to the destination GC3J...PJPN in tx 1
+  SPTA 0.0000001  burned: returned to its issuer GBEW...LJNO in tx 1
+  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM left with the merge
+
+Verify it yourself
+  account      https://stellar.expert/explorer/testnet/account/GAM33XKP5HD7BTBI34WU4SRQGTMZRB2WK6O6T6FP77N4OVOY2JRPISNL
+  destination  https://stellar.expert/explorer/testnet/account/GC3JANO3LYLWJHVOULXNLSGZI5W27I2IPNLUYHS45W7YP2FIPDPLPJPN
+  verified     account GAM33XKP5HD7BTBI34WU4SRQGTMZRB2WK6O6T6FP77N4OVOY2JRPISNL no longer exists on Horizon (404)
+               checked 2026-09-28T21:39:57.898Z at ledger 4,921,602
+
+
+ ✓ |testnet| test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2) > S-04, AC-E3-S4-2: the plan is closable and says the merge waits, with the unblocking ledger 2ms
+ ✓ |testnet| test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2) > S-04, AC-E3-S4-2: the cleanup runs, then the executor waits for the ledger before the unblocking one 1ms
+ ✓ |testnet| test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2) > S-04, AC-E3-S4-2: the merge applies in or after the unblocking ledger, and the account is gone 0ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S2 live: --prefer-destination (canonical decision 8) > AC-E3-S2-2: plans DUSTC to the destination and DUSTB and SPTA to the burn, in the prefer-destination order 1ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S2 live: --prefer-destination (canonical decision 8) > AC-E3-S1-1: one transaction sells DUSTA to the closing account itself and removes the trustline; the merge carries the proceeds to the destination 176ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S2 live: --prefer-destination (canonical decision 8) > AC-E3-S2-2, X-06 (authorized destination trustline with room): the destination's DUSTC balance rises by exactly the dust 0ms
+ ✓ |testnet| test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2) > S-04: every transaction is a fee bump paid by the sponsor, sourced by the closed account 505ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > S-07b: the issuer claws the dust back after planning; the return fails with op_underfunded, the executor re-plans and closes 15258ms
+stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+{"at":"2026-09-28T21:40:03.986Z","case":"X-18","purpose":"close tx 1 (cleanup), round 0, attempt 1: applied","hash":"b50c57bb454f3838711520cefc474586a1464b21c866f18287a8b973d80446c3","innerHash":"d8a2626088ba87703d9059f58ccb44dc0021eb0c5c86fc89a58ca1b4c12f69c2","ledger":4921601}
+{"at":"2026-09-28T21:40:03.987Z","case":"X-18","purpose":"close tx 2 (convert), round 0, attempt 1: applied","hash":"28b542fd86235df7b36ddb0bb7d2773e7644f7c68adfe43c57557638df882ff5","innerHash":"cd98b81e7731ef24b881e20c7108ef7ea9868860e821e762e447d6b33f799dc4","ledger":4921602}
+{"at":"2026-09-28T21:40:03.987Z","case":"X-18","purpose":"close tx 3 (merge), round 0, attempt 1: applied","hash":"2783f171bdd7740c9c8d3f11db357f9c01ca251117443b7e3bc0e63ca18de000","innerHash":"383b6c3f81f3746b288079455f16a620a4efcb2e38cf138bbe246c4b8a8f2174","ledger":4921603}
+{"at":"2026-09-28T21:40:03.987Z","case":"X-18","status":"closed","recovery":{"mergedXlm":"4.0000007","reservesReturnedToSponsors":[{"sponsor":"GD5CCUAAS5QEG4RRZ34QKKH4ZGYLAT5O3CIAIHTTSPRP5MKU6WGH7SXB","xlm":"1.0000000","entries":["trustline SPTA:GDPQCMKPMKCV7B2HJLOE6RHHRA6D2LTAO5GYTCTTLCVTL26WKUUA4PFO","signer GB75S3DC4TJR6FCEKI4B6GAO6PXRTOV25CSUDJU2I3FBBAKFN7RK63QW"]}],"feesPaidByAccount":"0","feesPaidBySponsorStroops":1500,"sponsorsObserved":[{"sponsor":"GD5CCUAAS5QEG4RRZ34QKKH4ZGYLAT5O3CIAIHTTSPRP5MKU6WGH7SXB","before":{"numSponsoring":2,"balance":"10.0000000","minimumBalance":"2.0000000","ledger":4921599},"after":{"numSponsoring":0,"balance":"10.0000000","minimumBalance":"1.0000000","ledger":4921603}}]}}
+
+stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+{"at":"2026-09-28T21:40:04.432Z","case":"X-18","reserveSponsorAfter":{"numSponsoring":0,"balance":"10.0000000","minimumBalance":"1.0000000","ledger":4921603}}
+
+ ✓ |testnet| test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge > X-18: the plan returns the signer's reserve to the reserve sponsor with the merge 1ms
+ ✓ |testnet| test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge > X-18: the reserve sponsor's num_sponsoring falls by 2 (the trustline and the signer), its XLM balance unchanged 1ms
+stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge > X-18: the merge transaction shows signer_sponsorship_removed
+{"at":"2026-09-28T21:40:04.608Z","case":"X-18","mergeTx":"2783f171bdd7740c9c8d3f11db357f9c01ca251117443b7e3bc0e63ca18de000","sponsorshipEffects":[{"_links":{"operation":{"href":"https://horizon-testnet.stellar.org/operations/21138123928932353"},"succeeds":{"href":"https://horizon-testnet.stellar.org/effects?order=desc&cursor=21138123928932353-4"},"precedes":{"href":"https://horizon-testnet.stellar.org/effects?order=asc&cursor=21138123928932353-4"}},"id":"0021138123928932353-0000000004","paging_token":"21138123928932353-4","account":"GDO7EZELTOVULVJESEM344H2E3HPPUDE3P2WH5BSYI72OXTS3IABK75K","type":"signer_sponsorship_removed","type_i":74,"created_at":"2026-09-28T21:40:02Z","signer":"GB75S3DC4TJR6FCEKI4B6GAO6PXRTOV25CSUDJU2I3FBBAKFN7RK63QW","former_sponsor":"GD5CCUAAS5QEG4RRZ34QKKH4ZGYLAT5O3CIAIHTTSPRP5MKU6WGH7SXB"}]}
+
+ ✓ |testnet| test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge > X-18: the merge transaction shows signer_sponsorship_removed 174ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > S-08: pool shares block the merge with the pool id in the remedy; ChangeTrust(0) on LPA fails with op_cannot_delete; the partial close removes only the data entry 10187ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > S-09 (AC-E3-S5-5): THRESHOLD_UNMET names both weights; without allowPartial nothing is signed; with it the data entry goes and the merge is left out 9759ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > X-01: a claimable balance the account created blocks the merge (IS_SPONSOR); a merge attempt fails with op_is_sponsor 5047ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > X-04: AUTH_IMMUTABLE_SET is reported first and nothing is submitted; a merge attempt fails with op_immutable_set 4536ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > X-11: Horizon quotes OFA to XLM only through the account's own offer; the plan burns OFA instead, and a sale forced through the offer fails with op_cross_self 4797ms
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+{"at":"2026-09-28T21:40:42.451Z","case":"S-04 far","fixture":"messy-20260928T213959Z-938bd5","accounts":{"sponsor":"GBHVCBQU65D4DNEGFMRQJW4ZKEDWRY4NZGXR4SQP2VEIXEAMUQZDOUHO","reserveSponsor":"GBKVOXM62T4VTHINJOMBTVRNZ6PK6JZJ5JCCN6EMYQURGTX42W7USS65","issuer":"GAR64X5VAKBXYS7MJ6LE3JX4AMGIP7WL3C5ZH53WIYRI56OKAINDARJ6","marketMaker":"GAC2OPTB5CLMWUDVRNMVENYAMRMA2YUXKX4K4ZXTAVVT6SMS7AJNHNFH","destination":"GC5PP6QSBRC4ASQEZ2RMWXAJ6WMMA7GBDDID4CYY25AYS7CZHE4JUADQ","fixture":"GBVTGHLT5NBCF36SUCSBRD62TMCNXWEOT2SOP527V2WNC3P5TBYU4D6T"}}
+{"at":"2026-09-28T21:40:42.452Z","case":"S-04 far","purpose":"fixture: create-accounts","hash":"07275b756e10226b9c7c82bd024cb68524155b8371403440283cdd816244a25c","ledger":4921604}
+{"at":"2026-09-28T21:40:42.452Z","case":"S-04 far","purpose":"fixture: trustlines","hash":"c3caf89dfaf8b9042cafa81c5fb9a18b94e32117a78e4ee5f32abbf00adcc7fd","ledger":4921605}
+{"at":"2026-09-28T21:40:42.452Z","case":"S-04 far","purpose":"fixture: sponsored-trustline","hash":"7028d4c40b2aee1396a20f405feff22607bf36954fca91c93e40ea6c695bcd5f","ledger":4921606}
+{"at":"2026-09-28T21:40:42.452Z","case":"S-04 far","purpose":"fixture: dust-payments","hash":"bee7d9d1b233164e7400c94ef66c86b350a894653db5473e63e74d3c16982356","ledger":4921607}
+{"at":"2026-09-28T21:40:42.452Z","case":"S-04 far","purpose":"fixture: market-maker-bid","hash":"248cd27db91e9e0188d8615282ac4dd2ec04ea52727ed711331d9d7c8710b346","ledger":4921608}
+{"at":"2026-09-28T21:40:42.452Z","case":"S-04 far","purpose":"fixture: offers-and-data","hash":"0a9073faa16e7f0bc5da077a82150d37cbd5d29fd1a4cad3f7b589a838d53780","ledger":4921609}
+{"at":"2026-09-28T21:40:42.452Z","case":"S-04 far","purpose":"fixture: drain-to-minimum","hash":"cba9b26a3273d503d2d4f0100983502da4df3f3daad6d8c5eec917b85f3e2c83","ledger":4921610}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+{"at":"2026-09-28T21:40:47.936Z","case":"S-04 far","purpose":"BumpSequence to (4921611 + 720) << 32","hash":"5a25e31cd6797189f6eb4fc2c281ec217794e08e23ace7efcfbbe1f26a9a375e","innerHash":"2c0121ea57c49003bcbe5548ee7e6d3184c43676404749127abfe5ff569afd0a","sequence":"21138128223862789","result":"applied","ledger":4921612}
+
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > X-07: the buy offer, the passive offer and the offer selling XLM are cancelled with manageSellOffer amount 0 and their own assets and price; the account closes, every transaction a fee bump paid by the sponsor 11076ms
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+{"at":"2026-09-28T21:40:49.338Z","case":"S-04 far","plan":"blocked","blockers":[{"code":"SEQNUM_TOO_FAR","reason":"The account's sequence number is ahead of the ledger, so a merge is refused (ACCOUNT_MERGE_SEQNUM_TOO_FAR) until ledger 4922332, about 60 minutes from now.","remedy":"Wait until that ledger and run the plan again; a sequence number can only go up, so nothing else helps. The cleanup and the sale can run now with --partial.","permanent":false}]}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+{"at":"2026-09-28T21:40:50.379Z","case":"S-04 far","refused":"aborted","stop":{"code":"PLAN_NOT_CLOSABLE","stage":"plan","verdict":"stop","detail":"The plan cannot end in a merge (status blocked); nothing was submitted. Allow a partial close (--partial) to run everything else."}}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+{"at":"2026-09-28T21:41:03.233Z","case":"S-04 far","purpose":"close tx 1 (cleanup), round 0, attempt 1: applied","hash":"83d6eb07e5478ed0b3c19a521de46801f09c53a63469d6bca4c5740d0dfaa5d9","innerHash":"aba87b097594d5352c311eb769495cd66052b4f551a1fb3b7028675b9adba0a1","sequence":"21141250665086977","ledger":4921614}
+{"at":"2026-09-28T21:41:03.233Z","case":"S-04 far","purpose":"close tx 2 (convert), round 0, attempt 1: applied","hash":"82d0e32a24d74414e45208161ac809136e1be88ddc2beac6e9eebb755e7b0a23","innerHash":"aecd00a08074e35a5dd6953ad9511a0c3f8a11ec914e9ac0b9e6754700b8ccea","sequence":"21141250665086978","ledger":4921615}
+{"at":"2026-09-28T21:41:03.233Z","case":"S-04 far","status":"partial","stop":null,"message":"Everything that could run has run; the account still exists because 1 item(s) block the merge (see unclosable and blockers)."}
+Dustin close receipt   PARTIAL: everything possible was done; the account still exists
+Why          Everything that could run has run; the account still exists because 1 item(s) block the merge (see
+             unclosable and blockers).
+Network      testnet, Horizon https://horizon-testnet.stellar.org
+Account      GBVTGHLT5NBCF36SUCSBRD62TMCNXWEOT2SOP527V2WNC3P5TBYU4D6T
+Destination  GC5PP6QSBRC4ASQEZ2RMWXAJ6WMMA7GBDDID4CYY25AYS7CZHE4JUADQ
+Sponsor      GBHVCBQU65D4DNEGFMRQJW4ZKEDWRY4NZGXR4SQP2VEIXEAMUQZDOUHO   paid every fee
+Run          started 2026-09-28T21:40:51.116Z, finished 2026-09-28T21:41:03.232Z
+Plan hash    d10dd2d934e8401a2daead9b1dfa38ee4f6c4e6d22cf521b85ea27b4072c8d71
+
+Transactions (2 submitted; every fee was paid by the sponsor, the account paid nothing)
+  tx 1  cleanup  applied  ledger 4,921,614  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+        outer hash  83d6eb07e5478ed0b3c19a521de46801f09c53a63469d6bca4c5740d0dfaa5d9
+        inner hash  aba87b097594d5352c311eb769495cd66052b4f551a1fb3b7028675b9adba0a1
+        https://stellar.expert/explorer/testnet/tx/83d6eb07e5478ed0b3c19a521de46801f09c53a63469d6bca4c5740d0dfaa5d9
+        operations  cancel offer 837730: sells 0.0000002 DUSTA for XLM
+                    cancel offer 837731: sells 0.0000002 DUSTC for DUSTB
+                    return 0.0000003 DUSTB to issuer GAR6...ARJ6 (burn)
+                    remove trustline DUSTB
+                    return 0.0000005 DUSTC to issuer GAR6...ARJ6 (burn)
+                    remove trustline DUSTC
+                    return 0.0000001 SPTA to issuer GAR6...ARJ6 (burn)
+                    remove trustline SPTA (reserve sponsored by GBKV...SS65)
+                    delete data entry "dustin.fixture"
+  tx 2  convert  applied  ledger 4,921,615  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+        outer hash  82d0e32a24d74414e45208161ac809136e1be88ddc2beac6e9eebb755e7b0a23
+        inner hash  aecd00a08074e35a5dd6953ad9511a0c3f8a11ec914e9ac0b9e6754700b8ccea
+        https://stellar.expert/explorer/testnet/tx/82d0e32a24d74414e45208161ac809136e1be88ddc2beac6e9eebb755e7b0a23
+        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+                    remove trustline DUSTA
+
+Result
+  No merge: the account was not merged, so no XLM moved through a merge.
+  Reserves released to sponsors: 0.5000000 XLM, never this account's
+    0.5000000 XLM reserve returned to sponsor GBKV...SS65, never this account's (trustline SPTA)
+      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+  0 XLM in fees paid by the account
+  0.0001300 XLM (1,300 stroops) in fees paid by the sponsor
+
+Disposals (what became of each leftover balance)
+  DUSTB 0.0000003  burned: returned to its issuer GAR6...ARJ6 in tx 1
+  DUSTC 0.0000005  burned: returned to its issuer GAR6...ARJ6 in tx 1
+  SPTA 0.0000001  burned: returned to its issuer GAR6...ARJ6 in tx 1
+  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM stays on the account
+
+Not closed (the account is not merged while these remain)
+  SEQNUM_TOO_FAR
+    The account's sequence number is ahead of the ledger, so a merge is refused (ACCOUNT_MERGE_SEQNUM_TOO_FAR) until
+    ledger 4922332, about 60 minutes from now.
+    remedy: Wait until that ledger and run the plan again; a sequence number can only go up, so nothing else helps. The
+    cleanup and the sale can run now with --partial.
+
+Verify it yourself
+  account      https://stellar.expert/explorer/testnet/account/GBVTGHLT5NBCF36SUCSBRD62TMCNXWEOT2SOP527V2WNC3P5TBYU4D6T
+  destination  https://stellar.expert/explorer/testnet/account/GC5PP6QSBRC4ASQEZ2RMWXAJ6WMMA7GBDDID4CYY25AYS7CZHE4JUADQ
+  verified     account GBVTGHLT5NBCF36SUCSBRD62TMCNXWEOT2SOP527V2WNC3P5TBYU4D6T still exists on Horizon (200)
+               checked 2026-09-28T21:41:02.863Z at ledger 4,921,615
+
+Next         The account still exists: the sequence guard holds the merge (SEQNUM_TOO_FAR above). Run the same command
+             again once that ledger has closed: Dustin re-reads the account and merges it.
+
+
+stdout | test/testnet/ladder.test.ts > E3-S2 live: an issuer that requires a memo, and no memo (AC-E3-S2-3)
+Dustin close receipt   PARTIAL: everything possible was done; the account still exists
+Why          Everything that could run has run; the account still exists because 2 item(s) block the merge (see
+             unclosable and blockers).
+Network      testnet, Horizon https://horizon-testnet.stellar.org
+Account      GDASFMSYNXCXLJ3TYVK53G27FAQ35VOXLEFCGJIHAYMUJI5IBDUYZJIG
+Destination  GDTI4ANBJNPKHKVPY6QLSW6UVA2ZHGO2FUC6YZ2R46J75PRYEPUD7UHB
+Sponsor      GDKDJTKMKXESSAK2QU3PMIVXDU3JKVCRWLRRB3U6T55J5IFST3VNHVBV   paid every fee
+Run          started 2026-09-28T21:40:51.877Z, finished 2026-09-28T21:41:03.311Z
+Plan hash    a691dc740ba7a1c9f23e840ed0f7bb26e76a4fcad4d35ad516857492d6aaee62
+
+Transactions (2 submitted; every fee was paid by the sponsor, the account paid nothing)
+  tx 1  cleanup  applied  ledger 4,921,614  fee 0.0000600 XLM (600 stroops) charged to the sponsor
+        outer hash  42448b0ecad4fd020427fd10dd10d5cc983d4837b0714fe5b8910fcc88db85bd
+        inner hash  06bef50078757f35a701fe359e47f2e6a5cc2c849663fb4b6f5bcecf42c02c38
+        https://stellar.expert/explorer/testnet/tx/42448b0ecad4fd020427fd10dd10d5cc983d4837b0714fe5b8910fcc88db85bd
+        operations  cancel offer 837728: sells 0.0000002 DUSTA for XLM
+                    cancel offer 837729: sells 0.0000002 DUSTC for DUSTB
+                    send 0.0000005 DUSTC to destination GDTI...7UHB
+                    remove trustline DUSTC
+                    delete data entry "dustin.fixture"
+  tx 2  convert  applied  ledger 4,921,615  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+        outer hash  6d7854900ac906a460c9594099dc461b3b4d17bbbf81613837d54d54a18d7c52
+        inner hash  c332e6a8268f8d6c436cade0995ff560afbe57e1bda831966cea236d4d248190
+        https://stellar.expert/explorer/testnet/tx/6d7854900ac906a460c9594099dc461b3b4d17bbbf81613837d54d54a18d7c52
+        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+                    remove trustline DUSTA
+
+Result
+  No merge: the account was not merged, so no XLM moved through a merge.
+  Reserves released to sponsors: none
+  0 XLM in fees paid by the account
+  0.0000900 XLM (900 stroops) in fees paid by the sponsor
+
+Disposals (what became of each leftover balance)
+  DUSTC 0.0000005  sent to the destination GDTI...7UHB in tx 1
+  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM stays on the account
+
+Not closed (the account is not merged while these remain)
+  NO_DISPOSAL_ROUTE  0.0000003 DUSTB (issuer GBVP...JSWF)
+    No route disposes of 0.0000003 DUSTB; every rung of the ladder is ruled out:
+      - path payment: Horizon found no strict-send path to XLM for the full balance
+      - return to issuer: issuer GBVP5UG7HTMYUYBFUVP72NIAQVMLKJKAAW3PY5H53ZKXSRD2DO6MJSWF requires a memo (SEP-29) and
+        none was given
+      - send to destination: the destination holds no DUSTB trustline
+    remedy: Make one route possible, then run the plan again: wait for a market that buys DUSTB for XLM; or pass the
+    memo that issuer GBVP5UG7HTMYUYBFUVP72NIAQVMLKJKAAW3PY5H53ZKXSRD2DO6MJSWF requires (--memo; SEP-29); or open a
+    DUSTB:GBVP5UG7HTMYUYBFUVP72NIAQVMLKJKAAW3PY5H53ZKXSRD2DO6MJSWF trustline on the destination account
+    GDTI4ANBJNPKHKVPY6QLSW6UVA2ZHGO2FUC6YZ2R46J75PRYEPUD7UHB, or close into a destination that holds one.
+  NO_DISPOSAL_ROUTE  0.0000001 SPTA (issuer GBVP...JSWF)
+    No route disposes of 0.0000001 SPTA; every rung of the ladder is ruled out:
+      - path payment: Horizon found no strict-send path to XLM for the full balance
+      - return to issuer: issuer GBVP5UG7HTMYUYBFUVP72NIAQVMLKJKAAW3PY5H53ZKXSRD2DO6MJSWF requires a memo (SEP-29) and
+        none was given
+      - send to destination: the destination holds no SPTA trustline
+    remedy: Make one route possible, then run the plan again: wait for a market that buys SPTA for XLM; or pass the memo
+    that issuer GBVP5UG7HTMYUYBFUVP72NIAQVMLKJKAAW3PY5H53ZKXSRD2DO6MJSWF requires (--memo; SEP-29); or open a
+    SPTA:GBVP5UG7HTMYUYBFUVP72NIAQVMLKJKAAW3PY5H53ZKXSRD2DO6MJSWF trustline on the destination account
+    GDTI4ANBJNPKHKVPY6QLSW6UVA2ZHGO2FUC6YZ2R46J75PRYEPUD7UHB, or close into a destination that holds one.
+
+Verify it yourself
+  account      https://stellar.expert/explorer/testnet/account/GDASFMSYNXCXLJ3TYVK53G27FAQ35VOXLEFCGJIHAYMUJI5IBDUYZJIG
+  destination  https://stellar.expert/explorer/testnet/account/GDTI4ANBJNPKHKVPY6QLSW6UVA2ZHGO2FUC6YZ2R46J75PRYEPUD7UHB
+  verified     account GDASFMSYNXCXLJ3TYVK53G27FAQ35VOXLEFCGJIHAYMUJI5IBDUYZJIG still exists on Horizon (200)
+               checked 2026-09-28T21:41:03.310Z at ledger 4,921,615
+
+Next         The account still exists. Resolve the items above, then run the same command again: Dustin re-reads the
+             account and plans only what is left.
+
+
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S2 live: an issuer that requires a memo, and no memo (AC-E3-S2-3) > AC-E3-S2-3: DUSTC goes to the destination (rung 3); DUSTB and SPTA have no route, with all three rungs ruled out and a remedy 1ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S2 live: an issuer that requires a memo, and no memo (AC-E3-S2-3) > AC-E3-S2-3: without allowPartial nothing is signed (aborted, PLAN_NOT_CLOSABLE) 1ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S2 live: an issuer that requires a memo, and no memo (AC-E3-S2-3) > AC-E3-S2-3: with allowPartial everything else runs, no merge is attempted, and the account keeps exactly the two trustlines 1ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S2 live: an issuer that requires a memo, and no memo (AC-E3-S2-3) > AC-E3-S2-3: the receipt lists each unclosable item with its code, the rungs ruled out and the remedy 0ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > X-08: a counterparty takes the open offer after the plan; the cancellation fails with op_offer_not_found, the executor re-plans and closes, and the report records both 19701ms
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+{"at":"2026-09-28T21:41:08.519Z","case":"S-04 far","purpose":"probe: a merge submitted anyway","hash":"da48d46b8827fec976f9a83a85341fb567207c1d4a0c5d479d991287661918a6","innerHash":"2413a0340f7c8605091aa6c3227d8479de6b6e071e3f73129521a9f24db9bd45","sequence":"21141250665086979","result":"failed","ledger":4921616,"codes":{"transaction":"tx_fee_bump_inner_failed","innerTransaction":"tx_failed","operations":["op_seq_num_too_far"]}}
+
+ ✓ |testnet| test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3) > S-04, AC-E3-S4-1: the plan is blocked with SEQNUM_TOO_FAR, the ledger and the ETA, and has no merge 1ms
+ ✓ |testnet| test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3) > S-04, AC-E3-S4-1: executeClose refuses without allowPartial and signs nothing 0ms
+ ✓ |testnet| test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3) > S-04, AC-E3-S4-3: with allowPartial the cleanup runs, no merge is submitted, the receipt names the ledger 183ms
+ ✓ |testnet| test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3) > S-04 negative probe: a merge submitted anyway fails with op_seq_num_too_far and consumes its sequence number 0ms
+ ✓ |testnet| test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet) > X-03: the plan warns about the two claimable balances that name the account; the account closes; both stay on the ledger and another claimant can still claim one 14555ms
+stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+{
+  "fixture": "edge-20260928T213749Z-d0b30b",
+  "variants": {
+    "auth-frozen": "GD234JQO2IDVGRUKUPYHMO4CXF335TVVBOCN5LPU76NZHN3AIL5KF25O",
+    "auth-maintain": "GBUXOMLBPFYYZDQYJUUY4XNF5Z3HZL6I7BWDP2TBWVFFBEJPCX4Y37YX",
+    "auth-authorized": "GBQDPWJQRL33U37BRQ7UPR6L6KMELELYWNA4SJ2EDFO7XJSDFKKSAQT4",
+    "auth-revoke": "GCEDG4Z5A74XRQUGPW5GZFA7P5WUMV7PTDEMODAJCQTVPM2HJ745HARI",
+    "clawback": "GCAZCDRQDXCKWQEJSVZVGY5PXFQ6DDNG5MK6NIXNKX3OIMH2UBO6NRUZ",
+    "clawback-drift": "GB7SDAQLYFIT7DHGBK6FYDRNOK2SVYKD7AMF4P23GXMPI3ZDDISB66I4",
+    "pool-share": "GCBO3RLLRRTX5KL4HMFWTIGTQB33S4WHELA7625TVW25SXJXNZOLSF6Y",
+    "multisig": "GAJTMYYS2A6KR6KU4PBJUR7XMO3OX2ZF7JBNUWHCAH56ORDM7BG7PSJM",
+    "claimable": "GDYB4QNKT4ITQNZRKXA4PDXRAVOA6COS256TC72NQTABEML6GTR65OQR",
+    "immutable": "GAAIIB4X7KV4FV3Y7WJF4INCFZFWHLFQSUWUKYC5EI4U4CVNBBYQH2RB",
+    "offer-types": "GBJ2UGNS4PGYOVC6YZQF5JNWN4N3QLS3GQE42QOTOXNWECUZ2T2UAXRM",
+    "offer-stale": "GAHWB7I67C4QBFLD4XASZGX26RZLT4X42M637PGIKZZSLTHU3FXBGE2S",
+    "claimant": "GD4CQCBTQGOXTI46RBKPU53Z4KMWDJM7ALPI3ETNH5KEDKMMZUCHMDXP"
+  },
+  "helpers": {
+    "sponsor": "GD75NQQXX2F5BIL6TFVOX6R3VRN6HXYQ7NG4GI2L2JF6BFPQWUPEWM4R",
+    "destination": "GBYE6FS6MHFEQNOXLBRNQ5ETKUHS5IXPC2RISESS6SIWFMTNB3UC4FMX",
+    "authIssuer": "GD6WEMGYAD7LJROLDVQ3THAZFSY7GOFNT7V4J57RKZ5IFMJQO3KBC6RW",
+    "clawbackIssuer": "GCHS45BEEIRD37YKD666EYOV5BKGZMPINYVO3GMISSDNZAP5TRPDMGT6",
+    "plainIssuer": "GCCKKKQOULHFWMCXU7TI4EVKKBGJXNMR6BIJK56SHS5Q2SGWVRZCM5FI",
+    "multisigSigner": "GDRRC722EIVLVIPSZYRX4BIYJZIFLCE5MLB3RHIDDFL325PDB74JHKYZ"
+  },
+  "pool": "207fe68dc94341a4c51e1d81917529b732486b4a81fbd2fe5ae333e4da46fc37",
+  "hashes": [
+    {
+      "row": "build",
+      "purpose": "edge build: create-accounts",
+      "hash": "853e989ceaede6c55f45e83be18625eff8afb25a6467ea0d12ac021edb56ccc4",
+      "ledger": 4921578
+    },
+    {
+      "row": "build",
+      "purpose": "edge build: issuer-flags",
+      "hash": "d6499e1bcdfd3745dd4dcdd75bffda9508f2fccbe9fc31efc6f7c959e6a69534",
+      "ledger": 4921579
+    },
+    {
+      "row": "build",
+      "purpose": "edge build: trustlines",
+      "hash": "2fe9c38efae5e90702f6c68f579598c00da26b38f6c4a453a387f221e3340934",
+      "ledger": 4921580
+    },
+    {
+      "row": "build",
+      "purpose": "edge build: authorize",
+      "hash": "7695f6713058640d53a7769f70bb3b747e357ccf31c3c2361649cc26bff12440",
+      "ledger": 4921581
+    },
+    {
+      "row": "build",
+      "purpose": "edge build: dust-payments",
+      "hash": "732da183d23245daf501e1e838f84e3562b0ef4d90a95cf5c70142f2ad9986a5",
+      "ledger": 4921582
+    },
+    {
+      "row": "build",
+      "purpose": "edge build: holder-state",
+      "hash": "5cd126591802d10927340d3acd3b5b41534a061fab52915b0bae25b1a7dd44ba",
+      "ledger": 4921583
+    },
+    {
+      "row": "build",
+      "purpose": "edge build: restrict",
+      "hash": "313cf7d0a3d8d0d6a8ad7515d7ebf2514c7748ab5196a48515099fa77fdb1d6f",
+      "ledger": 4921584
+    },
+    {
+      "row": "S-02",
+      "purpose": "auth-frozen partial close (cleanup, applied)",
+      "hash": "b3ee3ac558d752ff36c24fffbded45e4252885dd0e6aa7fa28a863852a9e003b",
+      "ledger": 4921589
+    },
+    {
+      "row": "S-02",
+      "purpose": "negative probe: pay frozen FRZ to its issuer",
+      "hash": "43195c2b1fa802d9cdfcc5f26273174d96952695c300fa787766ef5fcbf14741",
+      "ledger": 4921590
+    },
+    {
+      "row": "S-02",
+      "purpose": "negative probe: remove FRZ with its balance",
+      "hash": "a1ae36bf6773bb5bbb632fcbe38d929de0015bb8273791a43b99862b50f9a3b3",
+      "ledger": 4921591
+    },
+    {
+      "row": "S-02",
+      "purpose": "issuer revokes RVK after the plan (C-04)",
+      "hash": "fb262c792b96793ddd397dbae28cf6a5ca4dbd3136b18faba380b6ad8e87b18d",
+      "ledger": 4921592
+    },
+    {
+      "row": "S-02",
+      "purpose": "auth-revoke close forced with allowPartial (cleanup, failed)",
+      "hash": "5e205f44d5389fde57c6ef6d0142129f606fa4a1e9c4e4e57864f0e488b7347a",
+      "ledger": 4921593
+    },
+    {
+      "row": "S-02",
+      "purpose": "auth-revoke close forced with allowPartial (cleanup, applied)",
+      "hash": "24a372e2e5f66fdceea707cf3f4ca5d1910f2ffa62b6d4d7abef73cbba85a285",
+      "ledger": 4921594
+    },
+    {
+      "row": "S-05",
+      "purpose": "auth-authorized full close (cleanup, applied)",
+      "hash": "978b3b62f11bc144c92b452aa3f324d23bbcf410743177a0a56ffd8415dd8257",
+      "ledger": 4921596
+    },
+    {
+      "row": "S-06",
+      "purpose": "auth-maintain partial close (cancel the offer) (cleanup, applied)",
+      "hash": "b8018c543ca7d410e89ef4aefe304bc30caa1ae5c97c8f8321e366917ff10e3c",
+      "ledger": 4921598
+    },
+    {
+      "row": "S-07",
+      "purpose": "clawback full close (cleanup, applied)",
+      "hash": "58ada0171851a6600ebb16e33e81eb5166d966c8ac7049af528448c91740c990",
+      "ledger": 4921600
+    },
+    {
+      "row": "S-07",
+      "purpose": "issuer claws back CLAW after the plan (S-07b)",
+      "hash": "7f5814ddfbad8a62990e5ef43dcac84b5c938c10060981b3707189fa5bb31e60",
+      "ledger": 4921601
+    },
+    {
+      "row": "S-07",
+      "purpose": "clawback-drift close (S-07b) (cleanup, failed)",
+      "hash": "803a25d82cd79888a19710f9b9f41c2879172b76942efa3bf5f7aec0661c3c5a",
+      "ledger": 4921602
+    },
+    {
+      "row": "S-07",
+      "purpose": "clawback-drift close (S-07b) (cleanup, applied)",
+      "hash": "f9870edb7df60934d6e90bdda4156ac3e7c810f368ef71299821dd00b507981a",
+      "ledger": 4921603
+    },
+    {
+      "row": "S-08",
+      "purpose": "negative probe: remove LPA while the pool share exists",
+      "hash": "0e54276a657b22c8f4a0301327b8f76008d643371ee8e2b3f421c16e8fd63a3f",
+      "ledger": 4921604
+    },
+    {
+      "row": "S-08",
+      "purpose": "pool-share partial close (data entry only) (cleanup, applied)",
+      "hash": "c3f4205dcad408bc4ffdab4893970cc3a339f8aa988fce52c14ba47d10edbfd5",
+      "ledger": 4921605
+    },
+    {
+      "row": "S-09",
+      "purpose": "multisig partial close (data entry only) (cleanup, applied)",
+      "hash": "7379a5bdedab2771cab26c4decdf34127fc2170ba189b8eec3c0b40a8e4e967f",
+      "ledger": 4921607
+    },
+    {
+      "row": "X-01",
+      "purpose": "negative probe: merge while sponsoring a claimable balance",
+      "hash": "2d3a455f4ba88b76362e4dd59937f31994831b7e0f770270c5808d0d24b81b2c",
+      "ledger": 4921608
+    },
+    {
+      "row": "X-04",
+      "purpose": "negative probe: merge an AUTH_IMMUTABLE account",
+      "hash": "470a8aa3714d6946a65a0c5840653a182d0c74fec8ef76cecd79792968b479ab",
+      "ledger": 4921609
+    },
+    {
+      "row": "X-11",
+      "purpose": "negative probe: sell OFA through the account's own offer",
+      "hash": "63d2cba41c240b63b36b47a71a1327782d7f761255d8775dd787e492378a043e",
+      "ledger": 4921610
+    },
+    {
+      "row": "X-07",
+      "purpose": "offer-types full close (3 offer types cancelled) (cleanup, applied)",
+      "hash": "5019571d129855f8a42946962c98512ba15d9cd9ed41867d0d9d0644521dee7b",
+      "ledger": 4921612
+    },
+    {
+      "row": "X-08",
+      "purpose": "counterparty takes the OFC offer after the plan (C-04)",
+      "hash": "9ec8c6886028669d9ceb1d9fb4be8df20a1cb42bbf058d45b13b3afb95a9250f",
+      "ledger": 4921614
+    },
+    {
+      "row": "X-08",
+      "purpose": "offer-stale close (the offer was taken after the plan) (cleanup, failed)",
+      "hash": "f667a71dca996b90644a51682ec83faf00f8adce02451f207a8b16c6b3379d93",
+      "ledger": 4921615
+    },
+    {
+      "row": "X-08",
+      "purpose": "offer-stale close (the offer was taken after the plan) (cleanup, applied)",
+      "hash": "14c134fcc63cc5acdc1247a086d708c80b72cf95f55415bae41fa8f3d34f2708",
+      "ledger": 4921616
+    },
+    {
+      "row": "X-03",
+      "purpose": "claimant full close (its claimable balances stay) (merge, applied)",
+      "hash": "3ee9d52a3513a85d3d06e65e71478beae52de7f5f0a5228c158cf8190a88ba30",
+      "ledger": 4921618
+    },
+    {
+      "row": "X-03",
+      "purpose": "the issuer claims the CBA balance after the merge",
+      "hash": "86e3f13dc176590602fb46bf36a39740d7f09ab32b611edfc4c8dfdfddf766ed",
+      "ledger": 4921619
+    }
+  ]
+}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+{"at":"2026-09-28T21:41:52.450Z","case":"S-04 boundary","fixture":"messy-20260928T214108Z-0990bd","accounts":{"sponsor":"GCYHHHHSLTVI3H7SBMV7JOWRQ4JWNJLRO7UPIUG34QPUGH7SNB5L5C63","reserveSponsor":"GDKEMYZQQLCW7YLMD36YJTOXWLEGNC2O6ELJBX4IT2R7T6ARYJBVMV33","issuer":"GBZJTI3PYX44HHBX27WU3OMIPPHT3BK7GB52OGT7IAX5ERHFFKWPA5OM","marketMaker":"GCE4F2BC6DER4QW55DCM6D5LK6KKFLQWYATIYMDD6PKHIAONUHGW3NGS","destination":"GB7JLZMQ2CXDZ3VUWGUOPO3UD7HYM26U7X773LMOXAOYSZNQZOJJWVT7","fixture":"GD6HC56QFM4GEKH646AYFZZX5CQAVIYSTC4WDHTN45CJWNF674OXEENS"}}
+{"at":"2026-09-28T21:41:52.451Z","case":"S-04 boundary","purpose":"fixture: create-accounts","hash":"d7ee93c6a1db57e7ae24f234b726e9d735a3a1187818f4c3becfd35d682c3292","ledger":4921618}
+{"at":"2026-09-28T21:41:52.451Z","case":"S-04 boundary","purpose":"fixture: trustlines","hash":"e22a09b66f718aaff3d35f1a0376a6ba2ff1440ed232ea51394adb4b779dd5a2","ledger":4921619}
+{"at":"2026-09-28T21:41:52.451Z","case":"S-04 boundary","purpose":"fixture: sponsored-trustline","hash":"895a8c9b9b4e63d6dcf337182319086919e2ecffb71f89a7a116ea084eafb15a","ledger":4921620}
+{"at":"2026-09-28T21:41:52.451Z","case":"S-04 boundary","purpose":"fixture: dust-payments","hash":"c4c4b6ce9dc5b2c19661594e92db9914caa6a313c62f9ea34c353b3e3de6a6b2","ledger":4921621}
+{"at":"2026-09-28T21:41:52.451Z","case":"S-04 boundary","purpose":"fixture: market-maker-bid","hash":"720c90496de4209999a9754ee244e35550221fec4cab60bbce520b365c9a4107","ledger":4921622}
+{"at":"2026-09-28T21:41:52.451Z","case":"S-04 boundary","purpose":"fixture: offers-and-data","hash":"36a658a4b11779daefaea6bac9bfdea39faace334b79cc96c96c645ca656532b","ledger":4921623}
+{"at":"2026-09-28T21:41:52.451Z","case":"S-04 boundary","purpose":"fixture: drain-to-minimum","hash":"62f27801150f17a28bea8e5b590223f563a9374554be12c68f88ad842ea51834","ledger":4921624}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+{"at":"2026-09-28T21:41:57.938Z","case":"S-04 boundary","purpose":"BumpSequence to (4921625 + 10) << 32","hash":"4ed34a7aff983b22d6eb20b03f928d8f213353749c3084560ab13ff48849189a","innerHash":"90f5828fa0f002a3314b165768242a3b56b13744683f7b4b7fff33801c2e2349","sequence":"21138188353404933","result":"applied","ledger":4921626}
+
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S1 live: dust below the resolution of the book (X-10, AC-E3-S1-3) > X-10: the sale of dust that would buy less than 1 stroop fails on the ledger 1ms
+ ✓ |testnet| test/testnet/ladder.test.ts > E3-S1 live: dust below the resolution of the book (X-10, AC-E3-S1-3) > AC-E3-S1-3, X-10: the planner routes DUSTA to its issuer instead, and the account closes 1ms
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+{"at":"2026-09-28T21:42:13.188Z","case":"S-04 boundary cleanup","purpose":"close tx 1 (cleanup), round 0, attempt 1: applied","hash":"476da50767fa72f14024b08e73dabac09d6029c514be18f7dcdba7bee5b1ea9d","innerHash":"55d138d8deb585b538fc0c8a3c0161946d47008087742e4e41926ffe03c80863","sequence":"21138261367848961","ledger":4921628}
+{"at":"2026-09-28T21:42:13.188Z","case":"S-04 boundary cleanup","purpose":"close tx 2 (convert), round 0, attempt 1: applied","hash":"3bd1638b655ca8762f1a8232f747a2019af5517b328c2bdda72eab5b7ae285ee","innerHash":"33b8016a984d9b5b21bde02363b92056a07129931af7c2a39726e393f7a31d27","sequence":"21138261367848962","ledger":4921629}
+{"at":"2026-09-28T21:42:13.188Z","case":"S-04 boundary cleanup","status":"partial","stop":null,"message":"Everything that could run has run; the account still exists because 1 item(s) block the merge (see unclosable and blockers)."}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+{"at":"2026-09-28T21:42:13.399Z","case":"S-04 boundary","nextSequence":"21138261367848963","unblocksAtLedger":4921636}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+{"at":"2026-09-28T21:42:43.624Z","case":"S-04 boundary","purpose":"probe: a merge aimed at ledger 4921635","hash":"6490b68aa97aaebeeebc79e0ef7178b61ae2ea3b2f6ed938a90c3e256137d592","innerHash":"f4802f99ad3ec8ea6ad1a0278ca7c5c1584c6ccf3a34d4d684689431532885ac","sequence":"21138261367848963","result":"failed","ledger":4921635,"codes":{"transaction":"tx_fee_bump_inner_failed","innerTransaction":"tx_failed","operations":["op_seq_num_too_far"]}}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+{"at":"2026-09-28T21:42:52.862Z","case":"S-04 boundary close","purpose":"close tx 1 (merge), round 0, attempt 1: applied","hash":"1b1ae1a16e30854a77ffa0c5511c4deec533927bb35bcaa9ecf99c6ff532229c","innerHash":"59f150f5a704b9245cde1be410ec9ce41d6e6838864d7eb8bc0781abb8331acf","sequence":"21138261367848964","ledger":4921637}
+{"at":"2026-09-28T21:42:52.862Z","case":"S-04 boundary close","status":"closed","stop":null,"message":null}
+
+stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4) > S-04, AC-E3-S4-4 live: a merge applies only from the ledger (s >> 32) + 1, where s is its sequence number
+{"at":"2026-09-28T21:42:52.864Z","case":"S-04 boundary","probeLedger":4921635,"mergeLedger":4921637,"unblocksAtLedger":4921636,"firstValidLedgerIsolated":false}
+
+ ✓ |testnet| test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4) > S-04, AC-E3-S4-4 live: a merge applies only from the ledger (s >> 32) + 1, where s is its sequence number 2ms
+
+ Test Files  11 passed (11)
+      Tests  58 passed (58)
+   Start at  00:37:48
+   Duration  304.42s (tests 100%)
+

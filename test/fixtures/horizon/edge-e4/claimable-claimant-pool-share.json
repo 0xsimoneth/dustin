@@ -1,0 +1,20 @@
+{
+  "path": "/claimable_balances?claimant=GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD&limit=200",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/claimable_balances?claimant=GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD&cursor=&limit=200&order=asc"
+      },
+      "next": {
+        "href": "https://horizon-testnet.stellar.org/claimable_balances?claimant=GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD&cursor=&limit=200&order=asc"
+      },
+      "prev": {
+        "href": "https://horizon-testnet.stellar.org/claimable_balances?claimant=GD7UQAUGYEYMH7DBM3SFBR5YEKJNSJWZIKK57PYEL4JJS3QGJK5Q6KMD&cursor=&limit=200&order=desc"
+      }
+    },
+    "_embedded": {
+      "records": []
+    }
+  }
+}

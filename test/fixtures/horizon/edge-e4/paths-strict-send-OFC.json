@@ -1,0 +1,9 @@
+{
+  "path": "/paths/strict-send?source_asset_type=credit_alphanum4&source_asset_code=OFC&source_asset_issuer=GCV3BS3E4PXEN3YCL5JTJJHRHMDR2U3NQVINTON2KUOPZ7PQKU5MMC3Q&source_amount=0.0000005&destination_assets=native",
+  "status": 200,
+  "body": {
+    "_embedded": {
+      "records": []
+    }
+  }
+}

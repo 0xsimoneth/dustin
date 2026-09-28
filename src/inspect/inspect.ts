@@ -133,7 +133,7 @@ export async function inspectAccount(
   const issuerIds = [...new Set(withBalance.map((t) => t.asset.issuer))].sort();
 
   const poolBalances = raw.balances.filter((b) => b.asset_type === "liquidity_pool_shares");
-  const [offers, issuerAccounts, quotes, claimable, poolAssets] = await Promise.all([
+  const [offers, issuerAccounts, quotes, claimable, poolAssets, claimant] = await Promise.all([
     reader.offers(account),
     Promise.all(issuerIds.map((id) => reader.account(id))),
     Promise.all(
@@ -145,6 +145,9 @@ export async function inspectAccount(
     ),
     raw.num_sponsoring > 0 ? reader.claimableBalancesSponsoredBy(account) : Promise.resolve(null),
     Promise.all(poolBalances.map((b) => reader.liquidityPoolAssets(b.liquidity_pool_id ?? ""))),
+    reader.claimableBalancesClaimableBy
+      ? reader.claimableBalancesClaimableBy(account)
+      : Promise.resolve(null),
   ]);
   const issuers: IssuerInfo[] = issuerIds.map((id, i) => ({
     account: id,
@@ -219,6 +222,15 @@ export async function inspectAccount(
     observed,
     feeStats: fees,
     quotes,
+    claimableBalancesClaimable:
+      claimant
+        ?.map((b) => ({
+          id: b.id,
+          asset: b.asset,
+          amount: amount(b.amount),
+          sponsor: b.sponsor ?? null,
+        }))
+        .sort((a, b) => byCodePoint(a.id, b.id)) ?? null,
     snapshotHash: sha256Hex(canonicalJson(state)),
   };
   return snapshot;

@@ -42,7 +42,10 @@ export type EdgeVariantRole =
   | "poolShare"
   | "multisig"
   | "claimable"
-  | "immutable";
+  | "immutable"
+  | "offerTypes"
+  | "offerStale"
+  | "claimant";
 export type EdgeAccountRole = "sponsor" | "destination" | EdgeIssuerRole | EdgeVariantRole;
 /** Every key a build creates: the accounts, plus the multisig variant's second signer (never funded). */
 export type EdgeKeyRole = EdgeAccountRole | "multisigSigner";
@@ -58,9 +61,13 @@ export type EdgeVariantName =
   | "pool-share"
   | "multisig"
   | "claimable"
-  | "immutable";
+  | "immutable"
+  | "offer-types"
+  | "offer-stale"
+  | "claimant";
 
-export type EdgeAssetCode = "FRZ" | "MNT" | "AUTH" | "RVK" | "CLAW" | "ILQX" | "LPA" | "LPB";
+export type EdgeAssetCode =
+  "FRZ" | "MNT" | "AUTH" | "RVK" | "CLAW" | "ILQX" | "LPA" | "LPB" | "OFA" | "OFB" | "OFC" | "CBA";
 
 /** What the planner is expected to make of a variant right after the build. */
 export interface EdgeExpectation {
@@ -87,6 +94,12 @@ export interface EdgeVariant {
   numSponsoring: number;
   /** XLM that leaves the account during the build (the claimable balance it creates). */
   nativeOut: string;
+  /**
+   * XLM its own offers sell, held as native selling liabilities: spendable is balance - minimum -
+   * selling liabilities (https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves#effect-on-minimum-balance),
+   * so the account starts with them on top of its minimum to end at zero spendable.
+   */
+  nativeSellingLiabilities?: string;
   expected: EdgeExpectation;
 }
 
@@ -99,7 +112,14 @@ const ISSUER_OF: Record<EdgeAssetCode, EdgeIssuerRole> = {
   ILQX: "plainIssuer",
   LPA: "plainIssuer",
   LPB: "plainIssuer",
+  OFA: "plainIssuer",
+  OFB: "plainIssuer",
+  OFC: "plainIssuer",
+  CBA: "plainIssuer",
 };
+
+/** Every asset code the edge profile issues, in recipe order (the destination holds none of them). */
+export const EDGE_ASSET_CODES = Object.keys(ISSUER_OF) as EdgeAssetCode[];
 
 export const EDGE = {
   profile: "edge",
@@ -109,12 +129,17 @@ export const EDGE = {
     clawbackIssuer: ["AUTH_REVOCABLE", "AUTH_CLAWBACK_ENABLED"],
     plainIssuer: [],
   } satisfies Record<EdgeIssuerRole, string[]>,
-  /** Starting balances of the helpers; the variants start at their final minimum balance. */
+  /**
+   * Starting balances of the helpers; the variants start at their final minimum balance. The plain
+   * issuer holds 3 XLM since E4-S3 (2 before): it pays one base reserve per claimant of the two
+   * claimable balances it creates for the claimant variant (3 reserves) and their XLM, and the
+   * X-08 live test has it take the offer-stale offer for XLM.
+   */
   helperBalances: {
     destination: "2",
     authIssuer: "2",
     clawbackIssuer: "2",
-    plainIssuer: "2",
+    plainIssuer: "3",
   } satisfies Record<"destination" | EdgeIssuerRole, string>,
   dataEntry: { name: "dustin.fixture", value: "edge" },
   /** The auth-maintain variant's open offer: never filled, still cancellable after the downgrade. */
@@ -123,6 +148,26 @@ export const EDGE = {
   pool: { deposit: "1", minPrice: { n: 1, d: 2 }, maxPrice: { n: 2, d: 1 } },
   multisig: { masterWeight: 1, signerWeight: 1, highThreshold: 2 },
   claimable: { amount: "0.0000001" },
+  /**
+   * The offer-types variant's offers (X-07, X-11), on three different pairs so that none crosses
+   * another. Horizon lists a buy offer as the sell offer it is stored as: selling 0.0000004 OFB for
+   * XLM at price 1/2 (observed on testnet, 2026-09-28).
+   */
+  offerTypes: {
+    sellsXlm: { selling: "native", buying: "OFA", amount: "0.0000010", price: "1" },
+    buy: { selling: "OFB", buying: "native", buyAmount: "0.0000002", price: "2" },
+    passive: { selling: "OFA", buying: "OFB", amount: "0.0000002", price: "1" },
+  },
+  /** The offer-stale variant's offer (X-08): its whole OFC balance, for a counterparty to take. */
+  staleOffer: { selling: "OFC", amount: "0.0000005", price: "1" },
+  /**
+   * The claimable balances the plain issuer creates for the claimant variant (X-03): XLM that only
+   * the claimant can claim, and CBA that the issuer can claim too.
+   */
+  claimantBalances: [
+    { asset: "native", amount: "0.0000001", issuerClaims: false },
+    { asset: "CBA", amount: "0.0000002", issuerClaims: true },
+  ],
   variants: [
     {
       name: "auth-frozen",
@@ -315,15 +360,88 @@ export const EDGE = {
         steps: [],
       },
     },
+    // The variants below were added in E4-S3; the ones above are unchanged, so the vectors
+    // recorded from them (test/fixtures/horizon/edge/) stay valid.
+    {
+      name: "offer-types",
+      role: "offerTypes",
+      rows: ["X-07", "X-11"],
+      summary:
+        "OFA and OFB dust with three open offers: one selling XLM for OFA (its native selling liabilities are on top of its minimum balance, so spendable is 0, and it is the only liquidity for OFA to XLM), a buy offer (ManageBuyOffer) and a passive sell offer (CreatePassiveSellOffer).",
+      dust: [
+        { code: "OFA", amount: "0.0000003" },
+        { code: "OFB", amount: "0.0000005" },
+      ],
+      trustlines: ["OFA", "OFB"],
+      dataEntry: false,
+      // Two trustlines and three offers.
+      subentries: 5,
+      numSponsoring: 0,
+      nativeOut: "0",
+      nativeSellingLiabilities: "0.0000010",
+      expected: {
+        status: "closable",
+        blockers: [],
+        unclosable: [],
+        steps: [
+          "cancel_offer",
+          "cancel_offer",
+          "cancel_offer",
+          "dispose_balance",
+          "remove_trustline",
+          "dispose_balance",
+          "remove_trustline",
+          "merge",
+        ],
+      },
+    },
+    {
+      name: "offer-stale",
+      role: "offerStale",
+      rows: ["X-08"],
+      summary:
+        "OFC dust offered in full for XLM; the live test has a counterparty take the offer after planning, so the planned cancellation fails with op_offer_not_found and the executor re-plans.",
+      dust: [{ code: "OFC", amount: "0.0000005" }],
+      trustlines: ["OFC"],
+      dataEntry: false,
+      subentries: 2,
+      numSponsoring: 0,
+      nativeOut: "0",
+      expected: {
+        status: "closable",
+        blockers: [],
+        unclosable: [],
+        steps: ["cancel_offer", "dispose_balance", "remove_trustline", "merge"],
+      },
+    },
+    {
+      name: "claimant",
+      role: "claimant",
+      rows: ["X-03"],
+      summary:
+        "Named as a claimant of two claimable balances the plain issuer created: 0.0000001 XLM and 0.0000002 CBA. It holds nothing else, so it closes; the plan warns that the balances stay on the ledger.",
+      dust: [],
+      trustlines: [],
+      dataEntry: false,
+      subentries: 0,
+      numSponsoring: 0,
+      nativeOut: "0",
+      expected: { status: "closable", blockers: [], unclosable: [], steps: ["merge"] },
+    },
   ] satisfies EdgeVariant[],
 } as const;
 
-export const EDGE_ACCOUNT_ROLES: readonly EdgeAccountRole[] = [
+/** The accounts every edge build has, whatever variants it was built with. */
+export const EDGE_HELPER_ROLES = [
   "sponsor",
   "destination",
   "authIssuer",
   "clawbackIssuer",
   "plainIssuer",
+] as const satisfies readonly EdgeAccountRole[];
+
+export const EDGE_ACCOUNT_ROLES: readonly EdgeAccountRole[] = [
+  ...EDGE_HELPER_ROLES,
   ...EDGE.variants.map((v) => v.role),
 ];
 
@@ -360,12 +478,17 @@ export function edgePool(roles: EdgeRoles): { asset: LiquidityPoolAsset; id: str
  * A variant's starting balance: its minimum balance once built,
  * (2 + subentries + numSponsoring) x base reserve (CAP-33;
  * https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves), plus the XLM
- * that leaves it during the build. Every transaction it sources is fee-bumped, so it ends at
- * exactly its minimum: zero spendable.
+ * that leaves it during the build and the XLM its own offers sell. Every transaction it sources is
+ * fee-bumped, so it ends at exactly its minimum plus its native selling liabilities: zero
+ * spendable.
  */
 export function edgeStartingBalance(variant: EdgeVariant, baseReserveStroops: bigint): string {
   const units = BigInt(2 + variant.subentries + variant.numSponsoring);
-  return formatStroops(units * baseReserveStroops + toStroops(variant.nativeOut));
+  return formatStroops(
+    units * baseReserveStroops +
+      toStroops(variant.nativeOut) +
+      toStroops(variant.nativeSellingLiabilities ?? "0"),
+  );
 }
 
 export interface EdgeStep {
@@ -481,7 +604,17 @@ export function edgeSteps(roles: EdgeRoles, baseReserveStroops: bigint): EdgeSte
     {
       name: "holder-state",
       source: "authMaintain",
-      signers: ["authMaintain", "authFrozen", "authRevoke", "poolShare", "multisig", "claimable"],
+      signers: [
+        "authMaintain",
+        "authFrozen",
+        "authRevoke",
+        "poolShare",
+        "multisig",
+        "claimable",
+        "offerTypes",
+        "offerStale",
+        "plainIssuer",
+      ],
       feeBumped: true,
       operations: [
         // Priced far above any bid, so it rests (there is no other MNT order anyway).
@@ -511,6 +644,49 @@ export function edgeSteps(roles: EdgeRoles, baseReserveStroops: bigint): EdgeSte
           claimants: [new Claimant(roles.destination, Claimant.predicateUnconditional())],
           source: roles.claimable,
         }),
+        // X-07: three pairs, none the reverse of another, so no offer crosses (op_cross_self).
+        Operation.manageSellOffer({
+          selling: Asset.native(),
+          buying: asset("OFA"),
+          amount: EDGE.offerTypes.sellsXlm.amount,
+          price: EDGE.offerTypes.sellsXlm.price,
+          source: roles.offerTypes,
+        }),
+        Operation.manageBuyOffer({
+          selling: asset("OFB"),
+          buying: Asset.native(),
+          buyAmount: EDGE.offerTypes.buy.buyAmount,
+          price: EDGE.offerTypes.buy.price,
+          source: roles.offerTypes,
+        }),
+        Operation.createPassiveSellOffer({
+          selling: asset("OFA"),
+          buying: asset("OFB"),
+          amount: EDGE.offerTypes.passive.amount,
+          price: EDGE.offerTypes.passive.price,
+          source: roles.offerTypes,
+        }),
+        Operation.manageSellOffer({
+          selling: asset("OFC"),
+          buying: Asset.native(),
+          amount: EDGE.staleOffer.amount,
+          price: EDGE.staleOffer.price,
+          source: roles.offerStale,
+        }),
+        // X-03: an issuer can create a claimable balance of its own asset without holding it.
+        ...EDGE.claimantBalances.map((b) =>
+          Operation.createClaimableBalance({
+            asset: b.asset === "native" ? Asset.native() : asset(b.asset as EdgeAssetCode),
+            amount: b.amount,
+            claimants: [
+              new Claimant(roles.claimant, Claimant.predicateUnconditional()),
+              ...(b.issuerClaims
+                ? [new Claimant(roles.plainIssuer, Claimant.predicateUnconditional())]
+                : []),
+            ],
+            source: roles.plainIssuer,
+          }),
+        ),
       ],
       settles: [
         "authMaintain/offer",
@@ -518,6 +694,9 @@ export function edgeSteps(roles: EdgeRoles, baseReserveStroops: bigint): EdgeSte
         "poolShare/data",
         "multisig/data",
         "claimable/sponsoring",
+        "offerTypes/offers",
+        "offerStale/offer",
+        "claimant/claimable",
       ],
     },
     {

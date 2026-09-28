@@ -77,6 +77,18 @@ export interface DestinationInfo {
   }>;
 }
 
+/** A claimable balance that names the account as a claimant (matrix row X-03). */
+export interface ClaimableBalanceInfo {
+  /** Horizon's balance id (hex). */
+  id: string;
+  /** "native" or "CODE:ISSUER", as Horizon lists it. */
+  asset: string;
+  /** 7-decimal string, exact to the stroop. */
+  amount: string;
+  /** The account that pays the balance's reserve, or null when Horizon names none. */
+  sponsor: string | null;
+}
+
 export interface Quote {
   sourceAmount: string;
   destinationAmount: string;
@@ -89,7 +101,10 @@ interface SnapshotBase {
   observed: { ledger: number; closedAt: string; source: string };
   feeStats: { lastLedgerBaseFee: number; feeChargedP80: number };
   destination: DestinationInfo | null;
-  /** sha256 of the canonical account-state fields (not quotes, fees or the observation ledger). */
+  /**
+   * sha256 of the canonical account-state fields (not quotes, the claimable balances that name the
+   * account as a claimant, fees or the observation ledger).
+   */
   snapshotHash: string;
 }
 
@@ -129,6 +144,13 @@ export interface ExistingAccountSnapshot extends SnapshotBase {
    * (the ladder rules it out); null when Horizon found no path or none was asked.
    */
   quotes: Array<{ asset: CreditAssetRef; quote: Quote | null }>;
+  /**
+   * Claimable balances that name this account as a claimant, sorted by id; null when the reader
+   * cannot ask (a custom `LedgerReader` without `claimableBalancesClaimableBy`). They are not the
+   * account's entries: the merge leaves them on the ledger, so they change no step and are not in
+   * `snapshotHash` (matrix row X-03).
+   */
+  claimableBalancesClaimable: ClaimableBalanceInfo[] | null;
 }
 
 export type AccountSnapshot = ExistingAccountSnapshot | MissingAccountSnapshot;

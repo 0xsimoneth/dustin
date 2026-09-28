@@ -1,0 +1,10 @@
+{
+  "path": "/claimable_balances?claimant=GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK&limit=200",
+  "status": 200,
+  "synthesized": "Synthesized on 2026-09-28, not recorded: this vector was recorded before the inspector read GET /claimable_balances?claimant= (matrix row X-03). An empty page, the answer Horizon gives for an account no claimable balance names as a claimant.",
+  "body": {
+    "_embedded": {
+      "records": []
+    }
+  }
+}
