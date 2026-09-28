@@ -107,3 +107,26 @@ describe("R3-4: a re-post after HTTP 429 is published as it happens", () => {
     expect(inFlight).toEqual([1, 2, 1, 1]);
   });
 });
+
+/** Step S03 (the DUSTB balance) fails on the ledger with op_underfunded in the first transaction. */
+const UNDERFUNDED = failedOps(
+  "op_success",
+  "op_success",
+  "op_underfunded",
+  ...Array.from({ length: 6 }, () => "op_success"),
+);
+
+describe("R3-5: the remedy of a step that fails twice says what the user can do", () => {
+  it("does not offer --partial as a way to leave the step in place", async () => {
+    const { ledger, deps, plan } = harness();
+    ledger.faults.push(UNDERFUNDED, UNDERFUNDED);
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    expect(report.stop).toMatchObject({ code: "STEP_FAILED_TWICE", stepId: "S03" });
+    const blocker = report.blockers.find((b) => b.code === "STEP_FAILED_TWICE")!;
+    // --partial only lets an unclosable plan run; the next plan includes the same step again.
+    expect(blocker.remedy).not.toMatch(/--partial to leave it in place/);
+    expect(blocker.remedy).toMatch(/--partial does not skip it/);
+    expect(blocker.remedy).toMatch(/DUSTB trustline/);
+    expect(blocker.remedy).toMatch(/run the close again/);
+  });
+});

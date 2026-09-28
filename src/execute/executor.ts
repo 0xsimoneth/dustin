@@ -680,7 +680,9 @@ class CloseRun {
       this.report.blockers.push({
         code: "STEP_FAILED_TWICE",
         reason: `Step ${stepOutcome.stepId} (${step?.kind.replaceAll("_", " ") ?? "operation"}, ${subject}) failed twice on the ledger with ${failure.code}: ${failure.explanation}`,
-        remedy: `Find out why it keeps failing (look at the account's ${subject} on the explorer), fix it or run the close with --partial to leave it in place, then run the close again; the next run plans from the ledger.`,
+        // Review round 3, R3-5: --partial only lets a plan that cannot merge run; it is not an
+        // input to the planner, so the next plan includes the same step again.
+        remedy: `Look at the account's ${subject} on the explorer to find out why the step keeps failing, resolve that or wait until it settles, then run the close again, which plans from the ledger; --partial does not skip it, since the next plan includes the step again.`,
         permanent: false,
         stepId: stepOutcome.stepId,
         resultCodes: outcome.codes,
