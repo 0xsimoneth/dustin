@@ -290,7 +290,7 @@ export async function submitAndConfirm(
   if ("status" in response) {
     const known = fromResponse(envelope.hash, response.status, response.body);
     if (known && (known.kind === "failed" || known.kind === "rejected") && ambiguous(known)) {
-      return settleInclusion(submitter, known);
+      return settleInclusion(submitter, known, options.sequenceUsed);
     }
     if (known) return known;
   }
@@ -320,29 +320,61 @@ function ambiguous(outcome: { status: number; codes: ResultCodes }): boolean {
  * The ledger decides (edge case E6): a record by hash means included (sequence number used, fee
  * charged); a 404 means refused at validation, nothing used. A lookup that fails leaves the
  * reading of the codes (included when the inner code is `tx_failed`).
+ *
+ * A 404 can come from a Horizon behind the one that answered the POST, so, as in the wait for an
+ * unconfirmed envelope (edge case E5), the account's sequence number is the witness (review round
+ * 3, R3-8): an answer that reads as an included failure (inner `tx_failed`, or an inner
+ * `tx_too_late` at apply time) stays included while the account shows the envelope's number used,
+ * or cannot be read. Only then would a refusal let the caller rebuild at a number that is used,
+ * or give back a bid that was charged. An answer with no included reading (`tx_bad_seq`, for which
+ * a used number is the refusal itself) keeps its reading.
  */
 async function settleInclusion(
   submitter: Submitter,
   answered: Extract<SubmitOutcome, { kind: "failed" | "rejected" }>,
+  sequenceUsed?: () => Promise<boolean>,
 ): Promise<SubmitOutcome> {
   const lookup = await lookupTransaction(submitter, answered.hash);
-  if (lookup.kind === "missing") {
+  if (lookup.kind === "found") {
+    const recorded = outcomeFromRecord(answered.hash, lookup.record);
+    if (recorded.kind !== "failed") return recorded;
+    // A record whose result cannot be decoded still means included; the answer's codes describe it.
     return {
-      kind: "rejected",
-      hash: answered.hash,
+      ...recorded,
       status: answered.status,
-      codes: answered.codes,
+      codes: Object.keys(recorded.codes).length > 0 ? recorded.codes : answered.codes,
     };
   }
+  const reading = includedReading(answered);
+  if (reading && sequenceUsed) {
+    let used: boolean | null;
+    try {
+      used = await sequenceUsed();
+    } catch {
+      used = null;
+    }
+    if (used !== false) return reading;
+  }
   if (lookup.kind === "error") return answered;
-  const recorded = outcomeFromRecord(answered.hash, lookup.record);
-  if (recorded.kind !== "failed") return recorded;
-  // A record whose result cannot be decoded still means included; the answer's codes describe it.
   return {
-    ...recorded,
+    kind: "rejected",
+    hash: answered.hash,
     status: answered.status,
-    codes: Object.keys(recorded.codes).length > 0 ? recorded.codes : answered.codes,
+    codes: answered.codes,
   };
+}
+
+/**
+ * The answer read as a failure included in a ledger, when it can be one: inner `tx_failed`
+ * (an operation failed), or inner `tx_too_late` (the ledger that included the fee bump closed after
+ * the inner time bound). The fee is not known without the record.
+ */
+function includedReading(
+  answered: Extract<SubmitOutcome, { kind: "failed" | "rejected" }>,
+): Extract<SubmitOutcome, { kind: "failed" }> | null {
+  if (answered.kind === "failed") return answered;
+  if (answered.codes.innerTransaction !== "tx_too_late") return null;
+  return { kind: "failed", hash: answered.hash, status: answered.status, codes: answered.codes };
 }
 
 /** Without a ledger clock: look the envelope up until the local clock passes its bound. */

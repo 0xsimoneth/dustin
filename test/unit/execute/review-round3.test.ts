@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import type { CloseReport } from "../../../src/execute/report.js";
 import { messy } from "../../helpers/snapshots.js";
-import { answer, failedOps, harness, signers } from "./harness.js";
+import { answer, failedOps, harness, included, reply, signers } from "./harness.js";
 
 /**
  * The harness, plus what the latest published copy of the report said about the envelope in
@@ -254,7 +254,7 @@ describe("R3-7: a stop raised by a re-plan names the round of the transaction th
     });
   });
 
-  it("OVER_BUDGET", async () => {
+  it("OVER_BUDGET (the other stops of a re-plan share the same helper)", async () => {
     const { ledger, deps, plan } = harness();
     const p = await plan({ maxOpsPerTransaction: 2, budgetStroops: 2000 });
     const report = await executeClose(p, signers(), {
@@ -270,5 +270,75 @@ describe("R3-7: a stop raised by a re-plan names the round of the transaction th
       envelopeRound: 0,
       triggerRound: 0,
     });
+  });
+});
+
+/** The harness; `lagOnce()` makes the next lookup by hash answer 404, as a Horizon behind would. */
+function lookupLagsOnce() {
+  let armed = false;
+  const h = harness((_l, fetch) => (url, init) => {
+    if (armed && (init?.method ?? "GET") === "GET" && url.includes("/transactions/")) {
+      armed = false;
+      return reply(404);
+    }
+    return fetch(url, init);
+  });
+  return {
+    ...h,
+    lagOnce: () => {
+      armed = true;
+    },
+  };
+}
+
+describe("R3-8: an included failure is not taken for a refusal on one lagging 404", () => {
+  it("keeps a failed operation included while the account shows its sequence number used", async () => {
+    const { ledger, deps, plan, lagOnce } = lookupLagsOnce();
+    ledger.faults.push(UNDERFUNDED);
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.round === 0 && e.index === 0) lagOnce();
+      },
+    });
+    const [first] = report.transactions;
+    // Included: the step failure is recorded and the run re-plans, as for any op_underfunded.
+    expect(first).toMatchObject({ result: "failed", round: 0 });
+    expect(report.steps.find((s) => s.stepId === "S03")).toMatchObject({ failures: 1 });
+    expect(report.replans).toHaveLength(1);
+    expect(report.status).toBe("closed");
+  });
+
+  it("keeps an inner tx_too_late at apply time included, never rebuilt at the used number", async () => {
+    const { ledger, deps, plan, lagOnce } = lookupLagsOnce();
+    ledger.faults.push(
+      included({ transaction: "tx_fee_bump_inner_failed", inner_transaction: "tx_too_late" }),
+    );
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      onEvent: (e) => {
+        if (e.type === "tx:submitted" && e.round === 0 && e.index === 0) lagOnce();
+      },
+    });
+    const tx0 = report.transactions.filter((t) => t.round === 0 && t.index === 0);
+    expect(tx0.map((t) => t.result)).toEqual(["failed"]);
+    // No second envelope was sent at the number the first one used.
+    expect(tx0.some((t) => t.resultCodes?.innerTransaction === "tx_bad_seq")).toBe(false);
+  });
+
+  it("still takes a tx_failed refused at validation for a refusal (the number is unused)", async () => {
+    const { ledger, deps, plan } = harness();
+    ledger.faults.push(
+      answer({
+        transaction: "tx_fee_bump_inner_failed",
+        inner_transaction: "tx_failed",
+        operations: ["op_bad_auth"],
+      }),
+    );
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    expect(report.transactions[0]).toMatchObject({ result: "rejected", feeChargedStroops: null });
+    expect(report.stop).toMatchObject({ code: "TRANSACTION_REJECTED" });
   });
 });
