@@ -1,0 +1,214 @@
+{
+  "schemaVersion": 1,
+  "kind": "dustin-close-report",
+  "network": {
+    "passphrase": "Test SDF Network ; September 2015",
+    "horizon": "https://horizon-testnet.stellar.org"
+  },
+  "account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+  "destination": "GDPZI3OAYYEAXTYY2OHFDZAEEG4PXNBN7AHNLQTEH22O5HTBGBSVB2TS",
+  "feeSponsor": "GBCHRHGJMTMA2MNEVJWZL5GRYXQ3OF5CRKVMZHPFPASSW2DBLPQFEHOG",
+  "planHash": "ee22ef1bdca8ec14379c144941522a84feabb7d0288283644577550b122511a2",
+  "status": "closed",
+  "message": null,
+  "stop": null,
+  "startedAt": "2026-09-28T11:23:45.318Z",
+  "finishedAt": "2026-09-28T11:24:03.382Z",
+  "transactions": [
+    {
+      "index": 0,
+      "phase": "cleanup",
+      "stepIds": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09"
+      ],
+      "attempts": 1,
+      "attempt": 1,
+      "round": 0,
+      "sequence": "21106323991035909",
+      "baseFeeStroops": 84162,
+      "maxTime": 1790594742,
+      "hash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+      "innerHash": "cf6c648de8f55e1011951b64c5c5ebe88ea0de71b4dd093f9e7b09846b6ef40a",
+      "result": "applied",
+      "ledger": 4914209,
+      "feeChargedStroops": 1000,
+      "feeAccount": "GBCHRHGJMTMA2MNEVJWZL5GRYXQ3OF5CRKVMZHPFPASSW2DBLPQFEHOG",
+      "innerEnvelopeXdr": "AAAAAgAAAACe8pzLUD5hBsm4T8Jct5bdcDLlW4IMrppW1KY7yVZdFgAAAAAASvwXAAAABQAAAAEAAAAAAAAAAAAAAABquk62AAAAAAAAAAkAAAAAAAAAAwAAAAJEVVNUQQAAAAAAAAAAAAAAhRAY8MDXkk/3xIUUVPaUWA1RNphKsT0z/FgoaS/kpbsAAAAAAAAAAAAAAAAAAABkAAAAAQAAAAAADKRpAAAAAAAAAAMAAAACRFVTVEMAAAAAAAAAAAAAAIUQGPDA15JP98SFFFT2lFgNUTaYSrE9M/xYKGkv5KW7AAAAAkRVU1RCAAAAAAAAAAAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAAAAAAAAAAAAQAAAAEAAAAAAAykagAAAAAAAAABAAAAAIUQGPDA15JP98SFFFT2lFgNUTaYSrE9M/xYKGkv5KW7AAAAAkRVU1RCAAAAAAAAAAAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAAAAAADAAAAAAAAAAYAAAACRFVTVEIAAAAAAAAAAAAAAIUQGPDA15JP98SFFFT2lFgNUTaYSrE9M/xYKGkv5KW7AAAAAAAAAAAAAAAAAAAAAQAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAJEVVNUQwAAAAAAAAAAAAAAhRAY8MDXkk/3xIUUVPaUWA1RNphKsT0z/FgoaS/kpbsAAAAAAAAABQAAAAAAAAAGAAAAAkRVU1RDAAAAAAAAAAAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAAAAAAAAAAAAAAAAAEAAAAAhRAY8MDXkk/3xIUUVPaUWA1RNphKsT0z/FgoaS/kpbsAAAABU1BUQQAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAAAAAABAAAAAAAAAAYAAAABU1BUQQAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAAAAAAAAAAAAAAAAAoAAAAOZHVzdGluLmZpeHR1cmUAAAAAAAAAAAAAAAAAAclWXRYAAABAUKD6eo2XKqfjDIaaAoxMVAcz0nr6+iYhqI9kWCmfQjjhIMJ+bXozmfm3QP1MP+/YACgRtCI5nSyyvS3YrOrRAw==",
+      "feeBumpEnvelopeXdr": "AAAABQAAAABEeJzJZNgNMaSqbZX00cXhtxeiiqrMneV4JStoYVvgUgAAAAAADNeUAAAAAgAAAACe8pzLUD5hBsm4T8Jct5bdcDLlW4IMrppW1KY7yVZdFgAAAAAASvwXAAAABQAAAAEAAAAAAAAAAAAAAABquk62AAAAAAAAAAkAAAAAAAAAAwAAAAJEVVNUQQAAAAAAAAAAAAAAhRAY8MDXkk/3xIUUVPaUWA1RNphKsT0z/FgoaS/kpbsAAAAAAAAAAAAAAAAAAABkAAAAAQAAAAAADKRpAAAAAAAAAAMAAAACRFVTVEMAAAAAAAAAAAAAAIUQGPDA15JP98SFFFT2lFgNUTaYSrE9M/xYKGkv5KW7AAAAAkRVU1RCAAAAAAAAAAAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAAAAAAAAAAAAQAAAAEAAAAAAAykagAAAAAAAAABAAAAAIUQGPDA15JP98SFFFT2lFgNUTaYSrE9M/xYKGkv5KW7AAAAAkRVU1RCAAAAAAAAAAAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAAAAAADAAAAAAAAAAYAAAACRFVTVEIAAAAAAAAAAAAAAIUQGPDA15JP98SFFFT2lFgNUTaYSrE9M/xYKGkv5KW7AAAAAAAAAAAAAAAAAAAAAQAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAJEVVNUQwAAAAAAAAAAAAAAhRAY8MDXkk/3xIUUVPaUWA1RNphKsT0z/FgoaS/kpbsAAAAAAAAABQAAAAAAAAAGAAAAAkRVU1RDAAAAAAAAAAAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAAAAAAAAAAAAAAAAAEAAAAAhRAY8MDXkk/3xIUUVPaUWA1RNphKsT0z/FgoaS/kpbsAAAABU1BUQQAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAAAAAABAAAAAAAAAAYAAAABU1BUQQAAAACFEBjwwNeST/fEhRRU9pRYDVE2mEqxPTP8WChpL+SluwAAAAAAAAAAAAAAAAAAAAoAAAAOZHVzdGluLmZpeHR1cmUAAAAAAAAAAAAAAAAAAclWXRYAAABAUKD6eo2XKqfjDIaaAoxMVAcz0nr6+iYhqI9kWCmfQjjhIMJ+bXozmfm3QP1MP+/YACgRtCI5nSyyvS3YrOrRAwAAAAAAAAABYVvgUgAAAEAAq9j1Wn98jGkf/a3bSMztTyELgpMZvaZxJqh5O9YpXAheZ5lGylsLJs/Z7C+t6dd5vWmWlDB4gj6RyeWJauoI",
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+    },
+    {
+      "index": 1,
+      "phase": "convert",
+      "stepIds": [
+        "S10",
+        "S11"
+      ],
+      "attempts": 1,
+      "attempt": 1,
+      "round": 0,
+      "sequence": "21106323991035910",
+      "baseFeeStroops": 84162,
+      "maxTime": 1790594752,
+      "hash": "f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700",
+      "innerHash": "93e1103db1b6bd514a0dc8b34d3ef1d9045fb647367dbd90a8b353796aed435d",
+      "result": "applied",
+      "ledger": 4914210,
+      "feeChargedStroops": 300,
+      "feeAccount": "GBCHRHGJMTMA2MNEVJWZL5GRYXQ3OF5CRKVMZHPFPASSW2DBLPQFEHOG",
+      "innerEnvelopeXdr": "AAAAAgAAAACe8pzLUD5hBsm4T8Jct5bdcDLlW4IMrppW1KY7yVZdFgAAAAAASvwXAAAABgAAAAEAAAAAAAAAAAAAAABquk7AAAAAAAAAAAIAAAAAAAAADQAAAAJEVVNUQQAAAAAAAAAAAAAAhRAY8MDXkk/3xIUUVPaUWA1RNphKsT0z/FgoaS/kpbsAAAAAAAAABwAAAACe8pzLUD5hBsm4T8Jct5bdcDLlW4IMrppW1KY7yVZdFgAAAAAAAAAAAAAABgAAAAAAAAAAAAAABgAAAAJEVVNUQQAAAAAAAAAAAAAAhRAY8MDXkk/3xIUUVPaUWA1RNphKsT0z/FgoaS/kpbsAAAAAAAAAAAAAAAAAAAAByVZdFgAAAECh7AuActKidWsFbi0FQ1gZ1DHtWKbw1z8qLAUNQsxeXThZLNXGu7RNyuyKFzicFBt/fR1NWfH6g1A2m6w0dUkI",
+      "feeBumpEnvelopeXdr": "AAAABQAAAABEeJzJZNgNMaSqbZX00cXhtxeiiqrMneV4JStoYVvgUgAAAAAAA9pGAAAAAgAAAACe8pzLUD5hBsm4T8Jct5bdcDLlW4IMrppW1KY7yVZdFgAAAAAASvwXAAAABgAAAAEAAAAAAAAAAAAAAABquk7AAAAAAAAAAAIAAAAAAAAADQAAAAJEVVNUQQAAAAAAAAAAAAAAhRAY8MDXkk/3xIUUVPaUWA1RNphKsT0z/FgoaS/kpbsAAAAAAAAABwAAAACe8pzLUD5hBsm4T8Jct5bdcDLlW4IMrppW1KY7yVZdFgAAAAAAAAAAAAAABgAAAAAAAAAAAAAABgAAAAJEVVNUQQAAAAAAAAAAAAAAhRAY8MDXkk/3xIUUVPaUWA1RNphKsT0z/FgoaS/kpbsAAAAAAAAAAAAAAAAAAAAByVZdFgAAAECh7AuActKidWsFbi0FQ1gZ1DHtWKbw1z8qLAUNQsxeXThZLNXGu7RNyuyKFzicFBt/fR1NWfH6g1A2m6w0dUkIAAAAAAAAAAFhW+BSAAAAQB1TiA0sDw3uwiiTZQIqeamra4ZgC3MDWmkZouCg5V8pGwRAj2R+gFpEzEduhlJVi1gBF1i8nf2M7P2TOa9ArgE=",
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700"
+    },
+    {
+      "index": 2,
+      "phase": "merge",
+      "stepIds": [
+        "S12"
+      ],
+      "attempts": 1,
+      "attempt": 1,
+      "round": 0,
+      "sequence": "21106323991035911",
+      "baseFeeStroops": 84162,
+      "maxTime": 1790594757,
+      "hash": "36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c",
+      "innerHash": "aa140dc126168f0a01f261e362e32edbc088365930859f45ea9c4d3c846b9801",
+      "result": "applied",
+      "ledger": 4914211,
+      "feeChargedStroops": 200,
+      "feeAccount": "GBCHRHGJMTMA2MNEVJWZL5GRYXQ3OF5CRKVMZHPFPASSW2DBLPQFEHOG",
+      "innerEnvelopeXdr": "AAAAAgAAAACe8pzLUD5hBsm4T8Jct5bdcDLlW4IMrppW1KY7yVZdFgAAAAAASvwXAAAABwAAAAEAAAAAAAAAAAAAAABquk7FAAAAAAAAAAEAAAAAAAAACAAAAADflG3AxggLzxjTjlHkBCG4+7Qt+A7VwmQ+tO6eYTBlUAAAAAAAAAAByVZdFgAAAEBBFgOXnAiDigPgF4Dl/um9WyDpBcFZF98F4NAli83kxLEfUUMZa3nkzNnXkrxC0/14rj4KNreTCGZn1DpSlzEK",
+      "feeBumpEnvelopeXdr": "AAAABQAAAABEeJzJZNgNMaSqbZX00cXhtxeiiqrMneV4JStoYVvgUgAAAAAAApGEAAAAAgAAAACe8pzLUD5hBsm4T8Jct5bdcDLlW4IMrppW1KY7yVZdFgAAAAAASvwXAAAABwAAAAEAAAAAAAAAAAAAAABquk7FAAAAAAAAAAEAAAAAAAAACAAAAADflG3AxggLzxjTjlHkBCG4+7Qt+A7VwmQ+tO6eYTBlUAAAAAAAAAAByVZdFgAAAEBBFgOXnAiDigPgF4Dl/um9WyDpBcFZF98F4NAli83kxLEfUUMZa3nkzNnXkrxC0/14rj4KNreTCGZn1DpSlzEKAAAAAAAAAAFhW+BSAAAAQImIL1pwugwFQmxRTnkolB0XiqYtiLRdmd0a/iQTLu08AF80Oi6mvId/FuFQIKmjKbajW7rLo+x+qnulHlGeewI=",
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c"
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "S01",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+    },
+    {
+      "stepId": "S02",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+    },
+    {
+      "stepId": "S03",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+      "rung": "return_to_issuer"
+    },
+    {
+      "stepId": "S04",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+    },
+    {
+      "stepId": "S05",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+      "rung": "return_to_issuer"
+    },
+    {
+      "stepId": "S06",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+    },
+    {
+      "stepId": "S07",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac",
+      "rung": "return_to_issuer"
+    },
+    {
+      "stepId": "S08",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+    },
+    {
+      "stepId": "S09",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac"
+    },
+    {
+      "stepId": "S10",
+      "status": "applied",
+      "txIndex": 1,
+      "txHash": "f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700",
+      "rung": "path_payment"
+    },
+    {
+      "stepId": "S11",
+      "status": "applied",
+      "txIndex": 1,
+      "txHash": "f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700"
+    },
+    {
+      "stepId": "S12",
+      "status": "applied",
+      "txIndex": 2,
+      "txHash": "36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c"
+    }
+  ],
+  "replans": [],
+  "unclosable": [],
+  "blockers": [],
+  "warnings": [],
+  "recovery": {
+    "mergedXlm": "4.0000007",
+    "reservesReturnedToSponsors": [
+      {
+        "sponsor": "GCFMPHR7TIPDOYD2UHXSE2PLWIMFYIEWC2NQ3N4RKLSSDVXODU5REILD",
+        "xlm": "0.5000000",
+        "entries": [
+          "trustline SPTA:GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX"
+        ]
+      }
+    ],
+    "feesPaidByAccount": "0",
+    "feesPaidBySponsorStroops": 1500,
+    "sponsorsObserved": [
+      {
+        "sponsor": "GCFMPHR7TIPDOYD2UHXSE2PLWIMFYIEWC2NQ3N4RKLSSDVXODU5REILD",
+        "before": {
+          "numSponsoring": 1,
+          "balance": "10.0000000",
+          "minimumBalance": "1.5000000",
+          "ledger": 4914207
+        },
+        "after": {
+          "numSponsoring": 0,
+          "balance": "10.0000000",
+          "minimumBalance": "1.0000000",
+          "ledger": 4914211
+        }
+      }
+    ]
+  },
+  "verification": {
+    "accountExists": false,
+    "horizonStatus": 404,
+    "checkedAt": "2026-09-28T11:24:02.674Z",
+    "ledger": 4914211,
+    "accountUrl": "https://stellar.expert/explorer/testnet/account/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7"
+  }
+}

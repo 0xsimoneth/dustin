@@ -1,13 +1,15 @@
 # Live close evidence
 
-Each directory `evidence/runs/<UTC stamp>/` (for example `20261001T101500Z/`) records one live close of a freshly built `messy` fixture on the Stellar testnet. It is written by `test/testnet/execute-close.test.ts` when `DUSTIN_EVIDENCE=1` is set, so that the SOW Deliverable 2 claim (an account with zero spendable XLM closed with sponsor-paid fee bumps) can be checked independently rather than taken on trust.
+Each directory `evidence/runs/<UTC stamp>/` (for example `20261001T101500Z/`), or `<UTC stamp>-<label>/` when the run was labelled (`-e3` for the Epic 3 metric close, `-cli` or `-e3-cli` for a close through the command line), records one live close of a freshly built `messy` fixture on the Stellar testnet. SDK runs are written by `test/testnet/execute-close.test.ts` when `DUSTIN_EVIDENCE=1` is set; CLI runs by `scripts/evidence-cli-close.mjs`. They let the SOW Deliverable 2 claim (an account with zero spendable XLM closed with sponsor-paid fee bumps) be checked independently rather than taken on trust.
 
 ## Layout
 
 | File | Content |
 |---|---|
 | `summary.md` | One page for a reviewer: date, network passphrase, ledgers, every account and transaction with its explorer and Horizon link, the pre-close checks, the 404 after the close and the balance changes. |
-| `report.json` | The `CloseReport` returned by `executeClose()`: accounts, plan hash, status, and for every transaction the outer and inner hash, ledger, fee charged, fee account, result codes and both envelopes (inner and fee bump) as XDR. |
+| `plan.json`, `plan.txt` | The plan the close was approved with, as JSON and as `dustin plan` prints it (runs from 2026-09-28 on). The summary adds a "Disposal ladder" table: each leftover balance with its planned and applied rung. |
+| `report.json` | The `CloseReport` returned by `executeClose()`: accounts, plan hash, status, and for every transaction the outer and inner hash, ledger, fee charged, fee account, result codes and both envelopes (inner and fee bump) as XDR. From 2026-09-28 it also holds `recovery.sponsorsObserved`: each reserve sponsor's `num_sponsoring`, minimum balance and XLM balance read before and after the close. |
+| `transcript.txt` | CLI runs only: the output of `dustin close --execute --yes --report`, with the receipt. |
 | `fixture-manifest.json` | The fixture's public manifest: public keys, assets, offers, data entry, expected reserve figures and the hashes of the construction transactions. |
 | `fixture-verification.json` | The fixture checks run right before the close. The four with `"appendixB": true` are the SOW Appendix B preconditions: zero spendable XLM, at least 3 trustlines with a balance, at least 1 open offer, at least 1 data entry. |
 | `account-before.json` | Horizon `GET /accounts/{fixture}` just before the close. |
@@ -24,7 +26,16 @@ npm ci
 DUSTIN_TESTNET=1 DUSTIN_EVIDENCE=1 npm run test:testnet -- test/testnet/execute-close.test.ts
 ```
 
-The test builds a new fixture, verifies it, plans and executes the close, checks every transaction on Horizon and writes a new directory here; its path is printed at the end. Commit the directory together with the code it was captured with. Without `DUSTIN_EVIDENCE=1` the same test runs and writes nothing.
+The test builds a new fixture, verifies it, plans and executes the close, checks every transaction on Horizon and writes a new directory here; its path is printed at the end. `DUSTIN_EVIDENCE_LABEL=e3` appends `-e3` to the directory name. Commit the directory together with the code it was captured with. Without `DUSTIN_EVIDENCE=1` the same test runs and writes nothing.
+
+The same close through the command line, with its transcript:
+
+```sh
+npm ci && npm run build
+node scripts/evidence-cli-close.mjs e3-cli
+```
+
+It runs `dustin fixture create --profile messy`, `dustin fixture verify`, the dry-run `dustin plan` and `dustin close --execute --yes --report`, then reads Horizon's record of every transaction and of the closed account. The fixture's keys stay in the gitignored `.fixture/` directory and reach the close command only through its environment.
 
 To check a transaction without the network, decode its fee-bump envelope from `report.json` with the SDK: `TransactionBuilder.fromXDR(feeBumpEnvelopeXdr, "Test SDF Network ; September 2015")` shows the fee source (the sponsor) and the inner transaction (source, sequence number, operations), and `Buffer.from(tx.hash()).toString("hex")` is the transaction hash in the explorer link.
 

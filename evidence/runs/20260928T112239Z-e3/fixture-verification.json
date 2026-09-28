@@ -1,0 +1,101 @@
+{
+  "pass": true,
+  "checks": [
+    {
+      "id": "zero-spendable-xlm",
+      "label": "holds zero spendable XLM",
+      "appendixB": true,
+      "pass": true,
+      "observed": "balance 4.0000000, minimum 4.0000000, native selling liabilities 0.0000000, spendable 0.0000000",
+      "expected": "spendable 0.0000000"
+    },
+    {
+      "id": "trustlines-with-balance",
+      "label": "at least 3 trustlines with non-zero balances",
+      "appendixB": true,
+      "pass": true,
+      "observed": "4 (DUSTA 0.0000007, DUSTB 0.0000003, DUSTC 0.0000005, SPTA 0.0000001)",
+      "expected": "3 or more"
+    },
+    {
+      "id": "open-offer",
+      "label": "at least 1 open offer",
+      "appendixB": true,
+      "pass": true,
+      "observed": "2 (ids 828518, 828519)",
+      "expected": "1 or more"
+    },
+    {
+      "id": "data-entry",
+      "label": "at least 1 data entry",
+      "appendixB": true,
+      "pass": true,
+      "observed": "1 (dustin.fixture)",
+      "expected": "1 or more"
+    },
+    {
+      "id": "sponsored-trustline",
+      "label": "trustline SPTA is sponsored by the reserve sponsor",
+      "appendixB": false,
+      "pass": true,
+      "observed": "sponsor GBTG2YJPCWRPXSRQBPHWJS2QR6AIR2BCFWFJCZLSVGDLUTQWCB6CZJVH",
+      "expected": "sponsor GBTG2YJPCWRPXSRQBPHWJS2QR6AIR2BCFWFJCZLSVGDLUTQWCB6CZJVH"
+    },
+    {
+      "id": "subentry-count",
+      "label": "subentry count",
+      "appendixB": false,
+      "pass": true,
+      "observed": "7",
+      "expected": "7"
+    },
+    {
+      "id": "num-sponsored",
+      "label": "entries sponsored by another account",
+      "appendixB": false,
+      "pass": true,
+      "observed": "1",
+      "expected": "1"
+    },
+    {
+      "id": "not-sponsoring",
+      "label": "sponsors nothing (a sponsoring account cannot be merged)",
+      "appendixB": false,
+      "pass": true,
+      "observed": "0",
+      "expected": "0"
+    },
+    {
+      "id": "no-pool-shares",
+      "label": "holds no liquidity pool shares",
+      "appendixB": false,
+      "pass": true,
+      "observed": "0",
+      "expected": "0"
+    },
+    {
+      "id": "not-immutable",
+      "label": "AUTH_IMMUTABLE is not set",
+      "appendixB": false,
+      "pass": true,
+      "observed": "false",
+      "expected": "false"
+    },
+    {
+      "id": "master-key-can-merge",
+      "label": "the master key alone meets the high threshold",
+      "appendixB": false,
+      "pass": true,
+      "observed": "master weight 1, high threshold 0",
+      "expected": "weight >= high threshold and > 0"
+    },
+    {
+      "id": "destination-exists",
+      "label": "the destination account exists",
+      "appendixB": false,
+      "pass": true,
+      "observed": "exists",
+      "expected": "account GBGZBVYU37JVDVYKNGX3IZJNNXELMNXCRLIE7IKKF3JNM2JAUYM554OV exists"
+    }
+  ]
+}
