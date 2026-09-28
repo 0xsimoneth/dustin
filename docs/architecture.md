@@ -149,7 +149,7 @@ For each non-native balance `b > 0` the ladder picks the first rung whose precon
 
 | Rung | Method | Preconditions checked in the snapshot | Protocol failure it avoids |
 |---|---|---|---|
-| 1 | `pathPaymentStrictSend(sendAsset=b.asset, sendAmount=b.balance, destination=self, destAsset=XLM, destMin=quote*(1-slippage))` | trustline `isAuthorized`; Horizon returned at least one path with `destination_amount >= 0.0000001`; no own offers remain on that asset after phase U (they are cancelled first) | `SRC_NOT_AUTHORIZED`, `TOO_FEW_OFFERS`, `UNDER_DESTMIN`, `OFFER_CROSS_SELF` [F8], [F9] |
+| 1 | `pathPaymentStrictSend(sendAsset=b.asset, sendAmount=b.balance, destination=self, destAsset=XLM, destMin=quote*(1-slippage))` | trustline `isAuthorized`; Horizon returned at least one path with `destination_amount >= 0.0000001`; no hop of the quoted path could use one of the account's own offers, which the plan cancels first (edge case B-24) | `SRC_NOT_AUTHORIZED`, `TOO_FEW_OFFERS`, `UNDER_DESTMIN`, `OFFER_CROSS_SELF` [F8], [F9] |
 | 2 | `payment(destination=issuer, amount=b.balance)` (burn) | trustline `isAuthorized` (auth-required assets can only be moved by authorized holders); if the issuer is SEP-29 memo-required the transaction carries a memo [F13]. The issuer account does not have to exist: a payment to an issuer that was merged away succeeds and burns the balance (day-1 experiment 4, `docs/progress-log.md`; `docs/README.md` open question 3, resolved 2026-09-26) | `PAYMENT_SRC_NOT_AUTHORIZED` [F8] |
 | 3 | `payment(destination=merge destination, amount=b.balance)` | destination holds a trustline for the asset, `isAuthorized`, free capacity `limit - balance - buying_liabilities >= amount` | `PAYMENT_NO_TRUST`, `PAYMENT_NOT_AUTHORIZED`, `PAYMENT_LINE_FULL` [F7] |
 | 4 | **unclosable** | none of the above | reported with the concrete reason from every rung, e.g. `NO_PATH` + `ISSUER_NOT_AUTHORIZED` + `DEST_NO_TRUSTLINE` |
@@ -157,7 +157,7 @@ For each non-native balance `b > 0` the ladder picks the first rung whose precon
 Design choices worth stating:
 
 - Rung 1 sends the proceeds to the **closing account itself**. stellar-core has no rule against `destination == source` [F9]; native XLM needs no trustline; the proceeds then leave through the merge. This keeps one delivery to the destination (the merge), one SEP-29 memo consideration, and one "recovered XLM" number. Sending proceeds straight to the destination is a one-line change if an integrator prefers it.
-- Slippage default 1%; `destMin` is never below 1 stroop. A quote whose `destination_amount` rounds to zero is treated as "no path" and falls to rung 2, because the protocol cannot deliver less than one stroop.
+- Slippage default 1%; `destMin` is never below 1 stroop. A best quote below 1 stroop rules rung 1 out and the balance falls to rung 2, because the protocol cannot deliver less than one stroop. As built, the inspector keeps such a quote and the ladder rules the sale out with its own reason, "the best strict-send quote pays less than 1 stroop of XLM for the full balance", and the fix "wait for a market that pays at least 1 stroop of XLM for <balance> <code>", so the plan no longer says that Horizon found no path (closing review CP-5). A quote whose path may use one of the account's own offers, which the plan cancels first, is not trusted either; its fix says to cancel that offer with a `--partial` run and plan again (edge case B-24; closing review CP-6).
 - `is_authorized_to_maintain_liabilities` without `is_authorized` cannot send anything [F8]: rungs 1 to 3 are all skipped and the reason says so.
 - Clawback-enabled trustlines change nothing in the ladder [F10]; they are flagged in the plan because the issuer can change the balance between plan and execution, which is exactly what the re-plan loop handles.
 - Liquidity-pool shares (`liquidity_pool_id` set): a non-zero share balance is a blocker (withdrawal is out of scope) and additionally blocks removal of the two constituent trustlines (`CHANGE_TRUST_CANNOT_DELETE`) [F7]; a zero-balance pool-share trustline is just a trustline and is removed normally. When Horizon does not return the pool (404), the planner derives its two assets from the pool id (the SHA-256 of the constant-product parameters, tried over every pair of XLM and the account's trustline assets); if no pair matches, every credit trustline is kept as `POOL_ASSET_TRUSTLINE`, so no transaction can fail on `CHANGE_TRUST_CANNOT_DELETE` (review finding R13).
@@ -190,7 +190,7 @@ interface FeeBumpSigner {
 
 ### 4.7 Executor (`src/execute`)
 
-A small state machine. States: `Inspect -> Plan -> Gate1 -> Submit(i) -> Confirm(i) -> [next | Replan | Stop] -> PreMerge -> Gate2 -> Submit(merge) -> Report`. `PreMerge` is the merge preflight (`src/execute/preflight.ts`); when the sequence guard is the only check that fails, the executor waits there for the ledger before it submits the merge (section 8).
+A small state machine. States as built: `Approval -> Inspect -> Plan (drift check) -> Submit(i) -> Confirm(i) -> [next | Replan | Stop] -> PreMerge -> Submit(merge) -> Verify -> Report`. `Approval` happens once, before anything is signed and outside the executor: the CLI shows the fresh plan and a summary and asks the user to type the last four characters of the destination address (canonical decision 4; `--yes` replaces the question), and an SDK caller passes `confirm: true` after its own approval. There is no second confirmation before the merge. What runs is what was approved because the executor plans again and stops on drift (`onDrift: "abort"` by default), including a lower recovered amount (review finding BH-7). `PreMerge` is the merge preflight (`src/execute/preflight.ts`); when the sequence guard is the only check that fails, the executor waits there for the ledger before it submits the merge (section 8).
 
 Per transaction `i`:
 
@@ -216,7 +216,8 @@ Idempotency argument: an inner transaction is pinned to one sequence number, so 
 `dustin` (bin of the `stellar-dustin` package):
 
 - `dustin plan <G...> --destination <G...> [--memo m] [--json]` reads only; prints the plan as a table and, with `--json`, the exact `ClosePlan` document. No secret is read.
-- `dustin close <G...> --destination <G...> --execute [--yes] [--memo m] [--journal file] [--max-base-fee n] [--budget xlm]` requires `DUSTIN_ACCOUNT_SECRET` (or `--account-secret-stdin`) and `DUSTIN_SPONSOR_SECRET`. Without `--execute` it behaves like `plan`. Gate 1 asks for the last four characters of the account id; gate 2 repeats the merge amount and destination before the merge transaction. `--yes` answers both for CI and the demo recording.
+- `dustin close <G...> --destination <G...> --execute [--yes] [--memo m] [--journal file] [--max-base-fee n] [--budget xlm]` requires `DUSTIN_ACCOUNT_SECRET` (or `--account-secret-stdin`) and `DUSTIN_SPONSOR_SECRET`. Without `--execute` it behaves like `plan`. As built (canonical decision 4) there is one typed confirmation, before anything is signed: after the fresh plan and a summary (the destination and the XLM it receives, the sponsor, the bid and the close budget), the user types the last four characters of the destination address. It is asked only when standard input, standard error and the stream that carried the plan are terminals; otherwise, or on a wrong answer, nothing is signed and the command exits 3. `--yes` replaces the question for scripts and the demo recording, is honoured only with `--execute`, and is printed loudly. There is no second confirmation before the merge.
+- As built, the commands are `plan`, `close`, `fixture create` and `fixture verify`, with the options listed in the README and PRD section 6 (`--to`, with `--destination` as an alias, `--sponsor`, `--memo`, `--prefer-destination`, `--base-fee`, `--partial`, `--report`, `--json`); `--journal`, `--account-secret-stdin`, `--max-base-fee`, `--budget`, `dustin baseline record` and `dustin doctor` are not built, and `fixture build` is `fixture create`.
 - `dustin fixture build --profile messy|edge --out fixture.json` builds the D3 accounts (4.10).
 - `dustin baseline record --fixture fixture.json` captures before/after Horizon state around a manual Demolisher run (4.11).
 - `dustin doctor` checks Node version, network reachability, passphrase, sponsor balance, and that no secret appears in argv.
@@ -289,26 +290,28 @@ flowchart TB
 ```mermaid
 sequenceDiagram
   autonumber
-  actor U as User (CLI)
+  actor U as User
+  participant C as dustin close (CLI)
   participant X as executeClose
   participant P as planClose (pure)
   participant H as Horizon testnet
   participant A as Account signer
   participant S as Sponsor signer (env)
-  U->>X: dustin close ACCOUNT --destination DEST --execute
-  X->>X: assertTestnet()
-  X->>H: GET /accounts/ACCOUNT, /accounts/ACCOUNT/offers
-  X->>H: GET /accounts/DEST, /accounts/DEST/data/config.memo_required
-  X->>H: GET /accounts/ISSUER (per issuer), /paths/strict-send (per balance)
-  X->>H: GET /fee_stats, /ledgers?order=desc&limit=1
-  X->>P: plan(snapshot)
-  P-->>X: ClosePlan (steps, transactions, blockers, guard)
-  X-->>U: print plan, gate 1
-  U-->>X: approve
-  loop each non-merge transaction i
-    X->>X: build inner (seq+i+1, fee, bounds, memo)
+  U->>C: dustin close ACCOUNT --to DEST --execute
+  C->>H: GET / (the network must be the testnet)
+  C->>P: planClose(ACCOUNT, DEST)
+  P->>H: GET /accounts/ACCOUNT, /accounts/ACCOUNT/offers
+  P->>H: GET /accounts/DEST, issuers, /paths/strict-send per balance
+  P->>H: GET /fee_stats, /ledgers?order=desc&limit=1
+  P-->>C: ClosePlan (steps, transactions, blockers, guard)
+  C-->>U: plan, summary, and the question: the last 4 characters of DEST
+  U-->>C: the 4 characters (or --yes)
+  C->>X: executeClose(plan, signers, confirm true)
+  X->>P: read the account and plan again, stop on drift
+  loop each transaction i before the merge
+    X->>X: build inner (seq+i+1, fee 0, bounds, memo)
     X->>A: sign inner
-    X->>S: wrap fee-bump(baseFee) + sign
+    X->>S: wrap in a fee bump and sign
     X->>H: POST /transactions (fee-bump XDR)
     alt included
       H-->>X: hash, result_xdr
@@ -319,16 +322,22 @@ sequenceDiagram
       X->>P: re-plan
     end
   end
-  X->>H: GET /accounts/ACCOUNT (subentries = 0, numSponsoring = 0, seq guard, DEST exists)
-  X-->>U: gate 2: merge N XLM to DEST?
-  U-->>X: approve
+  X->>H: preflight: the account, DEST and the latest ledger
+  opt the sequence guard holds the merge back (section 8)
+    loop every pollIntervalMs until ledger untilLedger - 1 has closed
+      X->>H: GET /ledgers?order=desc&limit=1
+    end
+  end
   X->>A: sign merge inner
-  X->>S: wrap + sign
+  X->>S: wrap and sign
   X->>H: POST /transactions
   H-->>X: ACCOUNT_MERGE_SUCCESS (sourceAccountBalance)
   X->>H: GET /accounts/ACCOUNT -> 404
-  X-->>U: CloseReport (hashes, explorer links, recovered XLM)
+  X-->>C: CloseReport
+  C-->>U: receipt (hashes, explorer links, merged XLM)
 ```
+
+As built there is one confirmation, before anything is signed (canonical decision 4); the merge runs without a second question once the preflight passes (section 4.7).
 
 ## 5. Ordering rules and transaction grouping
 
@@ -379,7 +388,7 @@ Why some steps are separate transactions, precisely: not because a path payment'
 | `DESTINATION_MISSING` / `DESTINATION_IS_SELF` | destination 404 or equals the account | yes | fund the destination first; Dustin never creates it (it would need sponsor XLM and change the sponsor's blast radius) |
 | `DESTINATION_REQUIRES_MEMO` | SEP-29 entry present, no memo supplied | no | pass `--memo` [F13] |
 | `SEQNUM_TOO_FAR` | guard fails (section 8) | no | wait; ETA printed |
-| `UNCLOSABLE_BALANCE` | any rung-4 asset | no | reasons per rung; typically the issuer must authorise or claw back |
+| `UNCLOSABLE_BALANCE` | any rung-4 asset | no | reasons per rung; typically the issuer must authorise the trustline again, or claw the balance back when the trustline is clawback-enabled (as built, the codes are `TRUSTLINE_NOT_AUTHORIZED`, `MAINTAIN_LIABILITIES_ONLY` and `NO_DISPOSAL_ROUTE`, and the clawback is offered only for a clawback-enabled trustline, closing review CP-7) |
 
 ## 6. The plan as data
 
@@ -542,7 +551,7 @@ Mapping to deliverables: D1 = `config`, `reader`, `inspect`, `plan`, `cli/plan`;
 | Secrets in logs | Secrets are read only from environment variables or stdin, never from argv (visible in process listings). A single `redact()` wraps every log and error path and replaces anything matching the StrKey secret-seed pattern (`S` followed by 55 base32 characters) with `S...REDACTED`. `Keypair` instances are never placed on plan, report or journal objects; a unit test serialises every public type with a secret in scope and asserts it does not appear. |
 | Sponsor budget | `sponsorBudgetStroops` per close (default 5 XLM) checked before every signature; fee escalation is capped by `maxBaseFeeStroops`; the sponsor signs only fee-bump envelopes whose inner hash the executor built in this run. The sponsor never signs an inner transaction and never is an operation source, so its worst-case loss is the budget. |
 | Mainnet | `assertTestnet()` on every entry point; passphrase and Horizon URL allowlist; the constant `Networks.PUBLIC` is not referenced anywhere in `src/`, and a CI grep enforces that. |
-| Confirmation gates | Dry run by default; `--execute` plus gate 1 (type the last four characters of the account id) plus gate 2 before the merge; `--yes` is explicit and printed loudly in the output. SDK users receive `approve(stage, plan)` callbacks and must pass `unattended: true` to skip them. |
+| Confirmation | Dry run by default. As built (canonical decision 4) there is one typed confirmation, before anything is signed: `--execute` plus the last four characters of the destination address, asked only when standard input, standard error and the stream that carried the plan are terminals (otherwise nothing is signed, exit 3); `--yes` replaces it, is honoured only with `--execute`, and is printed loudly in the output. There is no second confirmation before the merge. The SDK has no approval callbacks: `executeClose` requires `confirm: true`, which the caller passes after its own approval, and it plans again and stops on drift, so what runs is what was approved (`onDrift: "abort"` by default). |
 | Irreversibility | The merge is the only irreversible operation for the user (everything else can be recreated); it is always the last operation, always preceded by the preflight, and the report keeps the merge amount from the ledger result [F6]. |
 | Malicious destination | It may be memo-required (SEP-29 blocker rather than a silent wrong memo) [F13]; it may not exist (blocker, never auto-created); it may be the sponsor or an issuer (allowed, warned); it may be an `M...` muxed address (allowed for the merge; SEP-29 excludes muxed destinations [F13]); it cannot be a `C...` address (StrKey validation rejects it, contract accounts are out of scope). A destination cannot steal anything beyond what the user chose to send it. |
 | Malicious or careless issuer | Between plan and execution it can claw back (`AUTH_CLAWBACK_ENABLED`) [F10], deauthorise (`AUTH_REVOCABLE`) [F8], or mark itself memo-required. All three surface as inner-operation failures, trigger a re-plan, and end either in a different rung or in an `UNCLOSABLE_BALANCE` with the issuer named. No path lets an issuer extract XLM from the account or the sponsor: rung 2 payments only ever send the issuer its own asset, which burns. |
