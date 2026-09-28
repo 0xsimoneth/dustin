@@ -1001,6 +1001,7 @@ class CloseRun {
         explanation: failure.explanation,
         where,
         ...(stepId ? { stepId } : {}),
+        ...(unblocks !== undefined ? { unblocksAtLedger: unblocks } : {}),
       });
     }
     if (failure.verdict === "stop") {
@@ -1057,9 +1058,14 @@ class CloseRun {
     /** One sentence that opens the stop's detail. */
     where: string;
     stepId?: string;
+    /**
+     * Set when the merge failed with op_seq_num_too_far within the plan's bound: the first ledger
+     * the next merge can land in (closing review CX-5).
+     */
+    unblocksAtLedger?: number;
   }): Promise<AfterFailure> {
     const { options, reader, fresh, plan, sponsorKey } = this.input;
-    const { tx, where, stepId } = trigger;
+    const { tx, where, stepId, unblocksAtLedger } = trigger;
     // The round of the transaction that forced the re-plan. A stop raised after the new round was
     // counted still names that transaction (txIndex, hash), so it carries its round too (review
     // round 3, R3-7).
@@ -1078,12 +1084,30 @@ class CloseRun {
         ...stop,
       },
     });
-    if (this.report.replans.length >= (options.maxReplans ?? 3)) {
-      return stopWith({
-        code: "REPLAN_LIMIT",
-        verdict: "stop",
-        detail: `${where} The run already re-planned ${this.report.replans.length} times, so it stops here.`,
-      });
+    // Closing review CX-5: after op_seq_num_too_far within the bound, waiting for a ledger is all
+    // the merge needs, so a stop that cannot plan it again now is the guard's stop: verdict
+    // replan, and the ledger to run the close again at.
+    const guardStop = (why: string): AfterFailure | null =>
+      unblocksAtLedger === undefined
+        ? null
+        : stopWith({
+            code: "SEQNUM_TOO_FAR",
+            verdict: "replan",
+            detail: `${where} The next merge can land from ledger ${unblocksAtLedger}, but ${why} Run the close again at or after ledger ${unblocksAtLedger}; it continues from the ledger.`,
+            unblocksAtLedger,
+          });
+    const maxReplans = options.maxReplans ?? 3;
+    if (this.report.replans.length >= maxReplans) {
+      return (
+        guardStop(
+          `the run already re-planned ${this.report.replans.length} times (maxReplans ${maxReplans}), so it cannot plan the merge again now.`,
+        ) ??
+        stopWith({
+          code: "REPLAN_LIMIT",
+          verdict: "stop",
+          detail: `${where} The run already re-planned ${this.report.replans.length} times, so it stops here.`,
+        })
+      );
     }
     this.stage = "plan";
     const allowed = new Set([...rungOneAssets(fresh)].filter((a) => !this.demoted.has(a)));
@@ -1166,12 +1190,18 @@ class CloseRun {
     // re-plan never runs its first transactions and then stops before the merge for lack of it.
     const left = this.sponsor!.remainingStroops;
     if (next.fees.totalStroops > left) {
-      return stopWith({
-        code: "OVER_BUDGET",
-        stage: "sponsor",
-        verdict: "stop",
-        detail: `${where} The re-plan's fee bids total ${next.fees.totalStroops} stroops, more than the ${left} stroops left of the close budget of ${next.fees.budgetStroops} stroops; nothing more was signed. Raise the close budget or wait for network fees to fall, then run the close again.`,
-      });
+      const { totalStroops, budgetStroops } = next.fees;
+      return (
+        guardStop(
+          `the re-plan's fee bids total ${totalStroops} stroops, more than the ${left} stroops left of the close budget of ${budgetStroops} stroops; nothing more was signed.`,
+        ) ??
+        stopWith({
+          code: "OVER_BUDGET",
+          stage: "sponsor",
+          verdict: "stop",
+          detail: `${where} The re-plan's fee bids total ${totalStroops} stroops, more than the ${left} stroops left of the close budget of ${budgetStroops} stroops; nothing more was signed. Raise the close budget or wait for network fees to fall, then run the close again.`,
+        })
+      );
     }
     return { kind: "replan", plan: next };
   }

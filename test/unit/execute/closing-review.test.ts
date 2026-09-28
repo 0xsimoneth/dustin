@@ -317,3 +317,66 @@ describe("CX-4: op_seq_num_too_far failures of the merge are counted on their ow
     expect(report.stop!.detail).toMatch(/It failed twice \(first with op_seq_num_too_far\)/);
   });
 });
+
+describe("CX-5: op_seq_num_too_far with no re-plan or budget left says when to run again", () => {
+  /**
+   * After the merge's preflight another client bumps the sequence number 4 ledgers ahead: the
+   * merge fails with op_seq_num_too_far in ledger L + 3 and the next one can land from L + 7,
+   * well within the bound.
+   */
+  function bumpAfterPreflight(ledger: FakeLedger) {
+    let bumped = false;
+    return (e: CloseEvent) => {
+      if (e.type === "preflight" && e.index === 2 && e.ok && !bumped) {
+        bumped = true;
+        bump(ledger, 4);
+      }
+    };
+  }
+
+  it("stops with SEQNUM_TOO_FAR and the ledger when no re-plan is left (maxReplans 0)", async () => {
+    const { ledger, clock, deps, plan } = harness();
+    const L = ledger.ledgerSeq;
+    const report = await executeClose(await plan(), signers(), {
+      confirm: true,
+      ...deps,
+      maxReplans: 0,
+      sleep: tickingSleep(ledger, clock),
+      onEvent: bumpAfterPreflight(ledger),
+    });
+    expect(report.transactions.at(-1)).toMatchObject({ phase: "merge", result: "failed" });
+    // Before the fix: REPLAN_LIMIT, verdict stop, no ledger, "re-planned 0 times".
+    expect(report.status).toBe("failed");
+    expect(report.stop).toMatchObject({
+      code: "SEQNUM_TOO_FAR",
+      verdict: "replan",
+      unblocksAtLedger: L + 7,
+      stepId: "S12",
+    });
+    expect(report.message).toMatch(/maxReplans 0/);
+    expect(report.message).toContain(`Run the close again at or after ledger ${L + 7}`);
+  });
+
+  it("stops with SEQNUM_TOO_FAR and the ledger when the budget has no room for another merge", async () => {
+    const { ledger, clock, deps, plan } = harness();
+    const L = ledger.ledgerSeq;
+    const approved = await plan();
+    const report = await executeClose(approved, signers(), {
+      confirm: true,
+      ...deps,
+      // Exactly the plan's bids: nothing is left for a merge at a new sequence number.
+      budgetStroops: approved.fees.totalStroops,
+      sleep: tickingSleep(ledger, clock),
+      onEvent: bumpAfterPreflight(ledger),
+    });
+    expect(report.transactions.at(-1)).toMatchObject({ phase: "merge", result: "failed" });
+    // Before the fix: OVER_BUDGET, verdict stop, no ledger.
+    expect(report.stop).toMatchObject({
+      code: "SEQNUM_TOO_FAR",
+      verdict: "replan",
+      unblocksAtLedger: L + 7,
+    });
+    expect(report.message).toMatch(/left of the close budget/);
+    expect(report.message).toContain(`Run the close again at or after ledger ${L + 7}`);
+  });
+});
