@@ -99,15 +99,15 @@ Before any rung, the trustline itself is checked. A trustline its issuer has not
 
 ```mermaid
 flowchart TD
-  B[Non-zero balance on a trustline] --> A{Trustline authorized?}
-  A -- "not authorized, or maintain liabilities only" --> U1[Unclosable:<br/>TRUSTLINE_NOT_AUTHORIZED or<br/>MAINTAIN_LIABILITIES_ONLY]
-  A -- yes --> P{Strict-send path to XLM for the<br/>whole balance, not through the<br/>account's own offers?}
-  P -- yes --> R1[Rung 1: path payment to the account itself]
-  P -- no --> I{Issuer requires a memo<br/>that was not given?}
-  I -- no --> R2[Rung 2: pay it back to the issuer, which burns it]
-  I -- yes --> D{Destination holds an authorized<br/>trustline with room, and gets<br/>any memo it requires?}
-  D -- yes --> R3[Rung 3: send it to the destination]
-  D -- no --> U2[Unclosable: NO_DISPOSAL_ROUTE]
+  B["Non-zero balance on a trustline"] --> A{"Trustline authorized?"}
+  A -->|"not authorized, or maintain liabilities only"| U1["Unclosable: TRUSTLINE_NOT_AUTHORIZED<br/>or MAINTAIN_LIABILITIES_ONLY"]
+  A -->|yes| P{"Strict-send path to XLM for the<br/>whole balance, not through the<br/>account's own offers?"}
+  P -->|yes| R1["Rung 1: path payment to the account itself"]
+  P -->|no| I{"Issuer requires a memo<br/>that was not given?"}
+  I -->|no| R2["Rung 2: pay it back to the issuer, which burns it"]
+  I -->|yes| D{"Destination holds an authorized<br/>trustline with room, and gets<br/>any memo it requires?"}
+  D -->|yes| R3["Rung 3: send it to the destination"]
+  D -->|no| U2["Unclosable: NO_DISPOSAL_ROUTE"]
 ```
 
 With `--prefer-destination` the destination question comes before the issuer question.
@@ -207,7 +207,7 @@ What the executor does today: before a merge that follows other transactions of 
 | Limit (SOW wording) | What Dustin does | What a user can do |
 |---|---|---|
 | Mainnet. Testnet only, no real value. | Refuses any network passphrase but testnet, and any Horizon that does not serve the testnet, before the first read (`MAINNET_REFUSED`). | Nothing in this release; the mainnet gate is described in [mainnet readiness](next-steps/mainnet-readiness.md). |
-| Contract accounts (C addresses). Classic G address accounts only. | Refuses a `C...` account or destination (`CONTRACT_ACCOUNT`, CLI exit code 2). | Close a contract account with the contract's own tooling. |
+| Contract accounts (C addresses). Classic G address accounts only. | Refuses a `C...` account or destination (`CONTRACT_ACCOUNT`, CLI exit code 2). | Nothing with Dustin: a contract account is managed through its contract. |
 | Liquidity pool share withdrawal. Detected and reported, not automated. | Blocker `LIQUIDITY_POOL_SHARES`; the pool's asset trustlines are `POOL_ASSET_TRUSTLINE`; an empty pool-share trustline is removed. | Withdraw from the pool (Liquidity Pool Withdraw) and remove the pool-share trustline outside Dustin, then plan again. |
 | Multisig accounts with raised thresholds. Detected and reported, not automated. | Assumes the master key alone; blocker `THRESHOLD_UNMET` or `MASTER_KEY_DISABLED`, naming the weight needed. | Collect the other signatures outside Dustin. |
 | Claimable balance cleanup. | An account that created claimable balances sponsors their reserves ([claimable balances](https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves#effect-on-claimable-balances)); blocker `IS_SPONSOR`. | Have the claimable balances claimed or clawed back, end any other sponsorship, then plan again. |

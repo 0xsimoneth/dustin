@@ -34,12 +34,12 @@ sequenceDiagram
   participant H as Horizon (testnet)
   participant A as Account signer (wallet key store)
   participant S as Sponsor signer
-  W->>D: planClose({ account, destination, feeSponsor })
-  D->>H: GET only: account, offers, issuers, destination, paths, fee stats
+  W->>D: planClose(account, destination, feeSponsor)
+  D->>H: GET only (account, offers, issuers, destination, paths, fee stats)
   D-->>W: ClosePlan
   W->>U: show the plan
   U-->>W: approve
-  W->>D: executeClose(plan, { account, feeSponsor }, { confirm: true, onEvent, onReport })
+  W->>D: executeClose(plan, signers, options with confirm true)
   D->>H: read the account again and plan again (drift check), sponsor balance
   loop each planned transaction
     D->>A: sign the inner transaction (all its operations)
