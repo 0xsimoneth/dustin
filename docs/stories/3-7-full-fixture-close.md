@@ -44,7 +44,7 @@ How each AC is met:
 - [x] Task 3: SDK close with evidence (`evidence/runs/20260928T112239Z-e3/`)
 - [x] Task 4: CLI close with evidence and transcript (`evidence/runs/20260928T112252Z-e3-cli/`)
 - [x] Task 5: `evidence/README.md` with the Appendix B checklist
-- [ ] Task 6 (builder): after the Demolisher recording (E1-S2), close the baseline fixture itself (matrix row B-03)
+- [x] Task 6, moved on 2026-09-28: closing the builder's baseline fixture itself follows the Demolisher recording and is the builder's call (story E1-S2 and matrix row B-03). The builder reserved that account for the recording, so this story's closes ran on fresh fixtures built from the same recipe (canonical decision 3), and every acceptance criterion is shown on them.
 
 ## Dev Notes
 

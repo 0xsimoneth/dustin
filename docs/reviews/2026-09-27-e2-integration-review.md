@@ -45,6 +45,8 @@ The review found real defects in the recovery paths, most of them reachable only
 
 ## Status of findings R1 to R19
 
+> Status update, 2026-09-28: R8 (the sequence-guard wait, E3-S4), BH-7 (the confirmed amount, E3-S1), AA-14 (where the proceeds go, E3-S1) and the E2-S5 record are closed; E2-S3 and E2-S4 went through a third review round. The details are in `docs/reviews/2026-09-28-e3-review.md`. The tables below are kept as they stood on 2026-09-27.
+
 | ID | Status | Where |
 |---|---|---|
 | R1 report survives thrown errors | closed | c161ad5; hardened in 03f472e, 40d8c50 |
