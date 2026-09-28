@@ -237,7 +237,7 @@ result + result meta XDR files.
 | X-08 Stale offer | Plan on FIX-J, then MM fills one offer, then execute. | n/a | First attempt fails `op_not_found` (whole transaction); executor re-plans and succeeds. | both transaction bodies; re-plan diff. | I |
 | X-09 Incoming payment after plan | Plan, then helper sends 1 stroop of DUSTB to FIX, then execute. | n/a | Plan-hash mismatch detected before submission (balance `last_modified_ledger` changed) → re-plan → success. Variant with the check disabled: `op_invalid_limit` on the delete. | diff output; failure body of the variant. | U + I |
 | X-10 Dust below DEX resolution | DUSTA balance 0.0000003 with MM price 0.1 XLM per DUSTA. | Step 1 planned as "expected to round to zero". | Path payment fails (`op_too_few_offers` or `op_under_destmin`, record which — U4) → burn. | failure body; final hashes. | I |
-| X-11 Own offers are the only liquidity | FIX-K sells DUSTA; no MM. | Own offers excluded → step 2 planned directly. Regression: a planner that consults `/paths` naively would plan step 1. | Success via burn; negative variant (no cancel first): `op_cross_self`. | plan JSON; negative-variant body. | U + I |
+| X-11 Own offers are the only liquidity | FIX-K holds its own offer that sells XLM for DUSTA, the only liquidity for a DUSTA → XLM sale; no MM. (Corrected 2026-09-28: this row first had FIX-K sell DUSTA, an offer on the other side of the book that is no liquidity for this sale. An account at exactly its minimum balance cannot back an offer that sells XLM, which needs XLM above the minimum for its reserve and its selling liabilities, so the live fixtures do not build this row; it is covered offline, see `docs/test-matrix.md`.) | Own offers excluded → step 2 planned directly. Regression: a planner that consults `/paths` naively would plan step 1. | Success via burn; negative variant (no cancel first): `op_cross_self`. | plan JSON; negative-variant body. | U + I |
 | X-12 Op-limit chunking and ordering invariants | Synthetic snapshot: 250 offers, 60 trustlines with balances, 5 data entries. | ≥ 4 transactions; invariants: cancels of an asset before its disposal; disposal before its delete; merge last and alone at the end; no transaction > 100 ops. Optional live: 120 offers (60 XLM reserve). | Sequential submission with per-transaction re-snapshot. | plan JSON; property-test log. | U (+ optional I) |
 | X-13 Fee-bump fee math and surge | Unit: fee < (n+1)×base; fee < inner; per-op rate; RBF 10×. Mocked Horizon: `tx_insufficient_fee` then success. | Fee estimates per step match `baseFee × (ops + 1)`. | Retry policy: raise fee; respect 10× when a previous bump is queued. | unit log; mocked-run log. | U |
 | X-14 504 timeout and `tx_bad_seq` reconciliation | Mocked Horizon: 504, then the transaction appears on `GET /transactions/{hash}`; second mock: 504 then `tx_bad_seq` on resubmission with the original included. | n/a | Polls by hash; never treats `tx_bad_seq` as failure without checking inclusion; never double-applies. | mocked-run log. | U |
@@ -410,7 +410,11 @@ Resulting fixture: 4 trustlines with non-zero balances (3 required + the sponsor
 - U3. Friendbot behaviour on an already-funded account (the Lab page suggests accounts "with balance under
   10,000 XLM" can be funded again); the recipe only funds fresh accounts.
 - U4. The exact result code when a strict-send path payment's conversion rounds to zero (`TOO_FEW_OFFERS`
-  vs `UNDER_DESTMIN`); observe in X-10.
+  vs `UNDER_DESTMIN`); observe in X-10. Answered 2026-09-28 (story E3-S1, matrix row X-10, two live runs):
+  with the only bid re-priced so that the dust would buy 0.7 stroop of XLM, Horizon's strict-send path finder
+  returned no record at all (not a record of 0.0000000), and a strict send forced by hand with `destMin` 1
+  stroop was included and failed with `op_under_dest_min` (`PATH_PAYMENT_STRICT_SEND_UNDER_DESTMIN`), not
+  `op_too_few_offers`. The planner reads the missing record as "no path" and returns the dust to its issuer.
 - U5. The StellarExpert Account Demolisher's source location and its "server co-signs merges above 1 XLM"
   and fee behaviour: no repository named demolisher exists under the stellar-expert organisation as of
   2026-09-25 and `stellar.expert/demolisher` renders only an app shell. Update 2026-09-25: the competitive landscape document located the client source inside the explorer monorepo (stellar-expert/stellar-expert-explorer, MIT, `business-logic/demolisher/demolisher-tx-builder.js`), found the route present in current source, observed the testnet co-sign endpoint responding, and confirmed the below-1-XLM refusal by a black-box probe (0.5 and 0.9999999 XLM payouts rejected with HTTP 400, 1 and 5 XLM signed); U5 is therefore observed behaviour, still to be shown in the B-01 recording. The GitHub search instead surfaced
@@ -423,12 +427,21 @@ Resulting fixture: 4 trustlines with non-zero balances (3 required + the sponsor
 - U7. Whether `Operation.manageData` can address a data entry whose name is not valid UTF-8 (js-xdr may
   accept a `Buffer`; not checked).
 - U8. Self-destination path payments (`destination = source`, different assets): no rejecting check was
-  found in core; confirm in M-01 before relying on it, otherwise pay proceeds to DST directly.
+  found in core; confirm in M-01 before relying on it, otherwise pay proceeds to DST directly. Answered: they
+  work. Day-1 experiment 14 (2026-09-26, `docs/progress-log.md`) applied a `pathPaymentStrictSend` DUST → XLM
+  to the sending account itself, with the `changeTrust "0"` in the same transaction, and 7 stroops of proceeds
+  landed in the account. On 2026-09-28 both metric closes of M-01 (story E3-S7,
+  `evidence/runs/20260928T112239Z-e3/` and `evidence/runs/20260928T112252Z-e3-cli/`) sold DUSTA the same way,
+  to the closing account itself, and the merge carried the proceeds to the destination.
 - U9. Horizon `/assets?asset_issuer=` as the way to detect that the closing account is an issuer with
   outstanding supply.
 - U10. Whether `TransactionBuilder` accepts an inner fee of `"0"`; CAP-15 allows it at the protocol level.
 - U11. Horizon omits `is_clawback_enabled` when false (Go struct is `*bool omitempty`; observed absent on a
-  non-clawback trustline); treat absence as false, confirm on the S-07 fixture.
+  non-clawback trustline); treat absence as false, confirm on the S-07 fixture. Answered: confirmed on
+  2026-09-26 (day-1 notes in `docs/progress-log.md`) and on 2026-09-28 on the `edge` fixture (story E3-S6,
+  matrix row S-07): Horizon showed `is_clawback_enabled: true` on both CLAW trustlines, and in the Horizon
+  JSON recorded from an `edge` build that day (`test/fixtures/horizon/edge/`) the field appears on those two
+  trustlines only.
 - U12. `ACCOUNT_MERGE_SEQNUM_TOO_FAR` uses the ledger in which the merge *applies*; the planner's ETA uses
   the latest known ledger + 1, which is conservative.
 

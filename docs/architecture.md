@@ -190,7 +190,7 @@ interface FeeBumpSigner {
 
 ### 4.7 Executor (`src/execute`)
 
-A small state machine. States: `Inspect -> Plan -> Gate1 -> Submit(i) -> Confirm(i) -> [next | Replan | Stop] -> PreMerge -> Gate2 -> Submit(merge) -> Report`.
+A small state machine. States: `Inspect -> Plan -> Gate1 -> Submit(i) -> Confirm(i) -> [next | Replan | Stop] -> PreMerge -> Gate2 -> Submit(merge) -> Report`. `PreMerge` is the merge preflight (`src/execute/preflight.ts`); when the sequence guard is the only check that fails, the executor waits there for the ledger before it submits the merge (section 8).
 
 Per transaction `i`:
 
@@ -473,7 +473,16 @@ unblocksAtLedger    = ok ? null : (sequenceAtMerge >> 32) + 1
 etaSeconds          = ok ? null : (unblocksAtLedger - observed.ledger) * 5   // ~5 s ledgers, observed
 ```
 
-The executor re-evaluates the same formula in the pre-merge preflight against the then-latest ledger and waits (polling `GET /ledgers?order=desc&limit=1`) when `etaSeconds` is under a configurable ceiling (default 10 minutes), otherwise stops with `SEQNUM_TOO_FAR` and the ETA. Nothing can lower a sequence number, so waiting is the only remedy. The test matrix bumps a fixture's sequence to `(currentLedger + 720) << 32` (about an hour) to assert the reported ETA without waiting, and to `(currentLedger + 3) << 32` to assert that the executor waits a few ledgers and then merges.
+When the guard fails, the planner compares the wait with `maxWaitLedgers` (default 120 ledgers, about 10 minutes): within it, the merge moves into its own last transaction and the plan warns that the executor waits; beyond it, the plan gets the blocker `SEQNUM_TOO_FAR` with the ledger and the ETA, and no merge.
+
+The executor re-evaluates the same formula in the merge preflight against the then-latest ledger (story E3-S4, review finding R8; `src/execute/executor.ts`, `src/execute/preflight.ts`). The preflight runs before a merge that follows other transactions of the run, whenever the plan's `sequenceGuard.ok` is false (so a merge that is the plan's only transaction is checked too), and before every rebuild of a merge envelope. When the guard is the only failing check, the executor waits:
+
+- **When to submit.** A merge with sequence number `s` applies only from ledger `(s >> 32) + 1`, the `untilLedger` of the wait, and a transaction submitted now lands at the earliest in the ledger after the latest closed one. So the executor submits once ledger `untilLedger - 1` has closed, not when `untilLedger` itself has.
+- **How.** It emits `{ type: "wait", reason: "sequence", state: "start", index, untilLedger, currentLedger }`, polls `GET /ledgers?order=desc&limit=1` every `pollIntervalMs` (default 2000 ms, at least 200 ms) with the injected pause, then emits the `end` event, runs the preflight again and submits. The preflight after the wait goes by the later of its own reading and the ledger the wait saw (`knownLedger`), so a Horizon instance that lags the one that answered the wait cannot hold the merge back again.
+- **Two bounds.** First, `untilLedger - latestLedger <= maxWaitLedgers` of the plan, the planner's own rule, so a plan the planner made closable is waited for and one it blocked never reaches a merge. Second, a local-clock limit, `ledgerWaitLimitMs(n) = 2 × (n + 2) × 5 s` for the `n` ledgers to wait for: the ledgers decide when the wait is over, and the limit only ends a wait on a network that closes ledgers far slower than usual. Beyond either bound the run stops before the merge with `SEQNUM_TOO_FAR`, `verdict: "replan"` and `unblocksAtLedger`; the stop's detail says to run the close again at or after that ledger.
+- **`op_seq_num_too_far` on the ledger** (the sequence number moved between the preflight and the merge): the executor reads the account again and recomputes the guard. Within the bound it re-plans, and the new merge waits in its preflight; beyond the bound, or on a second such failure, it stops with `SEQNUM_TOO_FAR`.
+
+Nothing can lower a sequence number, so waiting is the only remedy. The live tests (`test/testnet/sequence-guard.test.ts`, matrix row S-04) bump a fresh fixture's sequence number three ways. To `(currentLedger + 16) << 32`, the executor waits and merges: on 2026-09-28 it waited 60 s (12 ledgers) and the merge applied in `untilLedger` itself. To `(currentLedger + 720) << 32`, about an hour, the plan is blocked with the ETA and nothing waits. To `(currentLedger + 10) << 32`, for the boundary: a merge posted into ledger `untilLedger - 1` failed with `op_seq_num_too_far`, and the executor's merge applied in `untilLedger`, in both runs of the story (`docs/stories/3-4-seqnum-too-far-guard.md`).
 
 ## 9. Key decisions
 
