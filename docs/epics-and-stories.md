@@ -532,6 +532,8 @@ So that nothing silently blocks my close.
 
 ### Story 3.3 (E3-S3): Sponsored trustline unwind with reserve attribution (`3-3-sponsored-trustline-unwind`)
 
+> Implementation (2026-09-28): see `docs/stories/3-3-sponsored-trustline-unwind.md`. The report records what Horizon showed for each reserve sponsor before the first submission and after the final check (`recovery.sponsorsObserved`), and the receipt prints "Reserves released to sponsors" with the planned and the observed figures. Deviations awaiting the builder's acceptance: in the messy fixture the sponsored trustline is SPTA and its sponsor is the reserve sponsor, not "SPN" and "the fixture sponsor" (canonical decision 3); AC-E3-S3-2's field is `recovery.reservesReturnedToSponsors` and its `entries` lists the entries (PRD decision D-2); AC-E3-S3-4's line is in the plan's summary block and in the receipt, not in the four-fact summary printed right before the typed confirmation.
+
 As a sponsor of someone else's trustline,
 I want the close to release my reserve back to me and say so,
 So that the user is not told they will receive XLM that is actually mine.
@@ -547,6 +549,8 @@ So that the user is not told they will receive XLM that is actually mine.
 **Dependencies:** E3-S2. **Estimate:** 6 h. **Evidence:** sponsor account before/after snapshots in the evidence folder. **SOW deliverable:** D2.
 
 ### Story 3.4 (E3-S4): `ACCOUNT_MERGE_SEQNUM_TOO_FAR` guard (`3-4-seqnum-too-far-guard`)
+
+> Implementation (2026-09-28): see `docs/stories/3-4-seqnum-too-far-guard.md`. The executor waits for the sequence guard before the merge (review finding R8), bounded by the plan's `maxWaitLedgers` (default 120 ledgers), and emits a `wait` event that the CLI prints. Deviations awaiting the builder's acceptance: the bound is the plan option `maxWaitLedgers`, not `waitForSequence.maxMinutes`, and the ledger is `unblocksAtLedger`, not `readyAtLedger` (PRD FR-14, decision D-2); AC-E3-S4-1's blocker applies only when the wait exceeds that bound, since a guard within it is waited for (AC-E3-S4-2); AC-E3-S4-3's `partial` holds for a guard beyond the bound when planned, with `--partial`, while a run the guard stops part-way (the wait runs out, the sequence number moved beyond the bound during the run) ends `failed` with the stop `SEQNUM_TOO_FAR` and `unblocksAtLedger`, CLI exit 5. The technical note's protocol-19 "age-based check" is, in stellar-core, a check of the highest sequence number among the account's transactions in the same ledger; it cannot trigger for Dustin, which sends one transaction at a time.
 
 As a user whose account once had its sequence number bumped,
 I want Dustin to tell me when the merge cannot happen yet and how long to wait,
