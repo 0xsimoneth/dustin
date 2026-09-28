@@ -16,14 +16,21 @@ import {
 } from "../config/network.js";
 import { timerSleep, type Sleep } from "../config/pauses.js";
 import { DustinError } from "../errors/dustin-error.js";
-import { horizonSubmitter, submitAndConfirm } from "../execute/submit.js";
+import { horizonSubmitter, submitAndConfirm, type SubmitOutcome } from "../execute/submit.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
 import { inspectAccount } from "../inspect/inspect.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
 import { horizonJson, latestLedger, type FetchLike } from "../reader/horizon-json.js";
 import { horizonReader } from "../reader/ledger-reader.js";
 import { hashHex, wrapInFeeBump } from "../sponsor/fee-bump.js";
-import { fixtureId, friendbot, stepError, type RecordedResponse } from "./builder.js";
+import {
+  awaitFunded,
+  fixtureId,
+  friendbot,
+  pollAccount,
+  stepError,
+  type RecordedResponse,
+} from "./builder.js";
 import {
   EDGE,
   EDGE_ACCOUNT_ROLES,
@@ -83,6 +90,17 @@ const kebab = (role: string) => role.replace(/[A-Z]/g, (c) => `-${c.toLowerCase(
 
 /** Default bound on the polls for a step's expected state. */
 const DEFAULT_SETTLE_TIMEOUT_MS = 30_000;
+
+/**
+ * Refused for its sequence number, before inclusion (nothing consumed): `tx_bad_seq`, or for a
+ * fee bump the inner transaction's.
+ */
+function badSequence(outcome: SubmitOutcome): boolean {
+  return (
+    outcome.kind === "rejected" &&
+    (outcome.codes.transaction === "tx_bad_seq" || outcome.codes.innerTransaction === "tx_bad_seq")
+  );
+}
 
 /**
  * `settleTimeoutMs` is a bound, not a pause, so 0 is allowed; NaN or Infinity would keep a check
@@ -206,6 +224,8 @@ export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<
     sleep,
     horizonUrl: config.horizonUrl,
   });
+  // The instance that answers next may not have ingested the funding yet (closing review CP-10).
+  await awaitFunded(client, roles.sponsor, settleTimeoutMs, sleep);
   const ledger = await latestLedger(client);
   const createdAtLedger = ledger.sequence;
   const baseReserve = BigInt(ledger.base_reserve_in_stroops);
@@ -229,11 +249,10 @@ export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<
       await sleep(1000);
     }
   };
-  const runStep = async (step: EdgeStep): Promise<void> => {
+  /** Builds, signs and submits one step at the given source sequence number. */
+  const submitStep = async (step: EdgeStep, sequence: string) => {
     const sourceId = roles[step.source];
-    const source = await client.get<HorizonAccount>(`/accounts/${sourceId}`);
-    if (!source) throw invalid(`the ${step.source} account ${sourceId} does not exist`);
-    const builder = new TransactionBuilder(new Account(sourceId, source.sequence), {
+    const builder = new TransactionBuilder(new Account(sourceId, sequence), {
       // The fee sponsor pays for fee-bumped transactions; their inner fee is 0 (CAP-15).
       fee: step.feeBumped ? "0" : String(baseFee),
       networkPassphrase: config.networkPassphrase,
@@ -250,6 +269,26 @@ export async function buildEdgeFixture(options: EdgeBuildOptions = {}): Promise<
       { xdr: envelope.toXDR(), hash, maxTime: Number(inner.timeBounds?.maxTime ?? 0) },
       { sleep },
     );
+    return { outcome, hash, inner };
+  };
+  const exists = (account: HorizonAccount | null) => account !== null;
+  const runStep = async (step: EdgeStep): Promise<void> => {
+    const sourceId = roles[step.source];
+    // A lagging instance may not show an account the previous steps created yet (CP-10).
+    const source = await pollAccount(client, sourceId, exists, settleTimeoutMs, sleep);
+    if (!source) throw invalid(`the ${step.source} account ${sourceId} does not exist`);
+    let { outcome, hash, inner } = await submitStep(step, source.sequence);
+    if (badSequence(outcome)) {
+      // The sequence number came from an instance behind the ledger: read the source until it
+      // shows a newer one, then build the step once more (closing review CP-10).
+      const used = BigInt(source.sequence);
+      const moved = (a: HorizonAccount | null) => a !== null && BigInt(a.sequence) > used;
+      const fresh = await pollAccount(client, sourceId, moved, settleTimeoutMs, sleep);
+      if (fresh) {
+        log(`  ${step.name.padEnd(16)} tx_bad_seq at a stale sequence number; built again`);
+        ({ outcome, hash, inner } = await submitStep(step, fresh.sequence));
+      }
+    }
     if (outcome.kind !== "applied") throw stepError(step.name, outcome);
     transactions.push({
       step: step.name,

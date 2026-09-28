@@ -176,6 +176,7 @@ export async function buildMessyFixture(options: BuildOptions = {}): Promise<Bui
   await friendbot(options.friendbotUrl ?? FRIENDBOT_URL, roles.sponsor, doFetch, {
     horizonUrl: config.horizonUrl,
   });
+  await awaitFunded(client, roles.sponsor, 30_000, sleep);
   const createdAtLedger = (await latestLedger(client)).sequence;
   const baseFee = baseFeeFromFeeStats(await server.feeStats());
   log(
@@ -382,6 +383,48 @@ export async function friendbot(
     verdict: "retry-same",
     remedy: "Friendbot is rate limited; wait a minute and run the command again.",
   });
+}
+
+/**
+ * Reads an account from Horizon until `ready` holds for what it shows, pausing 1 s between reads,
+ * for at most `timeoutMs`; null when it never does. Horizon instances behind one address can lag
+ * the ledger and each other (edge case E5), so one read after a funding or a transaction proves
+ * nothing (closing review CP-10). A read that fails throws, as every Horizon read does.
+ */
+export async function pollAccount(
+  client: HorizonJsonClient,
+  id: string,
+  ready: (account: HorizonAccount | null) => boolean,
+  timeoutMs: number,
+  pause: (ms: number) => Promise<unknown>,
+): Promise<HorizonAccount | null> {
+  const deadline = Date.now() + timeoutMs;
+  for (;;) {
+    const account = await client.get<HorizonAccount>(`/accounts/${id}`);
+    if (ready(account)) return account;
+    if (Date.now() > deadline) return null;
+    await pause(1000);
+  }
+}
+
+/** Waits until Horizon shows the account Friendbot funded (closing review CP-10). */
+export async function awaitFunded(
+  client: HorizonJsonClient,
+  publicKey: string,
+  timeoutMs: number,
+  pause: (ms: number) => Promise<unknown>,
+): Promise<void> {
+  if (await pollAccount(client, publicKey, (a) => a !== null, timeoutMs, pause)) return;
+  throw new DustinError(
+    "FRIENDBOT_FAILED",
+    `Friendbot answered, but Horizon did not show ${publicKey} within ${timeoutMs / 1000} s.`,
+    {
+      stage: "build",
+      retryable: true,
+      verdict: "retry-same",
+      remedy: "Wait a minute and run the command again.",
+    },
+  );
 }
 
 /**

@@ -11,7 +11,13 @@ import { edgeSteps, type EdgeAccountRole } from "../../../src/fixture/edge.js";
 import { verifyEdgeFixture, type EdgeVerifyInput } from "../../../src/fixture/edge-verify.js";
 import { readAnyManifest } from "../../../src/fixture/manifest.js";
 import type { HorizonAccount, HorizonOffer } from "../../../src/inspect/horizon-types.js";
-import { EDGE_DIR, edgeManifest, edgeRoles } from "../../helpers/edge-ledger.js";
+import {
+  EDGE_DIR,
+  badSequenceAnswer,
+  edgeManifest,
+  edgeRoles,
+  rekeyedEdgeHorizon,
+} from "../../helpers/edge-ledger.js";
 import { noSleep } from "../../helpers/no-sleep.js";
 import { MESSY_DIR, loadRecorded } from "../../helpers/recorded-horizon.js";
 
@@ -367,5 +373,107 @@ describe("CP-8: after a failed Friendbot try, Horizon says whether the account w
     );
     expect((e2 as DustinError).code).toBe("HORIZON_UNAVAILABLE");
     expect(messyWorld.friendbotTries()).toBe(1);
+  });
+});
+
+describe("the re-keyed recorded edge fixture (the harness of the tests below)", () => {
+  it("builds offline: 7 transactions, every check passes, every variant recorded", async () => {
+    const horizon = rekeyedEdgeHorizon();
+    const { manifest, recorded } = await buildEdgeFixture({
+      fetch: horizon.fetch,
+      sleep: noSleep,
+      onKeys: horizon.onKeys,
+    });
+    expect(manifest.transactions.map((t) => t.step)).toEqual([
+      "create-accounts",
+      "issuer-flags",
+      "trustlines",
+      "authorize",
+      "dust-payments",
+      "holder-state",
+      "restrict",
+    ]);
+    expect(manifest.verification.pass).toBe(true);
+    expect(manifest.verification.checks).toHaveLength(62);
+    expect(manifest.accounts.claimable).toBe(horizon.roles().claimable);
+    expect(Object.keys(recorded)).toContain("account-auth-frozen");
+  });
+});
+
+describe("CP-10: the build reads through a Horizon that lags the ledger", () => {
+  it("polls the sponsor after Friendbot until Horizon shows it, then builds", async () => {
+    let sponsorReads = 0;
+    const horizon = rekeyedEdgeHorizon({
+      onGet: (path) => {
+        if (path !== `/accounts/${horizon.roles().sponsor}`) return undefined;
+        // The instance that answers has not ingested Friendbot's funding yet, twice.
+        return ++sponsorReads <= 2
+          ? Promise.resolve(new Response(JSON.stringify({ status: 404 }), { status: 404 }))
+          : undefined;
+      },
+    });
+    const { manifest } = await buildEdgeFixture({
+      fetch: horizon.fetch,
+      sleep: noSleep,
+      onKeys: horizon.onKeys,
+    });
+    expect(sponsorReads).toBeGreaterThanOrEqual(3);
+    expect(manifest.transactions).toHaveLength(7);
+  });
+
+  it("tx_bad_seq from a stale sequence number: re-reads the source until it moves, and retries once", async () => {
+    let stale = true;
+    const horizon = rekeyedEdgeHorizon({
+      // The second step is sourced by the auth issuer. Horizon first shows its recorded sequence
+      // number; once the ledger refused it, a newer one (the instance caught up).
+      onGet: (path, recorded) => {
+        if (stale || path !== `/accounts/${horizon.roles().authIssuer}`) return undefined;
+        const account = structuredClone(recorded(path)) as HorizonAccount;
+        account.sequence = (BigInt(account.sequence) + 1n).toString();
+        return Promise.resolve(new Response(JSON.stringify(account)));
+      },
+      onSubmit: (s) => {
+        if (s.n !== 2) return undefined;
+        stale = false;
+        return badSequenceAnswer();
+      },
+    });
+    const { manifest } = await buildEdgeFixture({
+      fetch: horizon.fetch,
+      sleep: noSleep,
+      onKeys: horizon.onKeys,
+    });
+    expect(manifest.transactions).toHaveLength(7);
+    const [refused, retried] = horizon.submissions.slice(1, 3);
+    expect(refused!.source).toBe(horizon.roles().authIssuer);
+    expect(retried!.source).toBe(horizon.roles().authIssuer);
+    expect(BigInt(retried!.sequence)).toBe(BigInt(refused!.sequence) + 1n);
+    expect(horizon.submissions).toHaveLength(8);
+  });
+
+  it("a second tx_bad_seq for the same step stops the build: one retry only", async () => {
+    let refusals = 0;
+    const horizon = rekeyedEdgeHorizon({
+      onGet: (path, recorded) => {
+        if (refusals === 0 || path !== `/accounts/${horizon.roles().authIssuer}`) return undefined;
+        const account = structuredClone(recorded(path)) as HorizonAccount;
+        account.sequence = (BigInt(account.sequence) + BigInt(refusals)).toString();
+        return Promise.resolve(new Response(JSON.stringify(account)));
+      },
+      onSubmit: (s) => {
+        if (s.n !== 2 && s.n !== 3) return undefined;
+        refusals++;
+        return badSequenceAnswer();
+      },
+    });
+    const error = await buildEdgeFixture({
+      fetch: horizon.fetch,
+      sleep: noSleep,
+      onKeys: horizon.onKeys,
+    }).catch((e: unknown) => e);
+    expect((error as DustinError).code).toBe("FIXTURE_STEP_FAILED");
+    expect((error as DustinError).message).toContain('"issuer-flags"');
+    expect((error as DustinError).message).toContain("tx_bad_seq");
+    expect(horizon.submissions).toHaveLength(3);
   });
 });
