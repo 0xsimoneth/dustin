@@ -119,8 +119,10 @@ export function planFromSnapshot(s: AccountSnapshot, options: PlanOptions): Clos
         // Run the cleanup now and let the merge wait on its own.
         grouped = groupUnits(units, { maxOps, separateMerge: true });
         guard = guardFor(grouped);
+        const first =
+          grouped.length > 1 ? "The cleanup runs first" : "Nothing needs cleaning up first";
         warnings.push(
-          `The account's sequence number is ahead of the ledger: the merge must wait until ledger ${guard.unblocksAtLedger} (about ${guard.etaSeconds} s). The cleanup runs first; the executor waits before submitting the merge.`,
+          `The account's sequence number is ahead of the ledger: the merge must wait until ledger ${guard.unblocksAtLedger} (about ${guard.etaSeconds} s). ${first}; the executor waits before submitting the merge.`,
         );
       } else {
         blockers.push({
@@ -184,7 +186,9 @@ function transactionReason(
   }
   if (t.phase === "merge") {
     if (guard && !guard.ok) {
-      return `The merge runs alone after the cleanup because it must wait until ledger ${guard.unblocksAtLedger} for the sequence guard.`;
+      return all.length === 1
+        ? `The merge must wait until ledger ${guard.unblocksAtLedger} for the sequence guard; the executor waits before submitting it.`
+        : `The merge runs alone after the cleanup because it must wait until ledger ${guard.unblocksAtLedger} for the sequence guard.`;
     }
     if (all.length === 1) return "Nothing to clean up: the merge is the only operation.";
     if (all.some((x) => x.phase === "convert")) {

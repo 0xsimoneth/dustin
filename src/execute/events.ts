@@ -19,6 +19,22 @@ export type CloseEvent =
       xlmToDestination?: { approved: string; fresh: string };
     }
   | { type: "preflight"; index: number; ok: boolean; detail: string }
+  /**
+   * The executor waits before a merge for the sequence guard (story E3-S4): the merge fails with
+   * ACCOUNT_MERGE_SEQNUM_TOO_FAR in any ledger before `untilLedger`, so it is submitted only once
+   * Horizon reports the ledger before it closed. `state` is "start" when the wait begins and "end"
+   * when it is over; `currentLedger` is the latest ledger Horizon reported at that moment and
+   * `index` the merge's transaction in its plan. A wait that runs out ends the run with the stop
+   * SEQNUM_TOO_FAR instead of an "end" event.
+   */
+  | {
+      type: "wait";
+      reason: "sequence";
+      state: "start" | "end";
+      index: number;
+      untilLedger: number;
+      currentLedger: number;
+    }
   | {
       type: "tx:building";
       index: number;

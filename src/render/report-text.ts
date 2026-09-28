@@ -1,6 +1,11 @@
-import { formatStroops } from "../amounts.js";
+import { formatStroops, toStroops } from "../amounts.js";
 import { DEFAULT_EXPLORER_BASE } from "../config/network.js";
-import type { CloseReport, SubmittedTransaction } from "../execute/report.js";
+import type {
+  CloseReport,
+  SponsorObservation,
+  SponsorState,
+  SubmittedTransaction,
+} from "../execute/report.js";
 import { destinationBaseAccount } from "../inspect/address.js";
 import type { ClosePlan, CloseStep, DisposalRung } from "../plan/model.js";
 import { short, stepAction, unclosableLines } from "./plan-text.js";
@@ -236,6 +241,76 @@ function disposalLines(
   return lines;
 }
 
+/**
+ * "Reserves released to sponsors" on a line of its own (story E3-S3, AC-E3-S3-4; UX-DR2): the
+ * reserves this run's removals returned to each reserve sponsor, as the plans attribute them, and
+ * under each what Horizon showed for that sponsor before the first submission and after the final
+ * check. Removing a sponsored entry moves no XLM: it lowers the sponsor's num_sponsoring, and so
+ * its minimum balance
+ * (https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves#effect-on-minimum-balance).
+ */
+function sponsorLines(report: CloseReport): string[] {
+  const planned = report.recovery.reservesReturnedToSponsors;
+  const observed = report.recovery.sponsorsObserved ?? [];
+  const total = planned.reduce((sum, x) => sum + toStroops(x.xlm), 0n);
+  const lines = wrap(
+    planned.length > 0
+      ? `Reserves released to sponsors: ${formatStroops(total)} XLM, never this account's`
+      : "Reserves released to sponsors: none",
+    4,
+    "  ",
+  );
+  const sponsors = new Set([...planned.map((x) => x.sponsor), ...observed.map((o) => o.sponsor)]);
+  for (const sponsor of sponsors) {
+    const x = planned.find((p) => p.sponsor === sponsor);
+    lines.push(
+      ...wrap(
+        x
+          ? `${x.xlm} XLM reserve returned to sponsor ${short(sponsor)}, never this account's (${x.entries.map(entryName).join(", ")})`
+          : `nothing returned to sponsor ${short(sponsor)} by this run`,
+        6,
+        "    ",
+      ),
+    );
+    const o = observed.find((s) => s.sponsor === sponsor);
+    if (o) lines.push(...wrap(observedText(o), 6, "      "));
+  }
+  return lines;
+}
+
+/** What Horizon showed for one reserve sponsor before and after the run, in one sentence. */
+function observedText(o: SponsorObservation): string {
+  const state = (s: SponsorState) =>
+    `num_sponsoring ${s.numSponsoring}, minimum balance ${s.minimumBalance} XLM, XLM balance ${s.balance}`;
+  const { before, after } = o;
+  if (before && after) {
+    const released = toStroops(before.minimumBalance) - toStroops(after.minimumBalance);
+    const change = toStroops(after.balance) - toStroops(before.balance);
+    const minimum =
+      released > 0n
+        ? `${formatStroops(released)} XLM released`
+        : released === 0n
+          ? "unchanged"
+          : `${formatStroops(-released)} XLM more locked`;
+    const balance =
+      change === 0n
+        ? "unchanged"
+        : `${change > 0n ? "+" : "-"}${formatStroops(change > 0n ? change : -change)}`;
+    return (
+      `observed on Horizon: num_sponsoring ${before.numSponsoring} -> ${after.numSponsoring}, ` +
+      `minimum balance ${before.minimumBalance} -> ${after.minimumBalance} XLM (${minimum}), ` +
+      `XLM balance ${before.balance} -> ${after.balance} (${balance})`
+    );
+  }
+  if (before) {
+    return `observed on Horizon before the first submission: ${state(before)}; not read after the run`;
+  }
+  if (after) {
+    return `observed on Horizon after the run: ${state(after)}; not read before the first submission`;
+  }
+  return "not observed: Horizon could not be read (see the warnings)";
+}
+
 function destinationAccountUrl(explorer: string, destination: string): string {
   try {
     return `${explorer}/account/${destinationBaseAccount(destination)}`;
@@ -365,15 +440,7 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
       ...wrap("No merge: the account was not merged, so no XLM moved through a merge.", 4, "  "),
     );
   }
-  for (const x of r.reservesReturnedToSponsors) {
-    out.push(
-      ...wrap(
-        `${x.xlm} XLM reserve returned to sponsor ${short(x.sponsor)}, never this account's (${x.entries.map(entryName).join(", ")})`,
-        4,
-        "  ",
-      ),
-    );
-  }
+  out.push(...sponsorLines(report));
   out.push(`  0 XLM in fees paid by the account`);
   out.push(
     `  ${xlm(r.feesPaidBySponsorStroops)} (${grouped(r.feesPaidBySponsorStroops)} stroops) in fees paid by the sponsor`,
@@ -433,12 +500,25 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
 }
 
 function nextStep(report: CloseReport): string | null {
+  // Story E3-S4: a run the sequence guard stopped before the merge says when to come back.
+  const until = report.stop?.code === "SEQNUM_TOO_FAR" ? report.stop.unblocksAtLedger : undefined;
+  if (until !== undefined && report.status !== "closed") {
+    return `The sequence guard holds the merge until ledger ${grouped(until)} (ACCOUNT_MERGE_SEQNUM_TOO_FAR). Run the same command again at or after that ledger: Dustin re-reads the account and plans only what is left.`;
+  }
   switch (report.status) {
     case "closed":
       return report.verification?.accountExists === false
         ? null
         : "Check the account on the explorer; if it still exists, run the same command again.";
     case "partial":
+      // A plan whose guard was beyond the bound ran its cleanup only; its blocker names the ledger.
+      if (
+        report.unclosable.length === 0 &&
+        report.blockers.length > 0 &&
+        report.blockers.every((b) => b.code === "SEQNUM_TOO_FAR")
+      ) {
+        return "The account still exists: the sequence guard holds the merge (SEQNUM_TOO_FAR above). Run the same command again once that ledger has closed: Dustin re-reads the account and merges it.";
+      }
       return "The account still exists. Resolve the items above, then run the same command again: Dustin re-reads the account and plans only what is left.";
     case "aborted":
       return report.transactions.length === 0

@@ -603,17 +603,19 @@ describe("edge case E2: a rebuilt merge follows a fresh preflight", () => {
       onEvent: (e) => {
         if (e.type === "tx:submitted" && e.index === 2 && e.attempt === 1 && !bumped) {
           bumped = true;
-          // Another client bumps the sequence far ahead (BumpSequence) while the merge is in flight.
+          // Another client bumps the sequence far ahead (BumpSequence) while the merge is in flight:
+          // 500 ledgers, beyond the plan's bound of 120, so the rebuild is not waited for (E3-S4;
+          // a bump within the bound is waited for, test/unit/execute/sequence-guard.test.ts).
           const account = ledger.accounts.get(messy.fixture)!;
-          account.sequence = (BigInt(ledger.ledgerSeq + 50) << 32n).toString();
+          account.sequence = (BigInt(ledger.ledgerSeq + 500) << 32n).toString();
         }
       },
     });
     const merges = report.transactions.filter((t) => t.phase === "merge");
     expect(merges.map((t) => t.result)).toEqual(["rejected"]);
     expect(report.stop).toMatchObject({
-      code: "MERGE_PREFLIGHT_FAILED",
-      unblocksAtLedger: ledger.ledgerSeq + 51,
+      code: "SEQNUM_TOO_FAR",
+      unblocksAtLedger: ledger.ledgerSeq + 501,
     });
     expect(ledger.accounts.has(messy.fixture)).toBe(true);
   });

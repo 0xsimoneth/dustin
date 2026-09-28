@@ -11,9 +11,11 @@ import { DustinError, type ErrorStage } from "../errors/dustin-error.js";
 import type { HorizonAccount } from "../inspect/horizon-types.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
 import { assetKey } from "../inspect/snapshot.js";
+import { SECONDS_PER_LEDGER, sequenceGuard } from "../plan/guard.js";
 import type { ClosePlan, CloseStep, PlannedTransaction } from "../plan/model.js";
+import { DEFAULT_MAX_WAIT_LEDGERS } from "../plan/plan.js";
 import { planClose, type PlanCloseInput } from "../plan/plan-close.js";
-import { horizonJson } from "../reader/horizon-json.js";
+import { horizonJson, type LedgerSummary } from "../reader/horizon-json.js";
 import { horizonReader, type LedgerReader } from "../reader/ledger-reader.js";
 import type { Signer } from "../sponsor/signer.js";
 import { FeeSponsor } from "../sponsor/sponsor.js";
@@ -27,7 +29,7 @@ import {
 import { operationFailure } from "./classify.js";
 import type { CloseEvent } from "./events.js";
 import { validateExecuteOptions } from "./options.js";
-import { mergePreflight } from "./preflight.js";
+import { ledgerWaitLimitMs, mergePreflight, waitForLedger } from "./preflight.js";
 import {
   describeSubject,
   replanDrift,
@@ -39,6 +41,7 @@ import {
   mergeAmountFromResultXdr,
   type CloseReport,
   type CloseStatus,
+  type SponsorState,
   type StepOutcome,
   type StopReason,
   type SubmittedTransaction,
@@ -291,6 +294,7 @@ class CloseRun {
         reservesReturnedToSponsors: [],
         feesPaidByAccount: "0",
         feesPaidBySponsorStroops: 0,
+        sponsorsObserved: [],
       },
       verification: null,
     };
@@ -475,12 +479,78 @@ class CloseRun {
       );
     }
     await this.checkSponsorFunds();
+    // Story E3-S3: the reserve sponsors as they are before anything is submitted.
+    await this.observeSponsors("before");
     this.sponsor = new FeeSponsor(this.input.signers.feeSponsor, {
       networkPassphrase: fresh.network.passphrase,
       budgetStroops: fresh.fees.budgetStroops,
       maxBaseFeeStroops: fresh.fees.maxBaseFeeStroops,
     });
     return this.runPlans();
+  }
+
+  /**
+   * Story E3-S3: reads the reserve sponsors on Horizon and records their `num_sponsoring`, XLM
+   * balance and minimum balance in `recovery.sponsorsObserved`: "before" the first submission, the
+   * sponsors the executor's fresh plan names; "after" the final check, those and any a re-plan
+   * named. A read that fails becomes a warning and leaves that figure null, so observing never
+   * changes the outcome of a close.
+   */
+  private async observeSponsors(when: "before" | "after"): Promise<void> {
+    const observed = (this.report.recovery.sponsorsObserved ??= []);
+    const named = (plans: ClosePlan[]) =>
+      plans.flatMap((p) => p.recovery.reservesReturnedToSponsors.map((x) => x.sponsor));
+    const sponsors = [
+      ...new Set(
+        when === "before"
+          ? named([this.input.fresh])
+          : [...observed.map((o) => o.sponsor), ...named(this.roundPlans)],
+      ),
+    ];
+    if (sponsors.length === 0) return;
+    const moment = when === "before" ? "before the first submission" : "after the run";
+    const warn = (sponsor: string, why: string) =>
+      this.report.warnings.push(
+        `The reserve sponsor ${sponsor} could not be read ${moment} (${why}); the report has no observed figure for it there.`,
+      );
+    const record = (sponsor: string, state: SponsorState | null) => {
+      let entry = observed.find((o) => o.sponsor === sponsor);
+      if (!entry) {
+        entry = { sponsor, before: null, after: null };
+        observed.push(entry);
+      }
+      entry[when] = state;
+    };
+    let ledger: LedgerSummary;
+    try {
+      ledger = await this.input.reader.latestLedger();
+    } catch (error) {
+      for (const sponsor of sponsors) {
+        warn(sponsor, errorText(error));
+        record(sponsor, null);
+      }
+      return;
+    }
+    for (const sponsor of sponsors) {
+      try {
+        const account = await this.input.reader.account(sponsor);
+        if (!account) {
+          warn(sponsor, "Horizon answered 404");
+          record(sponsor, null);
+          continue;
+        }
+        const reserve = reserveFromHorizon(account, BigInt(ledger.base_reserve_in_stroops));
+        record(sponsor, {
+          numSponsoring: account.num_sponsoring,
+          balance: formatStroops(reserve.balance),
+          minimumBalance: formatStroops(reserve.minimum),
+          ledger: ledger.sequence,
+        });
+      } catch (error) {
+        warn(sponsor, errorText(error));
+        record(sponsor, null);
+      }
+    }
   }
 
   /** Canonical decision 7: refuse to start when the sponsor cannot cover the close budget. */
@@ -540,10 +610,13 @@ class CloseRun {
       for (const tx of current.transactions) {
         const steps = tx.stepIds.map((id) => byId.get(id)!);
         // A merge that follows anything already submitted in this run (a later transaction, or the
-        // first one of a re-plan) runs only after fresh facts (architecture rule R7).
+        // first one of a re-plan) runs only after fresh facts (architecture rule R7). So does one
+        // whose plan says the sequence guard does not hold yet, even as the plan's first and only
+        // transaction: the plan promised a wait before it (story E3-S4, review finding R8).
         const carriesMerge = steps.some((s) => s.kind === "merge");
         const mergeFollowsWork = tx.index > 0 || this.report.transactions.length > 0;
-        if (mergeFollowsWork && carriesMerge) {
+        const guardWaits = current.sequenceGuard?.ok === false;
+        if ((mergeFollowsWork || guardWaits) && carriesMerge) {
           const blocked = await this.mergePreflightStop(current, tx, steps);
           if (blocked) return this.stopped(blocked);
         }
@@ -574,9 +647,12 @@ class CloseRun {
   }
 
   /**
-   * Fresh facts before a merge that follows work already submitted in this run, and before every
-   * rebuild of a merge-carrying transaction (architecture rule R7; edge case E2). Null when the
-   * merge may go; otherwise the MERGE_PREFLIGHT_FAILED stop.
+   * Fresh facts before a merge that follows work already submitted in this run, before a merge
+   * whose plan says the sequence guard does not hold yet, and before every rebuild of a
+   * merge-carrying transaction (architecture rule R7; edge case E2). When the sequence guard is all
+   * that holds the merge back, it first waits for the ledger within the plan's bound (story E3-S4)
+   * and checks again. Null when the merge may go; otherwise the stop: SEQNUM_TOO_FAR for the guard,
+   * MERGE_PREFLIGHT_FAILED for anything else.
    */
   private async mergePreflightStop(
     current: ClosePlan,
@@ -584,10 +660,40 @@ class CloseRun {
     steps: CloseStep[],
   ): Promise<StopReason | null> {
     this.stage = "merge";
-    const preflight = await mergePreflight(this.input.reader, current, {
-      mergeOnly: steps.every((s) => s.kind === "merge"),
-      readAccount: () => this.freshAccount(),
-    });
+    const check = (knownLedger?: number) =>
+      mergePreflight(this.input.reader, current, {
+        mergeOnly: steps.every((s) => s.kind === "merge"),
+        readAccount: () => this.freshAccount(),
+        ...(knownLedger !== undefined ? { knownLedger } : {}),
+      });
+    let preflight = await check();
+    const until = preflight.unblocksAtLedger;
+    if (!preflight.ok && until !== undefined) {
+      // Every other check passed: only the ledger has to move on (story E3-S4, review R8).
+      const blocked = preflight;
+      const waited = await this.waitForSequence(
+        current,
+        tx,
+        until,
+        blocked.currentLedger ?? until - 1,
+      );
+      if ("stop" in waited) {
+        this.emit({ type: "preflight", index: tx.index, ok: false, detail: blocked.detail });
+        return waited.stop;
+      }
+      preflight = await check(waited.ledger);
+      const later = preflight.unblocksAtLedger;
+      if (!preflight.ok && later !== undefined) {
+        // The account's sequence number moved on while the executor waited: another client
+        // bumped it. The run stops rather than chase it.
+        this.emit({ type: "preflight", index: tx.index, ok: false, detail: preflight.detail });
+        return this.sequenceStop(
+          tx,
+          later,
+          `the account's sequence number moved on while the executor waited for ledger ${until}, so the merge now has to wait until ledger ${later}.`,
+        );
+      }
+    }
     this.emit({ type: "preflight", index: tx.index, ok: preflight.ok, detail: preflight.detail });
     if (preflight.ok) return null;
     return {
@@ -600,6 +706,82 @@ class CloseRun {
       ...(preflight.unblocksAtLedger !== undefined
         ? { unblocksAtLedger: preflight.unblocksAtLedger }
         : {}),
+    };
+  }
+
+  /**
+   * The wait for the sequence guard (story E3-S4, review finding R8). A merge fails with
+   * ACCOUNT_MERGE_SEQNUM_TOO_FAR in every ledger before `untilLedger` (stellar-core
+   * MergeOpFrame::isSeqnumTooFar), and a transaction submitted now lands at the earliest in the
+   * ledger after the latest one closed, so the merge may go once ledger `untilLedger - 1` has
+   * closed. The wait is allowed when `untilLedger` is at most the plan's `maxWaitLedgers` (default
+   * 120) after the latest ledger, the planner's own rule, and it polls the latest ledger every
+   * `pollIntervalMs` with the injected pause, for at most `ledgerWaitLimitMs` of the local clock.
+   * Returns the ledger it saw close, or the SEQNUM_TOO_FAR stop when the wait would exceed the
+   * bound or the bound ran out.
+   */
+  private async waitForSequence(
+    current: ClosePlan,
+    tx: PlannedTransaction,
+    untilLedger: number,
+    currentLedger: number,
+  ): Promise<{ ledger: number } | { stop: StopReason }> {
+    const maxWait = current.options?.maxWaitLedgers ?? DEFAULT_MAX_WAIT_LEDGERS;
+    const ahead = untilLedger - currentLedger;
+    if (ahead > maxWait) {
+      return {
+        stop: this.sequenceStop(
+          tx,
+          untilLedger,
+          `the merge must wait until ledger ${untilLedger}, ${ahead} ledgers (${aboutTime(ahead)}) after the latest ledger ${currentLedger}, more than the plan allows (maxWaitLedgers ${maxWait}).`,
+        ),
+      };
+    }
+    const target = untilLedger - 1;
+    this.emit({
+      type: "wait",
+      reason: "sequence",
+      state: "start",
+      index: tx.index,
+      untilLedger,
+      currentLedger,
+    });
+    const waited = await waitForLedger(this.input.reader, target, {
+      pollIntervalMs: this.settings.pollIntervalMs,
+      limitMs: ledgerWaitLimitMs(target - currentLedger),
+      sleep: this.settings.sleep,
+      now: this.settings.now,
+    });
+    if (!waited.reached) {
+      return {
+        stop: this.sequenceStop(
+          tx,
+          untilLedger,
+          `the executor waited ${Math.round(waited.waitedMs / 1000)} s for ledger ${target} to close, but Horizon still reported ledger ${waited.ledger}: ledgers closed slower than the wait allows.`,
+        ),
+      };
+    }
+    this.emit({
+      type: "wait",
+      reason: "sequence",
+      state: "end",
+      index: tx.index,
+      untilLedger,
+      currentLedger: waited.ledger,
+    });
+    return { ledger: waited.ledger };
+  }
+
+  /** The stop before a merge that the sequence guard holds back (story E3-S4). */
+  private sequenceStop(tx: PlannedTransaction, untilLedger: number, why: string): StopReason {
+    return {
+      code: "SEQNUM_TOO_FAR",
+      stage: "merge",
+      verdict: "replan",
+      detail: `The sequence guard holds the merge back (ACCOUNT_MERGE_SEQNUM_TOO_FAR): ${why} The merge was not submitted. Run the close again at or after ledger ${untilLedger}; it continues from the ledger.`,
+      round: this.round,
+      txIndex: tx.index,
+      unblocksAtLedger: untilLedger,
     };
   }
 
@@ -746,14 +928,47 @@ class CloseRun {
     });
 
     if (failure.code === "op_seq_num_too_far") {
-      // Waiting for the ledger is E3-S4; until then the run stops and says when to come back.
-      const account = await reader.account(plan.account);
-      const unblocks = account ? Number((BigInt(account.sequence) + 1n) >> 32n) + 1 : undefined;
-      return stopWith({
-        code: "SEQNUM_TOO_FAR",
-        verdict: "replan",
-        detail: `${where}${unblocks !== undefined ? ` Run the close again at or after ledger ${unblocks}.` : ""}`,
-        ...(unblocks !== undefined ? { unblocksAtLedger: unblocks } : {}),
+      // Story E3-S4: the failed merge was included, so it consumed a sequence number (edge case
+      // A-15). The guard is computed again for the next merge from the account as it is now.
+      // Within the plan's bound the rest is planned again from the ledger: the new merge waits in
+      // its preflight and is built at the new sequence number. Beyond the bound, or once the merge
+      // has failed this way twice, the run stops and says when to run the close again.
+      const [account, latest] = await Promise.all([
+        reader.account(plan.account),
+        reader.latestLedger(),
+      ]);
+      const guard = account
+        ? sequenceGuard({
+            sequence: account.sequence,
+            observedLedger: latest.sequence,
+            mergeTxIndex: 0,
+          })
+        : null;
+      const unblocks = guard?.unblocksAtLedger ?? undefined;
+      const maxWait =
+        (this.roundPlans[this.round] ?? this.input.fresh).options?.maxWaitLedgers ??
+        DEFAULT_MAX_WAIT_LEDGERS;
+      const twice = (stepOutcome?.failures ?? 0) >= 2;
+      const tooFar = unblocks !== undefined && unblocks - latest.sequence > maxWait;
+      if (twice || tooFar) {
+        const when =
+          unblocks !== undefined ? ` Run the close again at or after ledger ${unblocks}.` : "";
+        return stopWith({
+          code: "SEQNUM_TOO_FAR",
+          verdict: "replan",
+          detail: twice
+            ? `${where} The merge failed this way twice, so the run stops here.${when}`
+            : `${where} The next merge would have to wait until ledger ${unblocks}, ${unblocks! - latest.sequence} ledgers after ledger ${latest.sequence}: more than the plan allows (maxWaitLedgers ${maxWait}).${when}`,
+          ...(unblocks !== undefined ? { unblocksAtLedger: unblocks } : {}),
+        });
+      }
+      return this.replanFrom({
+        tx,
+        hash: at.hash,
+        codes: outcome.codes,
+        explanation: failure.explanation,
+        where,
+        ...(stepId ? { stepId } : {}),
       });
     }
     if (failure.verdict === "stop") {
@@ -1126,6 +1341,8 @@ class CloseRun {
     });
     this.report.verification = v;
     this.emit({ type: "verified", accountExists: v.accountExists });
+    // Story E3-S3: the reserve sponsors as they are after the final check.
+    await this.observeSponsors("after");
     return v;
   }
 
@@ -1327,6 +1544,18 @@ function xlmFell(
   const before = toStroops(approved.recovery.xlmToDestination);
   const now = toStroops(fresh.recovery.xlmToDestination);
   return now < before ? { approved: formatStroops(before), fresh: formatStroops(now) } : null;
+}
+
+/** An error in a few words for a warning: its code and message when it is a DustinError. */
+function errorText(error: unknown): string {
+  if (error instanceof DustinError) return `${error.code}: ${error.message}`;
+  return error instanceof Error ? error.message : String(error);
+}
+
+/** A wait of `ledgers` ledgers in words, at the observed 5 s per ledger (src/plan/guard.ts). */
+function aboutTime(ledgers: number): string {
+  const seconds = ledgers * SECONDS_PER_LEDGER;
+  return seconds < 120 ? `about ${seconds} s` : `about ${Math.ceil(seconds / 60)} minutes`;
 }
 
 /**

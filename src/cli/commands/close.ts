@@ -19,6 +19,7 @@ import { executeClose, type CloseEvent } from "../../execute/executor.js";
 import type { CloseReport } from "../../execute/report.js";
 import { horizonSubmitter } from "../../execute/submit.js";
 import { reserveFromHorizon } from "../../inspect/reserve.js";
+import { SECONDS_PER_LEDGER } from "../../plan/guard.js";
 import type { ClosePlan, CloseStep } from "../../plan/model.js";
 import { planClose } from "../../plan/plan-close.js";
 import { horizonJson } from "../../reader/horizon-json.js";
@@ -487,6 +488,17 @@ function progressPrinter(
           `\n${label(event.index)}  merge preflight ${event.ok ? "ok" : "FAILED"}: ${event.detail}\n`,
         );
         return;
+      case "wait": {
+        // Story E3-S4: the merge waits for the sequence guard (about 5 s per ledger).
+        const seconds = Math.max(0, event.untilLedger - event.currentLedger) * SECONDS_PER_LEDGER;
+        say(
+          event.state === "start"
+            ? `\n${label(event.index)}  waiting for the sequence guard: the merge can land from ledger ${grouped(event.untilLedger)}\n` +
+                `        the latest ledger is ${grouped(event.currentLedger)}, about ${seconds} s to go\n`
+            : `        waited     ledger ${grouped(event.currentLedger)} has closed; the merge can land from ledger ${grouped(event.untilLedger)}\n`,
+        );
+        return;
+      }
       case "tx:building": {
         const plan = latestPlan();
         const tx = plan.transactions.find((t) => t.index === event.index);

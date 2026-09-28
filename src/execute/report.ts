@@ -203,6 +203,37 @@ export interface ReplanRecord {
 }
 
 /**
+ * A reserve sponsor as Horizon showed it (story E3-S3). Removing a sponsored entry moves no XLM: it
+ * lowers the sponsor's `num_sponsoring`, and with it the sponsor's minimum balance
+ * (https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves#effect-on-minimum-balance).
+ */
+export interface SponsorState {
+  /** Reserves the sponsor pays for other accounts' entries (Horizon `num_sponsoring`). */
+  numSponsoring: number;
+  /** Its XLM balance; a close should leave it unchanged, since the fee sponsor pays every fee. */
+  balance: string;
+  /** (2 + subentries + num_sponsoring - num_sponsored) x base reserve, from the same read. */
+  minimumBalance: string;
+  /** The latest ledger Horizon reported just before this read. */
+  ledger: number;
+}
+
+/**
+ * What Horizon showed for one reserve sponsor before the first submission and after the final
+ * check, next to the reserves the plans attribute to it (`reservesReturnedToSponsors`).
+ */
+export interface SponsorObservation {
+  sponsor: string;
+  /**
+   * Read before the first submission. Null when the read failed (a warning says so) or when only a
+   * re-plan named the sponsor.
+   */
+  before: SponsorState | null;
+  /** Read after the final check; null when the read failed (a warning says so) or never ran. */
+  after: SponsorState | null;
+}
+
+/**
  * The report of one close: safe to publish (public keys, hashes and envelopes only; envelopes
  * carry signatures, never secrets). Written as the run progresses, so a failed run still has every
  * hash (PRD FR-18, NFR-03).
@@ -236,6 +267,12 @@ export interface CloseReport {
     feesPaidByAccount: "0";
     /** Fees charged to the sponsor by every included transaction, failed ones too. */
     feesPaidBySponsorStroops: number;
+    /**
+     * The reserve sponsors the plans name, as Horizon showed them before the first submission and
+     * after the final check (story E3-S3): the observed side of `reservesReturnedToSponsors`.
+     * Empty when no entry of the account is sponsored; absent in reports written before E3-S3.
+     */
+    sponsorsObserved?: SponsorObservation[];
   };
   verification: {
     accountExists: boolean;
