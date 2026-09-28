@@ -6,15 +6,17 @@ Dustin closes messy Stellar testnet accounts: it cancels offers, disposes of lef
 
 The existing StellarExpert Account Demolisher builds every transaction with the account being closed as both source and fee payer, and has no fee-bump or sponsored-reserve handling ([client source](https://github.com/stellar-expert/stellar-expert-explorer/blob/master/business-logic/demolisher/demolisher-tx-builder.js)). An account sitting at its minimum reserve therefore cannot even start. That is the gap Dustin fills. Other tools, including the two funded under SCF #44, and how Dustin differs from each are in the [write-up](docs/write-up.md) (section 9, prior art).
 
-> **Status: pre-release.** Dustin is being built during a 30-day Stellar Instaward sprint (2026-09-22 to 2026-10-22). `planClose()`, `executeClose()`, `dustin plan` and `dustin close --execute` are implemented and covered by the offline test tier, and two zero-spendable messy accounts were closed on testnet with sponsored fees ([SDK close](evidence/runs/20260926T125350Z/summary.md), [CLI close](evidence/runs/20260927T200015Z-cli/summary.md)). Not done yet: the npm release, the demo video, the test matrix and the evidence package. See [Status](#status).
+> **Status: pre-release.** Dustin is being built during a 30-day Stellar Instaward sprint (2026-09-22 to 2026-10-22). `planClose()`, `executeClose()`, `dustin plan` and `dustin close --execute` are implemented, with the disposal ladder, the sponsored unwind and the sequence-guard wait. On 2026-09-28 zero-spendable messy accounts were closed on testnet with sponsored fees through the SDK and the CLI ([evidence index](evidence/README.md)), and the edge cases have a [test matrix](docs/test-matrix.md). Not done yet: the npm release, the demo video, the Demolisher baseline recording and the complete evidence package. See [Status](#status).
 
 ## Demo
 
 The 60-second demo of a full close from the CLI is recorded in week 4 and will be linked here (pending, story E4-S6). Until then, a CLI close you can check in a browser (the links stop resolving at the testnet reset of 2026-12-16):
 
-- the closed account: [explorer](https://stellar.expert/explorer/testnet/account/GBBF5QVZJKGOUSK57AUHJ6I2DCT4EDRWIHAN4BJRHOVILN7P3XEMNYA7), and [Horizon](https://horizon-testnet.stellar.org/accounts/GBBF5QVZJKGOUSK57AUHJ6I2DCT4EDRWIHAN4BJRHOVILN7P3XEMNYA7), which answers 404;
-- its first fee-bump transaction, paid by the sponsor: [explorer](https://stellar.expert/explorer/testnet/tx/7a995eee92b92a79b67f19bbc35456946fa76566601370c662ce40cdb0159da2);
-- the destination, which received 4.0000007 XLM: [explorer](https://stellar.expert/explorer/testnet/account/GAH2NP3B2L4YKKHX5DEDRUC7VLOX5L43IPJRB2LLSYOAMJYGZ4MPUJJY).
+- the closed account: [explorer](https://stellar.expert/explorer/testnet/account/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7), and [Horizon](https://horizon-testnet.stellar.org/accounts/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7), which answers 404;
+- its first fee-bump transaction, paid by the sponsor: [explorer](https://stellar.expert/explorer/testnet/tx/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac);
+- the destination, which received 4.0000007 XLM: [explorer](https://stellar.expert/explorer/testnet/account/GDPZI3OAYYEAXTYY2OHFDZAEEG4PXNBN7AHNLQTEH22O5HTBGBSVB2TS).
+
+The command's own output, with the receipt, is [`transcript.txt`](evidence/runs/20260928T112252Z-e3-cli/transcript.txt).
 
 ## Quick start: CLI
 
@@ -42,8 +44,11 @@ dustin close G<ACCOUNT> --to G<DESTINATION> --execute
 Typing `export DUSTIN_ACCOUNT_SECRET=S...` at a prompt stores the secret in your shell history; read it without echo (`read -rs DUSTIN_ACCOUNT_SECRET && export DUSTIN_ACCOUNT_SECRET`) instead.
 
 - `dustin plan`, and `dustin close` without `--execute`, only read from Horizon; nothing is signed or submitted.
-- `dustin close --execute` reads the account again, prints the fresh plan and what the sponsor may pay, and asks you to type the last four characters of the destination (`--yes` skips this for scripts). It prints each transaction's hash and explorer link as it is submitted and ends with a receipt and Horizon's 404 for the account; the full sequence is in the [integration notes](docs/integration-notes.md) (appendix).
-- Exit code 0 means the plan was printed, or the account is closed and verified gone.
+- `dustin close --execute` reads the account again and prints the fresh plan and a summary. Its "at most" line names the close budget, the most the sponsor can pay whatever retries and re-plans bid. It then asks you to type the last four characters of the destination; `--yes` skips this for scripts. The question is asked only when standard input, standard error and the stream that carried the plan (standard output, or standard error with `--json`) are terminals. Otherwise the run ends with exit code 3 and says which stream is not a terminal.
+- If a quote gets worse after the confirmation, so that the destination would receive less than the summary said, the run stops with exit code 3 and signs nothing.
+- Each transaction prints its hash and explorer link as it is submitted. A merge held back by the sequence guard prints the start and the end of its wait.
+- The receipt lists what became of each leftover balance (Disposals), each unclosable item with the rungs ruled out, and "Reserves released to sponsors" with the figures observed on Horizon. It ends with Horizon's 404 for the account. The full sequence is in the [integration notes](docs/integration-notes.md) (appendix).
+- Exit code 0 means the plan was printed, or the account is closed and verified gone. A sequence-guard stop exits 3 when the run was refused before signing, 4 for a partial run with `--partial`, and 5 when it stopped part-way; the receipt names the ledger at which to run the same command again.
 
 | Option of `dustin close` | Effect |
 |---|---|
@@ -56,7 +61,7 @@ Typing `export DUSTIN_ACCOUNT_SECRET=S...` at a prompt stores the secret in your
 | `--sponsor <G...>` | The fee sponsor; with `--execute` it must own `DUSTIN_SPONSOR_SECRET`. |
 | `--base-fee <stroops>` | Bid per operation instead of the `fee_stats` estimate; with `--execute` also the highest bid. |
 | `--json` | One JSON document on standard output (the plan, or the close report); the rest on standard error. |
-| `--report <file>` | With `--execute`, keep the close report (JSON, no secrets) in this file as the run goes. |
+| `--report <file>` | With `--execute`, keep the close report (JSON, no secrets) in this file as the run goes. An existing file is kept under a timestamped name; a `.env` name in any letter case, or a link to the working directory's `.env`, is refused. |
 
 Exit codes:
 
@@ -152,25 +157,29 @@ Every case with its code and remedy is in the [write-up](docs/write-up.md), sect
 
 ## Evidence
 
-The evidence follows SOW section 6.1. Explorer links stop resolving at the next testnet reset (scheduled for 2026-12-16); the JSON and XDR files committed under `evidence/` are the durable record.
+The evidence follows SOW section 6.1; the [evidence index](evidence/README.md) maps SOW Appendix B row by row to the files. Explorer links stop resolving at the next testnet reset (scheduled for 2026-12-16); the JSON and XDR files committed under `evidence/` are the durable record.
 
 | Deliverable | Evidence type (SOW 6.1) | Where |
 |---|---|---|
 | D1 `planClose()` | Public repo + CLI output | The committed dry-run plan of the messy fixture ([text](evidence/plan/fixture-plan.txt), [JSON](evidence/plan/fixture-plan.json)); `dustin plan` runs on any testnet account. |
-| D2 Live close on testnet | Transaction hashes (links) + 60-second video | Zero-spendable messy accounts closed with sponsor-paid fee bumps through the [SDK](evidence/runs/20260926T125350Z/summary.md) and the [CLI](evidence/runs/20260927T200015Z-cli/summary.md): reports, envelopes, Horizon records and the 404 ([layout](evidence/runs/README.md)). Pending: the close of the baseline fixture (E3-S7), the video (E4-S6). |
-| D3 Edge cases and tests | Test results screenshot + public repo + baseline recording | Tests under `test/` ([Development](#development)); the [baseline protocol](evidence/baseline/README.md). Pending: the test matrix and its screenshot (E3-S6, E4-S3), the Demolisher recording (E1-S2). |
-| Documentation, demo and evidence | Public repo + write-up + 60-second video | The [write-up](docs/write-up.md) and the [integration notes](docs/integration-notes.md), first versions. Pending: the video (E4-S6), the evidence index `evidence/README.md` (E4-S7). |
+| D2 Live close on testnet | Transaction hashes (links) + 60-second video | The metric close of 2026-09-28, with the complete Epic 3 code, through the [SDK](evidence/runs/20260928T112239Z-e3/summary.md) and the [CLI](evidence/runs/20260928T112252Z-e3-cli/summary.md): zero-spendable messy accounts, every transaction a sponsor-paid fee bump, the reports, envelopes, Horizon records and the 404 ([layout](evidence/runs/README.md)). The first closes of week 2: [SDK](evidence/runs/20260926T125350Z/summary.md), [CLI](evidence/runs/20260927T200015Z-cli/summary.md). Pending: the video (E4-S6), and the close of the baseline fixture itself after its recording (matrix row B-03). |
+| D3 Edge cases and tests | Test results screenshot + public repo + baseline recording | The [test matrix](docs/test-matrix.md): every row with its offline and live tests; the tests under `test/` ([Development](#development)); the [baseline protocol](evidence/baseline/README.md). Pending: the test results screenshot (E4-S3), the Demolisher recording (E1-S2). |
+| Documentation, demo and evidence | Public repo + write-up + 60-second video | The [write-up](docs/write-up.md), the [integration notes](docs/integration-notes.md) and the [evidence index](evidence/README.md). Pending: the video (E4-S6) and the complete evidence package (E4-S7). |
 
 ## Development
 
 ```bash
 npm ci
 npm run build          # ESM + CommonJS + type declarations in dist/
-npm test               # offline unit tests (no network)
+npm test               # offline tier: recorded Horizon JSON and a fake ledger, no network
 npm run lint
 npm run format:check
-DUSTIN_TESTNET=1 npm run test:testnet   # live tests against the public testnet
+DUSTIN_TESTNET=1 npm run test:testnet -- --reporter=verbose   # live tier: builds its own throwaway accounts
 ```
+
+The live tests print every transaction hash with its purpose; `--reporter=verbose` shows that output even for passing tests. Every row of the D3 matrix, its tests and how to run each tier are in [docs/test-matrix.md](docs/test-matrix.md).
+
+Fixtures can also be built by hand on testnet: `dustin fixture create --profile messy` builds the metric account of SOW Appendix B, `dustin fixture create --profile edge` builds one throwaway account per edge variant (among them a frozen balance, a clawback-enabled trustline, pool shares, raised thresholds, a claimable balance and `AUTH_IMMUTABLE`), and `dustin fixture verify <manifest>` checks either against Horizon. The keys go to `.fixture/<id>/keys.json` (gitignored, testnet only).
 
 ## Status
 
@@ -178,7 +187,7 @@ DUSTIN_TESTNET=1 npm run test:testnet   # live tests against the public testnet
 |---|---|---|---|
 | Week 1 | 2026-09-22 to 2026-09-28 | Fixture built, Demolisher baseline recorded, `planClose()` dry run printed | fixture built and dry run committed (`evidence/plan/`); the Demolisher baseline recording is pending |
 | Week 2 | 2026-09-29 to 2026-10-05 | Zero-XLM account closed end to end with sponsored fees | met early on 2026-09-26: [transaction chain and 404](evidence/runs/20260926T125350Z/summary.md) |
-| Week 3 | 2026-10-06 to 2026-10-12 | Disposal ladder, sponsored unwind, sequence guard, test matrix, messy fixture closed | in progress: the ladder and the sponsored unwind ran in the live closes; the sequence-guard wait, the `edge` fixture, the test matrix and the close of the baseline fixture remain |
+| Week 3 | 2026-10-06 to 2026-10-12 | Disposal ladder, sponsored unwind, sequence guard, test matrix, messy fixture closed | met early on 2026-09-28: the ladder, the sponsored unwind, the sequence-guard wait and the edge cases proven live ([test matrix](docs/test-matrix.md)), and the messy fixture closed through the [SDK](evidence/runs/20260928T112239Z-e3/summary.md) and the [CLI](evidence/runs/20260928T112252Z-e3-cli/summary.md) ([evidence index](evidence/README.md)); the close of the baseline fixture itself follows its Demolisher recording |
 | Week 4 | 2026-10-13 to 2026-10-19 | npm publish, 60-second demo, evidence package, write-up | started early: first versions of the write-up and the integration notes; the npm release, the demo and the evidence package are pending |
 
 ## More
