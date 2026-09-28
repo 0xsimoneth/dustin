@@ -13,13 +13,13 @@ so that Deliverable 3 can be checked rather than taken on trust.
 As written in `docs/epics-and-stories.md` (Story 4.3). The integrator's brief for this session added the D3 matrix rows the closing review deferred to this story (`docs/reviews/2026-09-28-e3-review.md`, "Deferred", the Matrix row: X-03, X-07, X-08, X-15, X-16, and X-11 live, which the X-07 variant makes possible) and AC-E4-S7-3 of story 4.7 (`npm run evidence:check`).
 
 1. AC-E4-S3-1: Then `evidence/tests/` contains screenshots of a full green `npm test` and `npm run test:testnet` run with the date, plus the CI run link.
-   - **Met, with two deviations.** `evidence/tests/offline.txt` and `evidence/tests/testnet.txt` hold the complete output of one full green run of each tier on commit `0da27eb` (2026-09-28, 21:35 UTC and 21:37:48 to 21:42:52 UTC; Node v24.15.0), each headed by its UTC time, the commit and the Node version. `offline.png` and `testnet.png` show each run's per-file (offline) or per-test (live) lines and its summary.
+   - **Met, with two deviations.** `evidence/tests/offline.txt` and `evidence/tests/testnet.txt` hold the complete output of one full green run of each tier on commit `0df4d09`, the branch after the merge of main (2026-09-28, 22:30 UTC and 22:30:31 to 22:35:33 UTC; Node v24.15.0), each headed by its UTC time, the commit and the Node version. `offline.png` and `testnet.png` show each run's per-file (offline) or per-test (live) lines and its summary.
    - Deviation (screenshot): the images are rendered from the captured terminal output with ImageMagick, not captured from a screen, and say so in their first line and in `evidence/tests/README.md`; the text files are the source. The output had no ANSI codes; the one change to it is the local working directory on vitest's `RUN` line, which reads `<repository root>` (repository rule: no local paths in evidence).
    - Deviation (CI link): the CI run of this code does not exist yet; the integrator dispatches the testnet job after the merges and adds both links to the placeholder line of `evidence/tests/README.md`. The last CI run of the live tier is run 36424696971 on `d0d711c`.
 2. AC-E4-S3-2: Then the README "Run the tests yourself" section covers clone, `.env`, `fixture:build`, `test:testnet` and takes a fresh machine under 15 minutes.
    - **Not met in this story's files.** `README.md` belongs to the documentation agent in this session (the integrator's file ownership); the facts it needs are here and in `evidence/tests/README.md`. Two parts of the criterion do not match the repository: no `.env` is needed for the tests (every live test makes its own throwaway accounts from Friendbot; `.env` holds `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` for `dustin close` only, canonical decision 4), and there is no `fixture:build` script: a fixture is built with `dustin fixture create --profile messy|edge` (after `npm run build`, `node dist/cli/main.js fixture create ...`), as `docs/test-matrix.md` says. Measured on 2026-09-28: `npm run build` about 6 s, `npm test` 7 s, `DUSTIN_TESTNET=1 npm run test:testnet` 304 s, a CLI build of the `edge` fixture about a minute (not timed exactly; its 7 transactions span 7 ledgers); `npm ci` on a fresh machine was not measured.
 3. AC-E4-S3-3: Then `docs/test-matrix.md` shows the last run date and result per row.
-   - **Met.** The intro names the final run of each tier on `0da27eb`; every row E4-S3 touched gives it with its time, the others say "pass" for the same runs, and rows without a live test say so.
+   - **Met.** The intro names the final run of each tier, on `0df4d09` after the merge of main; every row E4-S3 touched gives it with its time, the others say "pass" for the same runs, and rows without a live test say so.
 
 How each work item is met, and the tests that prove it:
 
@@ -73,11 +73,27 @@ How each work item is met, and the tests that prove it:
 - `test/testnet/literal-zero.test.ts` alone, 2026-09-28 21:12 UTC: 3 of 3 (28 s).
 - `test/testnet/edge.test.ts` alone, fixture `edge-20260928T211254Z-b90d5d`, 2026-09-28 21:13 to 21:16 UTC: 17 of 17 (185 s).
 - The whole live tier on `0da27eb`, first run 21:21:46 to 21:36:53 UTC: 57 of 58. `S-07b` timed out at 300 s: no test file logged anything from 21:22:55 to 21:33:52 UTC (this machine's network was down), its first envelope was rejected, and its failed and re-planned transactions applied at ledgers 4921530 and 4921531, after the outage. Not a code fault; not kept as evidence.
-- The whole live tier on `0da27eb`, second run 21:37:48 to 21:42:52 UTC: 11 files, 58 of 58 (304 s): `evidence/tests/testnet.txt`. The offline tier on `0da27eb`, 21:35 UTC: 96 files, 928 tests (7.0 s): `evidence/tests/offline.txt`.
+- The whole live tier on `0da27eb`, second run 21:37:48 to 21:42:52 UTC: 11 files, 58 of 58 (304 s). The offline tier on `0da27eb`, 21:35 UTC: 96 files, 928 tests (7.0 s).
+- After the merge of main (`e8cdf16`, stories E4-S1 and E4-S2) at `0df4d09`: `RESET_SUSPECTED` got its default remedy and its row in `docs/errors.md` (commit `0df4d09`); the offline tier, 22:30 UTC, 113 files, 1057 tests (15.2 s while the live tier ran); the whole live tier, 22:30:31 to 22:35:33 UTC, 11 files, 58 of 58 (301 s). These two runs are the evidence in `evidence/tests/`.
 - `npm run evidence:check` on the evidence of 2026-09-28: 124 links, 121 ok, 3 accounts gone (closed accounts' Horizon pages), 0 failed.
 - Matrix counts, before (`d0d711c`) and after: 21 green, 1 planned, 8 not covered, 2 human action; then 27 green, 1 planned (B-03), 2 not covered (X-05 live, X-09 live), 2 human action (B-01, B-02). Rows with an offline test 27, then 29; with a live test 16, then 20.
 
-Live hashes of the new rows in the green run of the whole tier (fixture `edge-20260928T213749Z-d0b30b`, fee sponsor `GD75NQQXX2F5BIL6TFVOX6R3VRN6HXYQ7NG4GI2L2JF6BFPQWUPEWM4R`):
+Live hashes of the new rows in the run of the whole tier after the merge of main, kept as evidence (fixture `edge-20260928T223035Z-6e6a79`, fee sponsor `GAPFJATAZD4T3E6J2YQD7G2ZCKCS2E77JMMR5OTPCZDUH4KYIR6CW6VY`; X-16 fee sponsor `GAF6O3AZG4BKP7U7Z6GD6FEP4RXIBY66IQUMALNGIGU6R5ICZI3MZYJE`, reserve sponsor `GB5QLCWZOXV5YLHUVUPEKEQ57ZY34643MJQUAVYXUMZ6246CMFDNGWSS`, account `GBO6SJQBIVUBDFD2AXSUU5UH3H6OVYFAIXDSP7DHDBUHPSNSVISEYQ7E`):
+
+| Row | Purpose | Ledger | Transaction |
+|---|---|---|---|
+| X-11 | probe: sell OFA through the account's own offer (`op_cross_self`) | 4922242 | `971c735d833d716fa214a750f3fbbe10dda2a9832eff624ddf596dcd6d5b2b37` |
+| X-07 | offer-types full close | 4922244 | `2c61a6d5a88e22c4a41f4e02114b3b34204fbf3acef5e2d5d66c80a9cbc75c34` |
+| X-08 | the plain issuer takes the OFC offer after the plan | 4922245 | `58acb73261c6f416e4695777580a41b20d16e937f0aa6f6dc9c484eb297a5fdc` |
+| X-08 | offer-stale close: the cancellation fails (`op_offer_not_found`) | 4922246 | `429350606e8144b2a6a650023d12722c61e2570b8b2429bb6bd97407aa728c98` |
+| X-08 | offer-stale re-plan: trustline removed and merged | 4922247 | `3f3ebe7fe73ad2b123ec259cf4bd85e61671a17dc52c0362001b58bd37661558` |
+| X-03 | claimant full close (a merge alone) | 4922248 | `5b3c56a85efbe2da79d2739155cd2d48f30a9f8f436514cd12693ae64dc50ba3` |
+| X-03 | the issuer claims the CBA balance after the merge | 4922249 | `f7ce25885c8f18ec65db4eeab34985e383210804b68d7513ea894c0c8bdd7623` |
+| X-16 | the fee sponsor creates the reserve sponsor, the issuer and the destination | 4922211 | `5dffb7f9118c61d6201683d75c43cb72e86bf7f703306efc56487abfeb591058` |
+| X-16 | sponsorship sandwich: the account created with startingBalance 0 and a sponsored ZTL trustline | 4922212 | `354ece3da627355de8f7d0eb18de6f96405e64ab3775c08ac0290868ca07df65` |
+| X-16 | the close: 0 XLM merged in one fee bump | 4922213 | `95424179b0cdc79691dd4c6d3a9799a367e54ab1db1184c38cf326af6b6f369d` |
+
+The same rows in the green run of the whole tier before the merge (on `0da27eb`; fixture `edge-20260928T213749Z-d0b30b`, fee sponsor `GD75NQQXX2F5BIL6TFVOX6R3VRN6HXYQ7NG4GI2L2JF6BFPQWUPEWM4R`):
 
 | Row | Purpose | Ledger | Transaction |
 |---|---|---|---|
@@ -92,14 +108,14 @@ Live hashes of the new rows in the green run of the whole tier (fixture `edge-20
 | X-16 | sponsorship sandwich: the account created with startingBalance 0 and a sponsored ZTL trustline | 4921579 | `845263e5d5c72bd2e61dd410b34ee295d4e50fae0e9ff9e741800dac1d607de8` |
 | X-16 | the close: 0 XLM merged in one fee bump | 4921580 | `e4d9f16673d610f89a79b9c2bb758e65fc24035bfa5b58a91c5a88c65ffca5b9` |
 
-The same rows in the run of `test/testnet/edge.test.ts` alone (fixture `edge-20260928T211254Z-b90d5d`): X-11 probe `17264c8c88f48961d4ae7bb78381d493575d3f50a69ecaa95906e01a842ee800` (ledger 4921308); X-07 close `7cbe332023f0938107718707b1fc29ae621783217d6f36ed7d9230c458b90113` (4921309); X-08 counterparty `4d3d96f80d23fbae56cd54cda0fd429fe7bfded962b804473d5e03144e86ac6e` (4921310), failed cancellation `20989a08693df2e774aecb4e7b323152b7b490a439aa8b5066f20eed8093806e` (4921311), re-plan `7e4bdb181dbc22860980d9f8b450b18bcb61681ddf65aee4455167d20d0a57dc` (4921312); X-03 close `19b1b33eb9bd080e98a08c9a83005a772b7a3348cad59b15034b548b4d35b73a` (4921313), the issuer's claim `7d46d5de5dec72894b015853d5cc5c7862bdc527d24e2d040fdf24ba71f1d8be` (4921314). X-16 alone: setup `145a649c3d9f56052b95f4a91b1a43d3c9a86ad07869da7ba2a575b51b8f31a1` (4921270), sandwich `2dd51478ab1bc6a6bf79716caa542f713afce40247dc3ef8b1cd524cf4206c9b` (4921271), close `0e2b3ef02280721b93d3b21dcd2c4724d24118180e5e4d4cf8bd5b15e901072f` (4921273). Every other hash of the green run, the builds and the earlier rows included, is in `evidence/tests/testnet.txt`.
+The same rows in the run of `test/testnet/edge.test.ts` alone (fixture `edge-20260928T211254Z-b90d5d`): X-11 probe `17264c8c88f48961d4ae7bb78381d493575d3f50a69ecaa95906e01a842ee800` (ledger 4921308); X-07 close `7cbe332023f0938107718707b1fc29ae621783217d6f36ed7d9230c458b90113` (4921309); X-08 counterparty `4d3d96f80d23fbae56cd54cda0fd429fe7bfded962b804473d5e03144e86ac6e` (4921310), failed cancellation `20989a08693df2e774aecb4e7b323152b7b490a439aa8b5066f20eed8093806e` (4921311), re-plan `7e4bdb181dbc22860980d9f8b450b18bcb61681ddf65aee4455167d20d0a57dc` (4921312); X-03 close `19b1b33eb9bd080e98a08c9a83005a772b7a3348cad59b15034b548b4d35b73a` (4921313), the issuer's claim `7d46d5de5dec72894b015853d5cc5c7862bdc527d24e2d040fdf24ba71f1d8be` (4921314). X-16 alone: setup `145a649c3d9f56052b95f4a91b1a43d3c9a86ad07869da7ba2a575b51b8f31a1` (4921270), sandwich `2dd51478ab1bc6a6bf79716caa542f713afce40247dc3ef8b1cd524cf4206c9b` (4921271), close `0e2b3ef02280721b93d3b21dcd2c4724d24118180e5e4d4cf8bd5b15e901072f` (4921273). Every hash of the run after the merge, the builds and the earlier rows included, is in `evidence/tests/testnet.txt`.
 
 ### File List
 
 - `src/inspect/horizon-types.ts`, `src/inspect/snapshot.ts`, `src/inspect/inspect.ts`, `src/reader/ledger-reader.ts` (modified): the claimant query and the snapshot field
 - `src/plan/claimable.ts` (new), `src/plan/order.ts` (modified): the X-03 warning
 - `src/fixture/reset.ts` (new), `src/fixture/verify.ts`, `src/fixture/edge-verify.ts`, `src/fixture/edge.ts`, `src/fixture/edge-builder.ts`, `src/fixture/manifest.ts`, `src/cli/commands/fixture.ts` (modified)
-- Narrow edits outside the story's files, as the brief allows: `src/execute/replan.ts` (one pass-through line), `src/errors/dustin-error.ts` (`RESET_SUSPECTED`), `src/cli/exit-codes.ts` (its case line), `package.json` (the `evidence:check` line)
+- Narrow edits outside the story's files, as the brief allows: `src/execute/replan.ts` (one pass-through line), `src/errors/dustin-error.ts` (`RESET_SUSPECTED`), `src/cli/exit-codes.ts` (its case line), `package.json` (the `evidence:check` line); after the merge of main, `src/errors/remedies.ts` and `docs/errors.md` (the default remedy and the row of `RESET_SUSPECTED`)
 - `scripts/evidence-check.mjs` (new)
 - `test/helpers/edge-ledger.ts`, `test/helpers/fake-ledger.ts`, `test/helpers/generate.ts` (modified)
 - `test/fixtures/horizon/edge-e4/` (56 files, new), `test/fixtures/horizon/reset/` (2 files, new), `claimable-claimant-*.json` in `test/fixtures/horizon/messy/`, `pool-share/` and `edge/` (12 files, new, synthesized)
@@ -110,4 +126,4 @@ The same rows in the run of `test/testnet/edge.test.ts` alone (fixture `edge-202
 
 ## Change Log
 
-- 2026-09-28: X-03, X-15, X-07, X-08, X-11 live and X-16 built and green at both levels the matrix asks for; the `edge` profile's three new variants and their recording; `npm run evidence:check` (AC-E4-S7-3); both tiers run in full on `0da27eb` and kept in `evidence/tests/`; the test matrix brought up to date. Status: review (AC-2 waits for the README of the documentation agent; the CI links wait for the integrator's run after the merges).
+- 2026-09-28: X-03, X-15, X-07, X-08, X-11 live and X-16 built and green at both levels the matrix asks for; the `edge` profile's three new variants and their recording; `npm run evidence:check` (AC-E4-S7-3); both tiers run in full, on `0da27eb` and again after the merge of main on `0df4d09`, the latter kept in `evidence/tests/`; the test matrix brought up to date. Status: review (AC-2 waits for the README of the documentation agent; the CI links wait for the integrator's run after the merges).
