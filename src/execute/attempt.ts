@@ -86,6 +86,9 @@ export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcom
   entry.result = outcome.kind;
   if (outcome.kind !== "unknown") delete entry.mayStillApply;
   if (outcome.kind !== "unknown" || !outcome.sequenceUsed) delete entry.sequenceUsed;
+  if (outcome.kind !== "unknown" || !(outcome.lookupError ?? outcome.readError)) {
+    delete entry.lookupError;
+  }
   switch (outcome.kind) {
     case "applied":
       entry.ledger = outcome.ledger;
@@ -105,6 +108,9 @@ export function recordOutcome(entry: SubmittedTransaction, outcome: SubmitOutcom
     case "unknown":
       entry.mayStillApply = outcome.mayStillApply === true;
       if (outcome.sequenceUsed) entry.sequenceUsed = true;
+      if (outcome.lookupError ?? outcome.readError) {
+        entry.lookupError = (outcome.lookupError ?? outcome.readError)!;
+      }
       entry.explanation = unknownMeaning(outcome);
   }
 }

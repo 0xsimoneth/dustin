@@ -68,6 +68,13 @@ export interface SubmittedTransaction {
    * has not caught up, or another transaction used the number; either way it cannot apply any more.
    */
   sequenceUsed?: true;
+  /**
+   * Set only while `result` is `unknown`: why its outcome could not be settled, because the last
+   * lookups by hash failed (the HTTP status or the error) or a read the wait needed failed (the
+   * latest ledger or the account, and why). Whether it applied is not known (review round 3,
+   * R3-22; blind review BH-13).
+   */
+  lookupError?: string;
   ledger: number | null;
   feeChargedStroops: number | null;
   feeAccount: string;

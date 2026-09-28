@@ -94,6 +94,31 @@ const OUTCOME: Record<string, string> = {
   pending: "pending: the outcome was not known when the run stopped; look the hash up",
 };
 
+/**
+ * The label of an envelope whose outcome is not known, from what is known about it, so that it
+ * never contradicts its meaning line (review round 3, R3-22; blind review BH-13): lookups that
+ * failed are not "not found", and a used sequence number means it may have applied. Reports
+ * written before `lookupError` and `sequenceUsed` existed are read from their explanation.
+ */
+function unknownLabel(tx: SubmittedTransaction): string {
+  const meaning = tx.explanation ?? "";
+  if (tx.lookupError !== undefined || /could not be (looked up|settled)/.test(meaning)) {
+    const what = /could not be settled/.test(meaning)
+      ? "its outcome could not be settled"
+      : "it could not be looked up";
+    return tx.mayStillApply
+      ? `unknown: ${what}, and it may still apply until its time bound passes`
+      : `unknown: ${what}, so whether it applied is not known`;
+  }
+  if (tx.sequenceUsed === true || /sequence number used/.test(meaning)) {
+    return "unknown: not found by hash, but its sequence number is used, so it may have applied";
+  }
+  if (tx.mayStillApply) {
+    return "unknown: not found yet, and it may still apply until its time bound passes";
+  }
+  return OUTCOME.unknown!;
+}
+
 const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 function resultCodes(tx: Pick<SubmittedTransaction, "resultCodes">): string | null {
@@ -117,9 +142,7 @@ function transactionLines(
     // Round n is the n-th re-plan; its transactions are numbered from 1 again (E2-S3).
     tx.round > 0 ? `round ${tx.round}` : "",
     tx.attempt > 1 ? `attempt ${tx.attempt}` : "",
-    tx.result === "unknown" && tx.mayStillApply
-      ? "unknown: not found yet, and it may still apply until its time bound passes"
-      : (OUTCOME[tx.result] ?? String(tx.result)),
+    tx.result === "unknown" ? unknownLabel(tx) : (OUTCOME[tx.result] ?? String(tx.result)),
     tx.ledger !== null ? `ledger ${grouped(tx.ledger)}` : "",
     tx.feeChargedStroops !== null
       ? `fee ${xlm(tx.feeChargedStroops)} (${grouped(tx.feeChargedStroops)} stroops) charged to ${payer}`
