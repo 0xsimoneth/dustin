@@ -49,13 +49,18 @@ export function chooseRung(
   const issuer = line.asset.issuer;
   if (!line.authorized) {
     const maintain = line.authorizedToMaintainLiabilities;
+    // A clawback needs the trustline's clawback flag, which only a trustline created after its
+    // issuer set AUTH_CLAWBACK_ENABLED has and nothing can set later
+    // (https://developers.stellar.org/docs/build/guides/transactions/clawbacks#set-trust-line-flag;
+    // closing review CP-7).
+    const clawback = line.clawbackEnabled ? " or to claw the balance back" : "";
     return {
       ok: false,
       code: maintain ? "MAINTAIN_LIABILITIES_ONLY" : "TRUSTLINE_NOT_AUTHORIZED",
       reason: maintain
         ? `Issuer ${issuer} has limited the ${code} trustline to maintaining liabilities, so the balance of ${line.balance} ${code} cannot be sent anywhere, not even back to the issuer.`
         : `Issuer ${issuer} has not authorized the ${code} trustline (or revoked it), so the balance of ${line.balance} ${code} cannot be sent anywhere, not even back to the issuer.`,
-      remedy: `Ask the issuer ${issuer} to authorize the trustline again (SetTrustLineFlags) or to claw the balance back, then run the plan again.`,
+      remedy: `Ask the issuer ${issuer} to authorize the trustline again (SetTrustLineFlags)${clawback}, then run the plan again.`,
       ruledOut: [],
     };
   }

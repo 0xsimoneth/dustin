@@ -393,3 +393,43 @@ describe("CP-6: a sale ruled out by the account's own offer", () => {
     ).toBe(true);
   });
 });
+
+describe("CP-7: the unauthorized-trustline remedy offers a clawback only where one can happen", () => {
+  // Clawback needs the trustline's clawback flag, set only on trustlines created after the issuer
+  // set AUTH_CLAWBACK_ENABLED (https://developers.stellar.org/docs/tokens/control-asset-access#clawback-enabled-0x8);
+  // SetTrustLineFlags can clear it but never set it
+  // (https://developers.stellar.org/docs/build/guides/transactions/clawbacks#set-trust-line-flag).
+  it("the recorded FRZ and MNT trustlines are not clawback-enabled: re-authorization is the only remedy", async () => {
+    const m = edgeManifest();
+    for (const [role, code] of [
+      ["authFrozen", "FRZ"],
+      ["authMaintain", "MNT"],
+    ] as const) {
+      const { reader } = edgeRecordedReader();
+      const plan = await planClose(
+        {
+          account: m.accounts[role],
+          destination: m.accounts.destination,
+          feeSponsor: m.accounts.sponsor,
+        },
+        { reader },
+      );
+      expect(item(plan, code).remedy, code).toBe(
+        `Ask the issuer ${m.accounts.authIssuer} to authorize the trustline again (SetTrustLineFlags), then run the plan again.`,
+      );
+    }
+  });
+
+  it("a clawback-enabled trustline that is not authorized keeps the clawback", () => {
+    const s = copy(base);
+    const dusta = s.trustlines.find((t) => t.asset.code === "DUSTA")!;
+    Object.assign(dusta, {
+      authorized: false,
+      authorizedToMaintainLiabilities: false,
+      clawbackEnabled: true,
+    });
+    expect(item(planFromSnapshot(s, opts()), "DUSTA").remedy).toBe(
+      `Ask the issuer ${messy.issuer} to authorize the trustline again (SetTrustLineFlags) or to claw the balance back, then run the plan again.`,
+    );
+  });
+});

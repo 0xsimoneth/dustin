@@ -87,7 +87,10 @@ describe("the recorded edge fixture at the planner", () => {
     const frz = p.unclosable[0]!;
     expect(frz).toMatchObject({ code: "TRUSTLINE_NOT_AUTHORIZED", blocksMerge: true });
     expect(frz.reason).toContain(`Issuer ${a.authIssuer} has not authorized the FRZ trustline`);
-    expect(frz.remedy).toMatch(/authorize the trustline again .* or to claw the balance back/);
+    // FRZ is not clawback-enabled, so re-authorization is the only remedy (closing review CP-7).
+    expect(frz.remedy).toBe(
+      `Ask the issuer ${a.authIssuer} to authorize the trustline again (SetTrustLineFlags), then run the plan again.`,
+    );
     expect(p.steps.filter((s) => codeOf(s) === "FRZ")).toEqual([]);
     expect(kinds(p)).not.toContain("merge");
   });
