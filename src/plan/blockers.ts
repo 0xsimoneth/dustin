@@ -91,6 +91,24 @@ const signersSentence = (s: ExistingAccountSnapshot): string => {
     : " The account has no other signer.";
 };
 
+/** The weight of every signer together, master key included: the most any signatures can reach. */
+function totalWeight(s: ExistingAccountSnapshot): number {
+  return s.signers
+    .filter((signer) => signer.key !== s.account)
+    .reduce((sum, signer) => sum + signer.weight, s.masterWeight);
+}
+
+/**
+ * The remedy when even every signer together stays below the weight the merge needs,
+ * max(low, high): SetOptions, the only way to lower a threshold or add a signer, needs the high
+ * threshold too (https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#set-options),
+ * so nothing can ever change it (closing review CP-4).
+ */
+function neverMerged(s: ExistingAccountSnapshot, total: number, need: number): string {
+  const master = s.masterWeight === 0 ? " (the master key has weight 0)" : "";
+  return `None: the account's total signing weight is ${total}${master}, less than the ${need} the merge needs, and SetOptions, which could lower the thresholds or add a signer, needs that weight too (the high threshold), so the merge can never be authorized and the account can never be closed.`;
+}
+
 /**
  * Which threshold each step needs, from the list of operations
  * (https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations):
@@ -157,6 +175,8 @@ export function mergeBlockers(
 ): Blocker[] {
   const blockers: Blocker[] = [];
   const signing = signingCapability(s);
+  const mergeNeed = Math.max(s.thresholds.low, s.thresholds.high);
+  const total = totalWeight(s);
   if (s.flags.authImmutable) {
     // "The issuing account can't be merged" once AUTH_IMMUTABLE is set, and no flag can change after
     // it (https://developers.stellar.org/docs/tokens/control-asset-access#authorization-immutable-0x4).
@@ -185,7 +205,9 @@ export function mergeBlockers(
       remedy:
         otherSigners(s).length === 0
           ? "None: no key can sign for this account (the master key has weight 0 and there is no other signer), so it can never be cleaned up or merged."
-          : "Multisig closing is out of scope: sign with the account's other signers outside Dustin.",
+          : total < mergeNeed
+            ? neverMerged(s, total, mergeNeed)
+            : "Multisig closing is out of scope: sign with the account's other signers outside Dustin.",
       permanent: true,
     });
   } else if (!signing.merge || cleanupBlocked(s)) {
@@ -194,9 +216,13 @@ export function mergeBlockers(
     blockers.push({
       code: "THRESHOLD_UNMET",
       reason: thresholdReason(s),
+      // Signers that reach max(low, high) together can sign the merge, or lower any threshold with
+      // SetOptions; below it, neither can ever happen (closing review CP-4).
       remedy:
-        "Multisig closing is out of scope: sign outside Dustin with enough weight, or have the signers lower the thresholds to the master key's weight (SetOptions, which needs the high threshold), then run the plan again." +
-        partialNow(before),
+        total < mergeNeed
+          ? neverMerged(s, total, mergeNeed) + partialAnyway(before)
+          : "Multisig closing is out of scope: sign outside Dustin with enough weight, or have the signers lower the thresholds to the master key's weight (SetOptions, which needs the high threshold), then run the plan again." +
+            partialNow(before),
       permanent: true,
     });
   }

@@ -217,3 +217,59 @@ describe("CP-3: MASTER_KEY_DISABLED with no other signer", () => {
     );
   });
 });
+
+describe("CP-4: a threshold the signers together can never reach", () => {
+  // SetOptions needs the high threshold when it changes signers or thresholds
+  // (https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#set-options),
+  // so signers whose total weight is below it can never lower a threshold or add a signer.
+  const never = "the merge can never be authorized and the account can never be closed";
+
+  it("a single key of weight 1 and a high threshold of 2: no suggestion that cannot work", () => {
+    const s = onlySigner(copy(base), 1);
+    s.thresholds = { low: 0, medium: 0, high: 2 };
+    const { reason, remedy } = blocker(planFromSnapshot(s, opts()), "THRESHOLD_UNMET");
+    expect(reason).toContain("The account has no other signer.");
+    expect(remedy).toBe(
+      `None: the account's total signing weight is 1, less than the 2 the merge needs, and SetOptions, which could lower the thresholds or add a signer, needs that weight too (the high threshold), so ${never}. With --partial the cleanup and the sale still run, but the account stays on the ledger and keeps its XLM.`,
+    );
+    expect(remedy).not.toContain("sign outside Dustin");
+    expect(remedy).not.toContain("lower the thresholds to the master key's weight");
+  });
+
+  it("counts every signer: a second key that brings the total to the threshold keeps the multisig remedy", () => {
+    const s = withSecondSigner(onlySigner(copy(base), 1), 1);
+    s.thresholds = { low: 0, medium: 0, high: 2 };
+    const { remedy } = blocker(planFromSnapshot(s, opts()), "THRESHOLD_UNMET");
+    expect(remedy).toMatch(
+      /^Multisig closing is out of scope: sign outside Dustin with enough weight/,
+    );
+    expect(remedy).not.toContain(never);
+  });
+
+  it("the master key alone can lower a medium threshold it cannot meet, when it meets high and low", () => {
+    const s = onlySigner(copy(base), 1);
+    s.thresholds = { low: 0, medium: 2, high: 1 };
+    const { remedy } = blocker(planFromSnapshot(s, opts()), "THRESHOLD_UNMET");
+    expect(remedy).toContain("have the signers lower the thresholds to the master key's weight");
+  });
+
+  it("the low threshold counts too: every transaction needs it for its source account", () => {
+    const s = withSecondSigner(onlySigner(copy(base), 1), 1);
+    s.thresholds = { low: 3, medium: 0, high: 0 };
+    const { remedy } = blocker(planFromSnapshot(s, opts()), "THRESHOLD_UNMET");
+    expect(remedy).toMatch(
+      /^None: the account's total signing weight is 2, less than the 3 the merge needs/,
+    );
+    // Nothing can be signed, so nothing runs with --partial either.
+    expect(remedy).not.toMatch(/--partial/);
+  });
+
+  it("MASTER_KEY_DISABLED whose other signers together stay below the merge's threshold", () => {
+    const s = withSecondSigner(onlySigner(copy(base), 0), 1);
+    s.thresholds = { low: 0, medium: 0, high: 2 };
+    const { remedy } = blocker(planFromSnapshot(s, opts()), "MASTER_KEY_DISABLED");
+    expect(remedy).toBe(
+      `None: the account's total signing weight is 1 (the master key has weight 0), less than the 2 the merge needs, and SetOptions, which could lower the thresholds or add a signer, needs that weight too (the high threshold), so ${never}.`,
+    );
+  });
+});
