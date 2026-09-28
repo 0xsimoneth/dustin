@@ -168,7 +168,7 @@ export function buildProgram(
   fixture
     .command("create")
     .description("Build a fresh fixture account on testnet from Friendbot funding.")
-    .option("--profile <name>", "fixture profile", "messy")
+    .option("--profile <name>", "fixture profile: messy (the metric account) or edge", "messy")
     .option(
       "--dir <path>",
       "directory for the manifest, keys and recorded Horizon JSON",
