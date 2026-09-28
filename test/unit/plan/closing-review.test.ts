@@ -450,3 +450,27 @@ describe("CP-15: the destination fix names the account that holds trustlines and
     expect(remedy).not.toContain(muxed);
   });
 });
+
+describe("CP-16: IS_SPONSOR speaks of a clawback only for a clawback-enabled asset", () => {
+  // Only the asset's issuer can claw a claimable balance back, and only when the balance is
+  // clawback-enabled (CLAWBACK_CLAIMABLE_BALANCE_NOT_CLAWBACK_ENABLED otherwise,
+  // https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#clawback-claimable-balance);
+  // XLM has no issuer.
+  it("the recorded claimable variant created an XLM balance: no unconditional clawback", async () => {
+    const m = edgeManifest();
+    const { reader } = edgeRecordedReader();
+    const plan = await planClose(
+      {
+        account: m.accounts.claimable,
+        destination: m.accounts.destination,
+        feeSponsor: m.accounts.sponsor,
+      },
+      { reader },
+    );
+    const { remedy } = blocker(plan, "IS_SPONSOR");
+    expect(remedy).not.toContain("or clawed back by its issuer");
+    expect(remedy).toContain(
+      "otherwise it ends when the balance is claimed by its claimant or, if it holds a clawback-enabled asset, clawed back by that asset's issuer (ClawbackClaimableBalance).",
+    );
+  });
+});

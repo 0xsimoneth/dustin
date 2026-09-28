@@ -241,10 +241,13 @@ export function mergeBlockers(
       // transferred, and ends when the balance is claimed or clawed back
       // (https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#revoke-sponsorship;
       // https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves#effect-on-claimable-balances).
+      // Only the asset's issuer can claw a balance back, and only a clawback-enabled one, so never
+      // XLM (list-of-operations#clawback-claimable-balance). The inspector counts the balances
+      // without their assets, so the clawback is named as a condition (closing review CP-16).
       remedy:
         "Revoke or transfer your sponsorships first (RevokeSponsorship; each sponsored entry's owner must then afford its own reserve, or another account takes the sponsorship over)" +
         (cb > 0
-          ? ". A claimable balance's sponsorship can only be transferred (REVOKE_SPONSORSHIP_ONLY_TRANSFERABLE); otherwise it ends when the balance is claimed by its claimant or clawed back by its issuer (ClawbackClaimableBalance). Claimable balance cleanup is out of scope"
+          ? ". A claimable balance's sponsorship can only be transferred (REVOKE_SPONSORSHIP_ONLY_TRANSFERABLE); otherwise it ends when the balance is claimed by its claimant or, if it holds a clawback-enabled asset, clawed back by that asset's issuer (ClawbackClaimableBalance). Claimable balance cleanup is out of scope"
           : "") +
         ". Then run the plan again.",
       permanent: false,
