@@ -1,6 +1,13 @@
 # Ordering rules and known limits
 
-> Status: first version, 2026-09-28 (sprint day 7 of 30). This is the write-up of SOW Deliverable 4 (story E4-S5, PRD FR-27) and describes the code on the main branch on that date. Three pieces are still being built and are marked "in progress" where they appear: the executor's wait for the sequence-number guard (story E3-S4), the live proof of the disposal ladder beyond its first two rungs, with the `edge` fixture (stories E3-S1, E3-S2 and E3-S6), and the sponsored-unwind report (story E3-S3). Values in angle brackets, such as `<E3-S7 SDK close: evidence/runs/<stamp>-e3/>`, are placeholders for evidence that does not exist yet.
+> Status: first version 2026-09-28 (sprint day 7 of 30), updated the same day for the Epic 3 code and its live runs. This is the write-up of SOW Deliverable 4 (story E4-S5, PRD FR-27) and describes the code on the main branch on that date:
+> - the disposal ladder (stories E3-S1, E3-S2);
+> - the sponsored unwind with the reserve release observed on Horizon (E3-S3);
+> - the executor's wait for the sequence-number guard (E3-S4);
+> - the edge cases on the `edge` fixture (E3-S5, E3-S6);
+> - the metric close (E3-S7).
+>
+> Values in angle brackets, such as `<E4-S6 60-second demo video link>`, are placeholders for evidence that does not exist yet: the Demolisher recording (E1-S2), the test results screenshot (E4-S3), the video (E4-S6) and the complete evidence package (E4-S7).
 
 The reviewer can read this without running anything. Wallet developers find the API in the [integration notes](integration-notes.md).
 
@@ -8,9 +15,19 @@ The reviewer can read this without running anything. Wallet developers find the 
 
 Dustin closes a Stellar testnet account in a fixed order: it cancels the open offers, disposes of the leftover balances, removes the trustlines and data entries, and merges the account into a destination. It shows the whole plan before anything is signed, and every transaction it submits is fee-bumped by a sponsor, so an account with no spendable XLM pays nothing.
 
-What the evidence shows so far: on 2026-09-26 and 2026-09-27 two freshly built messy accounts were closed on testnet, one through the SDK and one through the CLI ([SDK close](../evidence/runs/20260926T125350Z/summary.md), [CLI close](../evidence/runs/20260927T200015Z-cli/summary.md)). Each held 4.0000000 XLM against a minimum balance of 4.0000000 XLM (nothing spendable), 4 trustlines with dust (one of them sponsored by a separate reserve sponsor), 2 open offers and 1 data entry. Each close took 3 fee-bumped transactions. The destination received 4.0000007 XLM (the balance plus 0.0000007 XLM from selling one dust balance), the sponsored trustline's 0.5 XLM reserve was unlocked for its reserve sponsor and not paid to the account, the sponsor paid 1,500 stroops in fees, the closed account paid nothing, and Horizon answers 404 for the account.
+The metric close (story E3-S7, the SOW's binary success metric) was recorded on 2026-09-28 with the complete Epic 3 code, on two freshly built messy accounts:
 
-The close of the baseline fixture `messy-20260926T035942Z`, the account the Demolisher baseline is recorded on, is still to come (story E3-S7): `<E3-S7 SDK close: evidence/runs/<stamp>-e3/>`, transactions `<E3-S7 tx 1 hash>`, `<E3-S7 tx 2 hash>`, `<E3-S7 tx 3 hash>`, merged amount `<E3-S7 merged XLM>`.
+- through the SDK: [`evidence/runs/20260928T112239Z-e3/`](../evidence/runs/20260928T112239Z-e3/summary.md), with the cleanup `55a12730e24961e27a9e089fc0d542f6416a1d3d0efc125b47b962907a16593f` (ledger 4914192), the sale `6e0e882060a280925e2dc23b099182624d63d95b04fcd51bb38eefbff49f6449` (ledger 4914193) and the merge `7335c6225593513ceee297b626eadc03bf1d9ee40256e2162b039edb245faac6` (ledger 4914194);
+- through the CLI: [`evidence/runs/20260928T112252Z-e3-cli/`](../evidence/runs/20260928T112252Z-e3-cli/summary.md), with `0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac`, `f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700` and `36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c` in ledgers 4914209 to 4914211; `dustin close --execute` exited 0.
+
+Each account held 4.0000000 XLM against a minimum balance of 4.0000000 XLM, so nothing was spendable. Each had 4 trustlines with dust, one of them sponsored by a separate reserve sponsor, 2 open offers and 1 data entry. Each close took 3 fee-bumped transactions, and:
+
+- the destination received exactly 4.0000007 XLM: the balance plus 0.0000007 XLM from selling one dust balance;
+- the sponsored trustline's 0.5 XLM reserve went back to its reserve sponsor, never to the account;
+- the sponsor paid 1,500 stroops in fees and the closed account paid nothing;
+- Horizon answers 404 for the account.
+
+The [evidence index](../evidence/README.md) checks SOW Appendix B row by row against these files. The same kind of close first ran in week 2 ([SDK](../evidence/runs/20260926T125350Z/summary.md), [CLI](../evidence/runs/20260927T200015Z-cli/summary.md)). The builder's baseline fixture `messy-20260926T035942Z` was not closed: it is kept for the Demolisher recording, and closing it with Dustin follows that recording (matrix row B-03).
 
 ## 1. Why closing an account is an ordered teardown
 
@@ -47,6 +64,7 @@ In Dustin: a `dispose_balance` step and its `remove_trustline` step form one uni
 **R3. Remove a sponsored trustline like any other trustline; never revoke the sponsorship.**
 Because: the owner may remove its own sponsored entry, and then the sponsor's `numSponsoring` and the owner's `numSponsored` both decrease ([sponsored reserves](https://developers.stellar.org/docs/build/guides/transactions/sponsored-reserves); [CAP-33](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0033.md)). Revoking the sponsorship would move the reserve onto the owner, which a zero-spendable owner cannot pay (`REVOKE_SPONSORSHIP_LOW_RESERVE`). Day-1 experiment 3 confirmed that the owner's signature alone removes the trustline, and that adding the reserve sponsor's signature is refused (`tx_bad_auth_extra`).
 In Dustin: the removal needs only the account's signature; the step names the reserve sponsor as the one whose reserve is released (section 5).
+In the evidence: matrix row S-03, live on 2026-09-28. The same removal with the reserve sponsor's signature added to the inner transaction was refused with `tx_bad_auth_extra` and never reached the ledger. Dustin's removal, with the account's signature alone, applied, and Horizon showed `trustline_sponsorship_removed` (story E3-S3).
 
 **R4. Delete data entries at any point before the merge.**
 Because: a Manage Data operation without a value deletes the entry; it depends on nothing else, and the entry is a subentry that blocks the merge ([list of operations, Manage data](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#manage-data)).
@@ -59,10 +77,18 @@ In Dustin: there is no step for signers. The reserve of a sponsored signer is cr
 **R6. Report liquidity pool shares, never withdraw them; remove an empty pool-share trustline before its pool's asset trustlines.**
 Because: withdrawing from pools is out of scope for the SOW; a pool-share trustline costs two base reserves ([liquidity pools, trustlines](https://developers.stellar.org/docs/learn/fundamentals/liquidity-on-stellar-sdex-liquidity-pools#trustlines)); and an asset trustline "still referenced by a liquidity pool" cannot be removed (`CHANGE_TRUST_CANNOT_DELETE`, [list of operations, Change trust](https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#change-trust)).
 In Dustin: held shares are a blocker (`LIQUIDITY_POOL_SHARES`), and the trustlines of that pool's assets stay (`POOL_ASSET_TRUSTLINE`). An empty pool-share trustline is removed first. When Horizon does not return a pool, the planner derives its two assets from the pool id, which is the SHA-256 of the pool's parameters ([CAP-38](https://github.com/stellar/stellar-protocol/blob/master/core/cap-0038.md)); if no pair of the account's assets matches, every credit trustline stays, so no transaction can fail on `CHANGE_TRUST_CANNOT_DELETE`.
+In the evidence: matrix row S-08, live on the `edge` fixture. Removing a pool asset's trustline while the share trustline existed failed with `op_cannot_delete`, and the partial close removed only the data entry ([test matrix](test-matrix.md)).
 
 **R7. The merge is the last operation, and a merge that follows other work of the run goes out only after a fresh preflight.**
 Because: each `ACCOUNT_MERGE_*` failure code names a condition that can change between plan and merge: subentries left, the account sponsoring something (`ACCOUNT_MERGE_IS_SPONSOR`), `AUTH_IMMUTABLE`, a missing destination, a sequence number too far ahead ([Account merge result codes](https://developers.stellar.org/docs/data/apis/horizon/api-reference/errors/result-codes/operation-specific/account-merge)); and a destination that marks itself memo-required under [SEP-29](https://github.com/stellar/stellar-protocol/blob/master/ecosystem/sep-0029.md) must receive a memo.
-In Dustin: the preflight (`src/execute/preflight.ts`) reads the account, the destination and the latest ledger again and checks that the account exists and sponsors nothing, that the destination (the base account of an `M...` address) exists, that a `G...` destination that has become memo-required gets a memo, and that the sequence guard holds; when the merge runs alone, also that no trustline, offer or data entry is left. If any check fails, the merge is not submitted.
+In Dustin: the preflight (`src/execute/preflight.ts`) runs before a merge that follows other transactions of the run, before a merge whose plan says the sequence guard does not hold yet, and before every rebuild of a merge. It reads the account, the destination and the latest ledger again, and checks:
+- that the account exists and sponsors nothing;
+- that the destination exists (for an `M...` address, its base account);
+- that a `G...` destination that has become memo-required gets a memo;
+- that the sequence guard holds;
+- when the merge runs alone, that no trustline, offer or data entry is left.
+
+When the guard is all that fails, the executor waits for it (section 7). If any other check fails, the merge is not submitted.
 
 **R8. Evaluate the sequence guard for the sequence number the account will have when the merge applies, against the earliest ledger the merge can land in.**
 Because: the merge fails with `ACCOUNT_MERGE_SEQNUM_TOO_FAR` when that sequence number is at or above the ledger number shifted left by 32 bits ([MergeOpFrame.cpp](https://github.com/stellar/stellar-core/blob/master/src/transactions/MergeOpFrame.cpp)). Section 7 gives the arithmetic.
@@ -87,7 +113,7 @@ The planner therefore builds three kinds of transaction:
 - **convert**: one transaction per path payment, with that asset's trustline removal;
 - **merge**: the merge joins the last cleanup transaction when there is no convert transaction and there is room; otherwise it runs alone and last. It also runs alone when the sequence guard says it has to wait (section 7).
 
-So a messy account without a market step closes in **one** fee-bumped transaction (an offline CLI test shows it as `tx 1/1`), and the messy fixture closes in **three**: 9 cleanup operations, 2 convert operations and the merge ([committed plan](../evidence/plan/fixture-plan.txt)), because one of its dust balances has a market.
+So a messy account without a market step closes in **one** fee-bumped transaction, and the messy fixture closes in **three**: 9 cleanup operations, 2 convert operations and the merge ([committed plan](../evidence/plan/fixture-plan.txt)), because one of its dust balances has a market. Both were seen live on 2026-09-28. The metric closes took three transactions. A messy fixture whose market was re-priced below the dust's resolution closed in one: the path finder returned no record for the dust, so every balance went back to its issuer and the cleanup carried the merge (matrix row X-10, story E3-S1).
 
 The atomicity consequence: when an operation fails on the ledger, its whole transaction applies nothing, yet the account's sequence number and the sponsor's fee are spent ("the sequence number of the inner transaction is always consumed at apply time", [fee-bump transactions, application](https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions#application)). Transactions that applied before it stay applied. The executor then reads the ledger, plans what is left (at most 3 re-plans by default) and continues. Keeping the market step apart means that a moved market costs one small transaction instead of the whole cleanup.
 
@@ -121,7 +147,14 @@ With `--prefer-destination` the destination question comes before the issuer que
 
 Every `dispose_balance` step records its choice: the rung, the amount, where the balance goes, the quote and `destMin` for a path payment, the later rungs that were also possible (`fallbackRungs`) and every rung ruled out with its reason (`ruledOut`).
 
-**Which balances are unclosable.** A payment to an issuer whose account was merged away succeeds and burns the balance, so a missing issuer is not a reason; the step's text only notes it. What remains unclosable is a balance on a trustline that is not authorized (`TRUSTLINE_NOT_AUTHORIZED`), a balance on a trustline authorized to maintain liabilities only (`MAINTAIN_LIABILITIES_ONLY`), and a balance with no market whose issuer requires a memo that was not given, when the destination cannot take it either (`NO_DISPOSAL_ROUTE`). Pool shares and the asset trustlines of a held pool are reported too (R6). In the default order, rung 3 is reached only when rung 2 is refused, which in practice means a memo-required issuer and no `--memo`.
+A quote can also move between the plan the user approved and the plan the executor makes right before signing. The plan hash leaves quotes out, so the executor compares the XLM each plan sends to the destination (`recovery.xlmToDestination`). A lower amount is drift, and by default the run stops with nothing signed: stop code `XLM_TO_DESTINATION_FELL`, CLI exit code 3 (review finding BH-7, story E3-S1).
+
+**Which balances are unclosable.** A payment to an issuer whose account was merged away succeeds and burns the balance, so a missing issuer is not a reason; the step's text only notes it. What remains unclosable is:
+- a balance on a trustline that is not authorized (`TRUSTLINE_NOT_AUTHORIZED`);
+- a balance on a trustline authorized to maintain liabilities only (`MAINTAIN_LIABILITIES_ONLY`);
+- a balance with no market whose issuer requires a memo that was not given, when the destination cannot take it either (`NO_DISPOSAL_ROUTE`).
+
+Pool shares and the asset trustlines of a held pool are reported too (R6). In the default order, rung 3 is reached only when rung 2 is refused. On an authorized trustline, a memo-required issuer and no `--memo` is the only way to refuse rung 2 that the live runs could reach (story E3-S2).
 
 A clawback-enabled trustline goes through the same ladder: clawback is a power of the issuer, not a limit on the holder ([Clawback Enabled](https://developers.stellar.org/docs/tokens/control-asset-access#clawback-enabled-0x8)). The plan warns that the issuer can change the balance before execution; if it does, the disposal fails and the executor plans again.
 
@@ -132,13 +165,21 @@ A clawback-enabled trustline goes through the same ladder: clawback is a power o
 | `op_too_few_offers`, `op_under_dest_min`, `op_cross_self` | The market disappeared or moved | Plans again with rung 1 dropped for that asset, so the balance falls to the next possible rung |
 | `op_src_not_authorized` | The issuer revoked authorization after the plan | Plans again: the balance is now unclosable, so the run stops before the merge (`PLAN_NOT_CLOSABLE`) unless a partial close was allowed |
 | `op_underfunded` | The balance is lower than planned (a clawback, a fill) | Plans again from the ledger |
-| `op_no_destination`, `op_no_trust`, `op_not_authorized`, `op_line_full` | The payment's destination is missing, lacks the trustline, is not authorized, or is full | Plans again from the ledger |
+| `op_no_destination`, `op_no_trust`, `op_not_authorized`, `op_line_full` | The payment's destination is missing, lacks the trustline, is not authorized, or is full. `op_no_destination` never comes from a return to a merged-away issuer (day-1 experiment 4); on a transfer it means the destination account is gone | Plans again from the ledger |
 | `op_cannot_delete` | A pool share still uses the trustline | Stops |
 | any code not in the mapping | | Stops rather than guess |
 
 Around that mapping: a step that fails twice becomes a `STEP_FAILED_TWICE` blocker and the run stops; at most `maxReplans` re-plans run (default 3); and a re-plan that finds something the approved plan did not have (a new subentry, a larger balance, an asset moving up the ladder) follows `onDrift`, which stops by default. Falling down the ladder and dropping the steps that already applied are not drift. The rung a disposal actually used is recorded on its step outcome (`rung`); there is no separate fallback status (PRD decision D-2).
 
-In the evidence: both week-2 closes applied rung 1 (DUSTA sold for 0.0000007 XLM, transaction 2) and rung 2 (DUSTB, DUSTC and SPTA returned to their issuer, transaction 1) on testnet. In progress: the live proof of a fall from rung 1 after the market moves, of rung 3, and of the unclosable exit on the `edge` fixture (stories E3-S1, E3-S2 and E3-S6): `<E3-S6 edge fixture close: evidence/runs/<stamp>-edge/>`.
+In the evidence, live on testnet (stories E3-S1, E3-S2 and E3-S6; the hashes are in those story records and in the [test matrix](test-matrix.md)):
+
+- **Rungs 1 and 2.** Every messy close, in week 2 and in the metric close, sold DUSTA for 0.0000007 XLM by path payment to the account itself, in transaction 2, and burned DUSTB, DUSTC and SPTA by returning them to their issuer, in transaction 1. The proceeds reached the closing account and left with the merge.
+- **A fall from rung 1.** Twice, the market maker cancelled its bid right before the sale was posted. The sale was included and failed, spending its sequence number and a 300-stroop fee. Horizon listed a code for each operation of the transaction: `op_too_few_offers` for the sale, then `op_invalid_limit` for the trustline removal after it, whose balance was still there; the executor classifies the first failing code. The re-plan returned DUSTA to its issuer, and the account closed with 4.0000000 XLM merged.
+- **Dust below the book's resolution (matrix row X-10).** With the bid re-priced so the dust would buy 0.7 stroop of XLM, Horizon's path finder returned no record at all. A sale forced by hand was included and failed with `op_under_dest_min`, not `op_too_few_offers`. The planner returned the dust to its issuer.
+- **Rung 3.** With `--prefer-destination`, DUSTC went to a destination that holds an authorized trustline with room, and the destination's DUSTC balance rose by exactly 0.0000005 (matrix row X-06).
+- **`NO_DISPOSAL_ROUTE`.** With a memo-required issuer and no memo, the balances without a market had all three rungs ruled out. Without `allowPartial` nothing was signed. With it, everything else ran and the account kept exactly those two trustlines.
+- **The unclosable exits on the `edge` fixture.** The frozen balance was `TRUSTLINE_NOT_AUTHORIZED` before anything was submitted, and a payment of it forced by hand failed with `op_src_not_authorized` (matrix row S-02). The maintain-liabilities balance stayed while its open offer was cancelled (S-06). A clawback between planning and submission made the planned return fail with `op_underfunded`, and the executor planned again and closed the account (S-07).
+- **The account's own offers as the only liquidity (matrix row X-11)** is tested offline only. The liquidity a sale of DUSTA for XLM would consume is an own offer that sells XLM for DUSTA, and a zero-spendable account cannot hold one.
 
 ## 5. Sponsored reserves
 
@@ -154,8 +195,9 @@ Dustin therefore never counts a sponsored reserve as recovered XLM:
 - The plan's `recovery.xlmToDestination` is the account's XLM balance now plus the quoted proceeds of its path payments. Reserves are not paid out; removing an entry lowers the minimum balance, and the merge moves the whole balance (architecture section 6.2).
 - The plan's `recovery.reservesReturnedToSponsors` lists every reserve sponsor with the XLM and the entries: one base reserve per trustline, offer and signer, two per pool-share trustline, and two for the account entry itself when the account's own reserve is sponsored. Signers and the account entry are credited only when the merge applies.
 - The report recomputes the same list from the steps that actually applied, in whichever plan round they applied, and reads the merged amount from the merge result (`recovery.mergedXlm`).
+- The report also records what Horizon showed for each reserve sponsor the plans name, before the first submission and after the final check: its `num_sponsoring`, XLM balance and minimum balance, with the ledger of each read (`recovery.sponsorsObserved`, story E3-S3). The receipt prints both figures under "Reserves released to sponsors", next to the planned reserve. A read that fails leaves its figure empty, adds a warning, and never changes the outcome of the close.
 
-In the evidence: in the week-2 SDK close the reserve sponsor stayed at 10.0000000 XLM while its `num_sponsoring` went from 1 to 0, the destination grew by exactly 4.0000007 XLM, and the report lists 0.5000000 XLM for trustline SPTA returned to the reserve sponsor ([summary](../evidence/runs/20260926T125350Z/summary.md)). The plan, the report and the printed receipt all show that line. In progress: the sponsored-unwind report of story E3-S3, `<E3-S3 sponsored-unwind report: evidence/runs/<stamp>/>`.
+In the evidence: in both metric closes of 2026-09-28 the report recorded the reserve sponsor's `num_sponsoring` going from 1 to 0 and its minimum balance from 1.5 to 1.0 XLM, with its XLM balance unchanged, while the destination grew by exactly 4.0000007 XLM ([SDK](../evidence/runs/20260928T112239Z-e3/summary.md), [CLI](../evidence/runs/20260928T112252Z-e3-cli/summary.md)). The live runs of story E3-S3 showed the same for matrix row S-03, where the sponsored trustline was removed by the account's signature alone. They showed it also for row X-18, a sponsored signer that the merge removed: the reserve sponsor's `num_sponsoring` went from 2 to 0 and its minimum balance from 2.0 to 1.0 XLM, and the merge transaction shows `signer_sponsorship_removed`. Every hash is in the [story record](stories/3-3-sponsored-trustline-unwind.md).
 
 If the closed account itself sponsors anything, including claimable balances it created, the merge is impossible (section 8).
 
@@ -190,15 +232,23 @@ Each earlier transaction of the close uses one sequence number, hence the merge 
 Two worked examples:
 
 - The committed fixture plan: sequence at merge 20,935,049,285,206,023; earliest ledger 4,875,056; 4,875,056 << 32 = 20,938,206,086,168,576, which is larger, so the guard passes ([committed plan](../evidence/plan/fixture-plan.txt)).
-- Day-1 experiment 5: a sequence number bumped to (4,874,033 + 20) << 32 = 20,933,898,233,970,688. A merge at the next sequence number failed with `op_seq_num_too_far`; the formula gives ledger 4,874,054; a merge submitted at ledger 4,874,061 succeeded in ledger 4,874,062, and the account then returned 404 ([progress log](progress-log.md)). The exact first valid ledger was not isolated live; unit tests cover the boundary.
+- Day-1 experiment 5: a sequence number bumped to (4,874,033 + 20) << 32 = 20,933,898,233,970,688. A merge at the next sequence number failed with `op_seq_num_too_far`; the formula gives ledger 4,874,054; a merge submitted at ledger 4,874,061 succeeded in ledger 4,874,062, and the account then returned 404 ([progress log](progress-log.md)). That experiment did not isolate the first valid ledger; story E3-S4 did (below).
 
 What the plan reports: `sequenceGuard` with `sequenceAtMerge`, `earliestLedger`, `ok`, `unblocksAtLedger` and `etaSeconds`, and then
 
 - **guard passes**: nothing more; the plan text prints "sequence guard ok";
-- **guard fails, wait of at most `maxWaitLedgers`** (default 120 ledgers, about 10 minutes): the merge is moved into its own last transaction, the cleanup runs first, and a warning says the merge must wait until ledger N (about S seconds);
+- **guard fails, wait of at most `maxWaitLedgers`** (default 120 ledgers, about 10 minutes): the merge is moved into its own last transaction, the cleanup runs first, and a warning says the merge must wait until ledger N (about S seconds) and that the executor waits before submitting it;
 - **guard fails, longer wait**: blocker `SEQNUM_TOO_FAR` (not permanent) with the ledger and the minutes; the plan has no merge and its status is `blocked`; the cleanup can run with `--partial`.
 
-What the executor does today: before a merge that follows other transactions of the run, the preflight evaluates the guard again against the latest ledger; when it fails, the merge is not submitted and the run stops (`MERGE_PREFLIGHT_FAILED`, with `unblocksAtLedger`). A merge refused on the ledger with `op_seq_num_too_far` stops the run with `SEQNUM_TOO_FAR` and the ledger at which to run the close again. **In progress (story E3-S4, review finding R8):** the executor's wait, which polls the latest ledger until the guard passes and then submits the merge, within the plan's `maxWaitLedgers`; its live proof on a bumped account is `<E3-S4 sequence-guard wait: evidence/runs/<stamp>-seq/>`.
+What the executor does (story E3-S4, review finding R8; `src/execute/executor.ts`, `src/execute/preflight.ts`):
+
+- **When it checks.** The merge preflight evaluates the guard again against the latest ledger before a merge that follows other transactions of the run, and also whenever the plan's `sequenceGuard.ok` is false, so a merge that is the plan's only transaction is checked too.
+- **How it waits.** When the guard is all that holds the merge back, the executor emits a `wait` event (`state: "start"`, with `untilLedger` and the latest ledger) and polls the latest ledger (`GET /ledgers?order=desc&limit=1`) every `pollIntervalMs`. A merge fails in every ledger before `untilLedger`, and a transaction submitted now lands at the earliest in the ledger after the latest one closed, so the executor submits once the ledger before `untilLedger` has closed: it emits the `end` event, runs the preflight again and submits the merge. The same wait runs before every rebuild of a merge envelope.
+- **Its two bounds.** `untilLedger` may be at most the plan's `maxWaitLedgers` after the latest ledger, the planner's own rule, so a plan the planner made closable is waited for. The local clock ends a wait that lasts longer than twice the time of the ledgers to wait for plus two more, at about 5 seconds per ledger; the ledgers decide when the wait is over, and this limit only ends a wait on a network that closes ledgers far slower than usual. Beyond either bound the run stops before the merge with `SEQNUM_TOO_FAR` and `unblocksAtLedger`, and the stop says to run the close again at or after that ledger.
+- **A merge refused on the ledger.** After `op_seq_num_too_far` (another client bumped the sequence number between the preflight and the merge), the executor reads the account again and recomputes the guard. Within the bound it re-plans from the ledger and the new merge waits in its preflight; beyond the bound, or when a merge has failed this way twice, it stops with `SEQNUM_TOO_FAR` and the ledger.
+- **In the CLI.** When the wait starts, the CLI prints the ledger the merge can land from, the latest ledger and about how many seconds are left; when it ends, the ledger that has closed. A plan blocked by the guard is refused without `--partial` (exit code 3, nothing signed) and runs its cleanup with it (exit code 4); a run the guard stops part-way ends with exit code 5, or 3 when nothing was submitted, and the receipt's "Next" line names the ledger.
+
+In the evidence ([story record](stories/3-4-seqnum-too-far-guard.md), 2026-09-28): a fresh messy fixture whose sequence number was bumped 16 ledgers ahead was planned closable with the merge alone and last. The cleanup and the sale applied in ledgers 4913943 and 4913944, the executor waited 60 seconds (12 ledgers in 60.2 s), and the merge `61e29b285fb3ef9e8a13d2162b395981e225126563462558633e2c3567ee8e48` applied in the unblocking ledger itself, 4913957. A bump of 720 ledgers, about an hour, gave a `blocked` plan: with `allowPartial` the cleanup ran and no merge was submitted, and a merge submitted anyway failed with `op_seq_num_too_far` and consumed its sequence number. At the boundary, a merge built by hand and posted into ledger 4913988, one before the first valid ledger, failed with `op_seq_num_too_far` (`9fd107b2edf0b0cdced1704652a95387782a44fcc4bb9b689b2f425e2214a102`), and the executor's merge applied in ledger 4913989 (`560e951c84250a5365b8f8e296f9db04f37e586f3c8ce1e0553a3ca0cc052c1e`). A second run on fresh fixtures repeated the three cases with the same outcome; its boundary merge failed in ledger 4914107 (`ca26868fb79cfe7b4b9ed1b75ecdefa20280270538b052c562aefc1adca2fe8c`) and the executor's applied in 4914108 (`5c7c80f8e6e84d557f3a027bb3f799d3d009d3f3b4969fc912a18256fa2a689b`). A merge with sequence number s applies only from ledger (s >> 32) + 1, as the rule above says.
 
 ## 8. Known limits
 
@@ -241,8 +291,9 @@ Every unclosable code and blocker code of PRD section 7, with the remedy the pla
 
 - Only the master key signs. A `Signer` may be a wallet or a device, but the planner checks thresholds against the master key's weight.
 - One close per account at a time: two runs on one account compete for its sequence numbers, and a run refused with `tx_bad_seq` twice stops with `SEQUENCE_CONFLICT`.
-- The amounts the user confirmed are not enforced on the executor's fresh plan: the plan hash leaves out market quotes, so a worse quote while the confirmation waits lowers the merged amount without counting as drift (review finding BH-7). A check that compares the fresh plan's `xlmToDestination` with the confirmed plan is planned in story E3-S1 and is not built yet.
-- The executor does not yet wait for the sequence guard (section 7, in progress).
+- The amount check runs once, when the executor plans again before signing: it stops when the fresh plan's `xlmToDestination` is lower than the approved one (`XLM_TO_DESTINATION_FELL`, section 4), and with `onDrift: "replan"` a lower amount is only a warning. A re-plan later in the run, after a sale failed and fell down the ladder, lowers the amount by design and is not compared with the approved plan.
+- A plan approved with a near sequence guard whose unblocking ledger passes while the typed confirmation waits is planned again with the guard passing, so the merge joins the cleanup transaction; the grouping is part of the plan hash, so the run stops with `PLAN_CHANGED`, nothing signed (CLI exit code 3). Running the command again closes the account ([story E3-S4](stories/3-4-seqnum-too-far-guard.md), known limitation).
+- Claimable balances that other accounts created for the closed account are not read (`/claimable_balances?claimant=`). They do not block the merge, the plan does not mention them, and Dustin does not claim them first; a user who wants them claims them before the close (edge case A-03; matrix row X-03, not covered).
 
 ### 8.4 Limits of the evidence
 
@@ -265,21 +316,22 @@ What Dustin adds, and how to check each point:
 2. Plan first: `planClose()` only reads from Horizon, and every step carries a reason and a fee estimate. Check: the [committed plan](../evidence/plan/fixture-plan.txt) and the offline dry-run tests.
 3. A fee-bumped close of zero-spendable accounts with the integrator's own sponsor key, within a budget the integrator sets. Check: the week-2 transaction chains, where Horizon shows the sponsor as `fee_account` of every transaction.
 4. Sponsored-reserve accounting: a sponsored entry's reserve is attributed to its sponsor, never counted as recovered. Check: section 5 and the reports.
-5. A published fixture, a test matrix and a baseline recording. The fixture builder is done; the test matrix (`<E3-S6 test matrix: docs/test-matrix.md>`) is in progress and the baseline recording is pending.
+5. A published fixture, a test matrix and a baseline recording. The fixture builder (`dustin fixture create`, profiles `messy` and `edge`) and the [test matrix](test-matrix.md) are built; the baseline recording is pending.
 
 ## 10. Evidence, now and pending
 
 | Claim | Evidence in the repository | Pending |
 |---|---|---|
 | The planner reads and never writes | [Committed plan, text](../evidence/plan/fixture-plan.txt) and [JSON](../evidence/plan/fixture-plan.json) of the baseline fixture | |
-| A zero-spendable account closed with sponsor-paid fee bumps | [SDK close](../evidence/runs/20260926T125350Z/summary.md), [CLI close](../evidence/runs/20260927T200015Z-cli/summary.md) of fresh messy fixtures | The metric close of the baseline fixture: `<E3-S7 SDK close: evidence/runs/<stamp>-e3/>` |
+| A zero-spendable account closed with sponsor-paid fee bumps (the metric) | The metric close of 2026-09-28 on fresh messy fixtures, [SDK](../evidence/runs/20260928T112239Z-e3/summary.md) and [CLI](../evidence/runs/20260928T112252Z-e3-cli/summary.md); the week-2 closes, [SDK](../evidence/runs/20260926T125350Z/summary.md) and [CLI](../evidence/runs/20260927T200015Z-cli/summary.md) | Dustin on the rebuilt baseline fixtures, after the recording (matrix row B-03) |
 | Protocol facts behind the rules | Day-1 experiments in the [progress log](progress-log.md) and the [raw results](research/day1-experiments-2026-09-26.json) | |
 | Where the existing tool stops | [Recording protocol](../evidence/baseline/README.md) | `<E1-S2 baseline recording: evidence/baseline/demolisher-<date>.mp4 or link>` |
-| The unclosable exit | Offline tests | `<E3-S6 edge fixture close: evidence/runs/<stamp>-edge/>` |
-| The sequence-guard wait | Offline tests of the arithmetic | `<E3-S4 sequence-guard wait: evidence/runs/<stamp>-seq/>` |
-| The test matrix | Tests under `test/` (`npm test`) | `<E3-S6 test matrix: docs/test-matrix.md>`, `<E4-S3 test results: evidence/tests/>` |
+| The disposal ladder and the unclosable exit | Live runs with their hashes: the ladder in the story records [E3-S1](stories/3-1-ladder-path-payment.md) and [E3-S2](stories/3-2-ladder-issuer-destination-unclosable.md), the `edge` fixture's partial closes in the [test matrix](test-matrix.md) (section "Live runs of `testnet/edge`"); offline tests of the CLI's exit codes 3 and 4 | |
+| The sponsored unwind | The reserve sponsor's figures in both metric closes; the live S-03 and X-18 runs in the [story record](stories/3-3-sponsored-trustline-unwind.md) | |
+| The sequence-guard wait | The live near, far and boundary runs in the [story record](stories/3-4-seqnum-too-far-guard.md); offline tests of the arithmetic and of the wait | |
+| The test matrix | The [test matrix](test-matrix.md): every row with its offline and live tests; `npm test` runs the offline tier | `<E4-S3 test results: evidence/tests/>` |
 | The demo | | `<E4-S6 60-second demo video link>` |
-| One page for the reviewer | | `<E4-S7 evidence index: evidence/README.md>` |
+| One page for the reviewer | The [evidence index](../evidence/README.md), with SOW Appendix B row by row | `<E4-S7 evidence package: every SOW 6.1 row and the Appendix A tracker in evidence/README.md>` |
 
 ## Glossary
 
