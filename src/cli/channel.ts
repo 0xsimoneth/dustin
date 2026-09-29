@@ -27,7 +27,10 @@ export interface CliStreams {
 
 /**
  * One line of standard error in machine mode. `type` names it: the executor's CloseEvent types
- * with their fields (`plan` in a compact form), and the CLI's own `notice` and `error` lines.
+ * with their fields (`plan` in a compact form), and the CLI's own `notice` and `error` lines. When
+ * standard output was closed early, its one JSON document follows on standard error as a
+ * `document` line, `{"type":"document","document":{...}}` (src/cli/output.ts, `stdoutFallback`;
+ * Epic 4 review EX-4, AC-13).
  */
 export type NdjsonLine = { type: string } & Record<string, unknown>;
 

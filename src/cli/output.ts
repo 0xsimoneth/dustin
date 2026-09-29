@@ -1,3 +1,34 @@
+/** The notice written once when standard output fails and its text goes to standard error. */
+export const STDOUT_CLOSED =
+  "standard output was closed; the rest of the output goes to standard error.";
+
+/**
+ * Where standard output's text goes once standard output has failed (EPIPE, `| head`), for
+ * `guardedWriter`. For people it is standard error as it is, after `dustin: <STDOUT_CLOSED>`.
+ * In machine mode standard error carries NDJSON only (Epic 4 review EX-4, AC-13), so the notice
+ * becomes a `notice` line and the one JSON document of standard output one `document` line,
+ * `{"type":"document","document":{...}}`, the document itself on one line; any other text meant
+ * for standard output (Commander's help) becomes a `notice` line too.
+ */
+export function stdoutFallback(
+  stderr: (text: string) => void,
+  json: boolean,
+): Required<GuardedWriterOptions> {
+  if (!json) return { fallback: stderr, notice: `dustin: ${STDOUT_CLOSED}\n` };
+  return {
+    notice: STDOUT_CLOSED,
+    fallback: (text) => {
+      let line: { type: string } & Record<string, unknown>;
+      try {
+        line = { type: "document", document: JSON.parse(text) as unknown };
+      } catch {
+        line = { type: "notice", message: text.trimEnd() };
+      }
+      stderr(`${JSON.stringify(line)}\n`);
+    },
+  };
+}
+
 export interface GuardedWriterOptions {
   /**
    * Where the text goes once the stream has failed, with `notice` written there first, once. The

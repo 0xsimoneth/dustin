@@ -17,6 +17,8 @@ Horizon's result codes travel with both: on each envelope (`transactions[].resul
 
 With `--json`, a run that ends with a stop also ends with an `error` line whose `code` is the stop code, `message` the stop's detail and `remedy` the receipt's "Next" line; a refusal before anything is signed (`PLAN_NOT_CLOSABLE`, `NOTHING_TO_EXECUTE`) is one `error` line too. Standard output then carries the refused plan or the report.
 
+With `--json`, standard error carries NDJSON only, whatever happens to standard output. If standard output is closed early (`| head`, EPIPE), a `notice` line says so, `{"type":"notice","message":"standard output was closed; the rest of the output goes to standard error."}`, and the one JSON document follows on standard error as a `document` line, the document on one line: `{"type":"document","document":{"kind":"dustin-close-report",...}}`. Without `--json` the notice is `dustin: standard output was closed; ...` and the rest of the output follows as it would have been printed.
+
 Exit codes (`docs/README.md` canonical decision 5):
 
 | Exit | Meaning |

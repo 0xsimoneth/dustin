@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-import { guardedWriter } from "./output.js";
+import { guardedWriter, stdoutFallback } from "./output.js";
 import { hiddenPrompt, terminalPrompt } from "./prompt.js";
-import { run } from "./run.js";
+import { run, scanMode } from "./run.js";
 import { packageVersion } from "./version.js";
 
 const version = packageVersion();
@@ -9,12 +9,10 @@ const version = packageVersion();
 // No `.env` is loaded into the process here (review R7): only `dustin close --execute` reads it,
 // and it takes nothing from it but DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET.
 // If standard output is closed early (`dustin close ... | head`), the rest of it goes to standard
-// error after a notice, so no hash, receipt or report is lost without a trace.
+// error after a notice, so no hash, receipt or report is lost without a trace; with --json as
+// NDJSON lines, the document as a `document` line (Epic 4 review EX-4, AC-13).
 const stderr = guardedWriter(process.stderr);
-const stdout = guardedWriter(process.stdout, {
-  fallback: stderr,
-  notice: "dustin: standard output was closed; the rest of the output goes to standard error.\n",
-});
+const stdout = guardedWriter(process.stdout, stdoutFallback(stderr, scanMode(process.argv).json));
 process.exitCode = await run(process.argv, { stdout, stderr }, version, {
   env: process.env,
   cwd: process.cwd(),

@@ -1,16 +1,18 @@
 import { EventEmitter } from "node:events";
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { Writable } from "node:stream";
+import type { Command } from "commander";
 import { describe, expect, it } from "vitest";
 import { channel, failureOf, jsonText, plainJson, wrapped } from "../../../src/cli/channel.js";
 import type { HandledSignal, SignalSource } from "../../../src/cli/commands/close.js";
+import { guardedWriter, stdoutFallback } from "../../../src/cli/output.js";
+import { buildProgram } from "../../../src/cli/program.js";
+import { VALUE_OPTIONS, run, scanMode } from "../../../src/cli/run.js";
 import { DustinError } from "../../../src/errors/dustin-error.js";
 import type { executeClose } from "../../../src/execute/executor.js";
 import type { CloseReport, SubmittedTransaction } from "../../../src/execute/report.js";
 import type { ClosePlan } from "../../../src/plan/model.js";
-import type { Command } from "commander";
-import { buildProgram } from "../../../src/cli/program.js";
-import { VALUE_OPTIONS, run, scanMode } from "../../../src/cli/run.js";
 import {
   closeCli,
   emptyDir,
@@ -368,5 +370,63 @@ describe("BH-20: only a real --json flag makes machine mode", () => {
     };
     walk(program);
     expect([...valued].sort()).toEqual([...VALUE_OPTIONS].sort());
+  });
+});
+
+/** A standard output whose reader went away: every write fails with EPIPE. */
+function brokenPipe(): Writable {
+  const stream = new Writable({
+    write(_chunk, _encoding, callback) {
+      callback(Object.assign(new Error("write EPIPE"), { code: "EPIPE" }));
+    },
+  });
+  stream.on("error", () => undefined);
+  return stream;
+}
+
+/** `run()` as main.ts wires it, standard output a broken pipe with its fallback. */
+async function runOnBrokenStdout(world: World, args: string[]) {
+  const argv = ["node", "dustin", ...args];
+  const err: string[] = [];
+  const stderr = (t: string) => void err.push(t);
+  const stdout = guardedWriter(brokenPipe(), stdoutFallback(stderr, scanMode(argv).json));
+  const code = await run(argv, { stdout, stderr }, "0.0.0", {
+    env: {},
+    fetch: world.ledger.fetch,
+    horizon: { retries: 0 },
+  });
+  // The failed writes report through their callbacks, on a later tick.
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  return { code, err: err.join("") };
+}
+
+describe("EX-4 / AC-13: with --json and standard output closed, standard error stays NDJSON", () => {
+  it("EX-4: the notice is a notice line and the document one document line", async () => {
+    const world = zeroSpendableWorld();
+    const r = await runOnBrokenStdout(world, [
+      "plan",
+      world.id,
+      "--to",
+      world.destination,
+      "--json",
+    ]);
+    expect(r.code).toBe(0);
+    // Before the fix: a human notice and a pretty-printed, multi-line JSON document.
+    const lines = ndjson(r.err);
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toEqual({
+      type: "notice",
+      message: "standard output was closed; the rest of the output goes to standard error.",
+    });
+    expect(lines[1]!.type).toBe("document");
+    expect(lines[1]!.document).toMatchObject({ kind: "dustin-close-plan", account: world.id });
+  });
+
+  it("EX-4: for people the notice and the text stay as they were", async () => {
+    const world = zeroSpendableWorld();
+    const r = await runOnBrokenStdout(world, ["plan", world.id, "--to", world.destination]);
+    expect(r.code).toBe(0);
+    expect(r.err).toMatch(/^dustin: standard output was closed; the rest of the output goes/);
+    expect(r.err).toContain("Dustin plan");
   });
 });
