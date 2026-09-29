@@ -60,6 +60,11 @@ export interface CliDeps {
    * streams have flushed (src/cli/output.ts, `exitAfterFlush`).
    */
   exit?: (code: number) => void;
+  /**
+   * Where the error a command ends with is written, once, when the standard error writer itself
+   * throws (Epic 4 review BH-19); default the process's standard error.
+   */
+  lastResort?: (text: string) => void;
 }
 
 /** Commands report their exit code here; `run()` returns it. */
@@ -98,7 +103,13 @@ export function buildProgram(
       // its human text is held back: run() reports a usage error as one `error` line (AA-10).
       writeOut: (text) => io.stdout(redact(text)),
       writeErr: (text) => {
-        if (!mode.json) io.stderr(redact(text));
+        if (mode.json) return;
+        try {
+          io.stderr(redact(text));
+        } catch {
+          // A writer that throws must not turn a usage error into an unexpected one (BH-19): the
+          // usage error is reported by run(), through the last-resort writer if need be.
+        }
       },
     })
     .showHelpAfterError()
