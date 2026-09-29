@@ -125,7 +125,10 @@ describe("dustin close --execute and the hidden prompt (CA-18, D-11)", () => {
     const r = await closeCli(world, executeArgs(world, "--yes"), { env: {}, secretPrompt: prompt });
     expect(r.code).toBe(2);
     expect(r.err).toContain("CONFIG_INVALID");
-    expect(r.err).toContain("from the hidden prompt is not a valid Stellar secret key");
+    // Epic 4 review EX-10: the value is named with where it came from.
+    expect(r.err.replace(/\s+/g, " ")).toContain(
+      "The secret key typed at the hidden prompt for DUSTIN_ACCOUNT_SECRET is not a valid Stellar secret key",
+    );
     expect(r.err).not.toContain("hunter2");
   });
 

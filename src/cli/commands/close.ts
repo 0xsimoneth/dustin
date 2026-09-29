@@ -214,13 +214,14 @@ async function closeGuarded(
   guard.check();
   const sponsor = signers.feeSponsor.publicKey();
   if (options.sponsor !== undefined && options.sponsor !== sponsor) {
+    // Epic 4 review EX-10: the secret is named with where it came from.
+    const source = signers.sponsorSource ?? "the secret key in DUSTIN_SPONSOR_SECRET";
     throw new DustinError(
       "WRONG_SIGNER",
-      `--sponsor names ${options.sponsor}, but DUSTIN_SPONSOR_SECRET belongs to ${sponsor}.`,
+      `--sponsor names ${options.sponsor}, but ${source} belongs to ${sponsor}.`,
       {
         stage: "config",
-        remedy:
-          "Leave --sponsor out (the sponsor is the owner of DUSTIN_SPONSOR_SECRET) or fix it.",
+        remedy: "Leave --sponsor out (the sponsor is the owner of that secret key) or fix it.",
       },
     );
   }

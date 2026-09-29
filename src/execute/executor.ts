@@ -202,7 +202,8 @@ export async function executeClose(
       `The account signer is ${accountKey}, not the account ${plan.account}.`,
       {
         stage: "config",
-        remedy: "Set DUSTIN_ACCOUNT_SECRET to the secret key of the account being closed.",
+        // Epic 4 review D-10: the SDK reads no environment; its error names the signer argument.
+        remedy: `Pass as signers.account a signer for the account being closed (${plan.account}).`,
       },
     );
   }
@@ -221,8 +222,7 @@ export async function executeClose(
       `The sponsor signer is ${sponsorKey}, but the plan names ${plan.feeSponsor}.`,
       {
         stage: "config",
-        remedy:
-          "Set DUSTIN_SPONSOR_SECRET to the sponsor's secret key, or plan again with --sponsor.",
+        remedy: `Pass as signers.feeSponsor a signer for the fee sponsor the plan names (${plan.feeSponsor}), or plan again with this sponsor as feeSponsor.`,
       },
     );
   }
