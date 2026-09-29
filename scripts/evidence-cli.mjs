@@ -1268,7 +1268,7 @@ async function baselineClose(plusOne) {
       "The rebuilt fixture's recipe hash is the baseline fixture's (messy-20260926T035942Z)",
       () => ({
         pass: run.manifest.recipeHash === baselineHash,
-        observed: `${run.manifest.recipeHash} (baseline ${baselineHash})`,
+        observed: `recipe hash ${run.manifest.recipeHash} (the baseline fixture's recipe hash ${baselineHash})`,
       }),
     ),
   ]);

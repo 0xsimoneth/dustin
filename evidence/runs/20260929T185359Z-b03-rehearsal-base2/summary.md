@@ -66,7 +66,7 @@ Submitted by this script before the plan, to give the fixture the state this cas
 
 | Result | Check | Observed |
 |---|---|---|
-| PASS | The rebuilt fixture's recipe hash is the baseline fixture's (messy-20260926T035942Z) | a00bfd18c386d2f536daf544513ee7153c433f62a68437bc3a0af11bdc4ddd9b (baseline a00bfd18c386d2f536daf544513ee7153c433f62a68437bc3a0af11bdc4ddd9b) |
+| PASS | The rebuilt fixture's recipe hash is the baseline fixture's (messy-20260926T035942Z) | recipe hash a00bfd18c386d2f536daf544513ee7153c433f62a68437bc3a0af11bdc4ddd9b (the baseline fixture's recipe hash a00bfd18c386d2f536daf544513ee7153c433f62a68437bc3a0af11bdc4ddd9b) |
 | PASS | The dry-run plan is closable and ends in the merge | status closable; transactions cleanup (9 ops), convert (2 ops), merge (1 op) |
 | PASS | The report says closed, verified gone, with no stop | status closed; verification HTTP 404; stop none |
 | PASS | Horizon answers HTTP 404 for the account afterwards | HTTP 404 |
