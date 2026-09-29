@@ -2,7 +2,7 @@
 
 This page is for the chapter lead, and it is the page to read first. It maps the accepted Statement of Work ([`SUCCESSFUL_SOW.md`](../SUCCESSFUL_SOW.md)) to the evidence, row by row: section 6.1 (the planned evidence), section 6.2 (the verification checklist), Appendix A (the deliverable tracker) and Appendix B (the binary success metric). Nothing here needs any tool: every item is a file in this repository or a page that opens in a browser.
 
-State on 2026-09-28 (sprint day 7 of 30). Four items are the builder's to do and are marked **pending** wherever they appear, never ticked: the recording of the existing tool on the baseline fixture, the 60-second video, the npm publish, and the chapter lead's written acknowledgement of the two-fixture reading ([what is pending](#pending-the-builders-actions)).
+State on 2026-09-29 (sprint day 8 of 30). Four items are the builder's to do and are marked **pending** wherever they appear, never ticked: the recording of the existing tool on the baseline fixture, the 60-second video, the npm publish, and the chapter lead's written acknowledgement of the two-fixture reading ([what is pending](#pending-the-builders-actions)).
 
 Explorer and Horizon links stop resolving at the next testnet reset, scheduled for 2026-12-16 17:00 UTC; the JSON, XDR and transcripts committed in each run directory are the durable record ([what survives a reset](#what-survives-a-testnet-reset)). Everything here is public data: public keys, hashes, envelopes and Horizon JSON, never a secret.
 
@@ -12,10 +12,10 @@ The chapter lead's copy of SOW section 6.2, with what to open and what to look f
 
 | Deliverable | Open this | You should see | State of the evidence |
 |---|---|---|---|
-| D1 `planClose()` | [`plan/fixture-plan.txt`](plan/fixture-plan.txt) | A numbered list of steps S01 to S12 ending in the merge, a reason ("why:") and a transaction for each, the fee bid paid by the sponsor, and a summary that says how much XLM reaches the destination. Its heading says "dry run: nothing is signed, nothing is submitted". | Present |
-| D2 Live close | The [transaction chain](#the-transaction-chain-of-the-metric-close) below, then the closed account's [Horizon page](https://horizon-testnet.stellar.org/accounts/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7) | Each transaction page names the sponsor as the fee account and the closed account as the source. The account's Horizon page answers "Resource Missing" with status 404: the account no longer exists. | Present; the video that SOW 6.1 also lists for D2 is pending (the builder's) |
+| D1 `planClose()` | [`runs/20260929T111408Z-e4-cli/plan.txt`](runs/20260929T111408Z-e4-cli/plan.txt), the plan the 0.1.0 code printed | A numbered list of steps S01 to S12 ending in the merge, a reason ("why:") and a transaction for each, the fee bid paid by the sponsor, and a summary that says how much XLM reaches the destination. Its heading says "dry run: nothing is signed, nothing is submitted". | Present |
+| D2 Live close | The [transaction chain](#the-transaction-chain-of-the-metric-close) below, then the closed account's [Horizon page](https://horizon-testnet.stellar.org/accounts/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT) | Each transaction page names the sponsor as the fee account and the closed account as the source. The account's Horizon page answers "Resource Missing" with status 404: the account no longer exists. | Partial until the video: the live close is present and linked; the 60-second video that SOW 6.1 lists for D2 is pending (the builder's) |
 | D3 Edge cases | The [test matrix](../docs/test-matrix.md), the images [`tests/offline.png`](tests/offline.png) and [`tests/testnet.png`](tests/testnet.png) of the green runs, then the [baseline protocol](baseline/README.md) | The seven SOW-named cases (illiquid balance, sponsored trustline, sequence number too far, authorization required, clawback enabled, liquidity pool shares, raised thresholds), each green at both levels; the unclosable exit of a frozen balance through the CLI ([`edge-frozen`](runs/20260928T125414Z-edge-frozen/summary.md)). | Tests present; the baseline recording is pending (the builder's) |
-| Docs, demo, evidence | The [README](../README.md), the [write-up](../docs/write-up.md), this page | The write-up lists the ordering rules R1 to R9 and what is not handled, in plain language. | Present; the video is pending (the builder's) |
+| Docs, demo, evidence | The [README](../README.md), the [write-up](../docs/write-up.md), this page | The write-up lists the ordering rules R1 to R9 and what is not handled, in plain language. | Written; the video is pending (the builder's) |
 
 ## SOW 6.2, the verification checklist
 
@@ -32,24 +32,24 @@ Left for the chapter lead to fill; not pre-ticked.
 
 | Deliverable | Evidence Type | Description (SOW 6.1) | Where it lives | State |
 |---|---|---|---|---|
-| Deliverable 1: `planClose()` | Public repo + CLI output | Run the dry run yourself against any testnet account and read the plan it prints, or read the committed output for the fixture account in the repo. | Repository https://github.com/0xsimoneth/dustin. The committed output for the builder's fixture account: [`plan/fixture-plan.txt`](plan/fixture-plan.txt) and [`plan/fixture-plan.json`](plan/fixture-plan.json) (fixture `messy-20260926T035942Z`, captured 2026-09-26 at ledger 4,875,055). The plan of the metric account right before its close: [`runs/20260928T112252Z-e3-cli/plan.txt`](runs/20260928T112252Z-e3-cli/plan.txt). Run it yourself: `dustin plan <account> --to <destination>` ([README](../README.md#quick-start-cli)). | Present |
-| Deliverable 2: Live close on testnet | Transaction hashes (links) + 60-second video | Open the linked transaction chain on a public testnet explorer, then look up the closed account and see that it no longer exists. The video shows the same close from the CLI, start to finish. | The [transaction chain](#the-transaction-chain-of-the-metric-close) and the closed account below; the run directory [`runs/20260928T112252Z-e3-cli/`](runs/20260928T112252Z-e3-cli/summary.md). The video: `<pending: builder records the 60-second video (E4-S6)>`, placeholder in [`demo/README.md`](demo/README.md). | Hashes and account present; video pending |
+| Deliverable 1: `planClose()` | Public repo + CLI output | Run the dry run yourself against any testnet account and read the plan it prints, or read the committed output for the fixture account in the repo. | Repository https://github.com/0xsimoneth/dustin. The plan the 0.1.0 code prints, for the metric account right before its close: [`runs/20260929T111408Z-e4-cli/plan.txt`](runs/20260929T111408Z-e4-cli/plan.txt) and [`plan.json`](runs/20260929T111408Z-e4-cli/plan.json) (2026-09-29, ledger 4,931,383). The committed output for the builder's baseline fixture: [`plan/fixture-plan.txt`](plan/fixture-plan.txt) and [`plan/fixture-plan.json`](plan/fixture-plan.json) (fixture `messy-20260926T035942Z`, captured 2026-09-26 at ledger 4,875,055, before the output was polished, so it reads "0 XLM" where the final code prints "0.0000000 XLM"). Run it yourself: `dustin plan <account> --to <destination>` ([README](../README.md#quick-start-cli)). | Present |
+| Deliverable 2: Live close on testnet | Transaction hashes (links) + 60-second video | Open the linked transaction chain on a public testnet explorer, then look up the closed account and see that it no longer exists. The video shows the same close from the CLI, start to finish. | The [transaction chain](#the-transaction-chain-of-the-metric-close) and the closed account below; the run directory [`runs/20260929T111408Z-e4-cli/`](runs/20260929T111408Z-e4-cli/summary.md), on the 0.1.0 code, and the first recording of 2026-09-28, [`runs/20260928T112252Z-e3-cli/`](runs/20260928T112252Z-e3-cli/summary.md). The video: `<pending: builder records the 60-second video (E4-S6)>`, placeholder in [`demo/README.md`](demo/README.md). | Hashes and account present; video pending |
 | Deliverable 3: Edge cases and tests | Test results screenshot + public repo + baseline recording | See the passing test matrix, then clone the repo and run it yourself against the fixture account. The baseline recording shows the existing tool stopping on the same account, so the gap can be checked rather than taken on trust. | The [test matrix](../docs/test-matrix.md) (32 rows, each with its tests and last run); the tests under [`test/`](../test/); the test results in [`tests/`](tests/README.md): the complete output of a green run of each tier on commit `0df4d09` (offline: 113 files, 1057 tests; live: 11 files, 58 tests in 301 s) and an image of each summary, [`offline.png`](tests/offline.png) and [`testnet.png`](tests/testnet.png), rendered from the captured output rather than captured from a screen; run it yourself: [README, Run the tests yourself](../README.md#run-the-tests-yourself). The baseline: [`baseline/README.md`](baseline/README.md) (the protocol), recording `<pending: builder records the Demolisher baseline (E1-S2, matrix B-01 and B-02)>`. | Tests and matrix present; baseline recording pending |
-| Documentation, demo and evidence | Public repo + write-up + 60-second video | Read a short write-up covering the ordering rules and what is not handled, and watch the full close from the CLI, start to finish. | [README](../README.md), [write-up](../docs/write-up.md), [integration notes](../docs/integration-notes.md), this evidence package; the demo script [`docs/demo-video-script.md`](../docs/demo-video-script.md). The video: `<pending: builder records the 60-second video (E4-S6)>`. | Write-up, notes and package present; video pending |
+| Documentation, demo and evidence | Public repo + write-up + 60-second video | Read a short write-up covering the ordering rules and what is not handled, and watch the full close from the CLI, start to finish. | [README](../README.md), [write-up](../docs/write-up.md), [integration notes](../docs/integration-notes.md), this evidence package; the demo script [`docs/demo-video-script.md`](../docs/demo-video-script.md). The video: `<pending: builder records the 60-second video (E4-S6)>`. | Write-up, notes and package written; video pending |
 
 ## SOW Appendix B, row by row
 
-The binary success metric, checked against the CLI metric close of 2026-09-28 ([`runs/20260928T112252Z-e3-cli/`](runs/20260928T112252Z-e3-cli/summary.md), story E3-S7). The SDK run of the same minute, [`runs/20260928T112239Z-e3/`](runs/20260928T112239Z-e3/summary.md), holds the same files for its own account and meets every row too.
+The binary success metric, checked against the latest CLI metric close, on the 0.1.0 code of 2026-09-29 ([`runs/20260929T111408Z-e4-cli/`](runs/20260929T111408Z-e4-cli/summary.md)). The first recordings of the same close, on 2026-09-28 through the CLI ([`runs/20260928T112252Z-e3-cli/`](runs/20260928T112252Z-e3-cli/summary.md), the run the ticked boxes of `SUCCESSFUL_SOW.md` Appendix B link) and through the SDK ([`runs/20260928T112239Z-e3/`](runs/20260928T112239Z-e3/summary.md)), hold the same files for their own accounts and meet every row too.
 
 | # | Appendix B item | Status | Evidence |
 |---|---|---|---|
-| 1 | Fixture account on testnet holds zero spendable XLM | ☑ | [`fixture-verification.json`](runs/20260928T112252Z-e3-cli/fixture-verification.json): balance 4.0000000 XLM, minimum balance 4.0000000 XLM, spendable 0, checked right before the close |
+| 1 | Fixture account on testnet holds zero spendable XLM | ☑ | [`fixture-verification.json`](runs/20260929T111408Z-e4-cli/fixture-verification.json): balance 4.0000000 XLM, minimum balance 4.0000000 XLM, spendable 0, checked right before the close |
 | 2 | Fixture holds at least 3 trustlines with non-zero balances | ☑ | same file: 4 (DUSTA 0.0000007, DUSTB 0.0000003, DUSTC 0.0000005, SPTA 0.0000001, the last one sponsored by a separate reserve sponsor) |
-| 3 | Fixture holds at least 1 open offer | ☑ | same file: 2 open offers |
+| 3 | Fixture holds at least 1 open offer | ☑ | same file: 2 open offers (838443, 838444) |
 | 4 | Fixture holds at least 1 data entry | ☑ | same file: 1 data entry (`dustin.fixture`) |
-| 5 | Every transaction in the close is fee-bumped by the sponsor (the closed account pays no fee) | ☑ | [`tx-1.json`](runs/20260928T112252Z-e3-cli/tx-1.json), [`tx-2.json`](runs/20260928T112252Z-e3-cli/tx-2.json), [`tx-3.json`](runs/20260928T112252Z-e3-cli/tx-3.json): Horizon's records show `fee_account` = the sponsor, `source_account` = the closed account and inner `max_fee` 0; on the explorer: [tx 1](https://stellar.expert/explorer/testnet/tx/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac), [tx 2](https://stellar.expert/explorer/testnet/tx/f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700), [tx 3](https://stellar.expert/explorer/testnet/tx/36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c) |
-| 6 | The account no longer exists on a public testnet explorer | ☑ | [`account-after.json`](runs/20260928T112252Z-e3-cli/account-after.json): Horizon answered HTTP 404; [explorer page of the account](https://stellar.expert/explorer/testnet/account/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7), [Horizon](https://horizon-testnet.stellar.org/accounts/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7) |
-| 7 | The full transaction chain is linkable from the evidence package | ☑ | [`summary.md`](runs/20260928T112252Z-e3-cli/summary.md) (every hash with its explorer link), [`report.json`](runs/20260928T112252Z-e3-cli/report.json) (both envelopes of every transaction as XDR), [`transcript.txt`](runs/20260928T112252Z-e3-cli/transcript.txt) (the command's output, with the receipt) |
+| 5 | Every transaction in the close is fee-bumped by the sponsor (the closed account pays no fee) | ☑ | [`tx-1.json`](runs/20260929T111408Z-e4-cli/tx-1.json), [`tx-2.json`](runs/20260929T111408Z-e4-cli/tx-2.json), [`tx-3.json`](runs/20260929T111408Z-e4-cli/tx-3.json): Horizon's records show `fee_account` = the sponsor, `source_account` = the closed account and inner `max_fee` 0; on the explorer: [tx 1](https://stellar.expert/explorer/testnet/tx/835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b), [tx 2](https://stellar.expert/explorer/testnet/tx/c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61), [tx 3](https://stellar.expert/explorer/testnet/tx/dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2) |
+| 6 | The account no longer exists on a public testnet explorer | ☑ | [`account-after.json`](runs/20260929T111408Z-e4-cli/account-after.json): Horizon answered HTTP 404; [explorer page of the account](https://stellar.expert/explorer/testnet/account/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT), [Horizon](https://horizon-testnet.stellar.org/accounts/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT) |
+| 7 | The full transaction chain is linkable from the evidence package | ☑ | [`summary.md`](runs/20260929T111408Z-e4-cli/summary.md) (every hash with its explorer link), [`report.json`](runs/20260929T111408Z-e4-cli/report.json) (both envelopes of every transaction as XDR, with each transaction's operations and links), [`transcript.txt`](runs/20260929T111408Z-e4-cli/transcript.txt) (the command's output, with the receipt) |
 
 The destination received exactly 4.0000007 XLM: the fixture's 4.0000000 XLM plus 0.0000007 XLM from selling DUSTA. The reserve sponsor's `num_sponsoring` went from 1 to 0 and its minimum balance from 1.5 to 1.0 XLM, with its XLM balance unchanged: the sponsored trustline's reserve went back to the sponsor, never to the closed account.
 
@@ -57,48 +57,50 @@ The destination received exactly 4.0000007 XLM: the fixture's 4.0000000 XLM plus
 
 ### Sprint calendar (actual)
 
-| Sprint week | Dates | SOW expected output | State on 2026-09-28 |
+| Sprint week | Dates | SOW expected output | State on 2026-09-29 |
 |---|---|---|---|
 | Day 1 | 2026-09-22 | Funds received; sprint clock starts | Done |
 | Week 1 | 2026-09-22 to 2026-09-28 | Fixture built, Demolisher baseline recorded, planClose() dry run printed | Fixture built (2026-09-26) and dry run committed ([`plan/`](plan/fixture-plan.txt)); the Demolisher baseline recording is pending (the builder's) |
 | Week 2 | 2026-09-29 to 2026-10-05 | Zero-XLM account closed end to end with sponsored fees | Delivered early, on 2026-09-26 ([`runs/20260926T125350Z/`](runs/20260926T125350Z/summary.md)) |
 | Week 3 | 2026-10-06 to 2026-10-12 | Disposal ladder, sponsored unwind, sequence guard, test matrix, messy fixture closed | Delivered early, on 2026-09-28 (the metric close, the [test matrix](../docs/test-matrix.md), the [wait](runs/20260928T125223Z-e3s4-wait/summary.md), the [unclosable exit](runs/20260928T125414Z-edge-frozen/summary.md)) |
-| Week 4 | 2026-10-13 to 2026-10-19 | npm publish, 60-second demo, evidence package, write-up | Being done early: write-up, integration notes and this evidence package on 2026-09-28; the npm publish and the video are pending (the builder's) |
+| Week 4 | 2026-10-13 to 2026-10-19 | npm publish, 60-second demo, evidence package, write-up | Started early: the write-up, the integration notes and this evidence package are written, 0.1.0 is prepared, and the metric close was recorded again on the 0.1.0 code on 2026-09-29; the npm publish and the video are pending (the builder's) |
 | Buffer | 2026-10-20 to 2026-10-22 | Review fixes; **final deadline 2026-10-22** | |
 
 ### Tracker
 
 | # | Deliverable | Status | Evidence link |
 |---|---|---|---|
-| D1 | `planClose()` read-only planner + CLI dry run | ☑ Done | [`plan/fixture-plan.txt`](plan/fixture-plan.txt), [`plan/fixture-plan.json`](plan/fixture-plan.json); the dry-run tests in the [test matrix](../docs/test-matrix.md) (row M-01) |
-| D2 | `executeClose()` fee-sponsored close on testnet | ☑ Done | The metric close: [`runs/20260928T112252Z-e3-cli/`](runs/20260928T112252Z-e3-cli/summary.md) (CLI) and [`runs/20260928T112239Z-e3/`](runs/20260928T112239Z-e3/summary.md) (SDK); the 60-second video SOW 6.1 lists for D2 is tracked under D4 |
+| D1 | `planClose()` read-only planner + CLI dry run | ☑ Done | The plan the 0.1.0 code prints, [`runs/20260929T111408Z-e4-cli/plan.txt`](runs/20260929T111408Z-e4-cli/plan.txt) (2026-09-29); the baseline fixture's plan, [`plan/fixture-plan.txt`](plan/fixture-plan.txt) and [`plan/fixture-plan.json`](plan/fixture-plan.json) (2026-09-26); the dry-run tests in the [test matrix](../docs/test-matrix.md) (row M-01) |
+| D2 | `executeClose()` fee-sponsored close on testnet | ◐ In progress: the live close is done and linked; the 60-second video that SOW 6.1 lists for D2 is pending (the builder's) | The metric close on the 0.1.0 code, [`runs/20260929T111408Z-e4-cli/`](runs/20260929T111408Z-e4-cli/summary.md) (CLI, 2026-09-29); the first recordings, [`runs/20260928T112252Z-e3-cli/`](runs/20260928T112252Z-e3-cli/summary.md) (CLI) and [`runs/20260928T112239Z-e3/`](runs/20260928T112239Z-e3/summary.md) (SDK); the video slot, [`demo/README.md`](demo/README.md) |
 | D3 | Edge cases, fixture account, baseline recording, test matrix | ◐ In progress: the fixture builder, the edge cases and the test matrix are done; the baseline recording is pending (the builder's, E1-S2) | [Test matrix](../docs/test-matrix.md) (27 of 32 rows green, B-03 planned, 2 not covered, B-01 and B-02 human action), [`tests/`](tests/README.md), [`runs/20260928T125414Z-edge-frozen/`](runs/20260928T125414Z-edge-frozen/summary.md), [`baseline/README.md`](baseline/README.md) |
-| D4 | README, integration notes, write-up, 60s demo, evidence package | ◐ In progress: the README, the integration notes, the write-up and this evidence package are done; the 60-second video and the npm publish are pending (the builder's) | [README](../README.md), [integration notes](../docs/integration-notes.md), [write-up](../docs/write-up.md), this page; [`demo/README.md`](demo/README.md) (video placeholder) |
+| D4 | README, integration notes, write-up, 60s demo, evidence package | ◐ In progress: the README, the integration notes, the write-up and this evidence package are written, and their stories stay open; pending (the builder's): the 60-second video, the npm publish, and the baseline recording this package links | [README](../README.md), [integration notes](../docs/integration-notes.md), [write-up](../docs/write-up.md), this page; [`demo/README.md`](demo/README.md) (video placeholder) |
 
 ## The transaction chain of the metric close
+
+The latest CLI metric close, recorded by `node scripts/evidence-cli.mjs metric e4-cli` on the 0.1.0 code. The first recording of 2026-09-28 is listed under [the other recorded runs](#the-other-recorded-runs).
 
 ### Capture record
 
 | Field | Value |
 |---|---|
 | Network | Stellar testnet, passphrase `Test SDF Network ; September 2015`, Horizon https://horizon-testnet.stellar.org |
-| Close performed on | 2026-09-28, 11:23:45 to 11:24:03 UTC (`dustin close --execute`, exit code 0) |
-| Ledger range of the close | 4914209 to 4914211 |
-| Code at capture | commit `d6cd66ef8d7fcf0e46163667e1a13c20c1f02d6a` (the complete Epic 3 code); the run was committed in `562d5420b0002ec3af32b788a6d1826c72e10d45` |
-| npm package and version | not published; `stellar-dustin` 0.1.0 is prepared and its publish is pending (the builder's) |
-| Fixture | `messy-20260928T112252Z-580d8f`, built from Friendbot at 11:22:52 UTC in ledgers 4914199 to 4914205 |
+| Close performed on | 2026-09-29, 11:15:11 to 11:15:29 UTC (`dustin close --execute --yes --report`, exit code 0) |
+| Ledger range of the close | 4931386 to 4931388 |
+| Code at capture | the build of commit `7bd04ae` (the 0.1.0 code with the fixes of the Epic 4 review); the run was committed in `37e6e93` |
+| npm package and version | `stellar-dustin` 0.1.0, prepared; its publish is the builder's and pending |
+| Fixture | `messy-20260929T111410Z-0b6cd8`, built from Friendbot at 11:14:10 UTC in ledgers 4931375 to 4931381 |
 | Next announced testnet reset | 2026-12-16 17:00 UTC |
 
 ### Accounts
 
 | Role | Address | Links |
 |---|---|---|
-| Closed account (the fixture) | `GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7` | [explorer](https://stellar.expert/explorer/testnet/account/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7), [Horizon](https://horizon-testnet.stellar.org/accounts/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7) (404 after the close) |
-| Destination | `GDPZI3OAYYEAXTYY2OHFDZAEEG4PXNBN7AHNLQTEH22O5HTBGBSVB2TS` | [explorer](https://stellar.expert/explorer/testnet/account/GDPZI3OAYYEAXTYY2OHFDZAEEG4PXNBN7AHNLQTEH22O5HTBGBSVB2TS), [Horizon](https://horizon-testnet.stellar.org/accounts/GDPZI3OAYYEAXTYY2OHFDZAEEG4PXNBN7AHNLQTEH22O5HTBGBSVB2TS) |
-| Fee sponsor (fee account of every transaction) | `GBCHRHGJMTMA2MNEVJWZL5GRYXQ3OF5CRKVMZHPFPASSW2DBLPQFEHOG` | [explorer](https://stellar.expert/explorer/testnet/account/GBCHRHGJMTMA2MNEVJWZL5GRYXQ3OF5CRKVMZHPFPASSW2DBLPQFEHOG), [Horizon](https://horizon-testnet.stellar.org/accounts/GBCHRHGJMTMA2MNEVJWZL5GRYXQ3OF5CRKVMZHPFPASSW2DBLPQFEHOG) |
-| Reserve sponsor (sponsored the SPTA trustline) | `GCFMPHR7TIPDOYD2UHXSE2PLWIMFYIEWC2NQ3N4RKLSSDVXODU5REILD` | [explorer](https://stellar.expert/explorer/testnet/account/GCFMPHR7TIPDOYD2UHXSE2PLWIMFYIEWC2NQ3N4RKLSSDVXODU5REILD), [Horizon](https://horizon-testnet.stellar.org/accounts/GCFMPHR7TIPDOYD2UHXSE2PLWIMFYIEWC2NQ3N4RKLSSDVXODU5REILD) |
-| Issuer of DUSTA, DUSTB, DUSTC and SPTA | `GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX` | [explorer](https://stellar.expert/explorer/testnet/account/GCCRAGHQYDLZET7XYSCRIVHWSRMA2UJWTBFLCPJT7RMCQ2JP4SS3X2EX) |
-| Market maker (the bid that bought DUSTA) | `GBTV2OLUNFMAIWCQU6KW2VNXSTZK2R2H4DTPDKZ6GUTLHWTLIPHH7LL2` | [explorer](https://stellar.expert/explorer/testnet/account/GBTV2OLUNFMAIWCQU6KW2VNXSTZK2R2H4DTPDKZ6GUTLHWTLIPHH7LL2) |
+| Closed account (the fixture) | `GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT` | [explorer](https://stellar.expert/explorer/testnet/account/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT), [Horizon](https://horizon-testnet.stellar.org/accounts/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT) (404 after the close) |
+| Destination | `GBR43GJ2WAHU7FPEAYLNFR4WJUQMCJGOOS6ESF2O6ZBB6GVWL6FVS3OY` | [explorer](https://stellar.expert/explorer/testnet/account/GBR43GJ2WAHU7FPEAYLNFR4WJUQMCJGOOS6ESF2O6ZBB6GVWL6FVS3OY), [Horizon](https://horizon-testnet.stellar.org/accounts/GBR43GJ2WAHU7FPEAYLNFR4WJUQMCJGOOS6ESF2O6ZBB6GVWL6FVS3OY) |
+| Fee sponsor (fee account of every transaction) | `GBDOAFW4WYIOVCBZNVI4CF4QOD2J3HZYMMQZSOF2LOSNZGZCSMVBIGMQ` | [explorer](https://stellar.expert/explorer/testnet/account/GBDOAFW4WYIOVCBZNVI4CF4QOD2J3HZYMMQZSOF2LOSNZGZCSMVBIGMQ), [Horizon](https://horizon-testnet.stellar.org/accounts/GBDOAFW4WYIOVCBZNVI4CF4QOD2J3HZYMMQZSOF2LOSNZGZCSMVBIGMQ) |
+| Reserve sponsor (sponsored the SPTA trustline) | `GCKXIJUENGYY2LO6PYVDWIDMJ6XEXZZUOM3NBQR2BCAWODSSP6NNT7BB` | [explorer](https://stellar.expert/explorer/testnet/account/GCKXIJUENGYY2LO6PYVDWIDMJ6XEXZZUOM3NBQR2BCAWODSSP6NNT7BB), [Horizon](https://horizon-testnet.stellar.org/accounts/GCKXIJUENGYY2LO6PYVDWIDMJ6XEXZZUOM3NBQR2BCAWODSSP6NNT7BB) |
+| Issuer of DUSTA, DUSTB, DUSTC and SPTA | `GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL` | [explorer](https://stellar.expert/explorer/testnet/account/GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL) |
+| Market maker (the bid that bought DUSTA) | `GCSA2THKGK7KLM3PZ4CZLGY7KT34VXZOCZCLUDOCZBF2KYUUGRLXKM5T` | [explorer](https://stellar.expert/explorer/testnet/account/GCSA2THKGK7KLM3PZ4CZLGY7KT34VXZOCZCLUDOCZBF2KYUUGRLXKM5T) |
 
 ### The three transactions
 
@@ -106,42 +108,42 @@ Every row has the sponsor as the fee account and the closed account as the sourc
 
 | # | Purpose | Operations in the inner transaction | Hash (the fee bump's) | Inner hash | Ledger | Closed (UTC) | Fee charged to the sponsor | Links |
 |---|---|---|---|---|---|---|---|---|
-| 1 | Cleanup | cancel offers 828521 and 828522; return DUSTB, DUSTC and SPTA to their issuer (burn) and remove each trustline; delete the data entry `dustin.fixture` (9 operations) | `0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac` | `cf6c648de8f55e1011951b64c5c5ebe88ea0de71b4dd093f9e7b09846b6ef40a` | 4914209 | 11:23:52 | 1,000 stroops | [explorer](https://stellar.expert/explorer/testnet/tx/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac), [Horizon](https://horizon-testnet.stellar.org/transactions/0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac), [record](runs/20260928T112252Z-e3-cli/tx-1.json) |
-| 2 | Sale | sell 0.0000007 DUSTA for XLM by strict-send path payment to the account itself; remove the DUSTA trustline (2 operations) | `f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700` | `93e1103db1b6bd514a0dc8b34d3ef1d9045fb647367dbd90a8b353796aed435d` | 4914210 | 11:23:57 | 300 stroops | [explorer](https://stellar.expert/explorer/testnet/tx/f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700), [Horizon](https://horizon-testnet.stellar.org/transactions/f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700), [record](runs/20260928T112252Z-e3-cli/tx-2.json) |
-| 3 | Merge | merge into the destination (1 operation) | `36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c` | `aa140dc126168f0a01f261e362e32edbc088365930859f45ea9c4d3c846b9801` | 4914211 | 11:24:02 | 200 stroops | [explorer](https://stellar.expert/explorer/testnet/tx/36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c), [Horizon](https://horizon-testnet.stellar.org/transactions/36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c), [record](runs/20260928T112252Z-e3-cli/tx-3.json) |
+| 1 | Cleanup | cancel offers 838443 and 838444; return DUSTB, DUSTC and SPTA to their issuer (burn) and remove each trustline; delete the data entry `dustin.fixture` (9 operations) | `835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b` | `dcdbd48e109cb5e63dac00de87c235dabfc00e19819f9d870e89a30d0c2ef396` | 4931386 | 11:15:17 | 1,000 stroops | [explorer](https://stellar.expert/explorer/testnet/tx/835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b), [Horizon](https://horizon-testnet.stellar.org/transactions/835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b), [record](runs/20260929T111408Z-e4-cli/tx-1.json) |
+| 2 | Sale | sell 0.0000007 DUSTA for XLM by strict-send path payment to the account itself; remove the DUSTA trustline (2 operations) | `c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61` | `8ce327efd55a2e42c153d03cb9025d1c6dda7eefab5c6d46782f640bf2054c7f` | 4931387 | 11:15:22 | 300 stroops | [explorer](https://stellar.expert/explorer/testnet/tx/c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61), [Horizon](https://horizon-testnet.stellar.org/transactions/c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61), [record](runs/20260929T111408Z-e4-cli/tx-2.json) |
+| 3 | Merge | merge into the destination (1 operation) | `dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2` | `c45bb68d9f57857d26b6779a5ed2a9188330cfc94ce5e96186ffce035014472d` | 4931388 | 11:15:27 | 200 stroops | [explorer](https://stellar.expert/explorer/testnet/tx/dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2), [Horizon](https://horizon-testnet.stellar.org/transactions/dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2), [record](runs/20260929T111408Z-e4-cli/tx-3.json) |
 
-The fee sponsor paid 1,500 stroops (0.0001500 XLM) in all, against a bid of 1,262,430 stroops within a 5 XLM budget; the fee arithmetic is in the [write-up](../docs/write-up.md), section 5.
+The fee sponsor paid 1,500 stroops (0.0001500 XLM) in all, against a bid of 462,795 stroops (30,853 per counted operation) within a 5 XLM budget; the fee arithmetic is in the [write-up](../docs/write-up.md), section 5.
 
 ### Before and after: the fixture account
 
-| Item | Before (checked at 11:23:37 UTC) | After |
+| Item | Before (checked at 11:15:01 UTC) | After |
 |---|---|---|
-| Account on the ledger | yes ([`account-before.json`](runs/20260928T112252Z-e3-cli/account-before.json)) | no: Horizon HTTP 404 ([`account-after.json`](runs/20260928T112252Z-e3-cli/account-after.json)) |
-| XLM balance | 4.0000000 | merged into the destination, whose balance went from 10.0000000 to 14.0000007 XLM ([`balances.json`](runs/20260928T112252Z-e3-cli/balances.json)) |
+| Account on the ledger | yes ([`account-before.json`](runs/20260929T111408Z-e4-cli/account-before.json)) | no: Horizon HTTP 404 ([`account-after.json`](runs/20260929T111408Z-e4-cli/account-after.json)) |
+| XLM balance | 4.0000000 | merged into the destination, whose balance went from 10.0000000 to 14.0000007 XLM ([`balances.json`](runs/20260929T111408Z-e4-cli/balances.json)) |
 | Spendable XLM | 0.0000000 | |
 | Minimum balance | 4.0000000 = (2 + 7 subentries − 1 sponsored) × 0.5 XLM | |
 | DUSTA 0.0000007 | trustline with dust | sold for 0.0000007 XLM in tx 2, trustline removed |
 | DUSTB 0.0000003 | trustline with dust | returned to its issuer (burned) in tx 1, trustline removed |
 | DUSTC 0.0000005 | trustline with dust | returned to its issuer (burned) in tx 1, trustline removed |
 | SPTA 0.0000001 | trustline with dust, reserve paid by the reserve sponsor | returned to its issuer (burned) in tx 1, trustline removed; its 0.5 XLM reserve released to the reserve sponsor (`num_sponsoring` 1 to 0, minimum balance 1.5 to 1.0 XLM, XLM balance 10.0000000 unchanged) |
-| Open offers | 2 (828521, 828522) | cancelled in tx 1 |
+| Open offers | 2 (838443, 838444) | cancelled in tx 1 |
 | Data entries | 1 (`dustin.fixture`) | deleted in tx 1 |
 | Fees paid by the account | 0 | 0 |
 | Fees paid by the fee sponsor | | 1,500 stroops (9865.9997200 to 9865.9995700 XLM) |
 
 ### How the fixture was built (supporting evidence for Deliverable 3)
 
-From the run's [`fixture-manifest.json`](runs/20260928T112252Z-e3-cli/fixture-manifest.json); every build transaction after the first is fee-bumped by the fee sponsor.
+From the run's [`fixture-manifest.json`](runs/20260929T111408Z-e4-cli/fixture-manifest.json) and [`fixture-create.txt`](runs/20260929T111408Z-e4-cli/fixture-create.txt); every build transaction after the first is fee-bumped by the fee sponsor, and the build ends by checking that an unbumped transaction from the drained account is refused (`tx_insufficient_balance`).
 
 | Step | Ledger | Hash |
 |---|---|---|
-| create-accounts (not fee-bumped) | 4914199 | [`5e49966e0cf3f6b2131a30dcf2d9c51c807cde5f012f65c2d4746c6ca3d83d84`](https://stellar.expert/explorer/testnet/tx/5e49966e0cf3f6b2131a30dcf2d9c51c807cde5f012f65c2d4746c6ca3d83d84) |
-| trustlines | 4914200 | [`854f69519bee0124d983fa43df9279a0075b8e9bdd1847383310c4dc0f5ffed3`](https://stellar.expert/explorer/testnet/tx/854f69519bee0124d983fa43df9279a0075b8e9bdd1847383310c4dc0f5ffed3) |
-| sponsored-trustline | 4914201 | [`25bf0820b6d94a2bb901de043737f9819949b5841918451cd1f8d458b7583bb2`](https://stellar.expert/explorer/testnet/tx/25bf0820b6d94a2bb901de043737f9819949b5841918451cd1f8d458b7583bb2) |
-| dust-payments | 4914202 | [`7136d9cf968100d3052049199f6b862ed31cc6972b1a5d91d6512f1a70a82e0c`](https://stellar.expert/explorer/testnet/tx/7136d9cf968100d3052049199f6b862ed31cc6972b1a5d91d6512f1a70a82e0c) |
-| market-maker-bid | 4914203 | [`e96c0b3292dfe313a9b4d0b8274b50cd25957c478c60b39e510af26444092c9b`](https://stellar.expert/explorer/testnet/tx/e96c0b3292dfe313a9b4d0b8274b50cd25957c478c60b39e510af26444092c9b) |
-| offers-and-data | 4914204 | [`5adedcdebc60758cbcd176f1dbeff31437ae13446d428bc986d52efbfb059f06`](https://stellar.expert/explorer/testnet/tx/5adedcdebc60758cbcd176f1dbeff31437ae13446d428bc986d52efbfb059f06) |
-| drain-to-minimum | 4914205 | [`9bd9b8dbfd5c7bd607c1169ae4be5ee08a4ffc6a78f870ff15220aad52eece56`](https://stellar.expert/explorer/testnet/tx/9bd9b8dbfd5c7bd607c1169ae4be5ee08a4ffc6a78f870ff15220aad52eece56) |
+| create-accounts (not fee-bumped) | 4931375 | [`68508092b92d9cd08fe377985d711575b2a26261b45ac67d281ef568d6dded03`](https://stellar.expert/explorer/testnet/tx/68508092b92d9cd08fe377985d711575b2a26261b45ac67d281ef568d6dded03) |
+| trustlines | 4931376 | [`624dca48382cc5021101ee72f0d7838ca3854aa595427833b9f9b1a193fc7e3d`](https://stellar.expert/explorer/testnet/tx/624dca48382cc5021101ee72f0d7838ca3854aa595427833b9f9b1a193fc7e3d) |
+| sponsored-trustline | 4931377 | [`1a4a89617763f94bd8366dbad2936539c66dab7bdf0618579133747f21976015`](https://stellar.expert/explorer/testnet/tx/1a4a89617763f94bd8366dbad2936539c66dab7bdf0618579133747f21976015) |
+| dust-payments | 4931378 | [`221ba810b12ad87a8fb9fdfba019595b84fde36ab990a46e053501bf8f03f7e4`](https://stellar.expert/explorer/testnet/tx/221ba810b12ad87a8fb9fdfba019595b84fde36ab990a46e053501bf8f03f7e4) |
+| market-maker-bid | 4931379 | [`1b87c6d5c3721171ea574590dfb5f18fe1ffb1506fd522761fe433f9f8756523`](https://stellar.expert/explorer/testnet/tx/1b87c6d5c3721171ea574590dfb5f18fe1ffb1506fd522761fe433f9f8756523) |
+| offers-and-data | 4931380 | [`cf1b1ad4b6e64cabab79367ae2c0298a89b2eb80c3202e3dade7de990d0aaf2b`](https://stellar.expert/explorer/testnet/tx/cf1b1ad4b6e64cabab79367ae2c0298a89b2eb80c3202e3dade7de990d0aaf2b) |
+| drain-to-minimum | 4931381 | [`7c80447e5466eb92d371036168d39baed785c333498355949dbec50cb160a61b`](https://stellar.expert/explorer/testnet/tx/7c80447e5466eb92d371036168d39baed785c333498355949dbec50cb160a61b) |
 
 ## The other recorded runs
 
@@ -149,6 +151,7 @@ Every run directory holds its own `summary.md` with the accounts, the hashes and
 
 | Run | What it shows | Result |
 |---|---|---|
+| [`runs/20260928T112252Z-e3-cli/`](runs/20260928T112252Z-e3-cli/summary.md) | The first recording of the metric close through the CLI (story E3-S7), before the output was polished: account `GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7`, cleanup `0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac`, sale `f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700`, merge `36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c` (ledgers 4914209 to 4914211); the run the ticked boxes of the SOW's Appendix B link | exit 0; 4.0000007 XLM merged; 1,500 stroops paid by the sponsor; Horizon 404 |
 | [`runs/20260928T112239Z-e3/`](runs/20260928T112239Z-e3/summary.md) | The metric close through the SDK (`executeClose()`), story E3-S7 | 3 fee bumps in ledgers 4914192 to 4914194; 4.0000007 XLM merged; 1,500 stroops paid by the sponsor; Horizon 404 |
 | [`runs/20260928T125223Z-e3s4-wait/`](runs/20260928T125223Z-e3s4-wait/summary.md) | The sequence-guard wait through the CLI (story E3-S4, matrix row S-04): a BumpSequence to (4915280 + 12) << 32; the command runs the cleanup and the sale, prints the wait ("the merge can land from ledger 4,915,293") and merges in ledger 4915293, the unblocking ledger itself | exit 0; no merge refused with `op_seq_num_too_far`; Horizon 404 |
 | [`runs/20260928T125414Z-edge-frozen/`](runs/20260928T125414Z-edge-frozen/summary.md) | The SOW's week-3 unclosable exit on the `edge` fixture (62 of 62 checks): a frozen FRZ trustline from an AUTH_REQUIRED + AUTH_REVOCABLE issuer, `TRUSTLINE_NOT_AUTHORIZED` with the issuer and the remedy | exit 3 without `--partial` (sequence number unchanged); exit 4 with it: the illiquid ILQX burned, its trustline and the data entry removed, FRZ left under "Not closed" |
@@ -160,20 +163,27 @@ The tests, on the merged code of stories E4-S1 to E4-S3 (commit `0df4d09`, 2026-
 
 ## Checking this page
 
-`npm run evidence:check` (`scripts/evidence-check.mjs`, story E4-S3) reads this page and every `runs/*/summary.md`. Every relative link must point to a committed file, every transaction hash linked on Horizon or StellarExpert must answer 200 on testnet Horizon, and every other https link must answer below 400; a Horizon `/accounts/<id>` that answers 404 is listed as "account gone", which is what a closed account shows. It sends GET requests only, refuses any network but the testnet, and needs the internet; after the testnet reset of 2026-12-16 it fails by design. Its runs on 2026-09-28 at 22:48 UTC and on 2026-09-29 at 07:49 UTC, on this page and the seven run summaries, gave the same result: 8 files, 219 links; 210 ok, 5 "account gone" (the closed metric account `GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7`, linked three times on this page, and the closed account of the sequence-guard wait, twice in its summary), 4 skipped (links to headings of this page), 0 failed; exit code 0.
+`npm run evidence:check` (`scripts/evidence-check.mjs`) reads every Markdown file under `evidence/`, this page and the run summaries among them, and the repository's `README.md` and `docs/write-up.md`:
+
+- every relative link must name a file committed to the repository, and an anchor must be a heading of the file it points to;
+- every transaction hash, linked on Horizon or StellarExpert or listed in a code span or a table cell, must answer 200 on testnet Horizon;
+- an account linked on Horizon or StellarExpert is asked on testnet Horizon: a 404 whose history ends in the account's own `account_merge` is "gone (merged)", which is what the evidence shows for a closed account, while a 404 with no history at all is a failure;
+- every other https link must answer below 400.
+
+It sends GET requests only, refuses any network but the testnet without a request, and needs the internet; after the testnet reset of 2026-12-16 it fails by design. It exits 0 when every link is fine, 1 when one failed, 2 for a usage error, and 3 when none failed but one could not be checked (a network error, a timeout, HTTP 429 or 5xx after its retries, or a bot protection's 403). Its run of 2026-09-29 at 11:47 UTC, on the 16 files it reads by default (the Markdown files under `evidence/`, `README.md` and `docs/write-up.md`): 593 links and 12 listed transaction hashes; 579 ok, 24 "gone (merged)" (the closed accounts of the evidence, each with its own `account_merge`), 0 failed, and 2 unchecked: the SCF #44 round recap on medium.com, cited twice in the write-up, whose bot protection answered HTTP 403 to the automated check (open it in a browser). Exit code 3, "unchecked only".
 
 ## What survives a testnet reset
 
 | Item | Survives the reset of 2026-12-16 | Notes |
 |---|---|---|
 | Explorer and Horizon links on this page and in each `summary.md` | no | After the reset the network no longer knows the addresses and hashes. |
-| `report.json` of every run | yes | Every transaction with its hash, ledger, fee, fee account, result codes, and both envelopes (inner and fee bump) as XDR. Decoding a fee-bump envelope with the SDK shows its fee source (the sponsor) and its inner source (the account), and its hash is the explorer's. |
+| `report.json` of every run | yes | Every transaction with its hash, ledger, fee, fee account, result codes, and both envelopes (inner and fee bump) as XDR. Decoding a fee-bump envelope with the SDK shows its fee source (the sponsor) and its inner source (the account), and its hash is the explorer's. The report of the 0.1.0 run also names each transaction's operations. |
 | `tx-<n>.json`, `account-before.json`, `account-after.json`, `balances.json` | yes | Horizon's own answers at the time: the fee account and the source of each transaction, the account before the close, and the 404 after it. |
 | `transcript.txt`, `plan.txt`, `plan.json`, `fixture-verification.json` | yes | The command's output with the receipt, the dry-run plan, and the Appendix B checks before the close. |
 | The video and the baseline recording | yes, once recorded | Pending (the builder's); hosted outside the repository, linked here. |
-| The fixture accounts | no, but rebuilt in one command | `dustin fixture create --profile messy`; `node scripts/evidence-cli.mjs metric` records a fresh metric close with new links. After a reset, `dustin fixture verify` stops with `RESET_SUSPECTED` (exit 3) when the manifest records a ledger beyond Horizon's latest one or an account of the fixture answers 404 with no history on Horizon; a merged fixture account keeps its history and is reported as closed instead (matrix row X-15). |
+| The fixture accounts | no, but rebuilt in one command | `dustin fixture create --profile messy`; `node scripts/evidence-cli.mjs metric` records a fresh metric close with new links. After a reset, `dustin fixture verify` stops with `RESET_SUSPECTED` (exit 3) when none of the fixture's accounts exists and either Horizon's latest ledger is more than 120 ledgers behind the one the manifest records or none of the missing accounts has any history on Horizon. Before a reset it reports a merged account as closed, with its merge, and an account without history while others exist as never funded or merged before the oldest ledger Horizon keeps (matrix row X-15). |
 
-If the review happens after a reset, the builder re-runs the fixture builder and the close and adds a new run directory; the runs of 2026-09-28 stay here as the record of the first capture.
+If the review happens after a reset, the builder re-runs the fixture builder and the close and adds a new run directory; the runs of 2026-09-26 to 2026-09-29 stay here as the record of the first captures.
 
 ## Pending: the builder's actions
 
@@ -184,16 +194,16 @@ None of these is done, and none is ticked anywhere in this package.
 | Baseline recording of the existing tool on the baseline fixture `messy-20260926T035942Z` (matrix B-01, then B-02 with 1 XLM added) | 4.1 D3, 5.1 week 1, 6.1 D3 | The builder records the StellarExpert Account Demolisher on the fixture, following [`baseline/README.md`](baseline/README.md) | `<pending: builder records the Demolisher baseline>` in [`baseline/README.md`](baseline/README.md) and in 6.1 above |
 | Dustin's close of the rebuilt baseline fixtures (matrix B-03) | 6.1 D3 ("the same account") | After the recordings | a new directory under `runs/` |
 | The 60-second video | 5.1 week 4, 6.1 D2 and docs row | The builder records it following [`docs/demo-video-script.md`](../docs/demo-video-script.md) and uploads it | `<pending: builder records the 60-second video (E4-S6)>` in [`demo/README.md`](demo/README.md), the README and 6.1 above |
-| The npm publish of `stellar-dustin` 0.1.0 | 5.1 week 4 | `npm publish` from the builder's account, with 2FA | `<pending: builder publishes stellar-dustin 0.1.0 to npm>` in the README |
+| The npm publish of `stellar-dustin` 0.1.0 | 5.1 week 4 | `npm publish` from the builder's account, with 2FA | the README's install line names the package; `<pending: builder publishes stellar-dustin 0.1.0 to npm>` |
 | The chapter lead's written acknowledgement of the two-fixture reading of week 3 ([canonical decision 3](../docs/README.md)) | 5.1 week 3 | The chapter lead confirms that `messy` carries the metric and `edge` carries the unclosable exit | `<pending: chapter lead's acknowledgement>` |
 
 The completion report that goes to the chapter lead is drafted in [`completion-report.md`](completion-report.md), for the builder to finish and send.
 
 ## Assumptions
 
-1. The metric is judged on the CLI metric close of 2026-09-28; the SDK run and the week-2 closes are corroborating evidence. Both metric closes ran on fresh fixtures built from the recipe of the builder's baseline fixture, which is kept for the recording (canonical decision 3; matrix rows B-01 to B-03).
+1. The metric is judged on the latest CLI metric close, on the 0.1.0 code of 2026-09-29; the closes of 2026-09-28 (CLI and SDK) and of week 2 are corroborating evidence. Every metric close ran on a fresh fixture built from the recipe of the builder's baseline fixture, which is kept for the recording (canonical decision 3; matrix rows B-01 to B-03).
 2. The explorer's wording for a merged account is its own; the Horizon 404 is the check that does not depend on a third-party site.
-3. "Done" in the Appendix A tracker means the evidence is committed and linked here; the chapter lead's verdict is the SOW 6.2 table above.
+3. "Done" in the Appendix A tracker means that every piece of evidence SOW 6.1 lists for the deliverable is committed and linked here; a deliverable with one piece pending is "in progress". The chapter lead's verdict is the SOW 6.2 table above.
 
 ## Sources
 

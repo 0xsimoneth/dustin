@@ -9,7 +9,7 @@ aligns with: docs/ux-design.md section 4 (storyboard), SUCCESSFUL_SOW.md section
 
 The video has one job: let a viewer with no Stellar knowledge see the messy account, see the plan, see the sponsor paying, and see the account disappear. It shows one close from the CLI, start to finish, on a freshly built messy fixture, and the addresses and hashes on screen are the ones the builder then adds to the evidence package.
 
-This page is a rehearsal the builder can follow word for word: the setup, the commands in order, what each one prints, the 60-second cut, and a reference for every value. The reference values come from the recorded CLI metric close of 2026-09-28 ([`evidence/runs/20260928T112252Z-e3-cli/`](../evidence/runs/20260928T112252Z-e3-cli/summary.md), its [plan](../evidence/runs/20260928T112252Z-e3-cli/plan.txt) and its [transcript](../evidence/runs/20260928T112252Z-e3-cli/transcript.txt)). They are there so a take can be compared against a known good run. **Every address, hash, ledger, bid and plan hash in a take will differ: replace each reference value with your fresh fixture's values** in the evidence package after the take. The shapes (12 steps, 3 transactions, 4.0000007 XLM, 1,500 stroops, the 404) should match.
+This page is a rehearsal the builder can follow word for word: the setup, the commands in order, what each one prints, the 60-second cut, and a reference for every value. The reference values come from the CLI metric close recorded on the 0.1.0 code on 2026-09-29 ([`evidence/runs/20260929T111408Z-e4-cli/`](../evidence/runs/20260929T111408Z-e4-cli/summary.md), its [fixture build](../evidence/runs/20260929T111408Z-e4-cli/fixture-create.txt), its [plan](../evidence/runs/20260929T111408Z-e4-cli/plan.txt) and its [transcript](../evidence/runs/20260929T111408Z-e4-cli/transcript.txt)); the independent review of 2026-09-29 ran this script as written on a fresh fixture, with the typed confirmation, and every quoted line matched ([review](reviews/2026-09-29-e4-review.md), step 2). They are there so a take can be compared against a known good run. **Every address, hash, ledger, bid and plan hash in a take will differ: replace each reference value with your fresh fixture's values** in the evidence package after the take. The shapes (12 steps, 3 transactions, 4.0000007 XLM, 1,500 stroops, the 404) should match.
 
 The video link, once recorded, goes in [`evidence/demo/README.md`](../evidence/demo/README.md): `<pending: builder records the 60-second video (E4-S6)>`.
 
@@ -45,7 +45,7 @@ The SOW success metric is binary. Each checkbox in SOW Appendix B is covered by 
    dustin fixture create --profile messy      # fixture B, the backup
    ```
 
-   Each prints its id, the account, the destination, the fee sponsor, the explorer link and the manifest path, then its checks. For reference, the metric fixture `messy-20260928T112252Z-580d8f` was built in seven transactions in consecutive ledgers (4914199 to 4914205), with the log lines `create-accounts ok`, `trustlines ok`, `sponsored-trustline ok`, `dust-payments ok`, `market-maker-bid ok`, `offers-and-data ok`, `drain-to-minimum ok`, then "Drained: balance 4.0000000 = minimum 4.0000000, spendable 0" and "Unbumped transaction from the fixture rejected with tx_insufficient_balance" (the same log of another messy build: [`fixture-create.txt`](../evidence/runs/20260928T125223Z-e3s4-wait/fixture-create.txt)). Write down, for each fixture: the account `G...` (reference `GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7`), the destination (reference `GDPZI3OAYYEAXTYY2OHFDZAEEG4PXNBN7AHNLQTEH22O5HTBGBSVB2TS`), the fee sponsor (reference `GBCHRHGJMTMA2MNEVJWZL5GRYXQ3OF5CRKVMZHPFPASSW2DBLPQFEHOG`) and the id.
+   Each writes its build log to standard error, then prints its id, the account, the destination, the fee sponsor, the explorer link and the manifest path, then its checks, on standard output. For reference, the metric fixture `messy-20260929T111410Z-0b6cd8` was built in seven transactions in consecutive ledgers (4931375 to 4931381), with the log lines `create-accounts ok`, `trustlines ok`, `sponsored-trustline ok`, `dust-payments ok`, `market-maker-bid ok`, `offers-and-data ok`, `drain-to-minimum ok`, then "Drained: balance 4.0000000 = minimum 4.0000000, spendable 0", "Strict-send path for DUSTA: 0.0000007 -> 0.0000007 XLM" and "Unbumped transaction from the fixture rejected with tx_insufficient_balance" ([`fixture-create.txt`](../evidence/runs/20260929T111408Z-e4-cli/fixture-create.txt), recorded with `--json`, so its standard output is the manifest). Without `--json` the summary and the twelve checks follow on standard output after the "Unbumped" line. Write down, for each fixture: the account `G...` (reference `GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT`), the destination (reference `GBR43GJ2WAHU7FPEAYLNFR4WJUQMCJGOOS6ESF2O6ZBB6GVWL6FVS3OY`), the fee sponsor (reference `GBDOAFW4WYIOVCBZNVI4CF4QOD2J3HZYMMQZSOF2LOSNZGZCSMVBIGMQ`) and the id.
 
 3. **Verify both** against SOW Appendix B, and keep the snapshot for the evidence package:
 
@@ -53,7 +53,7 @@ The SOW success metric is binary. Each checkbox in SOW Appendix B is covered by 
    dustin fixture verify .fixture/<id>/manifest.json --snapshot .fixture/<id>/verification.json
    ```
 
-   Twelve `PASS` lines, four of them marked `[Appendix B]`, then "Fixture verified: every check passed." and exit code 0 (reference output of a messy fixture: [`fixture-verify.txt`](../evidence/runs/20260928T125223Z-e3s4-wait/fixture-verify.txt)).
+   Twelve `PASS` lines, four of them marked `[Appendix B]`, then "Fixture verified: every check passed." and exit code 0 (reference output of the metric fixture: [`fixture-verify.txt`](../evidence/runs/20260929T111408Z-e4-cli/fixture-verify.txt)).
 
 4. **Put the fixture's two secrets in `.env`, off camera**, without printing them: the account's key is `secrets.fixture` and the fee sponsor's is `secrets.sponsor` in `.fixture/<id>/keys.json`.
 
@@ -63,7 +63,7 @@ The SOW success metric is binary. Each checkbox in SOW Appendix B is covered by 
 
    Never type, paste or echo a secret on camera. A secret missing from the environment and `.env` is asked for with a hidden prompt (only on a terminal and without `--json`), which echoes nothing, but `.env` keeps the take shorter.
 
-5. **Dry-run the plan on both fixtures** (`dustin plan`, below) and check it says `Status CLOSABLE: the plan ends in a merge` with 0 unclosable items. A video that ends in PARTIAL does not meet the metric.
+5. **Dry-run the plan on both fixtures** (`dustin plan`, below) and check it says `Status CLOSABLE: the plan ends in a merge`. The plan prints no unclosable section when there is nothing unclosable; the line `unclosable   0 items` appears only in the confirmation block of `close --execute`. A video that ends in PARTIAL does not meet the metric.
 
 6. **Copy the fixture A account, destination and sponsor** into the evidence package draft; they must match the video.
 
@@ -93,17 +93,17 @@ One continuous take per fixture: take A on fixture A; if anything goes wrong, ta
 dustin plan <fixture G> --to <destination G> --sponsor <sponsor G>
 ```
 
-Reference: 75 lines of output after the command line ([`plan.txt`](../evidence/runs/20260928T112252Z-e3-cli/plan.txt)). What to look for, top to bottom:
+Reference: 75 lines of output after the command line ([`plan.txt`](../evidence/runs/20260929T111408Z-e4-cli/plan.txt)). What to look for, top to bottom:
 
 | Line | Reference value | In your take |
 |---|---|---|
 | Heading | `Dustin plan  (dry run: nothing is signed, nothing is submitted)` | the same |
 | Balance | `4.0000000 XLM, minimum balance 4.0000000 XLM, spendable 0.0000000 XLM (base reserve 0.5000000)` | the same |
-| Fees | `bid up to 0.1262430 XLM (84,162 stroops per operation), paid by the sponsor; the account pays 0` | your bid follows the fee stats of the moment |
+| Fees | `bid up to 0.0626445 XLM (41,763 stroops per operation), paid by the sponsor; the account pays 0` | your bid follows the fee stats of the moment |
 | Status | `CLOSABLE: the plan ends in a merge` | the same |
 | Steps | S01 and S02 cancel two offers; S03 to S08 return DUSTB, DUSTC and SPTA to their issuer and remove their trustlines, SPTA's "reserve sponsored by" the reserve sponsor; S09 deletes `dustin.fixture`; S10 sells 0.0000007 DUSTA by path payment; S11 removes DUSTA; S12 merges ("cannot be undone") | the same steps; offer ids and addresses differ |
 | Transactions | `tx 1 cleanup 9 ops`, `tx 2 convert 2 ops`, `tx 3 merge 1 op` | the same |
-| Summary | `4.0000007 XLM arrives at GDPZ...B2TS (balance 4.0000000 + sale 0.0000007)`; `0 XLM paid by the account; every fee is sponsored`; `sequence guard ok` | 4.0000007 XLM if the DUSTA bid is still there; 4.0000000 if the sale fell back to the burn; `0.0000000 XLM paid by the account` (see the note below the Result block) |
+| Summary | `4.0000007 XLM arrives at GBR4...S3OY (balance 4.0000000 + sale 0.0000007)`; `0.0000000 XLM paid by the account; every fee is sponsored`; `sequence guard ok` | 4.0000007 XLM if the DUSTA bid is still there; 4.0000000 if the sale fell back to the burn |
 
 Slow zoom on the "why:" lines of two steps, then on the summary block.
 
@@ -113,53 +113,51 @@ Slow zoom on the "why:" lines of two steps, then on the summary block.
 dustin close <fixture G> --to <destination G> --execute
 ```
 
-The command reads the account again, prints the fresh plan (the same 72 lines, headed "re-read for execution: nothing is signed before you confirm"), then the confirmation block. Reference, lines 75 to 83 of the [transcript](../evidence/runs/20260928T112252Z-e3-cli/transcript.txt):
+The command reads the account again, prints the fresh plan (the same 72 lines, headed "re-read for execution: nothing is signed before you confirm"), then the confirmation block. Reference, lines 75 to 83 of the [transcript](../evidence/runs/20260929T111408Z-e4-cli/transcript.txt):
 
 ```text
-You are about to close GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7 on testnet.
-  destination  GDPZI3OAYYEAXTYY2OHFDZAEEG4PXNBN7AHNLQTEH22O5HTBGBSVB2TS
+You are about to close GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT on testnet.
+  destination  GBR43GJ2WAHU7FPEAYLNFR4WJUQMCJGOOS6ESF2O6ZBB6GVWL6FVS3OY
   receives     4.0000007 XLM through the merge in tx 3, which cannot be undone
-  sponsor      GBCHRHGJMTMA2MNEVJWZL5GRYXQ3OF5CRKVMZHPFPASSW2DBLPQFEHOG
-  pays         every fee; the plan bids 0.1262430 XLM
+  sponsor      GBDOAFW4WYIOVCBZNVI4CF4QOD2J3HZYMMQZSOF2LOSNZGZCSMVBIGMQ
+  pays         every fee; the plan bids 0.0462795 XLM
   at most      5.0000000 XLM, the close budget; retries and re-plans can bid more than the plan, never more
   can spend    9864.9997200 XLM
   signs        3 fee-bumped transactions, 12 operations, signed by the account
   unclosable   0 items
 ```
 
-Then the question: `Type the last 4 characters of the destination <destination G> to confirm: `. Type the last four characters of your destination at normal speed (for the reference destination, `B2TS`) and press Enter. Do not add `--json`: machine mode never asks and would refuse the run without `--yes`. The recorded run used `--yes` because a script drove it, so its transcript shows "CONFIRMATION SKIPPED" in place of the question; do not use `--yes` in the video.
+Then the question: `Type the last 4 characters of the destination <destination G> to confirm: `. Type the last four characters of your destination at normal speed (for the reference destination, `S3OY`) and press Enter. Do not add `--json`: machine mode never asks and would refuse the run without `--yes`. The recorded run used `--yes` and `--report report.json` because a script drove it, so its transcript shows "CONFIRMATION SKIPPED" in place of the question and ends with "Report written to report.json"; do not use `--yes` in the video.
 
 What follows, with the reference values (lines 87 to 110 of the transcript):
 
 | Line | Reference value | Timing in the reference |
 |---|---|---|
-| `tx 1/3  cleanup  9 operations, signed by the account, fee-bumped by the sponsor` | submitted `0ee9fb5e4bb683519af3190e45c6e0350a0819aa509d65fddb34a247e65dcaac`, confirmed ledger 4,914,209, fee charged to the sponsor 0.0001000 XLM (1,000 stroops) | ledger closed 11:23:52 UTC |
-| `tx 2/3  convert  2 operations ...` | submitted `f7161ce4667cc9b3457aa6daa948f8b39df847b0576ab73849ac7325ad81f700`, confirmed ledger 4,914,210, 300 stroops | 11:23:57 UTC |
+| `tx 1/3  cleanup  9 operations, signed by the account, fee-bumped by the sponsor` | submitted `835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b`, confirmed ledger 4,931,386, fee charged to the sponsor 0.0001000 XLM (1,000 stroops) | ledger closed 11:15:17 UTC |
+| `tx 2/3  convert  2 operations ...` | submitted `c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61`, confirmed ledger 4,931,387, 300 stroops | 11:15:22 UTC |
 | `tx 3/3  merge preflight ok: no subentries left, nothing sponsored, destination exists, sequence guard ok` | | |
-| `tx 3/3  merge  1 operation ...` | submitted `36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c`, confirmed ledger 4,914,211, 200 stroops | 11:24:02 UTC |
+| `tx 3/3  merge  1 operation ...` | submitted `dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2`, confirmed ledger 4,931,388, 200 stroops | 11:15:27 UTC |
 | `Verifying    GET /accounts/<fixture G> -> 404: the account no longer exists` | | |
 
-The run from the answer to the receipt took about 18 seconds in the reference (started 11:23:45.318, finished 11:24:03.382 UTC): one ledger, about 5 seconds, per transaction. Then the receipt (lines 112 to 165), headed `Dustin close receipt   CLOSED: the account was merged and no longer exists`. For shot 7 show its "Result" block:
+The run from the answer to the receipt took about 18 seconds in the reference (started 11:15:11.056, finished 11:15:28.993 UTC): one ledger, about 5 seconds, per transaction. Then the receipt (lines 112 to 167), headed `Dustin close receipt   CLOSED: the account was merged and no longer exists`. For shot 7 show its "Result" block:
 
 ```text
 Result
-  4.0000007 XLM merged into the destination GDPZ...B2TS (read from the merge result)
+  4.0000007 XLM merged into the destination GBR4...S3OY (read from the merge result)
   Reserves released to sponsors: 0.5000000 XLM, never this account's
-    0.5000000 XLM reserve returned to sponsor GCFM...EILD, never this account's (trustline SPTA)
+    0.5000000 XLM reserve returned to sponsor GCKX...T7BB, never this account's (trustline SPTA)
       observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
       XLM balance 10.0000000 -> 10.0000000 (unchanged)
-  0 XLM in fees paid by the account
+  0.0000000 XLM in fees paid by the account
   0.0001500 XLM (1,500 stroops) in fees paid by the sponsor
 ```
 
-The command exits 0. Reference transcript length with `--yes`: 166 lines including the command line; yours has the question in place of the "CONFIRMATION SKIPPED" line.
-
-The reference was recorded before story E4-S1 polished the output, so a take on the 0.1.0 build differs from it where the wording changed. Two changes show in this script's excerpts: the account's zero fees read `0.0000000 XLM` instead of `0 XLM` (the plan's "paid by the account" line and the receipt's fees line), and the receipt's "Verify it yourself" block gives the Horizon link of the account and of the destination under each explorer link, two lines more. The current wording is in the snapshot of a whole `dustin close --execute` transcript, `test/unit/render/__snapshots__/output-snapshots.test.ts.snap`.
+The command exits 0. Reference transcript length: 169 lines, of which the first is the command line, 167 are its output (the last one "Report written to report.json", from `--report`) and the last is the recorder's `[exit code 0]`. Command 2 as written here, without `--yes` and `--report`, prints 166 lines after its command line, the question in place of the "CONFIRMATION SKIPPED" line; the review's take was exactly that.
 
 ### The browser (shots 2 and 8)
 
 - Before the close (shot 2): the fixture's explorer page, its offers tab (2 offers) and its data tab (1 entry).
-- After the close (shot 8): reload the fixture's explorer page on camera; the merge is the last operation in its history (the page's own wording for a merged account is the explorer's). Then the Horizon tab, reloaded: HTTP 404 with the title "Resource Missing" ([reference body](../evidence/runs/20260928T112252Z-e3-cli/account-after.json)).
+- After the close (shot 8): reload the fixture's explorer page on camera; the merge is the last operation in its history (the page's own wording for a merged account is the explorer's). Then the Horizon tab, reloaded: HTTP 404 with the title "Resource Missing" ([reference body](../evidence/runs/20260929T111408Z-e4-cli/account-after.json)).
 - After the take, off the cut: open the three transaction links from the terminal, so the raw take proves them.
 
 ## The 60-second cut
@@ -185,14 +183,14 @@ If shot 6 runs longer than 13 seconds in real time, cut the waits between confir
 Dustin has no command that submits an unsponsored transaction on purpose, and the video must not pretend it does. Three honest options, in order of preference:
 
 1. **A frame of the baseline recording**, once it exists: the existing tool's first transaction refused on the baseline fixture (story E1-S2, [`evidence/baseline/README.md`](../evidence/baseline/README.md)). The caption then says it is the existing tool. `<pending: builder records the Demolisher baseline>`.
-2. **The fixture builder's own probe**: `dustin fixture create` submits one unbumped transaction from the drained fixture and logs "Unbumped transaction from the fixture rejected with tx_insufficient_balance". Record the end of fixture A's build (step 2 above) and use that line; the caption says it is the fixture builder's check.
+2. **The fixture builder's own probe**: `dustin fixture create` submits one unbumped transaction from the drained fixture and logs "Unbumped transaction from the fixture rejected with tx_insufficient_balance" on standard error, as the last line of its build log, right before the summary and the checks on standard output. Record fixture A's build (step 2 above) and use the frame that shows that line; the caption says it is the fixture builder's check.
 3. **Cut the shot** and give its three seconds to shot 4.
 
 ## Checklists
 
 ### Compare a take against the reference
 
-- [ ] The plan says CLOSABLE, 12 steps, 3 transactions, 0 unclosable items, "spendable 0.0000000 XLM".
+- [ ] The plan says CLOSABLE, 12 steps, 3 transactions and "spendable 0.0000000 XLM", and prints no unclosable section; the confirmation block says `unclosable   0 items`.
 - [ ] Every transaction line says "fee-bumped by the sponsor" and shows a hash, a ledger and "fee charged to the sponsor".
 - [ ] The receipt says CLOSED, "0.0000000 XLM in fees paid by the account", and the Horizon check says 404.
 - [ ] The fixture address on the title card, in shot 2 and in shot 8 is the same.
@@ -218,15 +216,15 @@ The `demo-video` skill available to the builder drives a web page with Playwrigh
 
 ## Assumptions
 
-1. Command names, options, the confirmation question and the output lines quoted here are those of the CLI on 2026-09-28 and of the recorded run; the builder checks them against the build the video is recorded with.
-2. The reference values are those of `evidence/runs/20260928T112252Z-e3-cli/`; a fresh fixture gives new addresses, hashes, ledgers and a new fee bid, while the structure (12 steps, 3 transactions, 4.0000007 XLM when the DUSTA bid holds, 1,500 stroops at the ledger's base fee) is the recipe's.
+1. Command names, options, the confirmation question and the output lines quoted here are those of the 0.1.0 code (the build of `7bd04ae`) and of the recorded run; the builder checks them against the build the video is recorded with.
+2. The reference values are those of `evidence/runs/20260929T111408Z-e4-cli/`; a fresh fixture gives new addresses, hashes, ledgers and a new fee bid, while the structure (12 steps, 3 transactions, 4.0000007 XLM when the DUSTA bid holds, 1,500 stroops at the ledger's base fee) is the recipe's.
 3. The explorer's wording for a merged account is its own; the caption says "no longer exists" and the Horizon 404 is the check.
 4. Voice-over is optional; the SOW requires a 60-second video showing the close from the CLI.
 
 ## Sources
 
 1. Accepted Statement of Work, section 3 (success metric), 5.1 week 4, 6.1 (Deliverable 2 and the documentation row), Appendix B: `SUCCESSFUL_SOW.md`.
-2. The recorded CLI metric close: `evidence/runs/20260928T112252Z-e3-cli/` (`summary.md`, `plan.txt`, `transcript.txt`, `report.json`, `account-after.json`).
+2. The recorded CLI metric close on the 0.1.0 code: `evidence/runs/20260929T111408Z-e4-cli/` (`summary.md`, `fixture-create.txt`, `fixture-verify.txt`, `plan.txt`, `transcript.txt`, `report.json`, `account-after.json`); the independent review's take of this script: `docs/reviews/2026-09-29-e4-review.md` (step 2, and D-9 for the three lines it corrected).
 3. Storyboard, CLI output design and colour rules: `docs/ux-design.md` sections 2.5, 2.6, 2.10 and 4.
 4. Fee-bump transactions, the fee account pays the fee: https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions
 5. Account merge removes the source account from the ledger: https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#account-merge
