@@ -174,8 +174,8 @@ npm test                                     # offline tier: no network at all
 DUSTIN_TESTNET=1 npm run test:testnet -- --reporter=verbose   # live tier on testnet
 ```
 
-- **Offline tier** (`npm test`): recorded Horizon JSON and a fake ledger, with the network blocked for the whole tier. The committed green run, on commit `0da27eb` (2026-09-28): 96 files, 928 tests, 7.0 s ([`evidence/tests/offline.txt`](evidence/tests/offline.txt)).
-- **Live tier** (`DUSTIN_TESTNET=1 npm run test:testnet`): every file builds its own fixture accounts with fresh keys, so nothing is shared between runs and the builder's baseline fixture is never touched. The committed green run, on the same commit: 11 files, 58 tests, 304 s ([`evidence/tests/testnet.txt`](evidence/tests/testnet.txt)); the last run in the [testnet CI job](https://github.com/0xsimoneth/dustin/actions/runs/36424696971) passed 10 files and 51 tests in 321 s on `d0d711c`. `--reporter=verbose` shows every transaction hash the tests print.
+- **Offline tier** (`npm test`): recorded Horizon JSON and a fake ledger, with the network blocked for the whole tier. The committed green run, on commit `0df4d09` (2026-09-28, the merged code of stories E4-S1 to E4-S3): 113 files, 1057 tests, 15.2 s while the live tier ran at the same time ([`evidence/tests/offline.txt`](evidence/tests/offline.txt)); alone, the tier takes about 7 s.
+- **Live tier** (`DUSTIN_TESTNET=1 npm run test:testnet`): every file builds its own fixture accounts with fresh keys, so nothing is shared between runs and the builder's baseline fixture is never touched. The committed green run, on the same commit: 11 files, 58 tests, 301 s ([`evidence/tests/testnet.txt`](evidence/tests/testnet.txt)); the last run in the [testnet CI job](https://github.com/0xsimoneth/dustin/actions/runs/36424696971) passed 10 files and 51 tests in 321 s on `d0d711c`. `--reporter=verbose` shows every transaction hash the tests print.
 - **A fixture by hand**, then its check against SOW Appendix B. There is no `fixture:build` script; the fixture commands are part of the CLI:
 
 ```bash
@@ -186,7 +186,7 @@ node dist/cli/main.js fixture verify .fixture/<id>/manifest.json   # exit 0 when
 
 `fixture create` writes the keys to `.fixture/<id>/keys.json` (mode 600, gitignored, testnet only) and the public manifest beside them; the recorded builds took seven transactions in consecutive ledgers. `fixture verify` exits 3 when a check fails, and stops with `RESET_SUSPECTED` (also 3) when the testnet was reset since the fixture was built. `dustin plan` and `dustin close` then run on that account like on any other ([docs/demo-video-script.md](docs/demo-video-script.md) walks through it).
 
-The timings committed for 2026-09-28 are about 6 s for `npm run build`, 7 s for the offline tier and 304 s for the live tier ([story E4-S3](docs/stories/4-3-test-evidence-reproducibility.md)); `npm ci` on a fresh machine has not been timed. Every row of the D3 matrix, with its tests and its last run, is in [docs/test-matrix.md](docs/test-matrix.md), and [evidence/tests/](evidence/tests/README.md) holds the complete output of both green runs with an image of each summary.
+The timings committed for 2026-09-28 are about 6 s for `npm run build`, about 7 s for the offline tier alone and 301 s for the live tier ([story E4-S3](docs/stories/4-3-test-evidence-reproducibility.md), [`evidence/tests/`](evidence/tests/README.md)); `npm ci` on a fresh machine has not been timed. Every row of the D3 matrix, with its tests and its last run, is in [docs/test-matrix.md](docs/test-matrix.md), and [evidence/tests/](evidence/tests/README.md) holds the complete output of both green runs with an image of each summary.
 
 ## Evidence
 

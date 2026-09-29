@@ -96,7 +96,7 @@ Every row is Met on committed evidence. The builder confirms each link in a fres
 
 **Planned (SOW):** test coverage for illiquid leftover balance, sponsored trustlines, `ACCOUNT_MERGE_SEQNUM_TOO_FAR`, authorization-required and clawback-enabled trustlines, liquidity pool shares (detected and reported, not withdrawn); construction of the messy fixture (3 trustlines with dust, 2 open offers, 1 data entry, 1 sponsored trustline, 0 XLM, plus a deliberately illiquid asset); a recorded baseline run of the existing StellarExpert tool against the same fixture showing where it stops; raised multisig thresholds detected and reported.
 
-**Delivered:** the fixture builder (`dustin fixture create --profile messy` for the metric account, `--profile edge` for one throwaway account per edge variant) and verifier (`dustin fixture verify`); the [test matrix](../docs/test-matrix.md) of 32 rows with every SOW-named case green at both levels; an offline tier of 89 files and 864 tests and a live tier of 10 files and 51 tests. The baseline recording is pending.
+**Delivered:** the fixture builder (`dustin fixture create --profile messy` for the metric account, `--profile edge` for one throwaway account per edge variant) and verifier (`dustin fixture verify`); the [test matrix](../docs/test-matrix.md) of 32 rows, 27 of them green, with every SOW-named case green at both levels; an offline tier of 113 files and 1057 tests and a live tier of 11 files and 58 tests, both green on commit `0df4d09`. The baseline recording is pending.
 
 **Completion criteria mapping:**
 
@@ -111,14 +111,14 @@ Every row is Met on committed evidence. The builder confirms each link in a fres
 | Matrix: liquidity pool shares detected and reported | Met | S-08: `testnet/edge` › S-08; `plan/blockers` › S-08 |
 | Matrix: raised multisig thresholds detected and reported | Met | S-09: `testnet/edge` › S-09 (AC-E3-S5-5); `plan/blockers` › S-09 |
 | Baseline recording of the existing tool stopping on the fixture | Pending | `<pending: builder records the Demolisher baseline on messy-20260926T035942Z (matrix B-01, B-02) per evidence/baseline/README.md, with the step where it stops>` |
-| Test run screenshot | Met (story E4-S3) <!-- reconcile: B --> | [`evidence/tests/`](tests/); the live tier in the CI job [Testnet tier, run 36424696971](https://github.com/0xsimoneth/dustin/actions/runs/36424696971) |
+| Test run screenshot | Met, with a deviation: the images are rendered from the captured output, not screen captures (story E4-S3) | [`evidence/tests/offline.png`](tests/offline.png), [`evidence/tests/testnet.png`](tests/testnet.png) and the complete output beside them ([`evidence/tests/`](tests/README.md)); the last CI run of the live tier, [Testnet tier, run 36424696971](https://github.com/0xsimoneth/dustin/actions/runs/36424696971) on `d0d711c`; `<pending: integrator adds the CI runs of the merged code>` |
 
 **Evidence (SOW 6.1: test results screenshot + public repo + baseline recording):**
 
-- Test command: `npm test` (offline) and `DUSTIN_TESTNET=1 npm run test:testnet` (live); results on 2026-09-28: offline 89 files, 864 tests passed; live 10 files, 51 tests passed, on commit `d0d711c25f7c723251d23eff67796c31b7e538ef` (CI run 36424696971)
+- Test command: `npm test` (offline) and `DUSTIN_TESTNET=1 npm run test:testnet` (live); results on 2026-09-28 on commit `0df4d0957448bf8eaf41437e5a9f403e286443df`, the merged code of stories E4-S1 to E4-S3: offline 113 files, 1057 tests passed; live 11 files, 58 tests passed in 301 s ([`evidence/tests/`](tests/README.md)). The last CI run of the live tier: 10 files, 51 tests on `d0d711c` (run 36424696971)
 - Baseline recording: `<pending: builder records the Demolisher baseline>`
 
-**Deviations:** two fixtures instead of one for the week-3 wording (canonical decision 3): `messy` carries the metric and is closed; `edge` carries the deliberately illiquid, issuer-frozen asset that exits through the unclosable path with its reason. The chapter lead's written acknowledgement of this reading is `<pending: chapter lead's acknowledgement>`. The matrix rows beyond the SOW-named cases that have no test at the level the matrix asks for are listed in the test matrix with their reasons. <!-- reconcile: B -->
+**Deviations:** two fixtures instead of one for the week-3 wording (canonical decision 3): `messy` carries the metric and is closed; `edge` carries the deliberately illiquid, issuer-frozen asset that exits through the unclosable path with its reason. The chapter lead's written acknowledgement of this reading is `<pending: chapter lead's acknowledgement>`. Two matrix rows beyond the SOW-named cases have no live test (X-05, destination validation, and X-09, an incoming payment after the plan; both have offline tests), and the test matrix gives their reasons.
 
 **Effort:** planned 40 hours / $1,000 — actual `<pending: builder's hours>` / `<pending>`
 
@@ -149,7 +149,7 @@ Every row is Met on committed evidence. The builder confirms each link in a fres
 | 1 — Inventory and planner | Build fixture; run the existing tool and record where it stops; write inspector and ordering logic; CLI | Correct dry-run plan for the fixture printed in the CLI; baseline recording | Fixture built and its dry-run plan committed; inspector, planner and `dustin plan` done. The baseline recording is pending (the builder's). | Plan committed 2026-09-26 |
 | 2 — Simple close, end to end | `executeClose()` for cases with no leftover balance; fee sponsorship wired | Zero-XLM account closed on testnet with sponsored fees; hashes; account gone | Delivered early: zero-spendable messy accounts closed through the SDK and the CLI with sponsor-paid fee bumps; Horizon 404 | 2026-09-26 and 2026-09-27 (planned week 2026-09-29 to 2026-10-05) |
 | 3 — Leftover balance ladder | Disposal ladder; sponsored trustline unwinding; sequence guard; edge-case matrix; close the full fixture | Messy fixture closed; tests pass including the illiquid asset via the unclosable path | Delivered early: the ladder with its fall-back, the sponsored unwind with the observed release, the sequence-guard wait, the 32-row matrix, the metric close, and the illiquid frozen asset's unclosable exit on the `edge` fixture | 2026-09-28 (planned week 2026-10-06 to 2026-10-12) |
-| 4 — Publish and demo | Error handling and CLI polish; npm publish; 60-second demo; evidence package; write-up | Demo, evidence package, write-up; D1 to D3 closed | Being done early: CLI and error handling polish (stories E4-S1, E4-S2) <!-- reconcile: A -->, the write-up, the integration notes and the evidence package on 2026-09-28. Pending, the builder's: the npm publish, the video, the baseline recording that closes D3 | from 2026-09-28 (planned week 2026-10-13 to 2026-10-19) |
+| 4 — Publish and demo | Error handling and CLI polish; npm publish; 60-second demo; evidence package; write-up | Demo, evidence package, write-up; D1 to D3 closed | Being done early: CLI output and error handling polish (stories E4-S1 and E4-S2: machine mode with `--json`, the `--verbose` detail, the interruption on SIGINT or SIGTERM, the hidden prompt, `docs/errors.md` and the JSON schemas), the test evidence (E4-S3), the write-up, the integration notes and the evidence package on 2026-09-28. Pending, the builder's: the npm publish, the video, the baseline recording that closes D3 | from 2026-09-28 (planned week 2026-10-13 to 2026-10-19) |
 
 ## D. Evidence verification checklist (SOW section 6.2, for the chapter lead)
 
@@ -207,7 +207,7 @@ The full list, with the code, the reason and what a user can do, is in the [writ
 - Merge blockers: `IS_SPONSOR`, `AUTH_IMMUTABLE_SET`, `THRESHOLD_UNMET`, `MASTER_KEY_DISABLED`, `DESTINATION_MISSING`, `DESTINATION_IS_SELF`, `DESTINATION_REQUIRES_MEMO`, `SEQNUM_TOO_FAR`, `ACCOUNT_MISSING`.
 - Release limits: only the master key signs; one close per account at a time.
 - Testnet reset: the next reset, scheduled for 2026-12-16 17:00 UTC, deletes every account and transaction; the evidence that depends on live testnet state is also committed as files ([what survives](README.md#what-survives-a-testnet-reset)).
-- Test matrix: on 2026-09-28, 8 of 32 rows had no test at the level the matrix asks for; each is listed in the [test matrix](../docs/test-matrix.md) with its reason. <!-- reconcile: B -->
+- Test matrix: 27 of 32 rows are green; B-03 is planned (after the baseline recording), B-01 and B-02 are the builder's recordings, and X-05 and X-09 have offline tests but no live test ([test matrix](../docs/test-matrix.md), with each row's reason).
 - Security: the sponsor key is an environment variable, a `.env` entry or a hidden prompt; Dustin is not for mainnet.
 
 ## H. Next-step alignment (SOW section 7)

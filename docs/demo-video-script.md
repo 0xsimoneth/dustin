@@ -23,7 +23,7 @@ The SOW success metric is binary. Each checkbox in SOW Appendix B is covered by 
 | At least 3 trustlines with non-zero balances | 2 | Four asset lines with balances on the explorer page |
 | At least 1 open offer | 2 | The explorer's offers tab shows 2 |
 | At least 1 data entry | 2 | The explorer's data tab shows 1 |
-| Every transaction fee-bumped by the sponsor | 6 and 7 | "fee-bumped by the sponsor" and "fee charged to the sponsor" on each transaction; the receipt's "0 XLM in fees paid by the account" |
+| Every transaction fee-bumped by the sponsor | 6 and 7 | "fee-bumped by the sponsor" and "fee charged to the sponsor" on each transaction; the receipt's "0.0000000 XLM in fees paid by the account" |
 | The account no longer exists on a public explorer | 8 | The explorer page after reload, then the Horizon 404 |
 | Full transaction chain linkable | 6 and 9 | Three hashes with explorer links; the end card repeats them |
 
@@ -61,7 +61,7 @@ The SOW success metric is binary. Each checkbox in SOW Appendix B is covered by 
    node -e 'const k = require("./.fixture/<id>/keys.json").secrets; require("fs").writeFileSync(".env", `DUSTIN_ACCOUNT_SECRET=${k.fixture}\nDUSTIN_SPONSOR_SECRET=${k.sponsor}\n`, { mode: 0o600 })'
    ```
 
-   Never type, paste or echo a secret on camera. A secret missing from the environment and `.env` is asked for with a hidden prompt, which shows nothing on screen, but `.env` keeps the take shorter. <!-- reconcile: A -->
+   Never type, paste or echo a secret on camera. A secret missing from the environment and `.env` is asked for with a hidden prompt (only on a terminal and without `--json`), which echoes nothing, but `.env` keeps the take shorter.
 
 5. **Dry-run the plan on both fixtures** (`dustin plan`, below) and check it says `Status CLOSABLE: the plan ends in a merge` with 0 unclosable items. A video that ends in PARTIAL does not meet the metric.
 
@@ -69,7 +69,7 @@ The SOW success metric is binary. Each checkbox in SOW Appendix B is covered by 
 
 ## Terminal
 
-- [ ] Window exactly 120 columns wide, so no plan row wraps (the plan prints at most 120 columns); height enough for the plan's summary and the confirmation block. <!-- reconcile: A -->
+- [ ] Window exactly 120 columns wide, so no line wraps: human text wraps at 120 columns and a full hash or URL stands whole on its own line (story E4-S1); height enough for the plan's summary and the confirmation block. The output has no colour, so the terminal theme decides the look.
 - [ ] Monospace font at 18 point or larger; a high-contrast light theme; check legibility on a phone-sized preview.
 - [ ] Prompt reduced to `$ ` (no user name, host name or directory).
 - [ ] `clear` before each shot; shell history and autocomplete suggestions off.
@@ -103,7 +103,7 @@ Reference: 75 lines of output after the command line ([`plan.txt`](../evidence/r
 | Status | `CLOSABLE: the plan ends in a merge` | the same |
 | Steps | S01 and S02 cancel two offers; S03 to S08 return DUSTB, DUSTC and SPTA to their issuer and remove their trustlines, SPTA's "reserve sponsored by" the reserve sponsor; S09 deletes `dustin.fixture`; S10 sells 0.0000007 DUSTA by path payment; S11 removes DUSTA; S12 merges ("cannot be undone") | the same steps; offer ids and addresses differ |
 | Transactions | `tx 1 cleanup 9 ops`, `tx 2 convert 2 ops`, `tx 3 merge 1 op` | the same |
-| Summary | `4.0000007 XLM arrives at GDPZ...B2TS (balance 4.0000000 + sale 0.0000007)`; `0 XLM paid by the account; every fee is sponsored`; `sequence guard ok` | 4.0000007 XLM if the DUSTA bid is still there; 4.0000000 if the sale fell back to the burn |
+| Summary | `4.0000007 XLM arrives at GDPZ...B2TS (balance 4.0000000 + sale 0.0000007)`; `0 XLM paid by the account; every fee is sponsored`; `sequence guard ok` | 4.0000007 XLM if the DUSTA bid is still there; 4.0000000 if the sale fell back to the burn; `0.0000000 XLM paid by the account` (see the note below the Result block) |
 
 Slow zoom on the "why:" lines of two steps, then on the summary block.
 
@@ -127,7 +127,7 @@ You are about to close GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7 
   unclosable   0 items
 ```
 
-Then the question: `Type the last 4 characters of the destination <destination G> to confirm: `. Type the last four characters of your destination at normal speed (for the reference destination, `B2TS`) and press Enter. <!-- reconcile: A --> The recorded run used `--yes` because a script drove it, so its transcript shows "CONFIRMATION SKIPPED" in place of the question; do not use `--yes` in the video.
+Then the question: `Type the last 4 characters of the destination <destination G> to confirm: `. Type the last four characters of your destination at normal speed (for the reference destination, `B2TS`) and press Enter. Do not add `--json`: machine mode never asks and would refuse the run without `--yes`. The recorded run used `--yes` because a script drove it, so its transcript shows "CONFIRMATION SKIPPED" in place of the question; do not use `--yes` in the video.
 
 What follows, with the reference values (lines 87 to 110 of the transcript):
 
@@ -153,6 +153,8 @@ Result
 ```
 
 The command exits 0. Reference transcript length with `--yes`: 166 lines including the command line; yours has the question in place of the "CONFIRMATION SKIPPED" line.
+
+The reference was recorded before story E4-S1 polished the output, so a take on the 0.1.0 build differs from it where the wording changed. Two changes show in this script's excerpts: the account's zero fees read `0.0000000 XLM` instead of `0 XLM` (the plan's "paid by the account" line and the receipt's fees line), and the receipt's "Verify it yourself" block gives the Horizon link of the account and of the destination under each explorer link, two lines more. The current wording is in the snapshot of a whole `dustin close --execute` transcript, `test/unit/render/__snapshots__/output-snapshots.test.ts.snap`.
 
 ### The browser (shots 2 and 8)
 
@@ -192,7 +194,7 @@ Dustin has no command that submits an unsponsored transaction on purpose, and th
 
 - [ ] The plan says CLOSABLE, 12 steps, 3 transactions, 0 unclosable items, "spendable 0.0000000 XLM".
 - [ ] Every transaction line says "fee-bumped by the sponsor" and shows a hash, a ledger and "fee charged to the sponsor".
-- [ ] The receipt says CLOSED, "0 XLM in fees paid by the account", and the Horizon check says 404.
+- [ ] The receipt says CLOSED, "0.0000000 XLM in fees paid by the account", and the Horizon check says 404.
 - [ ] The fixture address on the title card, in shot 2 and in shot 8 is the same.
 - [ ] The command exited 0.
 

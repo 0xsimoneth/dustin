@@ -30,13 +30,13 @@ Also written for this story: `CONTRIBUTING.md` (one screen, `docs/documentation-
 - [x] Task 3: CONTRIBUTING.md
 - [ ] Task 4: npm publish of 0.1.0 (AC-1) — human action by the builder
 - [ ] Task 5: `npm pack --dry-run` on the released version (AC-4) — with the release
-- [ ] Task 6 (reconcile pass): check the statements that depend on stories E4-S1 to E4-S3 (the non-interactive `--json` and its NDJSON, the interruption and `ExecuteOptions.signal`, the hidden prompt, `--verbose`, the 404 on a re-run, the report's operation summaries and links, `docs/errors.md` and the two JSON schemas, the claimant warning, `evidence/tests/`) against the merged code
+- [x] Task 6 (reconcile pass, after the merge of main at `ed0ab62`): check the statements that depend on stories E4-S1 to E4-S3 (the non-interactive `--json` and its NDJSON, the interruption and `ExecuteOptions.signal`, the hidden prompt, `--verbose`, the 404 on a re-run, the report's operation summaries and links, `docs/errors.md` and the two JSON schemas, the claimant warning, `evidence/tests/`) against the merged code
 
 ## Dev Notes
 
 - The names in the quick starts and the tables are those exported by `src/index.ts` and defined in `src/plan/model.ts`, `src/execute/report.ts`, `src/execute/events.ts` and `src/errors/dustin-error.ts` (PRD section 7, decision D-2).
 - The exit-code table follows `src/cli/exit-codes.ts` and canonical decision 5 as widened by PRD decision D-6.
-- "Run the tests yourself" quotes the durations recorded in `docs/test-matrix.md` (offline 5.7 s; live 285 s locally and 321 s in CI); `npm ci` and the build are not timed in the repository, so the section does not claim a total for them.
+- "Run the tests yourself" quotes only committed runs and timings: the green runs of `evidence/tests/` on `0df4d09` (offline 113 files and 1057 tests, 15.2 s while the live tier ran, about 7 s alone; live 11 files and 58 tests in 301 s) and `npm run build` at about 6 s (story E4-S3). `npm ci` on a fresh machine is not timed in the repository, so the section claims no total and no "under 15 minutes" (AC-E4-S3-2 is story E4-S3's criterion). It says that no `.env` is needed and that there is no `fixture:build` script.
 - Third-party work is cited by project name and URL (canonical decision 15); the SDK package name appears in code and install lines only.
 
 ### References
@@ -58,3 +58,4 @@ Also written for this story: `CONTRIBUTING.md` (one screen, `docs/documentation-
 ## Change Log
 
 - 2026-09-28: README, integration notes and CONTRIBUTING final for 0.1.0. Status: in-progress (AC-1 waits for the builder's publish, AC-4 for the release).
+- 2026-09-28: reconciled with stories E4-S1 to E4-S3 as merged: machine mode and its NDJSON lines, `--verbose` as a global option, no colour, the hidden prompt's conditions, the signals and `INTERRUPTED`, the 404 on a re-run, the report's `horizonUrl`, `operations` and `links`, `remedyOf`, the claimant warning, `RESET_SUSPECTED`, and the committed test runs. Status unchanged.

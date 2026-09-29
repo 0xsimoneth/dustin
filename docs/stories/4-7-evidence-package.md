@@ -17,7 +17,7 @@ As written in `docs/epics-and-stories.md` (Story 4.7):
 2. AC-E4-S7-2: Then the Appendix A tracker is reproduced with status and evidence links for D1 to D4.
    - **Met.** The calendar and the tracker, with D1 and D2 done, D3 and D4 in progress, each naming what is pending. The same statuses and links are in `SUCCESSFUL_SOW.md` Appendix A, and the seven Appendix B boxes there are ticked with their evidence links (the only change to the SOW).
 3. AC-E4-S7-3: Then `npm run evidence:check` verifies every link resolves and every listed hash exists on Horizon.
-   - **Written by story E4-S3 (`scripts/evidence-check.mjs`), not by this record.** The package names the command in its section "Checking this page"; its run on the merged package is part of the reconcile pass.
+   - **Met; the script is story E4-S3's (`scripts/evidence-check.mjs`).** The package describes it in its section "Checking this page" with the result of its run on the merged package, 2026-09-28 at 22:48 UTC: 8 files (the package and the seven run summaries), 219 links, 210 ok, 5 "account gone" (the closed accounts of the metric close and of the sequence-guard wait), 4 skipped (links to headings of the page), 0 failed, exit code 0.
 
 Also written for this story: `evidence/completion-report.md`, the draft of the completion report from `docs/next-steps/instaward-completion-report-template.md`, for the builder to finish and send.
 
@@ -27,7 +27,7 @@ Also written for this story: `evidence/completion-report.md`, the draft of the c
 - [x] Task 2: `SUCCESSFUL_SOW.md` Appendices A and B (AC-2); each Appendix B box checked against `evidence/README.md` before it was ticked
 - [x] Task 3: `evidence/completion-report.md`, the draft for the builder
 - [ ] Task 4: the baseline recording and the video linked — human action by the builder (E1-S2, E4-S6)
-- [ ] Task 5 (reconcile pass): run `npm run evidence:check` on the merged package (AC-3) and check the statements that depend on stories E4-S1 to E4-S3
+- [x] Task 5 (reconcile pass, after the merge of main at `ed0ab62`): run `npm run evidence:check` on the merged package (AC-3) and check the statements that depend on stories E4-S1 to E4-S3
 
 ## Dev Notes
 
@@ -55,3 +55,4 @@ Also written for this story: `evidence/completion-report.md`, the draft of the c
 ## Change Log
 
 - 2026-09-28: evidence package, SOW tracker and the completion report draft. Status: in-progress (the baseline recording and the video are the builder's; AC-3 follows the merge of E4-S3).
+- 2026-09-28: reconciled with E4-S1 to E4-S3 as merged: the test evidence of `evidence/tests/` on `0df4d09`, the matrix counts (27 green, 1 planned, 2 not covered, 2 human action), `RESET_SUSPECTED`, and the result of `npm run evidence:check` (AC-3 met). Status: in-progress (the baseline recording and the video are the builder's).
