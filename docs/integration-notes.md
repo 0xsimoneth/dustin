@@ -348,7 +348,7 @@ A `DustinError` has `code` (stable; branch on it, never on the message), `stage`
 | `CONFIG_INVALID` | An option out of range, a pause below 200 ms, a bad Horizon URL | Fix the option. |
 | `MAINNET_REFUSED` | A network other than the testnet | Use the testnet. |
 | `INVALID_ADDRESS`, `CONTRACT_ACCOUNT` | A malformed address, a missing destination, a sponsor equal to the account, a `C...` address | Fix the input. |
-| `WRONG_SIGNER` | A signer that does not match the plan's account or fee sponsor; the message names the signer argument (`signers.account` or `signers.feeSponsor`) | Pass a signer of the plan's account as `signers.account` and one of its fee sponsor as `signers.feeSponsor`, or plan again with the right `feeSponsor`. |
+| `WRONG_SIGNER` | A signer that does not match the plan's account or fee sponsor; its remedy names the signer argument (`signers.account` or `signers.feeSponsor`) | Pass a signer of the plan's account as `signers.account` and one of its fee sponsor as `signers.feeSponsor`, or plan again with the right `feeSponsor`. |
 | `HORIZON_UNAVAILABLE` | Horizon unreachable or failing after the retries | Retry later; if `error.report` holds submitted transactions, continue as in section 10. |
 | `LEDGER_DATA_INVALID` | A value from Horizon, or from a snapshot or plan built from it, breaks the protocol's rules: an amount that is not a Stellar amount, a liquidity pool whose assets do not hash to its id, an operation the SDK cannot encode | Run again: one Horizon instance may have answered wrongly. |
 | `SPONSOR_UNDERFUNDED` | The sponsor cannot spend at least the budget | Fund the sponsor (section 13). |
