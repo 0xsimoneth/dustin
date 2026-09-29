@@ -152,3 +152,56 @@ Blocked (human actions):
 - **Decisions** listed in the review: accept the E3-S6 AC-3 deviation; CA-11 and CA-18 (fix in week 4 or accept); third-party names in the prior-art citations.
 
 Next: Epic 4, a week early: E4-S1 and E4-S2 (CLI output and error handling, with CA-11, CA-18, CL-1, AA-9, AA-10 and AA-13), E4-S3 (test evidence and reproducibility), E4-S4 (npm 0.1.0 prepared for the builder to publish; README and integration notes final), E4-S5 (the write-up final), E4-S6 (the demo script for the builder's recording), E4-S7 (the evidence package with every SOW 6.1 row).
+
+## 2026-09-29 (sprint day 8, week 2)
+
+### Session summary (2026-09-28 evening to 2026-09-29)
+
+Epic 4 was done a week early, with the builder's structured brief and Claude as integrator.
+
+Done:
+
+- The builder's decisions were applied in one commit before any parallel work (20d4c03; PRD "Decisions after review" D-8 to D-13):
+  - E3-S6 AC-3 accepted and rewritten; E3-S6 and Epic 3 done;
+  - `slippageBps` keeps its 1% default;
+  - CA-11 and CA-18 fixed in E4-S2 (the guard's timing out of the plan hash; a hidden prompt);
+  - third-party work cited by project name and URL (canonical decision 15);
+  - PRD section 6 and architecture 4.9 list only what is built.
+  D-14 (64789be) records two more points of the brief: the write-up's R1 to R9 and the place of the rehearsal script.
+- Wave 1, three agents in their own worktrees on disjoint files, merged in the order A, B, C with every gate green after each merge:
+  - E4-S1 and E4-S2 (e8cdf16): `--json` machine mode (one document on standard output, NDJSON on standard error, never a question); SIGINT and SIGTERM with `ExecuteOptions.signal` and the stop code INTERRUPTED; the 404 recorded on a re-run; CA-11 per D-10; the hidden prompt per D-11; the whole exit-code table tested; `docs/plan-schema.json`, `docs/receipt-schema.json`, `docs/errors.md`, `--verbose`.
+  - E4-S3 (ad3ed2f, ed0ab62): matrix rows X-03 (claimable balances naming the account), X-07 (buy, passive and XLM-selling offers), X-08 (an offer filled between plan and execution), X-11 live, X-15 (testnet reset detection) and X-16 (a fully sponsored 0 XLM account) covered; `evidence/tests/`; `npm run evidence:check`.
+  - D4 documents (3598ed4): the final write-up, README, integration notes, CONTRIBUTING, the evidence package, the SOW appendices, the completion report draft and the demo rehearsal script.
+- Release preparation (e865bec, f687930): CHANGELOG 0.1.0 and the version fields at 0.1.0. Nothing was published or tagged.
+- Wave 2:
+  - an independent pre-release review from a fresh public clone, following only the README: 20 findings, none blocking; the six setup and test commands took 96 s and the README's test section about 6.7 minutes;
+  - the four-layer closing code review of the session (`code-review` with `review-edge-case-hunter`): 72 findings, one major (EX-1/BH-1: an envelope, even the merge, could be posted after Ctrl-C).
+  Every code finding was fixed with a failing-first test by two fix agents (906257d, 86806dc); the documents were fixed by the documentation agent (9184fa6) and the integrator. CI checkouts no longer keep credentials, the offline tier also runs on Node 22.12.0, and `commander` is pinned exactly (11331df). Everything is in `docs/reviews/2026-09-29-e4-review.md`.
+- Evidence on the 0.1.0 code:
+  - a CLI metric close, `evidence/runs/20260929T111408Z-e4-cli/`: a fresh messy fixture closed in three sponsor-paid fee bumps, Horizon 404 afterwards;
+  - the offline tier captured again: 122 files, 1212 tests;
+  - the live tier in the testnet CI job: [run 36560464977](https://github.com/0xsimoneth/dustin/actions/runs/36560464977), 11 files, 58 tests, 342 s.
+  CI passed on every push.
+- Test matrix: 32 rows; 29 with an offline test and 20 with a live test; 27 green, 1 planned (B-03), 2 not covered (X-05 live, X-09 live), 2 human action (B-01, B-02).
+- Tracker: E4-S2 and E4-S5 done; E4-S1 and E4-S3 in review (decisions for the builder); E4-S4, E4-S6 and E4-S7 in progress (the builder's actions).
+
+Traps recorded this session:
+
+- **An abort must be asked right before the POST.** Asking at the top of each planned transaction is not enough: the merge preflight, the signing and the ledger read in between are awaits a signal can land in (EX-1).
+- **A cancelled pause must clear its timer.** A pause that resolves early on an abort but leaves its `setTimeout` running keeps the process alive, and a further Ctrl-C then kills it with 130 instead of the receipt's exit code (EX-6).
+- **`process.exit` can drop queued pipe writes.** On macOS a 5 MB document was cut at 64 KB, so the forced exit waits for standard output and standard error to flush, at most 2 s.
+- **Horizon lags behind the ledger.** A just-built fixture can be one ledger ahead of the Horizon instance that answers, so reset detection tolerates 120 ledgers and never suspects a reset while any manifest account exists (EP-1).
+- **The API limit also stops subagents.** A fix agent stopped on a rate limit, not on its work; its commits were intact and it resumed where it stopped.
+
+Blocked (human actions, in order):
+
+1. The Demolisher baseline recording on `messy-20260926T035942Z` (B-01, B-02), then Dustin's close of the rebuilt baseline fixtures (B-03).
+2. The 60-second video: recording and hosting, then its links in the README, `evidence/README.md` and the completion report (`docs/demo-video-script.md` is the rehearsal).
+3. The chapter lead's written acknowledgement of the two-fixture reading.
+4. The history rewrite (R4, R5), still postponed by D-7.
+5. `npm login` with 2FA, then the publish of `stellar-dustin` 0.1.0 and the `v0.1.0` tag.
+6. Sending `evidence/completion-report.md` to the chapter lead once its pending items are filled.
+
+Also for the builder: the decisions in part 2 of the review (E4-S1's output width and asset form; E4-S3's rendered images; switching on private vulnerability reporting for SECURITY.md).
+
+Next: the builder's actions above. Then E4-S1 and E4-S3 close on the builder's word, the video and baseline links are filled in, and Epic 4 is finished in the week-4 window or the buffer (deadline 2026-10-22).

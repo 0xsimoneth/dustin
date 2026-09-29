@@ -1,6 +1,6 @@
 # Story 4.2: Error handling and failure-mode polish
 
-Status: review
+Status: done
 
 ## Story
 
@@ -109,4 +109,6 @@ The error-handling findings of the Epic 4 closing review (EX, BH, AC) and of the
 | D-4 | MANIFEST_INVALID exited 1 ("unexpected error"); it exits 2, a validation error. FRIENDBOT_FAILED keeps 1 | `526c6d6` | `test/unit/cli/epic4-review-run.test.ts`: "D-4: fixture verify on such a file exits 2, with MANIFEST_INVALID and no request", "D-4: exitCodeFor maps MANIFEST_INVALID to 2, and FRIENDBOT_FAILED stays 1" |
 | D-7 | An explorer base naming another network (`https://stellar.expert/explorer/public`) was accepted; it is refused with MAINNET_REFUSED, exit 2, before any read | `95b3896` | `test/unit/config/network.test.ts`: "D-7: stellar.expert's public and futurenet explorers are MAINNET_REFUSED", "D-7: the default, a testnet explorer and a local one are accepted"; `test/unit/cli/epic4-review-run.test.ts`: "D-7: plan exits 2 with MAINNET_REFUSED before any request" |
 
-Documents not owned by this story that now say less than the code: `README.md`, `docs/prd.md`, `docs/architecture.md` and `docs/integration-notes.md` say the signal handlers exist only while the executor runs; since EX-9 they exist from the start of `close --execute`, off while a prompt waits, and a signal before anything is signed exits 3 with INTERRUPTED. The README's exit-code table says 1 for a malformed manifest (D-4, now 2).
+Those documents were brought to the code by the documentation agent (merge `9184fa6`: README, PRD sections 6 and 7, architecture 4.9, integration notes).
+
+Verdict of the closing review (2026-09-29, `docs/reviews/2026-09-29-e4-review.md`, part 2): done. Every AC is met; the one naming difference (`remedy` for the AC's `remediation`) follows PRD decision D-2, and CA-11 and CA-18 follow D-10 and D-11.

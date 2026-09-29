@@ -14,7 +14,7 @@
 # Budget by SOW deliverable: D1 60 h, D2 80 h, D3 40 h, D4 20 h (total 200 h).
 
 generated: "2026-09-25"
-last_updated: "2026-09-28"
+last_updated: "2026-09-29"
 project: dustin
 project_key: dustin
 tracking_system: file-system
@@ -55,14 +55,14 @@ development_status:
   3-6-edge-case-test-matrix: done
   3-7-full-fixture-close: done
   epic-3-retrospective: optional
-  epic-4: backlog
-  4-1-cli-output-polish: backlog
-  4-2-error-handling-polish: backlog
-  4-3-test-evidence-reproducibility: backlog
-  4-4-npm-publish-readme-integration-notes: backlog
-  4-5-write-up: backlog
-  4-6-demo-video: backlog
-  4-7-evidence-package: backlog
+  epic-4: in-progress
+  4-1-cli-output-polish: review
+  4-2-error-handling-polish: done
+  4-3-test-evidence-reproducibility: review
+  4-4-npm-publish-readme-integration-notes: in-progress
+  4-5-write-up: done
+  4-6-demo-video: in-progress
+  4-7-evidence-package: in-progress
   epic-4-retrospective: optional
 
 epics:
@@ -290,7 +290,7 @@ stories:
     title: CLI output polish
     epic: E4
     week: 4
-    status: backlog
+    status: review
     estimate_hours: 6
     deliverable: D1
   - key: 4-2-error-handling-polish
@@ -298,7 +298,7 @@ stories:
     title: Error handling and failure-mode polish
     epic: E4
     week: 4
-    status: backlog
+    status: done
     estimate_hours: 6
     deliverable: D2
   - key: 4-3-test-evidence-reproducibility
@@ -306,7 +306,7 @@ stories:
     title: Test evidence and reproducibility
     epic: E4
     week: 4
-    status: backlog
+    status: review
     estimate_hours: 4
     deliverable: D3
   - key: 4-4-npm-publish-readme-integration-notes
@@ -314,7 +314,7 @@ stories:
     title: npm publish, README and integration notes
     epic: E4
     week: 4
-    status: backlog
+    status: in-progress
     estimate_hours: 6
     deliverable: D4
   - key: 4-5-write-up
@@ -322,7 +322,7 @@ stories:
     title: Write-up on ordering rules and known limits
     epic: E4
     week: 4
-    status: backlog
+    status: done
     estimate_hours: 4
     deliverable: D4
   - key: 4-6-demo-video
@@ -330,7 +330,7 @@ stories:
     title: 60-second demo video
     epic: E4
     week: 4
-    status: backlog
+    status: in-progress
     estimate_hours: 5
     deliverable: D4
   - key: 4-7-evidence-package
@@ -338,7 +338,7 @@ stories:
     title: Evidence package and SOW tracker
     epic: E4
     week: 4
-    status: backlog
+    status: in-progress
     estimate_hours: 5
     deliverable: D4
 
@@ -367,3 +367,34 @@ sessions:
       Epic 4 a week early: E4-S1 and E4-S2 (CLI output and error handling, with CA-11, CA-18, CL-1,
       AA-9, AA-10, AA-13), E4-S3 (test evidence), E4-S4 (npm 0.1.0 prepared for the builder to publish),
       E4-S5 (write-up final), E4-S6 (demo script for the builder's recording), E4-S7 (evidence package).
+  - date: "2026-09-29"
+    sprint_day: 8
+    summary: >-
+      Epic 4 a week early (session of 2026-09-28 evening to 2026-09-29). Builder decisions D-8 to D-13
+      applied in one commit before any parallel work (E3-S6 done, Epic 3 done). Wave 1 by parallel agents,
+      merged in order with every gate green: E4-S1 and E4-S2 (machine mode and NDJSON, signals with
+      ExecuteOptions.signal and INTERRUPTED, the 404 on a re-run, CA-11 per D-10, the hidden prompt per
+      D-11, the exit-code table, schemas, errors.md, --verbose); E4-S3 (X-03, X-07, X-08, X-11 live,
+      X-15, X-16 covered; evidence/tests; npm run evidence:check); D4 documents (write-up, README,
+      integration notes, CONTRIBUTING, evidence package, SOW appendices, completion report draft, demo
+      rehearsal script). CHANGELOG 0.1.0 and the version fields prepared, not published. Wave 2: an
+      independent fresh-clone pre-release review (20 findings, none blocking) and a four-layer closing
+      code review (72 findings; one major, EX-1/BH-1, an envelope posted after Ctrl-C, fixed); every code
+      finding fixed with a failing-first test, the documents corrected. Offline tier 122 files, 1212
+      tests; live tier 11 files, 58 tests green in the testnet CI job on the 0.1.0 code (run
+      36560464977). Matrix 27 green, 1 planned, 2 not covered, 2 human action. A CLI metric close on the
+      0.1.0 code recorded (evidence/runs/20260929T111408Z-e4-cli/).
+    blocked_on_builder:
+      - E1-S2 Demolisher baseline recording on messy-20260926T035942Z (matrix B-01, B-02), then B-03
+      - the 60-second video, its recording and hosting (E4-S6), then its links in README and evidence
+      - the chapter lead's written acknowledgement of the two-fixture reading
+      - history rewrite R4 and R5 (postponed by decision D-7)
+      - npm login and 2FA, then the publish of stellar-dustin 0.1.0 and the v0.1.0 tag (E4-S4)
+      - sending evidence/completion-report.md to the chapter lead once its pending items are filled
+      - decisions of docs/reviews/2026-09-29-e4-review.md part 2 (E4-S1 output width and asset form; E4-S3
+        rendered images; switching on private vulnerability reporting)
+    next: >-
+      The builder's actions in order (baseline B-01/B-02 then B-03, the video, the chapter lead's
+      acknowledgement, the history decision, the 0.1.0 publish, the completion report); then close E4-S1
+      and E4-S3 on the builder's word, fill the video and baseline links in README, evidence/README.md and
+      the completion report, and finish Epic 4 in the week-4 window or the buffer.
