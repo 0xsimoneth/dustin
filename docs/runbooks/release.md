@@ -1,17 +1,14 @@
 # Runbook: releasing 0.1.0
 
-For the builder and the agent. The builder publishes to npm and approves every step that leaves the machine (the tag push, the GitHub release, the settings change); the agent does the rest, on the builder's word, and records it. Nothing here has been run.
+For the builder and the agent. The builder publishes to npm and approves every step that leaves the machine (the tag push, the GitHub release, the settings change); the agent does the rest, on the builder's word, and records it. Nothing here has been run yet but the repository setting below (2026-09-30).
 
-Order: first the history decision ([`history-rewrite.md`](history-rewrite.md)), because the `v0.1.0` tag and the release must point at the final history; then the builder's publish; then the agent's steps. Every `gh` command below runs after `gh auth switch --user 0xsimoneth` and `gh auth status`; switch `gh` back to your other account when done.
+Order: the history was rewritten on 2026-09-30 ([`history-rewrite.md`](history-rewrite.md), "Done on 2026-09-30"), so the `v0.1.0` tag and the release point at the final history; first the builder's publish, then the agent's steps. `main` is protected by a repository ruleset that blocks force pushes and its deletion; tags are not affected. Every `gh` command below runs after `gh auth switch --user 0xsimoneth` and `gh auth status`; switch `gh` back to your other account when done.
 
-## Before the release: one repository setting
+## Before the release: the repository's settings
 
-`SECURITY.md` asks reporters to use GitHub's private vulnerability reporting, which is off until someone with admin rights switches it on (Epic 4 review, part 2, decision 3):
+`SECURITY.md` asks reporters to use GitHub's private vulnerability reporting (Epic 4 review, part 2, decision 3). Done on 2026-09-30 on the builder's decision of that day: `gh api -X PUT repos/0xsimoneth/dustin/private-vulnerability-reporting` answered 204, and `gh api repos/0xsimoneth/dustin/private-vulnerability-reporting` now prints `{"enabled":true}` (on 2026-09-29 it printed `{"enabled":false}`). Check it once more before the release; in the browser the switch is under the repository's Settings, "Advanced Security" (or "Code security"), "Private vulnerability reporting".
 
-- in the browser: the repository's Settings, "Advanced Security" (or "Code security"), "Private vulnerability reporting", Enable; or
-- with the builder's approval, the agent runs `gh api -X PUT repos/0xsimoneth/dustin/private-vulnerability-reporting` (answers 204).
-
-Check: `gh api repos/0xsimoneth/dustin/private-vulnerability-reporting` prints `{"enabled":true}`. On 2026-09-29 it printed `{"enabled":false}`.
+The repository's page was set up the same day: the description "Plan and close messy Stellar testnet accounts with fee-bumped, sponsor-paid transactions", the README as its homepage, the topics `stellar`, `account-merge`, `fee-bump`, `sponsored-reserves`, `testnet`, `cli` and `typescript`, and the wiki and projects tabs off (`gh repo view 0xsimoneth/dustin --json description,homepageUrl,repositoryTopics,hasWikiEnabled,hasProjectsEnabled`).
 
 ## The builder: publish to npm
 
