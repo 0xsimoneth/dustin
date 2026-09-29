@@ -51,11 +51,14 @@ export interface CliDeps {
    */
   execute?: { sleep?: Sleep; executeClose?: typeof executeClose };
   /**
-   * SIGINT and SIGTERM while `close --execute` runs the executor (review finding CL-1): `process`
-   * in the binary, a fake in tests. Without it no handler is added.
+   * SIGINT and SIGTERM while `close --execute` runs, from its start (review finding CL-1; Epic 4
+   * review EX-9): `process` in the binary, a fake in tests. Without it no handler is added.
    */
   signals?: SignalSource;
-  /** Ends the process at once (`process.exit` in the binary), after a second signal. */
+  /**
+   * Ends the process with this code after a second signal: in the binary `process.exit` once both
+   * streams have flushed (src/cli/output.ts, `exitAfterFlush`).
+   */
   exit?: (code: number) => void;
 }
 

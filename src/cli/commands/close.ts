@@ -27,7 +27,7 @@ import { horizonReader, type LedgerReader } from "../../reader/ledger-reader.js"
 import { renderPlan, short, unclosableLines } from "../../render/plan-text.js";
 import { nextStep, renderReport } from "../../render/report-text.js";
 import type { Signer } from "../../sponsor/signer.js";
-import { jsonText, textOf, type Channel } from "../channel.js";
+import { jsonText, textOf, type Channel, type Failure } from "../channel.js";
 import { ExitCode, exitCodeForReport } from "../exit-codes.js";
 import {
   askCloseSigners,
@@ -59,7 +59,7 @@ export type Prompt = (
   context?: PromptContext,
 ) => Promise<string | null | { unasked: string }>;
 
-/** The two process signals `close --execute` handles while the executor runs (review CL-1). */
+/** The two process signals `close --execute` handles (review CL-1; Epic 4 review EX-9). */
 export type HandledSignal = "SIGINT" | "SIGTERM";
 
 /**
@@ -92,8 +92,9 @@ export interface CloseContext extends CommandContext {
    */
   secretPrompt?: SecretPrompt;
   /**
-   * SIGINT and SIGTERM while the executor runs (review finding CL-1): the first stops the run at
-   * the next safe point, the second exits at once through `exit`. Without it no handler is added.
+   * SIGINT and SIGTERM from the start of the command (review finding CL-1; Epic 4 review EX-9):
+   * the first stops it before anything is signed, or the executor at its next safe point; the
+   * second exits at once through `exit` (`signalGuard`). Without it no handler is added.
    */
   signals?: SignalSource;
   /** Ends the process at once with this code (`process.exit` in the binary; a second signal). */
@@ -129,15 +130,88 @@ export async function closeExecute(
   ctx: CloseContext,
 ): Promise<ExitCode> {
   const { out } = ctx;
+  // With --json, standard output carries exactly one JSON document once the plan was shown: the
+  // close report once the executor has one, and otherwise the plan (kind "dustin-close-plan") that
+  // was refused or could not run, whatever stopped it: a refusal, the confirmation, the --report
+  // check, a failed read, an interruption, or an executor that failed before its first copy
+  // (review round 3, R3-27; closing review CC-2). The exit code stays the one of the refusal or
+  // the error.
+  let shownPlan: ClosePlan | null = null;
+  let printed = false;
+  const document = (value: ClosePlan | CloseReport) => {
+    if (!options.json || printed) return;
+    printed = true;
+    ctx.io.stdout(`${json(value)}\n`);
+  };
+  // Epic 4 review EX-9: the signal handlers are there from the start, so an interruption before
+  // anything is signed ends the command with exit 3 and, with --json, an `error` line.
+  const guard = signalGuard(ctx, (name) => {
+    ctx.out.notice(
+      `${name} received again: exiting now with code 3; nothing was signed or submitted.`,
+    );
+    if (out.mode.json) out.fail(interruptedBeforeSigning(name));
+    if (shownPlan) document(shownPlan);
+    return ExitCode.NOTHING_EXECUTED;
+  });
+  try {
+    return await closeGuarded(account, options, ctx, guard, document, (plan) => {
+      shownPlan = plan;
+    });
+  } catch (error) {
+    if (error instanceof InterruptedBeforeSigning) {
+      out.fail(interruptedBeforeSigning(error.signal));
+      if (shownPlan) document(shownPlan);
+      return ExitCode.NOTHING_EXECUTED;
+    }
+    if (shownPlan) document(shownPlan);
+    throw error;
+  } finally {
+    guard.dispose();
+  }
+}
+
+/** The interruption of `close --execute` before anything was signed (Epic 4 review EX-9). */
+class InterruptedBeforeSigning extends Error {
+  constructor(readonly signal: HandledSignal) {
+    super(`interrupted by ${signal} before anything was signed`);
+  }
+}
+
+/** How an interruption before anything was signed is reported: INTERRUPTED, exit 3. */
+function interruptedBeforeSigning(name: HandledSignal): Failure {
+  return {
+    code: "INTERRUPTED",
+    message: `The command was interrupted (${name}) before anything was signed; nothing was signed or submitted.`,
+    remedy:
+      "Run the same command again when you are ready: Dustin reads the account again and shows the plan before anything is signed.",
+    exitCode: ExitCode.NOTHING_EXECUTED,
+  };
+}
+
+/**
+ * `close --execute` with its signal handlers installed: everything up to the plan shown, then the
+ * rest (`executeShownPlan`). `shown` is told the plan once it was printed.
+ */
+async function closeGuarded(
+  account: string,
+  options: CloseCommandOptions,
+  ctx: CloseContext,
+  guard: SignalGuard,
+  document: (value: ClosePlan | CloseReport) => void,
+  shown: (plan: ClosePlan) => void,
+): Promise<ExitCode> {
+  const { out } = ctx;
   const destination = destinationOf(options);
   checkAddresses(account, destination);
   const baseFee = parseBaseFee(options.baseFee);
 
   // Canonical decision 4: the environment, then `.env`, then a hidden prompt in a terminal (review
-  // finding CA-18, PRD decision D-11). Machine mode never asks (review finding AA-10).
+  // finding CA-18, PRD decision D-11). Machine mode never asks (review finding AA-10). While the
+  // prompt waits the signal handlers are off, so Ctrl-C there is the prompt's own answer.
   const signers = options.json
     ? loadCloseSigners(account, ctx.secrets)
-    : await askCloseSigners(account, ctx.secrets, ctx.secretPrompt);
+    : await guard.suspended(() => askCloseSigners(account, ctx.secrets, ctx.secretPrompt));
+  guard.check();
   const sponsor = signers.feeSponsor.publicKey();
   if (options.sponsor !== undefined && options.sponsor !== sponsor) {
     throw new DustinError(
@@ -153,6 +227,7 @@ export async function closeExecute(
 
   const config = ctx.config();
   await verifyHorizonIsTestnet(config.horizonUrl, ctx.fetch);
+  guard.check();
   const reader = horizonReader(
     horizonJson(config.horizonUrl, { ...(ctx.fetch ? { fetch: ctx.fetch } : {}), ...ctx.horizon }),
   );
@@ -168,37 +243,24 @@ export async function closeExecute(
     { config, reader },
   );
   out.say(renderPlan(plan, { heading: EXECUTION_HEADING }));
+  shown(plan);
+  guard.check();
 
-  // With --json, standard output carries exactly one JSON document once the plan was shown: the
-  // close report once the executor has one, and otherwise the plan (kind "dustin-close-plan") that
-  // was refused or could not run, whatever stopped it: a refusal, the confirmation, the --report
-  // check, a failed read, or an executor that failed before its first copy (review round 3, R3-27;
-  // closing review CC-2). The exit code stays the one of the refusal or the error.
-  let printed = false;
-  const document = (value: ClosePlan | CloseReport) => {
-    if (!options.json || printed) return;
-    printed = true;
-    ctx.io.stdout(`${json(value)}\n`);
-  };
-  try {
-    return await executeShownPlan({
-      account,
-      destination,
-      baseFee,
-      signers,
-      sponsor,
-      config,
-      reader,
-      plan,
-      options,
-      ctx,
-      out,
-      document,
-    });
-  } catch (error) {
-    document(plan);
-    throw error;
-  }
+  return executeShownPlan({
+    account,
+    destination,
+    baseFee,
+    signers,
+    sponsor,
+    config,
+    reader,
+    plan,
+    options,
+    ctx,
+    out,
+    document,
+    guard,
+  });
 }
 
 /** What `close --execute` holds once the plan was shown, for the rest of the command. */
@@ -216,6 +278,8 @@ interface ShownPlan {
   out: Channel;
   /** Prints the one JSON document of --json on standard output; later calls print nothing. */
   document: (value: ClosePlan | CloseReport) => void;
+  /** The signal handlers of the command (Epic 4 review EX-9). */
+  guard: SignalGuard;
 }
 
 /**
@@ -225,7 +289,7 @@ interface ShownPlan {
  */
 async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
   const { account, destination, baseFee, sponsor, reader, plan } = shown;
-  const { options, ctx, out, document } = shown;
+  const { options, ctx, out, document, guard } = shown;
   // A refusal before anything is signed: the words for people on standard output, or with --json
   // an `error` line and the refused plan as the stdout document; exit 3 (canonical decision 5).
   const refusedWith = (text: string, code: string, message: string, remedy: string) => {
@@ -279,6 +343,7 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
     );
   }
   const spendable = await sponsorSpendable(reader, sponsor);
+  guard.check();
   if (spendable < BigInt(plan.fees.budgetStroops)) {
     throw new DustinError(
       "SPONSOR_UNDERFUNDED",
@@ -318,8 +383,10 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
       out.notice("CONFIRMATION SKIPPED: --yes was given, so the typed confirmation was not asked.");
     }
   } else {
-    await confirm(destination, ctx.prompt);
+    // The handlers are off while the question waits: Ctrl-C there is "not confirmed" (exit 3).
+    await guard.suspended(() => confirm(destination, ctx.prompt));
   }
+  guard.check();
   return runExecutor(
     shown,
     receipt,
@@ -331,13 +398,13 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
  * Runs the executor on the plan shown, with streamed progress, the --report copies and the receipt,
  * and returns the exit code. `opening` is printed first when given.
  *
- * SIGINT and SIGTERM (review finding CL-1; https://nodejs.org/api/process.html#signal-events): the
- * handlers are added before the executor starts and removed when it ends, so Ctrl-C at the typed
- * confirmation stays the prompt's "declined" (exit 3). The first signal aborts the executor's
+ * SIGINT and SIGTERM (review finding CL-1; https://nodejs.org/api/process.html#signal-events): from
+ * here the command's handlers (`signalGuard`) stop the executor. The first signal aborts its
  * `signal`: it stops at the next safe point, posts nothing new, and returns its report, which is
  * printed and kept as after any stop; the exit code follows the report (3 when nothing was
  * submitted, 5 otherwise, 0 if the close had already completed). A second signal writes the latest
- * copy of the report to --report synchronously and exits 5 at once.
+ * copy of the report to --report synchronously, says what is true of it, prints the one --json
+ * document, and exits 5 at once (`forcedExit`).
  */
 async function runExecutor(
   shown: ShownPlan,
@@ -345,7 +412,7 @@ async function runExecutor(
   opening: string | null,
 ): Promise<ExitCode> {
   const { account, baseFee, signers, config, reader, plan } = shown;
-  const { options, ctx, out, document } = shown;
+  const { options, ctx, out, document, guard } = shown;
   const plans: ClosePlan[] = [plan];
   // The receipt describes each transaction with the plan of its round. The executor's fresh plan
   // can share the hash of the plan shown and still differ from it (a better quote, or the sequence
@@ -357,125 +424,265 @@ async function runExecutor(
   const progress = progressPrinter(out, plans, account, () => submitted);
   const execute = ctx.execute?.executeClose ?? executeClose;
 
-  const controller = new AbortController();
-  let signalled = 0;
-  const onSignal = (name: HandledSignal) => () => {
-    signalled += 1;
-    if (signalled === 1) {
-      controller.abort(name);
-      out.notice(
-        `${name} received: the run stops at the next safe point. No new transaction is submitted; one already posted is settled or recorded as unknown, then the receipt is printed. Send it again to exit at once; the latest copy of the report is saved first.`,
-      );
-      return;
-    }
-    // The second signal: the report as it stands, then out at once (exit 5).
-    if (receipt && latest) receipt.write(forcedCopy(latest, name));
-    out.notice(
-      `${name} received again: exiting now with code 5, before the run finished.${receipt ? ` The latest copy of the report is in ${receipt.path}; its status "running" says it is not final.` : ""} Look up the hashes printed above, then run the same command again: Dustin re-reads the account and plans only what is left.`,
-    );
-    ctx.exit?.(ExitCode.STOPPED);
-  };
-  const handlers: Record<HandledSignal, () => void> = {
-    SIGINT: onSignal("SIGINT"),
-    SIGTERM: onSignal("SIGTERM"),
-  };
-  for (const name of ["SIGINT", "SIGTERM"] as const) ctx.signals?.on(name, handlers[name]);
+  guard.executing({
+    notice: (name) =>
+      `${name} received: the run stops at the next safe point. No new transaction is submitted; one already posted is settled or recorded as unknown, then the receipt is printed. Send it again to exit at once${receipt ? "; the latest copy of the report is saved first" : ""}.`,
+    forced: (name) => forcedExit(shown, receipt, latest, name),
+  });
+  if (opening !== null) out.say(opening);
+  let report: CloseReport;
   try {
-    if (opening !== null) out.say(opening);
-    let report: CloseReport;
-    try {
-      report = await execute(plan, signers, {
-        confirm: true,
-        allowPartial: options.partial === true,
-        config: {
-          horizonUrl: config.horizonUrl,
-          networkPassphrase: config.networkPassphrase,
-          explorerBaseUrl: config.explorerBaseUrl,
-        },
-        reader,
-        submitter: horizonSubmitter(config.horizonUrl, ctx.fetch ? { fetch: ctx.fetch } : {}),
-        // --base-fee is recorded in the plan as an override, which every re-plan keeps (review
-        // R12); as the cap it also stops fee escalation from bidding above what the plan showed.
-        ...(baseFee !== undefined ? { maxBaseFeeStroops: baseFee } : {}),
-        ...(ctx.execute?.sleep ? { sleep: ctx.execute.sleep } : {}),
-        signal: controller.signal,
-        onEvent: (event) => {
-          const fresh = planOf(event);
-          if (fresh) plans.push(fresh);
-          if (event.type === "tx:submitted") submitted = true;
-          out.event(event);
-          progress(event);
-        },
-        onReport: (copy) => {
-          latest = copy;
-          if (copy.transactions.length > 0) submitted = true;
-          receipt?.write(copy);
-        },
-      });
-    } catch (error) {
-      const attached = error instanceof DustinError ? error.report : undefined;
-      const known = attached ?? latest;
-      if (!submitted && (known?.transactions.length ?? 0) === 0) {
-        // Nothing reached the network: the error's code decides (6 for an unreachable Horizon).
-        // Without a report from the executor, the caller prints the plan (closing review CC-2).
-        if (known) {
-          const refused = refusedReport(known, error);
-          receipt?.write(refused);
-          document(refused);
-        }
-        throw error;
+    report = await execute(plan, signers, {
+      confirm: true,
+      allowPartial: options.partial === true,
+      config: {
+        horizonUrl: config.horizonUrl,
+        networkPassphrase: config.networkPassphrase,
+        explorerBaseUrl: config.explorerBaseUrl,
+      },
+      reader,
+      submitter: horizonSubmitter(config.horizonUrl, ctx.fetch ? { fetch: ctx.fetch } : {}),
+      // --base-fee is recorded in the plan as an override, which every re-plan keeps (review
+      // R12); as the cap it also stops fee escalation from bidding above what the plan showed.
+      ...(baseFee !== undefined ? { maxBaseFeeStroops: baseFee } : {}),
+      ...(ctx.execute?.sleep ? { sleep: ctx.execute.sleep } : {}),
+      signal: guard.signal,
+      onEvent: (event) => {
+        const fresh = planOf(event);
+        if (fresh) plans.push(fresh);
+        if (event.type === "tx:submitted") submitted = true;
+        out.event(event);
+        progress(event);
+      },
+      onReport: (copy) => {
+        latest = copy;
+        if (copy.transactions.length > 0) submitted = true;
+        receipt?.write(copy);
+      },
+    });
+  } catch (error) {
+    const attached = error instanceof DustinError ? error.report : undefined;
+    const known = attached ?? latest;
+    if (!submitted && (known?.transactions.length ?? 0) === 0) {
+      // Nothing reached the network: the error's code decides (6 for an unreachable Horizon).
+      // Without a report from the executor, the caller prints the plan (closing review CC-2).
+      if (known) {
+        const refused = refusedReport(known, error);
+        receipt?.write(refused);
+        document(refused);
       }
-      // Something was submitted: never lose a hash (PRD NFR-03). The run stopped: exit 5.
-      const stopped = stoppedReport(known, error, account);
-      receipt?.write(stopped);
-      // The receipt follows the error: an unexpected error's remedy points to it (BH-14).
-      out.error(error, ExitCode.STOPPED, { receiptFollows: true });
-      document(stopped);
-      out.say(
-        `\n${renderReport(stopped, { plans: receiptPlans(), explorerBaseUrl: config.explorerBaseUrl })}`,
-      );
-      if (receipt) receiptLine(receipt, out);
-      return ExitCode.STOPPED;
+      throw error;
     }
-
-    receipt?.write(report);
-    const code = exitCodeForReport(report);
-    document(report);
+    // Something was submitted: never lose a hash (PRD NFR-03). The run stopped: exit 5.
+    const stopped = stoppedReport(known, error, account);
+    receipt?.write(stopped);
+    // The receipt follows the error: an unexpected error's remedy points to it (BH-14).
+    out.error(error, ExitCode.STOPPED, { receiptFollows: true });
+    document(stopped);
     out.say(
-      `\n${renderReport(report, { plans: receiptPlans(), explorerBaseUrl: config.explorerBaseUrl })}`,
+      `\n${renderReport(stopped, { plans: receiptPlans(), explorerBaseUrl: config.explorerBaseUrl })}`,
     );
     if (receipt) receiptLine(receipt, out);
-    if (report.status === "closed" && code !== ExitCode.OK) {
-      out.notice(
-        "the merge was reported applied, but the account was not verified gone on Horizon; check it on the explorer and run the same command again.",
-      );
-    }
-    // With --json, a run that ends with a stop says so in a last `error` line (review AA-10).
-    if (options.json && report.stop !== null && code !== ExitCode.OK) {
-      out.fail({
-        code: report.stop.code,
-        message: report.stop.detail,
-        remedy: nextStep(report),
-        exitCode: code,
-      });
-    }
-    return code;
-  } finally {
-    for (const name of ["SIGINT", "SIGTERM"] as const) ctx.signals?.off(name, handlers[name]);
+    return ExitCode.STOPPED;
   }
+
+  receipt?.write(report);
+  const code = exitCodeForReport(report);
+  document(report);
+  out.say(
+    `\n${renderReport(report, { plans: receiptPlans(), explorerBaseUrl: config.explorerBaseUrl })}`,
+  );
+  if (receipt) receiptLine(receipt, out);
+  if (report.status === "closed" && code !== ExitCode.OK) {
+    out.notice(
+      "the merge was reported applied, but the account was not verified gone on Horizon; check it on the explorer and run the same command again.",
+    );
+  }
+  // With --json, a run that ends with a stop says so in a last `error` line (review AA-10).
+  if (options.json && report.stop !== null && code !== ExitCode.OK) {
+    out.fail({
+      code: report.stop.code,
+      message: report.stop.detail,
+      remedy: nextStep(report),
+      exitCode: code,
+    });
+  }
+  return code;
+}
+
+/** The envelope of a report copy that carried the merge and applied, if one did (BH-13). */
+function appliedMerge(report: CloseReport): { hash: string; ledger: number | null } | null {
+  const entry = report.transactions.find(
+    (t) => t.result === "applied" && (t.operations ?? []).some((o) => o.kind === "merge"),
+  );
+  return entry ? { hash: entry.hash, ledger: entry.ledger } : null;
+}
+
+/**
+ * The second signal while the executor runs (review finding CL-1): the report as it stands is
+ * written to --report, a notice says what is true of it (Epic 4 review EX-2, BH-11: written, not
+ * written, or no copy yet; BH-13: the merge applied and only the final check was cut short), and
+ * with --json the one document is printed, the latest copy of the report or, without one, the
+ * plan (EX-3, BH-3), after an `error` line. The exit code is 5 (canonical decision 5: stopped
+ * during execution, or a merge reported applied but not verified gone).
+ */
+function forcedExit(
+  shown: ShownPlan,
+  receipt: ReceiptFile | null,
+  latest: CloseReport | null,
+  name: HandledSignal,
+): ExitCode {
+  const { out, document, plan, config, account } = shown;
+  const merged = latest ? appliedMerge(latest) : null;
+  const copy = latest ? forcedCopy(latest, name, merged) : null;
+  if (receipt && copy) receipt.write(copy);
+  const hashes = out.mode.json
+    ? "the hashes in the report on standard output"
+    : "the hashes printed above";
+  let file = "";
+  if (receipt) {
+    file =
+      copy === null
+        ? ` Nothing of this run was written to ${receipt.path}: there was no copy of its report yet.`
+        : receipt.ok
+          ? ` The latest copy of this run's report is in ${receipt.path}; its status "running" says it is not final.`
+          : receipt.written
+            ? ` The latest copy could not be written to ${receipt.path} (see the warning above); the file holds an earlier copy of this run's report, saved while it was in progress.`
+            : ` The report could not be written to ${receipt.path} (see the warning above), so nothing of this run is in it.`;
+  }
+  const accountUrl = `${config.explorerBaseUrl}/account/${account}`;
+  const message =
+    copy === null
+      ? `${name} received again: exiting now with code 5, before the executor had published a report: nothing was signed or submitted.${file}`
+      : merged
+        ? `${name} received again: exiting now with code 5. The merge (${merged.hash}) applied in ledger ${merged.ledger ?? "?"}, so the account is closed on the ledger; only the final check that Horizon no longer has it was cut short.${file}`
+        : `${name} received again: exiting now with code 5, before the run finished.${file}`;
+  const remedy =
+    copy === null
+      ? "Run the same command again: Dustin re-reads the account and plans only what is left."
+      : merged
+        ? `Check the account on the explorer (${accountUrl}); running the same command again records Horizon's 404 and signs nothing.`
+        : `Look up ${hashes}, then run the same command again: Dustin re-reads the account and plans only what is left.`;
+  out.notice(`${message} ${remedy}`, receipt ? [receipt.path] : []);
+  if (out.mode.json) {
+    out.fail({ code: "INTERRUPTED", message, remedy, exitCode: ExitCode.STOPPED });
+    document(copy ?? plan);
+  }
+  return ExitCode.STOPPED;
 }
 
 /**
  * The copy of the report a second signal leaves in --report (review finding CL-1): the latest copy
  * the executor published, still `running`, with a warning that the CLI exited before the run
- * finished, so no reader takes it for a final report.
+ * finished, so no reader takes it for a final report; after the merge applied, the warning says
+ * so, and that only the final check was cut short (Epic 4 review BH-13).
  */
-function forcedCopy(latest: CloseReport, signal: HandledSignal): CloseReport {
+function forcedCopy(
+  latest: CloseReport,
+  signal: HandledSignal,
+  merged: { hash: string; ledger: number | null } | null,
+): CloseReport {
   const copy = structuredClone(latest);
   copy.warnings.push(
-    `A second ${signal} made the CLI exit before the run finished; this copy was saved while the run was in progress, so it is not the final report. Look up its pending hashes before running the close again.`,
+    merged
+      ? `A second ${signal} made the CLI exit during the final check: the merge (${merged.hash}) applied in ledger ${merged.ledger ?? "?"}, so the account is closed on the ledger, but the check that Horizon no longer has it was cut short. This copy was saved before that check, so it is not the final report.`
+      : `A second ${signal} made the CLI exit before the run finished; this copy was saved while the run was in progress, so it is not the final report. Look up its pending hashes before running the close again.`,
   );
   return copy;
+}
+
+/**
+ * SIGINT and SIGTERM for the whole of `close --execute` (review finding CL-1; Epic 4 review EX-9;
+ * https://nodejs.org/api/process.html#signal-events: with a listener installed they no longer end
+ * the process). The handlers are added when the command starts and removed when it ends; while a
+ * prompt waits (the hidden secret prompt, the typed confirmation) they are off, so Ctrl-C there
+ * stays the prompt's own answer (no secret, exit 2; not confirmed, exit 3).
+ *
+ * Before the executor runs nothing is signed: the first signal makes the command stop at its next
+ * step (`check` throws), which ends it with INTERRUPTED and exit 3, the plan as the --json document
+ * once it was shown; a second signal runs `beforeSigning` and exits at once, with 3. Once the
+ * executor runs (`executing`), the first signal aborts `signal`, the executor's AbortSignal, and a
+ * second runs the executor's forced exit. A further signal asks `exit` again with the same code.
+ */
+interface SignalGuard {
+  /** The executor's AbortSignal, aborted by the first signal with its name as the reason. */
+  readonly signal: AbortSignal;
+  /** Throws `InterruptedBeforeSigning` once a signal arrived; call it only before the executor. */
+  check(): void;
+  /** Runs `ask` (a prompt) with the handlers off. */
+  suspended<T>(ask: () => Promise<T>): Promise<T>;
+  /** From here the executor runs: its first-signal notice, and its forced exit's code. */
+  executing(phase: {
+    notice: (name: HandledSignal) => string;
+    forced: (name: HandledSignal) => ExitCode;
+  }): void;
+  /** Removes the handlers. */
+  dispose(): void;
+}
+
+function signalGuard(
+  ctx: CloseContext,
+  beforeSigning: (name: HandledSignal) => ExitCode,
+): SignalGuard {
+  const controller = new AbortController();
+  let executor: Parameters<SignalGuard["executing"]>[0] | null = null;
+  let count = 0;
+  let forcedCode: ExitCode | null = null;
+  let installed = false;
+  const onSignal = (name: HandledSignal) => () => {
+    count += 1;
+    if (count === 1) {
+      controller.abort(name);
+      ctx.out.notice(
+        executor
+          ? executor.notice(name)
+          : `${name} received: the command stops before anything is signed or submitted. Send it again to exit at once.`,
+      );
+      return;
+    }
+    forcedCode ??= (executor ? executor.forced : beforeSigning)(name);
+    ctx.exit?.(forcedCode);
+  };
+  const handlers: Record<HandledSignal, () => void> = {
+    SIGINT: onSignal("SIGINT"),
+    SIGTERM: onSignal("SIGTERM"),
+  };
+  const install = () => {
+    if (installed) return;
+    installed = true;
+    for (const name of ["SIGINT", "SIGTERM"] as const) ctx.signals?.on(name, handlers[name]);
+  };
+  const remove = () => {
+    if (!installed) return;
+    installed = false;
+    for (const name of ["SIGINT", "SIGTERM"] as const) ctx.signals?.off(name, handlers[name]);
+  };
+  let disposed = false;
+  install();
+  return {
+    signal: controller.signal,
+    check() {
+      if (executor === null && controller.signal.aborted) {
+        const reason: unknown = controller.signal.reason;
+        throw new InterruptedBeforeSigning(reason === "SIGTERM" ? "SIGTERM" : "SIGINT");
+      }
+    },
+    async suspended(ask) {
+      remove();
+      try {
+        return await ask();
+      } finally {
+        if (!disposed) install();
+      }
+    },
+    executing(phase) {
+      executor = phase;
+    },
+    dispose() {
+      disposed = true;
+      remove();
+    },
+  };
 }
 
 /**

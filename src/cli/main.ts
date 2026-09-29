@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { guardedWriter, stdoutFallback } from "./output.js";
+import { exitAfterFlush, guardedWriter, stdoutFallback } from "./output.js";
 import { hiddenPrompt, terminalPrompt } from "./prompt.js";
 import { run, scanMode } from "./run.js";
 import { packageVersion } from "./version.js";
@@ -22,8 +22,9 @@ process.exitCode = await run(process.argv, { stdout, stderr }, version, {
   // Review finding CA-18: a secret missing from the environment and .env is asked for, hidden, on
   // a terminal; the question goes to standard error.
   secretPrompt: hiddenPrompt({ input: process.stdin, output: process.stderr }),
-  // Review finding CL-1: SIGINT and SIGTERM while the executor runs stop it at the next safe point;
-  // a second one exits at once with code 5 (https://nodejs.org/api/process.html#signal-events).
+  // Review finding CL-1: SIGINT and SIGTERM while `close --execute` runs stop it at the next safe
+  // point; a second one exits at once (https://nodejs.org/api/process.html#signal-events), once
+  // both streams have written what they hold (Epic 4 review EX-3).
   signals: process,
-  exit: (code) => process.exit(code),
+  exit: exitAfterFlush([process.stdout, process.stderr], (code) => process.exit(code)),
 });
