@@ -11,7 +11,7 @@ import {
   getLiquidityPoolId,
   type xdr,
 } from "@stellar/stellar-sdk";
-import { formatStroops, toStroops } from "../amounts.js";
+import { STROOPS_PER_UNIT, formatStroops, toStroops } from "../amounts.js";
 import type { BlockerCode, CloseStepKind, PlanStatus, UnclosableCode } from "../plan/model.js";
 
 /**
@@ -130,17 +130,15 @@ export const EDGE = {
     plainIssuer: [],
   } satisfies Record<EdgeIssuerRole, string[]>,
   /**
-   * Starting balances of the helpers; the variants start at their final minimum balance. The plain
-   * issuer holds 3 XLM since E4-S3 (2 before): it pays one base reserve per claimant of the two
-   * claimable balances it creates for the claimant variant (3 reserves) and their XLM, and the
-   * X-08 live test has it take the offer-stale offer for XLM.
+   * Starting balances of the destination and two issuers; the plain issuer's comes from the base
+   * reserve (`edgePlainIssuerBalance`, Epic 4 review EP-21), and the variants start at their final
+   * minimum balance.
    */
   helperBalances: {
     destination: "2",
     authIssuer: "2",
     clawbackIssuer: "2",
-    plainIssuer: "3",
-  } satisfies Record<"destination" | EdgeIssuerRole, string>,
+  } satisfies Record<"destination" | "authIssuer" | "clawbackIssuer", string>,
   dataEntry: { name: "dustin.fixture", value: "edge" },
   /** The auth-maintain variant's open offer: never filled, still cancellable after the downgrade. */
   maintainOffer: { selling: "MNT", amount: "0.0000002", price: "1000" },
@@ -491,6 +489,35 @@ export function edgeStartingBalance(variant: EdgeVariant, baseReserveStroops: bi
   );
 }
 
+/**
+ * The plain issuer's starting balance, from the base reserve read from the ledger like the
+ * variants' (Epic 4 review EP-21; it was a fixed 3 XLM, which covers its obligations only while the
+ * base reserve stays below 0.6 XLM): its own minimum of 2 base reserves; one base reserve per
+ * claimant of the claimable balances it creates for the claimant variant ("For every claimant in
+ * the list, the minimum amount of XLM this account must hold will increase by baseReserve",
+ * https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations#create-claimable-balance),
+ * 3 in all; the XLM those balances hold (0.0000001); and the XLM the X-08 live test has it pay to
+ * take the offer-stale offer (0.0000005 OFC at price 1, rounded up to the stroop). Every
+ * transaction it sources is fee-bumped by the sponsor, so it pays no fee.
+ */
+export function edgePlainIssuerBalance(baseReserveStroops: bigint): string {
+  const claimants = EDGE.claimantBalances.reduce((n, b) => n + 1 + (b.issuerClaims ? 1 : 0), 0);
+  const heldXlm = EDGE.claimantBalances
+    .filter((b) => b.asset === "native")
+    .reduce((total, b) => total + toStroops(b.amount), 0n);
+  const stale = EDGE.staleOffer;
+  const takeStale =
+    (toStroops(stale.amount) * toStroops(stale.price) + STROOPS_PER_UNIT - 1n) / STROOPS_PER_UNIT;
+  return formatStroops(BigInt(2 + claimants) * baseReserveStroops + heldXlm + takeStale);
+}
+
+/** Every helper's starting balance: the fixed ones and the plain issuer's from the base reserve. */
+export function edgeHelperBalances(
+  baseReserveStroops: bigint,
+): Record<"destination" | EdgeIssuerRole, string> {
+  return { ...EDGE.helperBalances, plainIssuer: edgePlainIssuerBalance(baseReserveStroops) };
+}
+
 export interface EdgeStep {
   name: string;
   /** Transaction source; every source but the fee sponsor is fee-bumped by it. */
@@ -526,9 +553,10 @@ export function edgeSteps(roles: EdgeRoles, baseReserveStroops: bigint): EdgeSte
       signers: ["sponsor"],
       feeBumped: false,
       operations: [
-        ...(Object.entries(EDGE.helperBalances) as Array<[EdgeAccountRole, string]>).map(
-          ([role, startingBalance]) =>
-            Operation.createAccount({ destination: roles[role], startingBalance }),
+        ...(
+          Object.entries(edgeHelperBalances(baseReserveStroops)) as Array<[EdgeAccountRole, string]>
+        ).map(([role, startingBalance]) =>
+          Operation.createAccount({ destination: roles[role], startingBalance }),
         ),
         ...variants.map((v) =>
           Operation.createAccount({

@@ -4,7 +4,12 @@ import { assertTestnetPassphrase, resolveConfig, type DustinConfig } from "../co
 import { horizonJson } from "../reader/horizon-json.js";
 import { horizonReader, type CreditAssetRef, type LedgerReader } from "../reader/ledger-reader.js";
 import { assertAccountAddress, destinationBaseAccount } from "./address.js";
-import type { HorizonAccount, HorizonAssetRef, HorizonBalance } from "./horizon-types.js";
+import type {
+  HorizonAccount,
+  HorizonAssetRef,
+  HorizonBalance,
+  HorizonClaimableBalance,
+} from "./horizon-types.js";
 import { reserveFromHorizon } from "./reserve.js";
 import type {
   AccountSnapshot,
@@ -145,9 +150,7 @@ export async function inspectAccount(
     ),
     raw.num_sponsoring > 0 ? reader.claimableBalancesSponsoredBy(account) : Promise.resolve(null),
     Promise.all(poolBalances.map((b) => reader.liquidityPoolAssets(b.liquidity_pool_id ?? ""))),
-    reader.claimableBalancesClaimableBy
-      ? reader.claimableBalancesClaimableBy(account)
-      : Promise.resolve(null),
+    claimantBalances(reader, account),
   ]);
   const issuers: IssuerInfo[] = issuerIds.map((id, i) => ({
     account: id,
@@ -222,18 +225,40 @@ export async function inspectAccount(
     observed,
     feeStats: fees,
     quotes,
-    claimableBalancesClaimable:
-      claimant
-        ?.map((b) => ({
-          id: b.id,
-          asset: b.asset,
-          amount: amount(b.amount),
-          sponsor: b.sponsor ?? null,
-        }))
-        .sort((a, b) => byCodePoint(a.id, b.id)) ?? null,
+    ...(claimant === undefined
+      ? {}
+      : {
+          claimableBalancesClaimable:
+            claimant
+              ?.map((b) => ({
+                id: b.id,
+                asset: b.asset,
+                amount: amount(b.amount),
+                sponsor: b.sponsor ?? null,
+              }))
+              .sort((a, b) => byCodePoint(a.id, b.id)) ?? null,
+        }),
     snapshotHash: sha256Hex(canonicalJson(state)),
   };
   return snapshot;
+}
+
+/**
+ * The claimable balances that name the account as a claimant: undefined when the reader cannot
+ * ask, null when the read failed. They only feed the plan's warning (X-03), so a failed read never
+ * fails the inspection, and with it a plan, a close, its preflight or a mid-run re-plan (Epic 4
+ * review EP-4, BH-5).
+ */
+async function claimantBalances(
+  reader: LedgerReader,
+  account: string,
+): Promise<HorizonClaimableBalance[] | null | undefined> {
+  if (!reader.claimableBalancesClaimableBy) return undefined;
+  try {
+    return await reader.claimableBalancesClaimableBy(account);
+  } catch {
+    return null;
+  }
 }
 
 /**

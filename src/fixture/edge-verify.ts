@@ -19,7 +19,7 @@ import {
   type EdgeVariant,
   type EdgeVariantRole,
 } from "./edge.js";
-import { describeClosed, type MergeRecord } from "./reset.js";
+import { describeMissing, type MissingAccount } from "./reset.js";
 import type { VerifyCheck, VerifyResult } from "./verify.js";
 
 /** What the edge checks read from Horizon: GET requests only. */
@@ -42,8 +42,12 @@ export interface EdgeVerifyInput {
   variants?: readonly EdgeVariantRole[];
   /** Horizon's latest ledger when the input was read (the reset check compares it, X-15). */
   latestLedger?: number;
-  /** The merges that removed accounts which answer 404 while Horizon holds the merge (X-15). */
-  closed?: Partial<Record<EdgeAccountRole, MergeRecord>>;
+  /**
+   * Why each account that answers 404 is missing, as the reset check found it (X-15): merged, with
+   * the ledger and hash of the merge; gone without a merge among its latest operations; or never
+   * seen by Horizon.
+   */
+  missing?: Partial<Record<EdgeAccountRole, MissingAccount>>;
 }
 
 const HELPERS = ["destination", "authIssuer", "clawbackIssuer", "plainIssuer"] as const;
@@ -90,10 +94,7 @@ export function verifyEdgeFixture(input: EdgeVerifyInput): VerifyResult {
   const checks: VerifyCheck[] = [];
   const add = (id: string, label: string, pass: boolean, observed: string, expected: string) =>
     checks.push({ id, label, appendixB: false, pass, observed, expected });
-  const missing = (role: EdgeAccountRole) => {
-    const closed = input.closed?.[role];
-    return closed ? `Horizon answered 404: ${describeClosed(closed)}` : "Horizon answered 404";
-  };
+  const missing = (role: EdgeAccountRole) => describeMissing(input.missing?.[role]);
 
   for (const role of HELPERS) {
     const account = accounts[role];

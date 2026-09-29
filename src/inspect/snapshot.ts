@@ -145,12 +145,15 @@ export interface ExistingAccountSnapshot extends SnapshotBase {
    */
   quotes: Array<{ asset: CreditAssetRef; quote: Quote | null }>;
   /**
-   * Claimable balances that name this account as a claimant, sorted by id; null when the reader
-   * cannot ask (a custom `LedgerReader` without `claimableBalancesClaimableBy`). They are not the
-   * account's entries: the merge leaves them on the ledger, so they change no step and are not in
-   * `snapshotHash` (matrix row X-03).
+   * Claimable balances that name this account as a claimant, sorted by id (matrix row X-03). They
+   * are not the account's entries: the merge leaves them on the ledger, so they change no step and
+   * are not in `snapshotHash`. Absent when nothing was read (a custom `LedgerReader` without
+   * `claimableBalancesClaimableBy`, or a snapshot built by hand); null when the read failed, which
+   * only costs the warning, never the inspection. Horizon's reader lists at most
+   * `CLAIMANT_READ_LIMIT` (2000, ten pages of 200): a list that long may be incomplete (Epic 4
+   * review EP-4, AC-16).
    */
-  claimableBalancesClaimable: ClaimableBalanceInfo[] | null;
+  claimableBalancesClaimable?: ClaimableBalanceInfo[] | null;
 }
 
 export type AccountSnapshot = ExistingAccountSnapshot | MissingAccountSnapshot;

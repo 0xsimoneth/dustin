@@ -3,7 +3,7 @@ import type { HorizonAccount, HorizonOffer } from "../inspect/horizon-types.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
 import { accountOffers, latestLedger, type HorizonJsonClient } from "../reader/horizon-json.js";
 import type { FixtureManifest } from "./manifest.js";
-import { describeClosed, type MergeRecord } from "./reset.js";
+import { describeMissing, type MissingAccount } from "./reset.js";
 
 export interface VerifyExpectation {
   reserveSponsor: string;
@@ -22,8 +22,13 @@ export interface VerifyInput {
   expected: VerifyExpectation;
   /** Horizon's latest ledger when the input was read (the reset check compares it, X-15). */
   latestLedger?: number;
-  /** The merge that removed the fixture, when it answers 404 and Horizon holds the merge (X-15). */
-  closed?: MergeRecord;
+  /**
+   * Why the fixture answers 404, as the reset check found it (X-15): merged, with the ledger and
+   * hash of the merge; gone without a merge among its latest operations; or never seen by Horizon.
+   */
+  missing?: MissingAccount;
+  /** The same for the destination, when it answers 404. */
+  destinationMissing?: MissingAccount;
 }
 
 export interface VerifyCheck {
@@ -56,9 +61,7 @@ export function verifyFixture(input: VerifyInput): VerifyResult {
           label: "fixture account exists",
           appendixB: false,
           pass: false,
-          observed: input.closed
-            ? `Horizon answered 404: ${describeClosed(input.closed)}`
-            : "Horizon answered 404: the account does not exist",
+          observed: describeMissing(input.missing),
           expected: "the account exists",
         },
       ],
@@ -178,7 +181,7 @@ export function verifyFixture(input: VerifyInput): VerifyResult {
       label: "the destination account exists",
       appendixB: false,
       pass: input.destinationExists,
-      observed: input.destinationExists ? "exists" : "Horizon answered 404",
+      observed: input.destinationExists ? "exists" : describeMissing(input.destinationMissing),
       expected: `account ${expected.destination} exists`,
     },
   ];

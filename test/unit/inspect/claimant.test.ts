@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
+import { DustinError } from "../../../src/errors/dustin-error.js";
 import { inspectAccount } from "../../../src/inspect/inspect.js";
+import { planClose } from "../../../src/plan/plan-close.js";
 import { horizonJson } from "../../../src/reader/horizon-json.js";
 import { horizonReader, type LedgerReader } from "../../../src/reader/ledger-reader.js";
 import {
@@ -9,6 +11,7 @@ import {
   messyManifest,
   recordedFetch,
 } from "../../helpers/recorded-horizon.js";
+import { noSleep } from "../../helpers/no-sleep.js";
 
 // Matrix row X-03 (docs/edge-cases-and-test-matrix.md section 4): claimable balances that name
 // the account as a claimant. The inspector reads GET /claimable_balances?claimant=<account> (the
@@ -109,12 +112,90 @@ describe("X-03: claimable balances claimable by the account (inspector)", () => 
     expect(withOne.snapshotHash).toBe(without.snapshotHash);
   });
 
-  it("reports null, not an empty list, for a custom reader that cannot answer the query", async () => {
+  it("AC-16: leaves the field out, rather than null or an empty list, for a custom reader that cannot answer the query", async () => {
     const { fetch } = recordedFetch(recorded);
     const full = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 }));
     const older: LedgerReader = { ...full, claimableBalancesClaimableBy: undefined };
     const s = await inspect({}, older).run();
     if (!s.exists) throw new Error("expected an existing account");
+    expect("claimableBalancesClaimable" in s).toBe(false);
+    expect(s.snapshotHash).toBe((await inspect({}).run()).snapshotHash);
+  });
+});
+
+describe("EP-4, BH-5: a failed claimant read costs the warning, never the inspection", () => {
+  it("a reader that throws: the inspection completes with claimableBalancesClaimable null", async () => {
+    // P-C1 of the review: the optional read failing aborted the whole inspection.
+    const { fetch } = recordedFetch(recorded);
+    const full = horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 }));
+    const failing: LedgerReader = {
+      ...full,
+      claimableBalancesClaimableBy: () =>
+        Promise.reject(
+          new DustinError("HORIZON_UNAVAILABLE", "Horizon answered HTTP 503.", {
+            stage: "inspect",
+            retryable: true,
+          }),
+        ),
+    };
+    const s = await inspect({}, failing).run();
+    if (!s.exists) throw new Error("expected an existing account");
     expect(s.claimableBalancesClaimable).toBeNull();
+    expect(s.snapshotHash).toBe((await inspect({}).run()).snapshotHash);
+  });
+
+  it("Horizon answering 503 to the claimant query only: planClose returns the plan, warning that the balances could not be read", async () => {
+    const { fetch } = recordedFetch(recorded);
+    const failing = (url: string, init?: RequestInit) =>
+      url.includes("/claimable_balances?claimant=")
+        ? Promise.resolve(new Response("{}", { status: 503 }))
+        : fetch(url, init);
+    const reader = horizonReader(
+      horizonJson(TESTNET_HORIZON, { fetch: failing, retries: 1, sleep: noSleep }),
+    );
+    const plan = await planClose({ account: m.fixture, destination: m.destination }, { reader });
+    const without = await planClose(
+      { account: m.fixture, destination: m.destination },
+      { reader: horizonReader(horizonJson(TESTNET_HORIZON, { fetch, retries: 0 })) },
+    );
+    expect(plan.status).toBe(without.status);
+    expect(plan.planHash).toBe(without.planHash);
+    expect(plan.warnings[0]).toMatch(
+      /^Dustin could not read the claimable balances that name this account as a claimant/,
+    );
+    expect(plan.warnings.slice(1)).toEqual(without.warnings);
+  });
+
+  it("EP-19: a claimant page without a cursor to continue from is a failed read, not an endless loop", async () => {
+    const full = Array.from({ length: 200 }, (_, i) => {
+      const { paging_token: _token, ...record } = balance(i + 1, "native", "0.0000001", m.issuer);
+      return record;
+    });
+    const { run, requests } = inspect({ [page()]: { _embedded: { records: full } } });
+    const s = await run();
+    if (!s.exists) throw new Error("expected an existing account");
+    expect(s.claimableBalancesClaimable).toBeNull();
+    expect(requests.filter((q) => q.path.startsWith("/claimable_balances?claimant="))).toEqual([
+      { method: "GET", path: page() },
+    ]);
+  });
+
+  it("EP-4: reads at most ten pages of 200; the snapshot holds the 2000 read", async () => {
+    const pages: Record<string, unknown> = {};
+    let cursor = "";
+    for (let p = 0; p < 11; p++) {
+      const records = Array.from({ length: 200 }, (_, i) =>
+        balance(p * 200 + i + 1, "native", "0.0000001", m.issuer),
+      );
+      pages[page(cursor)] = { _embedded: { records } };
+      cursor = records.at(-1)!.paging_token;
+    }
+    const { run, requests } = inspect(pages);
+    const s = await run();
+    if (!s.exists) throw new Error("expected an existing account");
+    expect(s.claimableBalancesClaimable).toHaveLength(2000);
+    expect(requests.filter((q) => q.path.startsWith("/claimable_balances?claimant="))).toHaveLength(
+      10,
+    );
   });
 });

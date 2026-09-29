@@ -79,7 +79,52 @@ export function horizonJson(
 }
 
 interface Page<T> {
-  _embedded: { records: (T & { paging_token: string })[] };
+  _embedded: { records: (T & { paging_token?: string })[] };
+}
+
+/** Horizon's largest page (https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/pagination/page-arguments). */
+export const PAGE_LIMIT = 200;
+
+/**
+ * Follows a collection's pages: `path(cursor)` asks for up to 200 records after `cursor` ("" for
+ * the first page), and a page with fewer than 200 records is the last. It reads at most `maxPages`
+ * pages (default: no bound) and says whether it reached the end. A full page whose last record
+ * has no `paging_token`, or repeats the cursor it was asked from, would be asked for again with no
+ * end; the read stops there with HORIZON_UNAVAILABLE (Epic 4 review EP-19).
+ */
+export async function readPages<T>(
+  client: HorizonJsonClient,
+  path: (cursor: string) => string,
+  maxPages = Number.POSITIVE_INFINITY,
+): Promise<{ records: T[]; complete: boolean }> {
+  const records: T[] = [];
+  let cursor = "";
+  for (let pages = 0; pages < maxPages; pages++) {
+    const asked = path(cursor);
+    const page = await client.get<Page<T>>(asked);
+    const batch = page?._embedded.records ?? [];
+    records.push(...batch);
+    if (batch.length < PAGE_LIMIT) return { records, complete: true };
+    const next = batch[batch.length - 1]!.paging_token;
+    if (typeof next !== "string" || next === "" || next === cursor) {
+      const problem =
+        typeof next === "string" && next !== ""
+          ? "whose last paging_token is the cursor it was asked from"
+          : "without a paging_token on its last record";
+      throw new DustinError(
+        "HORIZON_UNAVAILABLE",
+        `Horizon at ${client.horizonUrl} answered a full page for ${asked} ${problem}, so its next page cannot be asked for.`,
+        {
+          stage: "inspect",
+          retryable: true,
+          verdict: "retry-same",
+          remedy: "Try again, or point DUSTIN_HORIZON_URL at another testnet Horizon.",
+        },
+      );
+    }
+    cursor = next;
+  }
+  return { records, complete: false };
 }
 
 /** Every open offer of an account, following Horizon's 200-record pages to the end. */
@@ -87,17 +132,12 @@ export async function accountOffers(
   client: HorizonJsonClient,
   accountId: string,
 ): Promise<HorizonOffer[]> {
-  const offers: HorizonOffer[] = [];
-  let cursor = "";
-  for (;;) {
-    const page = await client.get<Page<HorizonOffer>>(
+  const { records } = await readPages<HorizonOffer>(
+    client,
+    (cursor) =>
       `/accounts/${accountId}/offers?limit=200&order=asc${cursor ? `&cursor=${cursor}` : ""}`,
-    );
-    const records = page?._embedded.records ?? [];
-    offers.push(...records);
-    if (records.length < 200) return offers;
-    cursor = records[records.length - 1]!.paging_token;
-  }
+  );
+  return records;
 }
 
 export interface LedgerSummary {

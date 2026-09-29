@@ -12,6 +12,7 @@ import {
   EDGE,
   EDGE_KEY_ROLES,
   edgePool,
+  edgePlainIssuerBalance,
   edgeStartingBalance,
   edgeSteps,
   type EdgeKeyRole,
@@ -313,8 +314,9 @@ describe("edge recipe, the variants added for X-03, X-07, X-08 and X-11 (E4-S3)"
       { asset: "CBA", amount: "0.0000002", claimants: ["claimant", "plainIssuer"] },
     ]);
     // One base reserve per claimant, and the XLM the balance holds, come from the plain issuer
-    // (list-of-operations#create-claimable-balance): 2 + 3 reserves = 2.5 XLM, within its 3 XLM.
-    expect(EDGE.helperBalances.plainIssuer).toBe("3");
+    // (list-of-operations#create-claimable-balance): 2 + 3 reserves, 0.0000001 XLM, and the
+    // 0.0000005 XLM it pays to take the X-08 offer (Epic 4 review EP-21).
+    expect(edgePlainIssuerBalance(BASE_RESERVE)).toBe("2.5000006");
   });
 
   it("no two offers of the build cross: none sells what another buys at the same time", () => {
