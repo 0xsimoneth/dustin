@@ -43,11 +43,13 @@ export const DEFAULT_REMEDIES: Partial<Readonly<Record<DustinErrorCode, string>>
     "Raise the close budget or wait for network fees to fall (with the CLI, lower the bid with --base-fee), then run the close again.",
   SPONSOR_UNDERFUNDED: "Fund the fee sponsor (on testnet, from Friendbot) and run the close again.",
   WRONG_SIGNER:
-    "Use the secret key of the account being closed for DUSTIN_ACCOUNT_SECRET, and the fee sponsor's for DUSTIN_SPONSOR_SECRET.",
+    "Sign for the account being closed with its own key and for the fee bumps with the fee sponsor's: with the SDK, pass them as signers.account and signers.feeSponsor; with the CLI, set DUSTIN_ACCOUNT_SECRET and DUSTIN_SPONSOR_SECRET (or type them at the hidden prompt).",
   ACCOUNT_NOT_FOUND:
     "Check the address; if an earlier close merged the account, there is nothing left to close.",
   RESET_SUSPECTED:
     "A testnet reset deletes every account a fixture had: build a new fixture with dustin fixture create (new keys, new manifest).",
+  LEDGER_DATA_INVALID:
+    "Run the command again: Dustin reads the account again, and one Horizon instance may have answered wrongly. If the snapshot or plan came from your own code, fix the value the message names; if Horizon keeps answering it, report it with the account address and that value.",
 };
 
 /** The fallback for a code without an entry. */

@@ -17,13 +17,15 @@ Horizon's result codes travel with both: on each envelope (`transactions[].resul
 
 With `--json`, a run that ends with a stop also ends with an `error` line whose `code` is the stop code, `message` the stop's detail and `remedy` the receipt's "Next" line; a refusal before anything is signed (`PLAN_NOT_CLOSABLE`, `NOTHING_TO_EXECUTE`) is one `error` line too. Standard output then carries the refused plan or the report.
 
+With `--json`, standard error carries NDJSON only, whatever happens to standard output. If standard output is closed early (`| head`, EPIPE), a `notice` line says so, `{"type":"notice","message":"standard output was closed; the rest of the output goes to standard error."}`, and the one JSON document follows on standard error as a `document` line, the document on one line: `{"type":"document","document":{"kind":"dustin-close-report",...}}`. Without `--json` the notice is `dustin: standard output was closed; ...` and the rest of the output follows as it would have been printed.
+
 Exit codes (`docs/README.md` canonical decision 5):
 
 | Exit | Meaning |
 |---|---|
 | 0 | plan printed, or account closed and verified gone |
 | 1 | unexpected error |
-| 2 | usage or validation error: bad address, secret on argv, wrong key, mainnet requested, missing secrets |
+| 2 | usage or validation error: bad address, secret on argv, wrong key, mainnet requested, missing secrets, a file that is not a fixture manifest |
 | 3 | nothing executed: no confirmation (missing or declined), blockers without `--partial`, a sponsor or budget precondition failed, or any other refusal before anything is signed (nothing to execute, a changed plan, less XLM for the destination, an interruption before the first submission) |
 | 4 | partial: everything else ran, the account still exists |
 | 5 | stopped or failed during execution; run the same command again to continue |
@@ -42,22 +44,23 @@ An error or a stop after something was submitted is always 5, whatever its code.
 | `EXECUTION_INTERRUPTED` | The executor stopped on something unexpected (a signer or observer that threw, a bug); the report is attached | where the run was | 1 when nothing was submitted, 5 otherwise | Look up the hashes in the report, then run the close again: it reads the account again and plans only what is left. |
 | `NOT_IMPLEMENTED` | A feature that is not built; not raised in this release | any | 1 | `docs/prd.md` section 6 lists what is built. |
 | `CONFIG_INVALID` | An option, setting or file is invalid: a numeric execute option out of range, a signal that is not an AbortSignal, `--base-fee`, `--report`, `.env`, a secret that is not a secret key, a Horizon URL that is not a Horizon server | config (plan options: plan) | 2 | Fix the option, setting or file the message names, then run again. |
-| `MAINNET_REFUSED` | A network other than the testnet was asked for, or the Horizon does not serve the testnet | config | 2 | Use the Stellar testnet: leave `--network` out (or pass `--network testnet`) and point `DUSTIN_HORIZON_URL` at a testnet Horizon. |
+| `MAINNET_REFUSED` | A network other than the testnet was asked for, the Horizon does not serve the testnet, or the explorer base URL (`DUSTIN_EXPLORER_BASE`, `config.explorerBaseUrl`) names another network, such as `https://stellar.expert/explorer/public` (Epic 4 review D-7) | config | 2 | Use the Stellar testnet: leave `--network` out (or pass `--network testnet`) and point `DUSTIN_HORIZON_URL` at a testnet Horizon. |
 | `SECRET_IN_ARGV` | An argument looks like a secret key (CLI only); it was not used and is not shown | config | 2 | Put secrets in `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` instead, never on the command line. |
 | `HORIZON_UNAVAILABLE` | Horizon could not be reached or answered 5xx or 429 after the read client's retries | inspect, config | 6 before any submission, 5 after | Check the network connection or the Horizon URL, then try again. |
 | `FRIENDBOT_FAILED` | Friendbot could not fund a fixture account, or Horizon did not show it funded (fixture commands) | build | 1, or 5 after a build submission | Friendbot may be rate-limited or down: wait a minute, then run the fixture command again. |
 | `FIXTURE_STEP_FAILED` | A fixture build transaction failed on the ledger | submit | 1, or 5 after a build submission | Look the step's transaction up on the explorer, then build a fresh fixture with `dustin fixture create`. |
 | `FIXTURE_INVALID` | A built fixture does not pass its own verification | build | 1, or 5 after a build submission | Build a fresh fixture with `dustin fixture create`. |
-| `MANIFEST_INVALID` | `fixture verify` got a file that is not a Dustin fixture manifest | config | 1 | Pass the `manifest.json` that `dustin fixture create` wrote, unchanged. |
+| `MANIFEST_INVALID` | `fixture verify` got a file that is not a Dustin fixture manifest: a validation error, like a bad address (Epic 4 review D-4) | config | 2 | Pass the `manifest.json` that `dustin fixture create` wrote, unchanged. |
 | `INVALID_ADDRESS` | An address is not a valid G (or, for the destination, M) address, a destination is missing, or the account, destination and fee sponsor are not distinct where they must be | inspect, plan, config | 2 | Check the address: a classic account is 56 characters starting with G; a destination may also be a muxed M... address. |
 | `CONTRACT_ACCOUNT` | A contract (C...) address was given; out of scope | inspect | 2 | Pass a classic G... account. |
 | `TOO_MANY_OPERATIONS` | A transaction would hold more than 100 operations (defence in depth; the planner never does it) | build | 1 | This is a bug; report it with the plan. |
 | `SPONSOR_REFUSED` | The fee sponsor refused to sign a fee bump it did not build for the closing account's own transaction | sponsor | 1 | Through `executeClose()` this is a bug; report it with the report. |
 | `SPONSOR_BUDGET_EXCEEDED` | The fee bids exceed the close budget (CLI check before the confirmation, or the sponsor's own check before it signs) | sponsor | 3 | Raise the close budget or wait for network fees to fall (with the CLI, lower the bid with `--base-fee`), then run the close again. |
 | `SPONSOR_UNDERFUNDED` | The fee sponsor does not exist, or cannot spend the close budget | sponsor | 3 | Fund the fee sponsor (on testnet, from Friendbot) and run the close again. |
-| `WRONG_SIGNER` | A secret belongs to another account than the one it signs for, or `--sponsor` names another account | config | 2 | Use the secret key of the account being closed for `DUSTIN_ACCOUNT_SECRET`, and the fee sponsor's for `DUSTIN_SPONSOR_SECRET`. |
+| `WRONG_SIGNER` | A secret or a signer belongs to another account than the one it signs for, or `--sponsor` names another account. The CLI names where the secret came from (the environment, `.env` or the hidden prompt); the SDK names the signer argument | config | 2 | SDK: pass a signer of the account being closed as `signers.account` and one of the plan's fee sponsor as `signers.feeSponsor`. CLI: set `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` where the message says the wrong one came from, or type the right one at the hidden prompt. |
 | `ACCOUNT_NOT_FOUND` | Declared for an account Horizon does not have; not raised in this release, where a missing account is the plan's `ACCOUNT_MISSING` blocker and the stop of the same name | inspect | 1 | Check the address; if an earlier close merged the account, there is nothing left to close. |
 | `RESET_SUSPECTED` | `dustin fixture verify` finds that the testnet was reset since the fixture was built: the manifest records a ledger beyond Horizon's latest ledger, or an account of the fixture answers 404 with no history on Horizon (a fixture account that was merged keeps its history and is reported as closed instead; matrix row X-15) | inspect | 3 | A testnet reset deletes every account a fixture had: build a new fixture with `dustin fixture create` (new keys, new manifest). |
+| `LEDGER_DATA_INVALID` | A value from Horizon, or from a snapshot or plan built from what Horizon answered, breaks the protocol's rules: an amount that is not a Stellar amount (a non-negative decimal with at most 7 fractional digits, within int64), a liquidity pool whose assets do not hash to its id, or an operation the SDK cannot encode. It replaces the plain `RangeError` and `Error` these raised before (Epic 4 review AC-12) | inspect, build | 1, or 5 after a submission | Run the command again: Dustin reads the account again, and one Horizon instance may have answered wrongly. If the snapshot or plan came from your own code, fix the value the message names; if Horizon keeps answering it, report it with the account address and that value. |
 
 ## Stop codes (`StopCode`)
 
@@ -92,6 +95,6 @@ These appear only in the CLI's output (the `code` of an `error` line with `--jso
 
 | Code | Meaning | Exit | Remedy |
 |---|---|---|---|
-| `USAGE_ERROR` | The command line could not be parsed: an unknown option, a missing argument, conflicting options | 2 | Run `dustin --help`, or `dustin <command> --help`, for the usage. |
-| `UNEXPECTED_ERROR` | Something that is not a `DustinError` was thrown: a bug. People see `dustin: unexpected error: ...` | 1 | Run the same command with `--verbose` and report the output; if a transaction was submitted, its hash is above. |
+| `USAGE_ERROR` | The command line could not be parsed: an unknown option, a missing argument, conflicting options. People see the command's help, then `dustin: USAGE_ERROR: unknown option '--frobnicate'` and the remedy | 2 | Run `dustin --help`, or `dustin <command> --help`, for the usage. |
+| `UNEXPECTED_ERROR` | Something that is not a `DustinError` was thrown: a bug. People see `dustin: unexpected error: ...` | 1, or 5 after a submission | Run the same command with `--verbose` and report the output. The remedy says where the hashes of what was submitted are: printed above it; in the receipt printed below it, when a run that submitted something stops on it; with `--json`, in the `tx:submitted` lines on standard error and in the close report on standard output. |
 | `PLAN_NOT_CLOSABLE`, `NOTHING_TO_EXECUTE` | The stop codes of the same name, used for the CLI's own refusal before anything is signed | 3 | As above. |

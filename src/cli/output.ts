@@ -1,3 +1,34 @@
+/** The notice written once when standard output fails and its text goes to standard error. */
+export const STDOUT_CLOSED =
+  "standard output was closed; the rest of the output goes to standard error.";
+
+/**
+ * Where standard output's text goes once standard output has failed (EPIPE, `| head`), for
+ * `guardedWriter`. For people it is standard error as it is, after `dustin: <STDOUT_CLOSED>`.
+ * In machine mode standard error carries NDJSON only (Epic 4 review EX-4, AC-13), so the notice
+ * becomes a `notice` line and the one JSON document of standard output one `document` line,
+ * `{"type":"document","document":{...}}`, the document itself on one line; any other text meant
+ * for standard output (Commander's help) becomes a `notice` line too.
+ */
+export function stdoutFallback(
+  stderr: (text: string) => void,
+  json: boolean,
+): Required<GuardedWriterOptions> {
+  if (!json) return { fallback: stderr, notice: `dustin: ${STDOUT_CLOSED}\n` };
+  return {
+    notice: STDOUT_CLOSED,
+    fallback: (text) => {
+      let line: { type: string } & Record<string, unknown>;
+      try {
+        line = { type: "document", document: JSON.parse(text) as unknown };
+      } catch {
+        line = { type: "notice", message: text.trimEnd() };
+      }
+      stderr(`${JSON.stringify(line)}\n`);
+    },
+  };
+}
+
 export interface GuardedWriterOptions {
   /**
    * Where the text goes once the stream has failed, with `notice` written there first, once. The
@@ -52,5 +83,46 @@ export function guardedWriter(
       broken = true;
       elsewhere(text);
     }
+  };
+}
+
+/**
+ * The forced exit after a second signal (Epic 4 review EX-3, BH-3): `exit(code)` once standard
+ * output and standard error have written everything queued, the one --json document included, or
+ * after `boundMs` at the latest. On a pipe their writes are asynchronous outside Windows and Linux
+ * (https://nodejs.org/api/process.html#a-note-on-process-io), and `process.exit()` drops what is
+ * still queued: observed on macOS, where a document of 5 MB was cut at 64 KB. A second call (a
+ * third signal) exits at once.
+ */
+export function exitAfterFlush(
+  streams: readonly NodeJS.WritableStream[],
+  exit: (code: number) => void,
+  boundMs = 2000,
+): (code: number) => void {
+  let asked = false;
+  let ended = false;
+  const end = (code: number) => {
+    if (ended) return;
+    ended = true;
+    exit(code);
+  };
+  return (code) => {
+    if (asked) return end(code);
+    asked = true;
+    let pending = streams.length;
+    const flushed = () => {
+      pending -= 1;
+      if (pending === 0) end(code);
+    };
+    for (const stream of streams) {
+      try {
+        // An empty write's callback runs once everything written before it was handed over.
+        stream.write("", () => flushed());
+      } catch {
+        flushed();
+      }
+    }
+    if (streams.length === 0) end(code);
+    setTimeout(() => end(code), boundMs).unref();
   };
 }

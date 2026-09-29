@@ -9,6 +9,7 @@ import {
   xdr,
 } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
+import { DustinError } from "../../../src/errors/dustin-error.js";
 import type { OperationDescriptor } from "../../../src/plan/model.js";
 import { toOperation } from "../../../src/tx/operations.js";
 
@@ -101,6 +102,42 @@ describe("toOperation", () => {
         limit: "0",
       }),
     ).toThrow(/do not match liquidity pool/);
+  });
+
+  it("AC-12: refuses them with the DustinError LEDGER_DATA_INVALID, not a plain Error", () => {
+    let error: unknown;
+    try {
+      toOperation({
+        type: "changeTrust",
+        asset: {
+          type: "liquidity_pool_shares",
+          poolId: "ab".repeat(32),
+          assets: ["native", `DUSTA:${issuer}`],
+        },
+        limit: "0",
+      });
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(DustinError);
+    expect(error).toMatchObject({ code: "LEDGER_DATA_INVALID", stage: "build" });
+  });
+
+  it("AC-12: an operation the SDK cannot encode is a DustinError with the SDK's error as its cause", () => {
+    let error: unknown;
+    try {
+      toOperation({
+        type: "payment",
+        destination: "GNOTANADDRESS",
+        asset: { type: "native" },
+        amount: "1",
+      } as never);
+    } catch (caught) {
+      error = caught;
+    }
+    expect(error).toBeInstanceOf(DustinError);
+    expect(error).toMatchObject({ code: "LEDGER_DATA_INVALID" });
+    expect((error as Error).cause).toBeInstanceOf(Error);
   });
 
   it("deletes data with a null value and pays the issuer", () => {

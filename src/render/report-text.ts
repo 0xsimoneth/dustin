@@ -441,7 +441,10 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   out.push(...field("Network", `testnet, Horizon ${report.network.horizon}`));
   out.push(`Account      ${report.account}`);
   out.push(`Destination  ${report.destination}`);
-  out.push(`Sponsor      ${report.feeSponsor}   paid every fee`);
+  // Epic 4 review D-8: the fee sentences only when something was submitted; with nothing
+  // submitted there was no fee for anyone to pay.
+  const submitted = report.transactions.length > 0;
+  out.push(`Sponsor      ${report.feeSponsor}${submitted ? "   paid every fee" : ""}`);
   out.push(
     ...field(
       "Run",
@@ -530,10 +533,14 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
     );
   }
   out.push(...sponsorLines(report));
-  out.push("  0.0000000 XLM in fees paid by the account");
-  out.push(
-    `  ${xlm(r.feesPaidBySponsorStroops)} (${grouped(r.feesPaidBySponsorStroops)} stroops) in fees paid by the sponsor`,
-  );
+  if (submitted) {
+    out.push("  0.0000000 XLM in fees paid by the account");
+    out.push(
+      `  ${xlm(r.feesPaidBySponsorStroops)} (${grouped(r.feesPaidBySponsorStroops)} stroops) in fees paid by the sponsor`,
+    );
+  } else {
+    out.push("  No fees: nothing was submitted.");
+  }
 
   const disposals = disposalLines(report, stepsOfRound, mergeApplied, openMerge);
   if (disposals.length > 0) {
@@ -609,6 +616,15 @@ export function nextStep(report: CloseReport): string | null {
     report.transactions.length === 0
   ) {
     return "If an earlier run merged the account, the close is complete: the account link above shows the merge as its last operation. Otherwise check the address; there is nothing to close.";
+  }
+  // Epic 4 review EX-5: a stop that names an envelope whose outcome is still open carries its time
+  // bound (INTERRUPTED with an open envelope, OUTCOME_UNKNOWN). Until a ledger has closed past it
+  // the envelope may still apply, so the close is run again only after that, as the stop and
+  // docs/errors.md say; once a later lookup settled the envelope the stop no longer has `maxTime`.
+  const maxTime = report.stop?.maxTime;
+  if (maxTime !== undefined && report.status !== "closed") {
+    const envelope = report.stop?.hash ? `envelope ${report.stop.hash}` : "an envelope of this run";
+    return `The outcome of ${envelope} is not known, and it may still apply until its time bound. Run the same command again only after a ledger has closed after ${new Date(maxTime * 1000).toISOString()} (maxTime ${maxTime}): Dustin then re-reads the account and plans only what is left.`;
   }
   // Story E3-S4: a run the sequence guard stopped before the merge says when to come back.
   const until = report.stop?.code === "SEQNUM_TOO_FAR" ? report.stop.unblocksAtLedger : undefined;

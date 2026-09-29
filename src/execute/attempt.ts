@@ -72,6 +72,11 @@ export interface AttemptContext {
   settings: AttemptSettings;
   /** Adds an envelope to the report and publishes the report. */
   record(entry: SubmittedTransaction): void;
+  /**
+   * Takes an envelope that was recorded but never posted out of the report again and publishes
+   * the report: the signal was aborted between the record and the POST (Epic 4 review EX-1).
+   */
+  withdraw(entry: SubmittedTransaction): void;
   /** Publishes the report after an entry changed. */
   changed(): void;
   emit(event: CloseEvent): void;
@@ -84,8 +89,9 @@ export interface AttemptContext {
   preflight?: () => Promise<StopReason | null>;
   /**
    * The INTERRUPTED stop once the caller's signal is aborted, null before (review finding CL-1). It
-   * is asked at every safe point: before an envelope is rebuilt, and after one is refused or its
-   * outcome could not be settled, so no envelope is posted after the interruption.
+   * is asked at every safe point: before an envelope is rebuilt, immediately before every POST (the
+   * first envelope of each planned transaction included; Epic 4 review EX-1), and after one is
+   * refused or its outcome could not be settled, so no envelope is posted after the interruption.
    */
   interruption?: (at: InterruptionPoint) => StopReason | null;
 }
@@ -215,6 +221,8 @@ export async function submitPlannedTransaction(
     stop: { code, stage: "submit", verdict, detail, round: ctx.round, txIndex: tx.index, ...extra },
   });
   const label = `Transaction ${tx.index + 1} (${tx.phase})`;
+  // The transaction as a stop's detail names it, with its round after a re-plan.
+  const named = `${label.toLowerCase()}${ctx.round > 0 ? ` of round ${ctx.round}` : ""}`;
 
   ctx.enter("build");
   const account = await ctx.account();
@@ -245,7 +253,8 @@ export async function submitPlannedTransaction(
 
   for (let attempt = 1; ; attempt++) {
     // Review finding CL-1: nothing new is built or posted once the run is interrupted. The first
-    // envelope is guarded by the orchestrator, which asks before every planned transaction.
+    // envelope is guarded by the orchestrator, which asks before every planned transaction, and
+    // every envelope once more right before it is posted (EX-1, below).
     const halted =
       attempt > 1
         ? ctx.interruption?.({
@@ -301,6 +310,19 @@ export async function submitPlannedTransaction(
     await ctx.accountSigner.sign(inner);
     ctx.enter("sponsor");
     const bump = await ctx.sponsor.wrap(inner, bid);
+    // Epic 4 review EX-1 (BH-1): the safe points above come before the reads, the signing and the
+    // fee bump, and a signal can arrive while any of them is awaited (an account read, the merge
+    // preflight, a slow or hardware signer). So the run asks again once the envelope is signed and
+    // before it is recorded, for the first envelope as for a rebuilt one. An envelope built and
+    // signed but never posted is not recorded, and its bid leaves the budget.
+    const unposted = ctx.interruption?.({
+      where: `before ${attempt > 1 ? `envelope ${attempt} of ` : ""}${named} was posted`,
+      txIndex: tx.index,
+    });
+    if (unposted) {
+      ctx.sponsor.release([bump]);
+      return { kind: "stopped", stop: unposted };
+    }
     const hash = hashHex(bump);
     const entry: SubmittedTransaction = {
       index: tx.index,
@@ -340,7 +362,20 @@ export async function submitPlannedTransaction(
     });
 
     ctx.enter("submit");
-    const outcome = await postWithBackoff(ctx, entry, maxTime);
+    const posted = await postWithBackoff(ctx, entry, maxTime, () =>
+      ctx.interruption?.({
+        where: `before envelope ${short(hash)} of ${named} was posted`,
+        txIndex: tx.index,
+      }),
+    );
+    if (posted.kind === "unposted") {
+      // An observer of the copies published just above aborted the signal (EX-1): the envelope
+      // was never posted, so it leaves the report and its bid leaves the budget.
+      ctx.withdraw(entry);
+      ctx.sponsor.release([bump]);
+      return { kind: "stopped", stop: posted.stop };
+    }
+    const outcome = posted;
     recordOutcome(entry, outcome);
     // An applied transaction is published by the orchestrator once it has recorded the steps
     // (and the merge), so no observer ever sees it half recorded (review finding 3).
@@ -554,19 +589,36 @@ async function findEarlier(
  * Posts the envelope and learns its fate; after a 429 (Horizon's rate limiter,
  * https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/rate-limiting)
  * posts the same envelope again after `backoffMs`, doubled each time, at most
- * `maxRateLimitRetries` more times.
+ * `maxRateLimitRetries` more times. `beforeFirstPost` is asked immediately before the first POST
+ * (Epic 4 review EX-1): a stop from it means the envelope was never posted (`unposted`).
  */
 async function postWithBackoff(
   ctx: AttemptContext,
   entry: SubmittedTransaction,
   maxTime: number,
-): Promise<SubmitOutcome> {
+  beforeFirstPost: () => StopReason | null | undefined,
+): Promise<SubmitOutcome | { kind: "unposted"; stop: StopReason }> {
   const { settings } = ctx;
+  let last: SubmitOutcome | null = null;
   for (let retry = 0; ; retry++) {
     entry.attempts += 1;
     // Published as it happens (AC-E2-S3-6) and before the POST goes out, so a copy saved while the
     // POST is in flight counts it (review round 3, R3-3); a re-post after a 429 too (R3-4).
     ctx.changed();
+    // EX-1: the copy just published reaches the caller's observers, which run synchronously and
+    // may abort the signal; nothing is awaited between this question and the POST.
+    if (last === null) {
+      const stop = beforeFirstPost();
+      if (stop) {
+        entry.attempts -= 1;
+        return { kind: "unposted", stop };
+      }
+    } else if (settings.aborted?.()) {
+      // Not even the same envelope again after a 429 (CL-1): the last answer stands.
+      entry.attempts -= 1;
+      ctx.changed();
+      return last;
+    }
     const outcome = await submitAndConfirm(
       ctx.submitter,
       { xdr: entry.feeBumpEnvelopeXdr, hash: entry.hash, maxTime },
@@ -591,6 +643,7 @@ async function postWithBackoff(
         ...(settings.aborted ? { aborted: settings.aborted } : {}),
       },
     );
+    last = outcome;
     const limited = outcome.kind === "rejected" && outcome.status === 429;
     if (!limited || retry >= settings.maxRateLimitRetries) return outcome;
     // An interrupted run posts nothing again, not even the same envelope after a 429 (CL-1).

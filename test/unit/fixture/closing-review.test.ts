@@ -236,7 +236,8 @@ describe("CP-14: a fixture manifest is checked before anything reads Horizon", (
       );
       expect(c.text()).toContain("MANIFEST_INVALID");
       expect(c.text()).not.toContain("unexpected error");
-      expect(exit).toBe(1);
+      // A validation error: exit 2 (Epic 4 review D-4).
+      expect(exit).toBe(2);
       expect(requests).toEqual([]);
     }
   });

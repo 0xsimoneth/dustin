@@ -24,15 +24,25 @@ function tickingSleep(ledger: FakeLedger, clock: TestClock, msPerLedger = 5000) 
   };
 }
 
-/** Runs the recorded fixture's close, aborting the signal when `when` first says so. */
+/**
+ * Runs the recorded fixture's close, aborting the signal when `when` first says so, or with
+ * `atPost` as the POST of that number (1-based) reaches Horizon: the envelope is then in flight.
+ * An abort on the `tx:submitted` event comes before the POST, so that envelope is never posted
+ * (Epic 4 review EX-1).
+ */
 async function closeAborting(
   when: (event: CloseEvent) => boolean,
   setup: (h: ReturnType<typeof harness>) => void = () => undefined,
+  atPost?: number,
 ) {
-  const h = harness();
+  const controller = new AbortController();
+  let posts = 0;
+  const h = harness((_ledger, fetch) => (url, init) => {
+    if ((init?.method ?? "GET") === "POST" && ++posts === atPost) controller.abort("SIGINT");
+    return fetch(url, init);
+  });
   setup(h);
   const approved = await h.plan();
-  const controller = new AbortController();
   const events: CloseEvent[] = [];
   const copies: CloseReport[] = [];
   const report = await executeClose(approved, signers(), {
@@ -62,8 +72,11 @@ describe("ExecuteOptions.signal (CL-1)", () => {
   });
 
   it("finishes the transaction in flight and posts nothing after it: failed, with the stop", async () => {
+    // The signal comes as the first POST reaches Horizon.
     const { ledger, report, events } = await closeAborting(
-      (e) => e.type === "tx:submitted" && e.index === 0,
+      () => false,
+      () => undefined,
+      1,
     );
     // The first envelope was posted when the signal came; it was settled, and nothing followed.
     expect(ledger.submissions).toHaveLength(1);
@@ -112,9 +125,11 @@ describe("ExecuteOptions.signal (CL-1)", () => {
 
   it("records an envelope whose outcome is not known yet as unknown, with its time bound in the stop", async () => {
     const { ledger, report, clock } = await closeAborting(
-      (e) => e.type === "tx:submitted" && e.index === 0,
+      () => false,
       // The first envelope is lost behind a 504: Horizon never finds it by hash.
       (h) => void h.ledger.faults.push("504-not-applied"),
+      // The signal comes as its POST reaches Horizon.
+      1,
     );
     expect(ledger.submissions).toHaveLength(1);
     const [tx] = report.transactions;

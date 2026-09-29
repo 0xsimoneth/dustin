@@ -51,12 +51,20 @@ export interface CliDeps {
    */
   execute?: { sleep?: Sleep; executeClose?: typeof executeClose };
   /**
-   * SIGINT and SIGTERM while `close --execute` runs the executor (review finding CL-1): `process`
-   * in the binary, a fake in tests. Without it no handler is added.
+   * SIGINT and SIGTERM while `close --execute` runs, from its start (review finding CL-1; Epic 4
+   * review EX-9): `process` in the binary, a fake in tests. Without it no handler is added.
    */
   signals?: SignalSource;
-  /** Ends the process at once (`process.exit` in the binary), after a second signal. */
+  /**
+   * Ends the process with this code after a second signal: in the binary `process.exit` once both
+   * streams have flushed (src/cli/output.ts, `exitAfterFlush`).
+   */
   exit?: (code: number) => void;
+  /**
+   * Where the error a command ends with is written, once, when the standard error writer itself
+   * throws (Epic 4 review BH-19); default the process's standard error.
+   */
+  lastResort?: (text: string) => void;
 }
 
 /** Commands report their exit code here; `run()` returns it. */
@@ -95,14 +103,30 @@ export function buildProgram(
       // its human text is held back: run() reports a usage error as one `error` line (AA-10).
       writeOut: (text) => io.stdout(redact(text)),
       writeErr: (text) => {
-        if (!mode.json) io.stderr(redact(text));
+        if (mode.json) return;
+        try {
+          io.stderr(redact(text));
+        } catch {
+          // A writer that throws must not turn a usage error into an unexpected one (BH-19): the
+          // usage error is reported by run(), through the last-resort writer if need be.
+        }
       },
+      // Epic 4 review D-6: Commander's own error line ("error: unknown option ...") is left out;
+      // run() prints the usage error with its code, `dustin: USAGE_ERROR: ...`, after the help
+      // text that Commander still prints (showHelpAfterError).
+      outputError: () => undefined,
     })
     .showHelpAfterError()
     .option("--network <name>", "network to use; only testnet is supported", "testnet")
     .option(
       "--verbose",
       "on an error, print its full detail: cause chain, Horizon result codes, details (secrets redacted)",
+    )
+    // Epic 4 review AC-2 (AC-E4-S1-1): colours honour --no-color and NO_COLOR. Dustin never prints
+    // colour (docs/ux-design.md principle P6), so both are accepted and change nothing.
+    .option(
+      "--no-color",
+      "print no colour; accepted for scripts, and changes nothing: Dustin never prints colour, with or without NO_COLOR",
     );
 
   program.hook("preAction", (command, action) => {

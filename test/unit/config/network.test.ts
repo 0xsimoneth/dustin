@@ -60,6 +60,36 @@ describe("resolveConfig", () => {
   });
 });
 
+describe("D-7: an explorer base that names another network is refused", () => {
+  it("D-7: stellar.expert's public and futurenet explorers are MAINNET_REFUSED", () => {
+    for (const explorerBaseUrl of [
+      "https://stellar.expert/explorer/public",
+      "https://stellar.expert/explorer/PUBLIC/",
+      "https://stellar.expert/explorer/futurenet",
+      "https://mainnet.example.org/explorer",
+      "https://example.org/pubnet",
+    ]) {
+      // Before the fix it was accepted, so receipts linked to mainnet pages.
+      expect(() => resolveConfig({ explorerBaseUrl }), explorerBaseUrl).toThrow(
+        expect.objectContaining({ code: "MAINNET_REFUSED", stage: "config" }),
+      );
+    }
+  });
+
+  it("D-7: the default, a testnet explorer and a local one are accepted", () => {
+    for (const explorerBaseUrl of [
+      DEFAULT_EXPLORER_BASE,
+      "https://testnet.lumenscan.io",
+      "https://example.org/testnet",
+      "http://localhost:8000/explorer",
+    ]) {
+      expect(resolveConfig({ explorerBaseUrl }).explorerBaseUrl, explorerBaseUrl).toBe(
+        explorerBaseUrl,
+      );
+    }
+  });
+});
+
 describe("configFromEnv", () => {
   it("reads only the documented variables and never the secrets", () => {
     const env = {
@@ -114,12 +144,83 @@ describe("verifyHorizonIsTestnet", () => {
 
   it("reports an unreachable Horizon as retryable", async () => {
     const fetchImpl = vi.fn(() => Promise.reject(new Error("ECONNREFUSED")));
-    await expect(verifyHorizonIsTestnet("https://h.example", fetchImpl)).rejects.toMatchObject({
+    // Its retries wait on an injected pause (Epic 4 review D-3).
+    const quick = { sleep: () => Promise.resolve() };
+    await expect(
+      verifyHorizonIsTestnet("https://h.example", fetchImpl, quick),
+    ).rejects.toMatchObject({
       code: "HORIZON_UNAVAILABLE",
       retryable: true,
     });
     await expect(
-      verifyHorizonIsTestnet("https://h.example", respond({ error: "x" }, 503)),
+      verifyHorizonIsTestnet("https://h.example", respond({ error: "x" }, 503), quick),
     ).rejects.toMatchObject({ code: "HORIZON_UNAVAILABLE" });
+  });
+});
+
+describe("D-3: verifyHorizonIsTestnet retries as the read client does", () => {
+  const testnet = () =>
+    new Response(JSON.stringify({ network_passphrase: TESTNET_PASSPHRASE }), { status: 200 });
+
+  /** A fetch that answers with `answers` in turn, and the pauses taken between them. */
+  function scripted(...answers: Array<"drop" | number | "testnet">) {
+    const pauses: number[] = [];
+    let call = 0;
+    const fetchImpl = vi.fn(() => {
+      const answer = answers[Math.min(call++, answers.length - 1)]!;
+      if (answer === "drop") return Promise.reject(new Error("socket hang up"));
+      if (answer === "testnet") return Promise.resolve(testnet());
+      return Promise.resolve(new Response("{}", { status: answer }));
+    });
+    const sleep = (ms: number) => {
+      pauses.push(ms);
+      return Promise.resolve();
+    };
+    return { fetchImpl, pauses, sleep };
+  }
+
+  it("D-3: one dropped request is asked again after a pause, and the check passes", async () => {
+    const s = scripted("drop", "testnet");
+    // Before the fix: HORIZON_UNAVAILABLE at once, which the CLI ends with exit 6.
+    await expect(
+      verifyHorizonIsTestnet("https://h.example", s.fetchImpl, { sleep: s.sleep }),
+    ).resolves.toBeUndefined();
+    expect(s.fetchImpl).toHaveBeenCalledTimes(2);
+    expect(s.pauses).toEqual([1000]);
+  });
+
+  it("D-3: 429 and 5xx are asked again too; the backoff doubles, three retries at most", async () => {
+    const passes = scripted(429, 503, "testnet");
+    await verifyHorizonIsTestnet("https://h.example", passes.fetchImpl, { sleep: passes.sleep });
+    expect(passes.pauses).toEqual([1000, 2000]);
+    const down = scripted("drop");
+    await expect(
+      verifyHorizonIsTestnet("https://h.example", down.fetchImpl, { sleep: down.sleep }),
+    ).rejects.toMatchObject({ code: "HORIZON_UNAVAILABLE" });
+    expect(down.fetchImpl).toHaveBeenCalledTimes(4);
+    expect(down.pauses).toEqual([1000, 2000, 4000]);
+  });
+
+  it("D-3: an answer that is not a testnet Horizon is refused at once, without a retry", async () => {
+    const s = scripted(404);
+    await expect(
+      verifyHorizonIsTestnet("https://h.example", s.fetchImpl, { sleep: s.sleep }),
+    ).rejects.toMatchObject({ code: "CONFIG_INVALID" });
+    expect(s.fetchImpl).toHaveBeenCalledTimes(1);
+  });
+
+  it("D-3: the retries and the backoff are the caller's, as for the read client", async () => {
+    const s = scripted("drop");
+    await expect(
+      verifyHorizonIsTestnet("https://h.example", s.fetchImpl, {
+        retries: 1,
+        backoffMs: 250,
+        sleep: s.sleep,
+      }),
+    ).rejects.toMatchObject({ code: "HORIZON_UNAVAILABLE" });
+    expect(s.pauses).toEqual([250]);
+    await expect(
+      verifyHorizonIsTestnet("https://h.example", s.fetchImpl, { backoffMs: 0 }),
+    ).rejects.toMatchObject({ code: "CONFIG_INVALID" });
   });
 });

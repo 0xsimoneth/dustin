@@ -79,9 +79,10 @@ describe("dustin fixture verify (recorded Horizon)", () => {
     const bad = join(mkdtempSync(join(tmpdir(), "dustin-")), "bad.json");
     writeFileSync(bad, JSON.stringify({ hello: "world" }));
     const c = capture();
+    // A validation error: exit 2 (Epic 4 review D-4).
     expect(
       await run(["node", "dustin", "fixture", "verify", bad], c.io, "0.0.0", { env: {} }),
-    ).toBe(1);
+    ).toBe(2);
     expect(c.text()).toContain("MANIFEST_INVALID");
   });
 });

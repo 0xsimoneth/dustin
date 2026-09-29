@@ -28,7 +28,8 @@ export type DustinErrorCode =
   | "CONFIRMATION_REQUIRED"
   | "WRONG_SIGNER"
   | "ACCOUNT_NOT_FOUND"
-  | "RESET_SUSPECTED";
+  | "RESET_SUSPECTED"
+  | "LEDGER_DATA_INVALID";
 
 export type ErrorStage =
   "config" | "inspect" | "plan" | "build" | "sponsor" | "submit" | "confirm" | "merge";

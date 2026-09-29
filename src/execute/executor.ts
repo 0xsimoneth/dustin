@@ -202,7 +202,8 @@ export async function executeClose(
       `The account signer is ${accountKey}, not the account ${plan.account}.`,
       {
         stage: "config",
-        remedy: "Set DUSTIN_ACCOUNT_SECRET to the secret key of the account being closed.",
+        // Epic 4 review D-10: the SDK reads no environment; its error names the signer argument.
+        remedy: `Pass as signers.account a signer for the account being closed (${plan.account}).`,
       },
     );
   }
@@ -221,8 +222,7 @@ export async function executeClose(
       `The sponsor signer is ${sponsorKey}, but the plan names ${plan.feeSponsor}.`,
       {
         stage: "config",
-        remedy:
-          "Set DUSTIN_SPONSOR_SECRET to the sponsor's secret key, or plan again with --sponsor.",
+        remedy: `Pass as signers.feeSponsor a signer for the fee sponsor the plan names (${plan.feeSponsor}), or plan again with this sponsor as feeSponsor.`,
       },
     );
   }
@@ -233,7 +233,14 @@ export async function executeClose(
   // envelopes go. With the default submitter they go to config.horizonUrl, so that server must
   // prove it serves the testnet before anything is signed (review finding R6). An injected
   // submitter is the caller's responsibility.
-  if (!options.submitter) await verifyHorizonIsTestnet(config.horizonUrl);
+  // With the injected pause between its retries (Epic 4 review D-3).
+  if (!options.submitter) {
+    await verifyHorizonIsTestnet(
+      config.horizonUrl,
+      undefined,
+      options.sleep ? { sleep: options.sleep } : {},
+    );
+  }
   const submitter = options.submitter ?? horizonSubmitter(config.horizonUrl);
 
   // Nothing has happened yet, so a failure to plan is thrown as it is.
@@ -665,6 +672,13 @@ class CloseRun {
         this.report.transactions.push(entry);
         this.publish();
       },
+      withdraw: (entry) => {
+        // Epic 4 review EX-1: recorded, never posted; only envelopes whose POST started are listed.
+        const at = this.report.transactions.indexOf(entry);
+        if (at >= 0) this.report.transactions.splice(at, 1);
+        this.envelopeSteps.delete(entry.hash);
+        this.publish();
+      },
       changed: () => this.publish(),
       emit: (event) => this.emit(event),
       enter: (stage) => {
@@ -913,6 +927,9 @@ class CloseRun {
    * from a Horizon behind the one that took them, so it is read again after a short wait, at most
    * five times, and the last read is used as it is (edge cases E3, E4). Waiting costs a few
    * seconds; acting on the stale read would build at a used sequence number or refuse a clean merge.
+   * Once the run is interrupted the pause ends at once, so the signal is checked after it and the
+   * last read is used as it is: nothing is posted after the interruption anyway, and reading again
+   * without a pause would poll Horizon back to back (Epic 4 review BH-2, EX-7).
    */
   private async freshAccount(): Promise<HorizonAccount | null> {
     const used = this.usedSequence();
@@ -920,6 +937,7 @@ class CloseRun {
       const account = await this.input.reader.account(this.input.plan.account);
       if (!account || BigInt(account.sequence) >= used || read >= 5) return account;
       await this.settings.sleep(this.settings.pollIntervalMs);
+      if (this.settings.aborted?.()) return account;
     }
   }
 

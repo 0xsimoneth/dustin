@@ -1,4 +1,4 @@
-import type { Sleep } from "../config/pauses.js";
+import { timerSleep, timerSleepUntil, type Sleep } from "../config/pauses.js";
 
 /**
  * A pause that ends early when `signal` is aborted (review finding CL-1, story E4-S2), so a run
@@ -6,10 +6,13 @@ import type { Sleep } from "../config/pauses.js";
  * account read) stops at once instead of at the end of the pause. Every loop that sleeps through it
  * checks the signal after the pause, so an aborted signal never turns it into a tight loop against
  * Horizon. A rejection of the injected pause is passed on. Without a signal it is `sleep` itself.
+ * The default timer is cancelled with the signal, so no armed timer outlives the run (Epic 4 review
+ * EX-6, BH-9); an injected pause is left to run out, its promise no longer waited for.
  * AbortSignal: https://nodejs.org/api/globals.html#class-abortsignal
  */
 export function interruptibleSleep(sleep: Sleep, signal: AbortSignal | undefined): Sleep {
   if (!signal) return sleep;
+  if (sleep === timerSleep) return timerSleepUntil(signal);
   return (ms) => {
     if (signal.aborted) return Promise.resolve();
     return new Promise<void>((resolve, reject) => {

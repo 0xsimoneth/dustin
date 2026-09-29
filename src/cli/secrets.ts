@@ -8,6 +8,11 @@ export interface CloseSigners {
   account: Signer;
   /** Signs only the fee-bump envelopes and pays every fee. */
   feeSponsor: Signer;
+  /**
+   * The sponsor's secret as a message names it, with where it came from, never its value: "the
+   * secret key in DUSTIN_SPONSOR_SECRET (from the environment)" (Epic 4 review EX-10).
+   */
+  sponsorSource?: string;
 }
 
 export interface SecretSources {
@@ -33,10 +38,24 @@ const ROLE: Record<SecretName, string> = {
   DUSTIN_SPONSOR_SECRET: "the secret key of a funded testnet account that pays every fee",
 };
 
+/** Where a secret came from: the process environment, `.env`, or the hidden prompt. */
+type Origin = "the environment" | ".env" | "the hidden prompt";
+
+const PROMPT: Origin = "the hidden prompt";
+
 interface Found {
   value: string;
   /** Where it came from, for messages: never the value itself. */
-  origin: string;
+  origin: Origin;
+}
+
+/** The two signers, and how the sponsor's secret is named in a message. */
+function closeSigners(accountKeypair: Keypair, sponsorKeypair: Keypair, sponsor: Found) {
+  return {
+    account: keypairSigner(accountKeypair),
+    feeSponsor: keypairSigner(sponsorKeypair),
+    sponsorSource: secretSource("DUSTIN_SPONSOR_SECRET", sponsor),
+  };
 }
 
 /**
@@ -52,11 +71,8 @@ export function loadCloseSigners(account: string, sources: SecretSources): Close
     account,
     stored("DUSTIN_ACCOUNT_SECRET") ?? missing("DUSTIN_ACCOUNT_SECRET"),
   );
-  const sponsorKeypair = sponsorSigner(
-    account,
-    stored("DUSTIN_SPONSOR_SECRET") ?? missing("DUSTIN_SPONSOR_SECRET"),
-  );
-  return { account: keypairSigner(accountKeypair), feeSponsor: keypairSigner(sponsorKeypair) };
+  const sponsor = stored("DUSTIN_SPONSOR_SECRET") ?? missing("DUSTIN_SPONSOR_SECRET");
+  return closeSigners(accountKeypair, sponsorSigner(account, sponsor), sponsor);
 }
 
 /**
@@ -76,11 +92,8 @@ export async function askCloseSigners(
     account,
     stored("DUSTIN_ACCOUNT_SECRET") ?? (await asked("DUSTIN_ACCOUNT_SECRET", prompt)),
   );
-  const sponsorKeypair = sponsorSigner(
-    account,
-    stored("DUSTIN_SPONSOR_SECRET") ?? (await asked("DUSTIN_SPONSOR_SECRET", prompt)),
-  );
-  return { account: keypairSigner(accountKeypair), feeSponsor: keypairSigner(sponsorKeypair) };
+  const sponsor = stored("DUSTIN_SPONSOR_SECRET") ?? (await asked("DUSTIN_SPONSOR_SECRET", prompt));
+  return closeSigners(accountKeypair, sponsorSigner(account, sponsor), sponsor);
 }
 
 /** A lookup in the environment, then in `.env`, which is read at most once. */
@@ -109,14 +122,18 @@ async function asked(name: SecretName, prompt: SecretPrompt): Promise<Found> {
   if (answer !== null && typeof answer === "object") {
     return missing(name, `the hidden prompt was not asked: ${answer.unasked}`);
   }
-  const value = answer?.trim();
-  if (!value) {
+  if (answer === null) {
     return missing(
       name,
       "no secret was typed at the hidden prompt (the input ended, or Ctrl-C was pressed)",
     );
   }
-  return { value, origin: "the hidden prompt" };
+  const value = answer.trim();
+  if (!value) {
+    // Epic 4 review BH-21: Enter on an empty line is neither the end of input nor Ctrl-C.
+    return missing(name, "no secret was typed at the hidden prompt (the line entered was empty)");
+  }
+  return { value, origin: PROMPT };
 }
 
 function missing(name: SecretName, why?: string): never {
@@ -130,14 +147,37 @@ function missing(name: SecretName, why?: string): never {
   );
 }
 
+/**
+ * The secret as a message names it, with where it came from (Epic 4 review EX-10): the
+ * environment, `.env` or the hidden prompt. Never the value.
+ */
+export function secretSource(name: SecretName, found: Pick<Found, "origin">): string {
+  return found.origin === PROMPT
+    ? `the secret key typed at the hidden prompt for ${name}`
+    : `the secret key in ${name} (from ${found.origin === ".env" ? ".env in the working directory" : found.origin})`;
+}
+
+/** What to do about a wrong secret, where it came from (Epic 4 review EX-10). */
+function fixAt(name: SecretName, found: Found, what: string): string {
+  if (found.origin === PROMPT) {
+    return `Run the command again and type ${what} at the hidden prompt, or set ${name} in the environment or in .env.`;
+  }
+  if (found.origin === ".env") {
+    return `Set ${name} in .env to ${what}; a value in the environment would take precedence over it.`;
+  }
+  return `Set ${name} in the environment to ${what}.`;
+}
+
+const capital = (text: string) => `${text.charAt(0).toUpperCase()}${text.slice(1)}`;
+
 function keypairOf(name: SecretName, found: Found): Keypair {
   if (!StrKey.isValidEd25519SecretSeed(found.value)) {
     throw new DustinError(
       "CONFIG_INVALID",
-      `${name} from ${found.origin} is not a valid Stellar secret key; the value is not shown.`,
+      `${capital(secretSource(name, found))} is not a valid Stellar secret key; the value is not shown.`,
       {
         stage: "config",
-        remedy: `A secret key is 56 characters starting with S. Check ${name}.`,
+        remedy: `A secret key is 56 characters starting with S. ${fixAt(name, found, ROLE[name])}`,
       },
     );
   }
@@ -150,10 +190,10 @@ function accountSigner(account: string, found: Found): Keypair {
   if (owner !== account) {
     throw new DustinError(
       "WRONG_SIGNER",
-      `The secret in DUSTIN_ACCOUNT_SECRET belongs to ${owner}, not to the account ${account}.`,
+      `${capital(secretSource("DUSTIN_ACCOUNT_SECRET", found))} belongs to ${owner}, not to the account ${account}.`,
       {
         stage: "config",
-        remedy: "Set DUSTIN_ACCOUNT_SECRET to the secret key of the account being closed.",
+        remedy: fixAt("DUSTIN_ACCOUNT_SECRET", found, ROLE.DUSTIN_ACCOUNT_SECRET),
       },
     );
   }
@@ -165,10 +205,10 @@ function sponsorSigner(account: string, found: Found): Keypair {
   if (keypair.publicKey() === account) {
     throw new DustinError(
       "INVALID_ADDRESS",
-      "DUSTIN_SPONSOR_SECRET belongs to the account being closed; the fee sponsor must be a different account.",
+      `${capital(secretSource("DUSTIN_SPONSOR_SECRET", found))} belongs to the account being closed; the fee sponsor must be a different account.`,
       {
         stage: "config",
-        remedy: "Use a separate, funded testnet account as the fee sponsor.",
+        remedy: `Use a separate, funded testnet account as the fee sponsor. ${fixAt("DUSTIN_SPONSOR_SECRET", found, "its secret key")}`,
       },
     );
   }
