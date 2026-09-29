@@ -110,6 +110,12 @@ export function stepAction(step: CloseStep): string {
       return s.type === "account"
         ? `merge into ${short(s.destination)} (cannot be undone)`
         : "merge";
+    default: {
+      // Exhaustive (Epic 4 review BH-15): a kind added without a case fails to compile here, and
+      // one this version does not know is named as it is.
+      const unknown: never = step.kind;
+      return String(unknown).replaceAll("_", " ");
+    }
   }
 }
 

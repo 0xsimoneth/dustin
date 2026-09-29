@@ -4,6 +4,9 @@ import { interruptibleSleep } from "../../../src/execute/abort.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import { waitForLedger } from "../../../src/execute/preflight.js";
 import type { CloseReport } from "../../../src/execute/report.js";
+import { operationSummary } from "../../../src/execute/summary.js";
+import type { CloseStep } from "../../../src/plan/model.js";
+import { stepAction } from "../../../src/render/plan-text.js";
 import { messy } from "../../helpers/snapshots.js";
 import { harness, signers } from "./harness.js";
 
@@ -271,5 +274,51 @@ describe("BH-2 / EX-7: loops that pause check the signal after the pause", () =>
     });
     expect(waited).toMatchObject({ reached: false, interrupted: true, ledger: 100 });
     expect(reads).toBe(1);
+  });
+});
+
+describe("BH-15: the report's operation summary never aborts an attempt", () => {
+  const step = (subject: unknown, kind = "remove_data") =>
+    ({
+      id: "S9",
+      kind,
+      txIndex: 0,
+      subject,
+      reason: "",
+      dependsOn: [],
+      threshold: "medium",
+      operation: { type: "manageData", name: "x" },
+    }) as unknown as CloseStep;
+
+  it("BH-15: a subject this version does not know gets a fallback summary", () => {
+    // Before the fix the switch had no default and returned undefined.
+    expect(operationSummary(step({ type: "mystery" }))).toEqual({
+      stepId: "S9",
+      kind: "remove_data",
+      type: "manageData",
+      subject: "mystery",
+      summary: "remove data (mystery)",
+    });
+  });
+
+  it("BH-15: a step whose fields cannot be read gets the fallback, never an exception", () => {
+    const unreadable = {
+      type: "offer",
+      offerId: "1",
+      amount: "1",
+      get selling(): never {
+        throw new Error("unreadable");
+      },
+      buying: { type: "native" },
+    };
+    expect(operationSummary(step(unreadable, "cancel_offer"))).toMatchObject({
+      stepId: "S9",
+      kind: "cancel_offer",
+      subject: "offer",
+    });
+  });
+
+  it("BH-15: stepAction names a kind it does not know as it is", () => {
+    expect(stepAction(step({ type: "data", name: "x" }, "sweep_dust"))).toBe("sweep dust");
   });
 });
