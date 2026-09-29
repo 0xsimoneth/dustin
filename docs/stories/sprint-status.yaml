@@ -56,7 +56,7 @@ development_status:
   3-7-full-fixture-close: done
   epic-3-retrospective: optional
   epic-4: in-progress
-  4-1-cli-output-polish: review
+  4-1-cli-output-polish: done
   4-2-error-handling-polish: done
   4-3-test-evidence-reproducibility: review
   4-4-npm-publish-readme-integration-notes: in-progress
@@ -290,7 +290,7 @@ stories:
     title: CLI output polish
     epic: E4
     week: 4
-    status: review
+    status: done
     estimate_hours: 6
     deliverable: D1
   - key: 4-2-error-handling-polish

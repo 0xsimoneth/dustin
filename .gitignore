@@ -32,3 +32,6 @@ coverage/
 
 # Git worktrees of parallel coding agents (local tooling, never committed)
 .claude/worktrees/
+
+# Editor settings (local, never committed)
+.vscode/

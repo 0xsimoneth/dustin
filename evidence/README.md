@@ -2,7 +2,7 @@
 
 This page is for the chapter lead, and it is the page to read first. It maps the accepted Statement of Work ([`SUCCESSFUL_SOW.md`](../SUCCESSFUL_SOW.md)) to the evidence, row by row: section 6.1 (the planned evidence), section 6.2 (the verification checklist), Appendix A (the deliverable tracker) and Appendix B (the binary success metric). Nothing here needs any tool: every item is a file in this repository or a page that opens in a browser.
 
-State on 2026-09-29 (sprint day 8 of 30). Four items are the builder's to do and are marked **pending** wherever they appear, never ticked: the recording of the existing tool on the baseline fixture, the 60-second video, the npm publish, and the chapter lead's written acknowledgement of the two-fixture reading ([what is pending](#pending-the-builders-actions)).
+State on 2026-09-29 (sprint day 8 of 30). Five items are the builder's to do and are marked **pending** wherever they appear, never ticked: the recording of the existing tool on the baseline fixture, the 60-second video, the npm publish, a screenshot of the CI run page, and the chapter lead's written acknowledgement of the two-fixture reading ([what is pending](#pending-the-builders-actions)).
 
 Explorer and Horizon links stop resolving at the next testnet reset, scheduled for 2026-12-16 17:00 UTC; the JSON, XDR and transcripts committed in each run directory are the durable record ([what survives a reset](#what-survives-a-testnet-reset)). Everything here is public data: public keys, hashes, envelopes and Horizon JSON, never a secret.
 
@@ -194,6 +194,7 @@ None of these is done, and none is ticked anywhere in this package.
 | Baseline recording of the existing tool on the baseline fixture `messy-20260926T035942Z` (matrix B-01, then B-02 with 1 XLM added) | 4.1 D3, 5.1 week 1, 6.1 D3 | The builder records the StellarExpert Account Demolisher on the fixture, following [`baseline/README.md`](baseline/README.md) | `<pending: builder records the Demolisher baseline>` in [`baseline/README.md`](baseline/README.md) and in 6.1 above |
 | Dustin's close of the rebuilt baseline fixtures (matrix B-03) | 6.1 D3 ("the same account") | After the recordings | a new directory under `runs/` |
 | The 60-second video | 5.1 week 4, 6.1 D2 and docs row | The builder records it following [`docs/demo-video-script.md`](../docs/demo-video-script.md) and uploads it | `<pending: builder records the 60-second video (E4-S6)>` in [`demo/README.md`](demo/README.md), the README and 6.1 above |
+| A screenshot of the CI run page (story E4-S3, PRD decision D-16) | 6.1 D3 ("test results screenshot") | The builder captures [Testnet tier, run 36560464977](https://github.com/0xsimoneth/dustin/actions/runs/36560464977) in a browser | `<pending: builder captures evidence/tests/ci-run-<run id>.png>` in [`tests/README.md`](tests/README.md#the-ci-screenshot) |
 | The npm publish of `stellar-dustin` 0.1.0 | 5.1 week 4 | `npm publish` from the builder's account, with 2FA | the README's install line names the package; `<pending: builder publishes stellar-dustin 0.1.0 to npm>` |
 | The chapter lead's written acknowledgement of the two-fixture reading of week 3 ([canonical decision 3](../docs/README.md)) | 5.1 week 3 | The chapter lead confirms that `messy` carries the metric and `edge` carries the unclosable exit | `<pending: chapter lead's acknowledgement>` |
 

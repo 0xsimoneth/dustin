@@ -113,7 +113,7 @@ Every row is Met on committed evidence. The builder confirms each link in a fres
 | Matrix: liquidity pool shares detected and reported | Met | S-08: `testnet/edge` › S-08; `plan/blockers` › S-08 |
 | Matrix: raised multisig thresholds detected and reported | Met | S-09: `testnet/edge` › S-09 (AC-E3-S5-5); `plan/blockers` › S-09 |
 | Baseline recording of the existing tool stopping on the fixture | Pending | `<pending: builder records the Demolisher baseline on messy-20260926T035942Z (matrix B-01, B-02) per evidence/baseline/README.md, with the step where it stops>` |
-| Test run screenshot | Met, with a deviation: the images are rendered from the captured output, not screen captures (story E4-S3) | [`evidence/tests/offline.png`](tests/offline.png), [`evidence/tests/testnet.png`](tests/testnet.png) and the complete output beside them ([`evidence/tests/`](tests/README.md)); the live tier in CI on the 0.1.0 code, [Testnet tier, run 36560464977](https://github.com/0xsimoneth/dustin/actions/runs/36560464977) on `7bd04ae` (11 files, 58 tests, 342 s), and the offline tier [CI, run 36560430762](https://github.com/0xsimoneth/dustin/actions/runs/36560430762) on Node 22.12.0, 22 and 24 |
+| Test run screenshot | Met: the images rendered from the captured output, accepted by the builder (PRD decision D-16), and a screenshot of the CI run page `<pending: builder captures evidence/tests/ci-run-<run id>.png>` | [`evidence/tests/offline.png`](tests/offline.png), [`evidence/tests/testnet.png`](tests/testnet.png) and the complete output beside them ([`evidence/tests/`](tests/README.md)); the live tier in CI on the 0.1.0 code, [Testnet tier, run 36560464977](https://github.com/0xsimoneth/dustin/actions/runs/36560464977) on `7bd04ae` (11 files, 58 tests, 342 s), and the offline tier [CI, run 36560430762](https://github.com/0xsimoneth/dustin/actions/runs/36560430762) on Node 22.12.0, 22 and 24 |
 
 **Evidence (SOW 6.1: test results screenshot + public repo + baseline recording):**
 
@@ -178,7 +178,7 @@ No infrastructure, hosting or subscription costs were budgeted: the testnet Hori
 
 ## F. Deviations and scope changes
 
-The accepted SOW is the contract. The decisions below were recorded in [`docs/README.md`](../docs/README.md) (canonical decisions) and [`docs/prd.md`](../docs/prd.md) ("Decisions after review", D-1 to D-13) and change scope, wording or the form of the evidence; none removes a deliverable.
+The accepted SOW is the contract. The decisions below were recorded in [`docs/README.md`](../docs/README.md) (canonical decisions) and [`docs/prd.md`](../docs/prd.md) ("Decisions after review", D-1 to D-16) and change scope, wording or the form of the evidence; none removes a deliverable.
 
 - **Scope reading.**
   - Canonical decision 1: SDK and CLI only, no frontend, backend or contract (the SOW names a CLI demo as the interface).
@@ -197,7 +197,7 @@ The accepted SOW is the contract. The decisions below were recorded in [`docs/RE
   - PRD decision D-4: the live closes ran on fresh messy fixtures, with evidence in `evidence/runs/`.
   - PRD decision D-8: the forced payment of a frozen balance is proven by a negative probe and by a trustline revoked after planning, since the planner never plans a payment it knows will fail.
   - The baseline fixture is kept for the recording; its own close follows it (matrix row B-03).
-- **Engineering decisions without scope effect:** D-3 (the CI seed scan), D-5 (pauses of at least 200 ms), D-7 (a history rewrite postponed), D-12 and canonical decision 15 (third-party work cited by project name and URL).
+- **Engineering decisions without scope effect:** D-3 (the CI seed scan), D-5 (pauses of at least 200 ms), D-7 (a history rewrite postponed), D-12 and canonical decision 15 (third-party work cited by project name and URL), D-15 (the CLI's 120-column output and asset form), D-16 (the rendered test images kept, with a CI screenshot beside them).
 - **Timeline.** Weeks 2 and 3 were delivered early (by 2026-09-28, day 7); week-4 work began on day 7. `<pending: builder states the delivery date of the remaining items>`.
 - **Out-of-scope items (SOW section 4.1) confirmed untouched:** mainnet (refused, `MAINNET_REFUSED`); contract accounts (refused, `CONTRACT_ACCOUNT`); liquidity pool withdrawal (detected, `LIQUIDITY_POOL_SHARES`); raised-threshold multisig automation (detected, `THRESHOLD_UNMET`, `MASTER_KEY_DISABLED`); claimable balance cleanup (not done; an account that created claimable balances is `IS_SPONSOR`); production key management (the sponsor key stays an environment variable or a hidden prompt); wallet UI (none); third-party wallet integration (none).
 

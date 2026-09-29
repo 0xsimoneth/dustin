@@ -1,6 +1,6 @@
 # Story 4.1: CLI output polish
 
-Status: review
+Status: done
 
 ## Story
 
@@ -15,6 +15,7 @@ As written in `docs/epics-and-stories.md` (Story 4.1), with the two review findi
 1. AC-E4-S1-1: Then tables wrap at 80 columns, colours honour `--no-color` and `NO_COLOR`, amounts print with 7 decimals and assets as `CODE:G...xxxx`.
    - **Colours: met by having none.** Status is always a word and the output is plain ASCII (`docs/ux-design.md` principle P6, "words, not colors"; section 2.11 rule 8), so `NO_COLOR` and `--no-color` have nothing to switch off. No `--no-color` flag exists (PRD decision D-13: only what is built is listed); a test proves that no ANSI escape is ever printed, on standard output, standard error or a prompt, whether `NO_COLOR`, `FORCE_COLOR` or neither is set (commander's help styles are plain unless configured, `node_modules/commander/lib/help.js`).
    - **Amounts: met.** Every XLM amount the renderers format has 7 decimals; the account's zero fees now read `0.0000000 XLM` instead of `0 XLM`. The planner's own prose is not the renderers': its trustline removal reasons say "its 0.5 XLM reserve" (`src/plan/order.ts`, outside this story's files), reported to the planner's owner.
+   - **Width and asset form: accepted by the builder on 2026-09-29 (PRD decision D-15).** The two deviations below stay as built: prose wraps at 120 columns; a terminal narrower than a line wraps it softly and nothing is ever cut; items name assets as `CODE (issuer GABC...WXYZ)`, and `--json` carries every issuer in full.
    - **80 columns: deviation, 120 kept.** Prose wraps at 120 columns, the width of the demo terminal ("Record the terminal with a fixed 120-column width so no line wraps", `docs/ux-design.md` section 4; "Line length stays at or under 120 characters", section 2.10). 80 columns is not reachable without hurting legibility: a full hash with its label is 84 columns, a transaction's explorer URL 115 and an account's 119, and hashes and URLs are printed whole on their own line so they can be copied and clicked (sections 2.5 and 2.11 rule 6). Wrapping the prose at 80 would make the plan about half as tall again in the demo while those lines still exceed 80. What is wrapped at 120 since this story: the plan, the receipt, the progress, and now the CLI's own error and notice lines on standard error; a test checks every line of text of every kind of output. At 80 columns the terminal wraps the long lines softly and nothing is lost.
    - **Assets: deviation.** Assets are named `CODE (issuer GABC...WXYZ)` where an item is described (the first four and the last four characters of the issuer) and by code in operation lines, as the mockups of `docs/ux-design.md` sections 2.4 and 2.6 show them ("returned to issuer GBIL...7LNE"); the JSON documents carry `CODE:ISSUER` in full (`OperationSummary.asset`, `assetKey`). Changing the text form would also change the receipt wording that the live tests and the evidence checks read (`test/testnet/ladder.test.ts`, `scripts/evidence-cli.mjs`), which are outside this story.
 2. AC-E4-S1-2: Then `--json` output validates against `docs/plan-schema.json` and `docs/receipt-schema.json`.
@@ -82,6 +83,7 @@ How each is met, and the test that proves it:
 
 - 2026-09-29: AA-9, AA-10, the schemas, the exit-code table, plain output and the snapshots. Status: review. Deviations: no colour at all (P6), 120 columns kept (ux-design section 4), assets in the mockups' form (ux-design sections 2.4 and 2.6).
 - 2026-09-29: the findings of the Epic 4 closing review and of the pre-release review (D-n) that concern the output, below. Status: review.
+- 2026-09-29: the builder accepted both deviations of AC-E4-S1-1 (PRD decision D-15): 120 columns and the form `CODE (issuer GABC...WXYZ)` stay; at 80 columns the terminal wraps, nothing is truncated; `--json` names every issuer in full (`OperationSummary.asset`, `assetKey`, as `CODE:ISSUER`). Status: done.
 
 ## Review of 2026-09-29
 
