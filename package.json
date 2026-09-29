@@ -1,6 +1,6 @@
 {
   "name": "stellar-dustin",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Plan and close messy Stellar testnet accounts with fee-bumped, sponsor-paid transactions.",
   "keywords": [
     "stellar",
