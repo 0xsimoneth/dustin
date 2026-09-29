@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { executeClose } from "../../../src/execute/executor.js";
+import { renderPlan } from "../../../src/render/plan-text.js";
 import { nextStep, renderReport } from "../../../src/render/report-text.js";
+import { messy } from "../../helpers/snapshots.js";
 import { harness, reply, signers } from "../execute/harness.js";
 
 // Epic 4 closing review, the receipt. Each test is named after its finding ID and fails on the
@@ -64,5 +66,56 @@ describe("EX-5: the Next line of a stop with an open envelope names its time bou
     expect(nextStep(report)).toBe(
       "Nothing was submitted. Review the plan and run the command again.",
     );
+  });
+});
+
+describe("D-8: a missing account's plan and receipt print only what is known", () => {
+  /** The recorded fixture merged away: Horizon answers 404 for it. */
+  async function missing() {
+    const h = harness();
+    h.ledger.accounts.delete(messy.fixture);
+    const plan = await h.plan();
+    const report = await executeClose(plan, signers(), { confirm: true, ...h.deps });
+    return { plan, report };
+  }
+
+  it("D-8: the plan has no invented balance, reserve, bid or amounts", async () => {
+    const { plan } = await missing();
+    expect(plan.blockers.map((b) => b.code)).toContain("ACCOUNT_MISSING");
+    const text = renderPlan(plan);
+    // Before the fix: "Balance 0.0000000 XLM, ... (base reserve 0.0000000)", "bid up to 0.0000000
+    // XLM ... paid by the sponsor", "0.0000000 XLM arrives at ...".
+    expect(text).not.toContain("0.0000000");
+    expect(text).not.toContain("base reserve");
+    expect(text).not.toContain("paid by the sponsor");
+    expect(text).toContain(
+      "Balance      not known: the account does not exist on the ledger (Horizon answered 404)",
+    );
+    expect(text).toContain("Fees         none: the plan has no transaction to submit");
+    expect(text).toContain(
+      "  nothing: the account does not exist, so no XLM moves and no fee is paid",
+    );
+    expect(text).toContain(`plan hash ${plan.planHash}`);
+  });
+
+  it("D-8: the receipt has no fee sentence when nothing was submitted", async () => {
+    const { report } = await missing();
+    expect(report.transactions).toEqual([]);
+    const text = renderReport(report);
+    // Before the fix: "Sponsor ... paid every fee" and two lines of 0.0000000 XLM in fees.
+    expect(text).not.toContain("paid every fee");
+    expect(text).not.toMatch(/in fees paid by the (account|sponsor)/);
+    expect(text).toContain(`Sponsor      ${report.feeSponsor}\n`);
+    expect(text).toContain("  No fees: nothing was submitted.");
+  });
+
+  it("D-8: a receipt with a submission keeps its fee sentences", async () => {
+    const { deps, plan } = harness();
+    const report = await executeClose(await plan(), signers(), { confirm: true, ...deps });
+    expect(report.status).toBe("closed");
+    const text = renderReport(report);
+    expect(text).toContain("paid every fee");
+    expect(text).toContain("in fees paid by the sponsor");
+    expect(text).not.toContain("No fees: nothing was submitted.");
   });
 });

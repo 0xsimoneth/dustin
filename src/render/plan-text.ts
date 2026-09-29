@@ -143,25 +143,35 @@ function budgetLine(fees: ClosePlan["fees"]): string {
 export function renderPlan(plan: ClosePlan, options: RenderPlanOptions = {}): string {
   const out: string[] = [];
   const sponsor = plan.feeSponsor ?? "(not given; pass --sponsor)";
+  // Epic 4 review D-8: Horizon answered 404 for the account, so its balance and reserve are not
+  // known (the plan holds zeros for them) and there is nothing to bid for or to account for.
+  const missing = plan.blockers.some((b) => b.code === "ACCOUNT_MISSING");
   out.push(options.heading ?? "Dustin plan  (dry run: nothing is signed, nothing is submitted)");
   out.push(
     `Network      testnet   ledger ${grouped(plan.observed.ledger)}   observed ${plan.observed.closedAt}`,
   );
   out.push(`Account      ${plan.account}`);
   out.push(
-    `Balance      ${plan.reserve.balance} XLM, minimum balance ${plan.reserve.minimum} XLM, ` +
-      `spendable ${plan.reserve.spendable} XLM (base reserve ${plan.reserve.baseReserve})`,
+    missing
+      ? "Balance      not known: the account does not exist on the ledger (Horizon answered 404)"
+      : `Balance      ${plan.reserve.balance} XLM, minimum balance ${plan.reserve.minimum} XLM, ` +
+          `spendable ${plan.reserve.spendable} XLM (base reserve ${plan.reserve.baseReserve})`,
   );
   out.push(`Destination  ${plan.destination}`);
   out.push(`Sponsor      ${sponsor}`);
   if (plan.memo !== null)
     out.push(`Memo         ${JSON.stringify(plan.memo)} (on every transaction)`);
-  out.push(
-    `Fees         bid up to ${xlm(plan.fees.totalStroops)} (${grouped(plan.fees.baseFeeStroops)} stroops per operation), ` +
-      "paid by the sponsor; the account pays 0",
-  );
-  const [firstBudget = "", ...moreBudget] = wrap(budgetLine(plan.fees), 13);
-  out.push(`Budget       ${firstBudget.trimStart()}`, ...moreBudget);
+  if (plan.transactions.length === 0) {
+    // No transaction: no bid, and nothing for the sponsor to pay (D-8).
+    out.push("Fees         none: the plan has no transaction to submit");
+  } else {
+    out.push(
+      `Fees         bid up to ${xlm(plan.fees.totalStroops)} (${grouped(plan.fees.baseFeeStroops)} stroops per operation), ` +
+        "paid by the sponsor; the account pays 0",
+    );
+    const [firstBudget = "", ...moreBudget] = wrap(budgetLine(plan.fees), 13);
+    out.push(`Budget       ${firstBudget.trimStart()}`, ...moreBudget);
+  }
   out.push(`Status       ${STATUS[plan.status]}`);
 
   if (plan.steps.length > 0) {
@@ -200,6 +210,13 @@ export function renderPlan(plan: ClosePlan, options: RenderPlanOptions = {}): st
 
   const r = plan.recovery;
   out.push("", plan.status === "closable" ? "If everything succeeds" : "Accounting");
+  if (missing) {
+    // D-8: nothing moves and nothing is paid; no invented zeros.
+    out.push("  nothing: the account does not exist, so no XLM moves and no fee is paid");
+    out.push(`  plan hash ${plan.planHash}`);
+    if (options.next) out.push("", `Next: ${options.next}`);
+    return `${out.join("\n")}\n`;
+  }
   const entry = (e: string) => e.replace(/:G[A-Z2-7]{55}/g, "");
   out.push(
     ...wrap(

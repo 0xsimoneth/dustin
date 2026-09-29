@@ -441,7 +441,10 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
   out.push(...field("Network", `testnet, Horizon ${report.network.horizon}`));
   out.push(`Account      ${report.account}`);
   out.push(`Destination  ${report.destination}`);
-  out.push(`Sponsor      ${report.feeSponsor}   paid every fee`);
+  // Epic 4 review D-8: the fee sentences only when something was submitted; with nothing
+  // submitted there was no fee for anyone to pay.
+  const submitted = report.transactions.length > 0;
+  out.push(`Sponsor      ${report.feeSponsor}${submitted ? "   paid every fee" : ""}`);
   out.push(
     ...field(
       "Run",
@@ -530,10 +533,14 @@ export function renderReport(report: CloseReport, options: RenderReportOptions =
     );
   }
   out.push(...sponsorLines(report));
-  out.push("  0.0000000 XLM in fees paid by the account");
-  out.push(
-    `  ${xlm(r.feesPaidBySponsorStroops)} (${grouped(r.feesPaidBySponsorStroops)} stroops) in fees paid by the sponsor`,
-  );
+  if (submitted) {
+    out.push("  0.0000000 XLM in fees paid by the account");
+    out.push(
+      `  ${xlm(r.feesPaidBySponsorStroops)} (${grouped(r.feesPaidBySponsorStroops)} stroops) in fees paid by the sponsor`,
+    );
+  } else {
+    out.push("  No fees: nothing was submitted.");
+  }
 
   const disposals = disposalLines(report, stepsOfRound, mergeApplied, openMerge);
   if (disposals.length > 0) {
