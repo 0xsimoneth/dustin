@@ -1,5 +1,6 @@
 import { Networks } from "@stellar/stellar-sdk";
 import { DustinError } from "../errors/dustin-error.js";
+import { MAX_PAUSE_MS, assertPause, timerSleep, type Sleep } from "./pauses.js";
 
 // Testnet endpoints and passphrase: https://developers.stellar.org/docs/networks
 export const TESTNET_PASSPHRASE: string = Networks.TESTNET;
@@ -92,16 +93,39 @@ export function configFromEnv(env: Record<string, string | undefined>): DustinCo
   return config;
 }
 
+/** How `verifyHorizonIsTestnet` asks: the same bounded retry as the read client. */
+export interface VerifyHorizonOptions {
+  /** Milliseconds before one request is abandoned; default 15 s. */
+  timeoutMs?: number;
+  /** Requests after the first one that failed (unreachable, 429, 5xx); default 3. */
+  retries?: number;
+  /** First pause before a retry, doubled each time; default 1000 ms, at least 200. */
+  backoffMs?: number;
+  /** Default a timer; tests that must not wait pass one that returns at once. */
+  sleep?: Sleep;
+}
+
 /**
  * Asks Horizon which network it serves (`GET /` returns `network_passphrase`) and refuses
  * anything but testnet, so an overridden Horizon URL cannot point at a network with real value.
+ * A request that fails for a reason that may pass (Horizon unreachable, HTTP 429 or 5xx) is made
+ * again after a pause, `retries` more times, with the backoff of the read client
+ * (src/reader/horizon-json.ts): one dropped request no longer ends a command with exit 6 (Epic 4
+ * review D-3). An answer that is not Horizon's, or another network's, is refused at once. The
+ * third argument may be the timeout alone, as before.
  */
 export async function verifyHorizonIsTestnet(
   horizonUrl: string,
   fetchImpl: (url: string, init?: RequestInit) => Promise<Response> = (url, init) =>
     fetch(url, init),
-  timeoutMs = 15_000,
+  options: number | VerifyHorizonOptions = {},
 ): Promise<void> {
+  const settings = typeof options === "number" ? { timeoutMs: options } : options;
+  assertPause("backoffMs", settings.backoffMs, "config");
+  const timeoutMs = settings.timeoutMs ?? 15_000;
+  const retries = settings.retries ?? 3;
+  const backoffMs = settings.backoffMs ?? 1000;
+  const sleep = settings.sleep ?? timerSleep;
   const unavailable = (detail: string, cause?: unknown) =>
     new DustinError("HORIZON_UNAVAILABLE", `Horizon at ${horizonUrl} ${detail}.`, {
       stage: "config",
@@ -116,18 +140,29 @@ export async function verifyHorizonIsTestnet(
       `${horizonUrl} does not look like a Horizon server: ${detail}.`,
       {
         stage: "config",
-        remedy: "Check DUSTIN_HORIZON_URL; the default is https://horizon-testnet.stellar.org.",
+        remedy:
+          "Check the Horizon URL (DUSTIN_HORIZON_URL with the CLI, config.horizonUrl with the SDK); the default is https://horizon-testnet.stellar.org.",
       },
     );
-  let response: Response;
-  try {
-    response = await fetchImpl(`${horizonUrl}/`, { signal: AbortSignal.timeout(timeoutMs) });
-  } catch (cause) {
-    throw unavailable("is unreachable", cause);
+  let response: Response | null = null;
+  let failure: DustinError | null = null;
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) await sleep(Math.min(backoffMs * 2 ** (attempt - 1), MAX_PAUSE_MS));
+    try {
+      response = await fetchImpl(`${horizonUrl}/`, { signal: AbortSignal.timeout(timeoutMs) });
+    } catch (cause) {
+      failure = unavailable("is unreachable", cause);
+      response = null;
+      continue;
+    }
+    if (response.status === 429 || response.status >= 500) {
+      failure = unavailable(`answered HTTP ${response.status}`);
+      response = null;
+      continue;
+    }
+    break;
   }
-  if (response.status === 429 || response.status >= 500) {
-    throw unavailable(`answered HTTP ${response.status}`);
-  }
+  if (response === null) throw failure ?? unavailable("is unreachable");
   if (!response.ok) throw notHorizon(`HTTP ${response.status}`);
   let root: unknown;
   try {

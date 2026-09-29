@@ -227,7 +227,8 @@ async function closeGuarded(
   }
 
   const config = ctx.config();
-  await verifyHorizonIsTestnet(config.horizonUrl, ctx.fetch);
+  // The same retries as the reads that follow (Epic 4 review D-3).
+  await verifyHorizonIsTestnet(config.horizonUrl, ctx.fetch, ctx.horizon ?? {});
   guard.check();
   const reader = horizonReader(
     horizonJson(config.horizonUrl, { ...(ctx.fetch ? { fetch: ctx.fetch } : {}), ...ctx.horizon }),

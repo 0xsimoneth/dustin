@@ -233,7 +233,14 @@ export async function executeClose(
   // envelopes go. With the default submitter they go to config.horizonUrl, so that server must
   // prove it serves the testnet before anything is signed (review finding R6). An injected
   // submitter is the caller's responsibility.
-  if (!options.submitter) await verifyHorizonIsTestnet(config.horizonUrl);
+  // With the injected pause between its retries (Epic 4 review D-3).
+  if (!options.submitter) {
+    await verifyHorizonIsTestnet(
+      config.horizonUrl,
+      undefined,
+      options.sleep ? { sleep: options.sleep } : {},
+    );
+  }
   const submitter = options.submitter ?? horizonSubmitter(config.horizonUrl);
 
   // Nothing has happened yet, so a failure to plan is thrown as it is.
