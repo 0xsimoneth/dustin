@@ -211,5 +211,15 @@ export async function waitForLedger(
     // Never past the limit by a whole pause: the pause is clipped to the time left, and never
     // below the 200 ms floor (closing review CX-8).
     await options.sleep(clipPause(options.pollIntervalMs, options.limitMs - waitedMs));
+    // An interrupted run ends the pause at once: no read follows it (Epic 4 review BH-2, EX-7).
+    if (options.aborted?.()) {
+      return {
+        reached: false,
+        ledger,
+        waitedMs: options.now() - started,
+        polls,
+        interrupted: true,
+      };
+    }
   }
 }

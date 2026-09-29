@@ -665,6 +665,13 @@ class CloseRun {
         this.report.transactions.push(entry);
         this.publish();
       },
+      withdraw: (entry) => {
+        // Epic 4 review EX-1: recorded, never posted; only envelopes whose POST started are listed.
+        const at = this.report.transactions.indexOf(entry);
+        if (at >= 0) this.report.transactions.splice(at, 1);
+        this.envelopeSteps.delete(entry.hash);
+        this.publish();
+      },
       changed: () => this.publish(),
       emit: (event) => this.emit(event),
       enter: (stage) => {
@@ -913,6 +920,9 @@ class CloseRun {
    * from a Horizon behind the one that took them, so it is read again after a short wait, at most
    * five times, and the last read is used as it is (edge cases E3, E4). Waiting costs a few
    * seconds; acting on the stale read would build at a used sequence number or refuse a clean merge.
+   * Once the run is interrupted the pause ends at once, so the signal is checked after it and the
+   * last read is used as it is: nothing is posted after the interruption anyway, and reading again
+   * without a pause would poll Horizon back to back (Epic 4 review BH-2, EX-7).
    */
   private async freshAccount(): Promise<HorizonAccount | null> {
     const used = this.usedSequence();
@@ -920,6 +930,7 @@ class CloseRun {
       const account = await this.input.reader.account(this.input.plan.account);
       if (!account || BigInt(account.sequence) >= used || read >= 5) return account;
       await this.settings.sleep(this.settings.pollIntervalMs);
+      if (this.settings.aborted?.()) return account;
     }
   }
 
