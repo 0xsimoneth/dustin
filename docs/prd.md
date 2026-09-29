@@ -442,6 +442,11 @@ Updated on 2026-09-29 for stories E4-S1 and E4-S2; every addition is optional or
 - `planHash` leaves out the sequence guard's timing and its regrouping of the merge (review finding CA-11, decision D-10);
 - `remedyOf()` and `DEFAULT_REMEDIES`, the remedy of every error code (`docs/errors.md`).
 
+Updated on 2026-09-29 for story E4-S3 and the Epic 4 review; every addition is optional, and no name changed:
+- `AccountSnapshot.claimableBalancesClaimable?: ClaimableBalanceInfo[] | null` (`{ id, asset, amount, sponsor }`, asset `"native"` or `"CODE:ISSUER"`), the claimable balances that name the account as a claimant (matrix row X-03): absent when the reader was not asked, null when the read failed; it feeds a plan warning only and is outside `snapshotHash` and `planHash` (review findings EP-4, AC-16);
+- `LedgerReader.claimableBalancesClaimableBy?(id)`, the optional reader method behind it (`GET /claimable_balances?claimant=`, at most 10 pages of 200);
+- the error code `RESET_SUSPECTED` of `dustin fixture verify` (matrix row X-15).
+
 ```ts
 import type { FeeBumpTransaction, Keypair, Transaction } from "@stellar/stellar-sdk";
 
