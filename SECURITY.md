@@ -24,7 +24,7 @@ Dustin is **testnet only** in this release (`SUCCESSFUL_SOW.md`, section 4.1): i
 - a path that submits, or signs for, a network other than the testnet;
 - the fee sponsor signing anything but a fee-bump envelope, or beyond the per-close budget;
 - a transaction submitted without the typed confirmation, `--yes` or `confirm: true`, or a plan that is not the one shown;
-- the published package (`stellar-dustin` on npm) carrying anything but the built code, the README, the changelog, the license and `package.json`.
+- the published package (`stellar-dustin` on npm) carrying anything but the built code (`dist/`), the README, the license and `package.json`, or a secret in any of them.
 
 Out of scope: mainnet use (not supported), the security of the Stellar network, of Horizon or of Friendbot, the key management of an integrator's own `Signer`, and the pages of third-party explorers.
 

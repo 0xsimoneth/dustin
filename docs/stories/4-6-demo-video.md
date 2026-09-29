@@ -17,7 +17,7 @@ As written in `docs/epics-and-stories.md` (Story 4.6):
 2. AC-E4-S6-2: Then it is published (unlisted is acceptable) and linked from the README and `evidence/README.md`.
    - **Pending: human action by the builder.** The link slot is `<pending: builder records the 60-second video (E4-S6)>` in `evidence/demo/README.md`, the README's Demo section and the SOW 6.1 table of `evidence/README.md`.
 3. AC-E4-S6-3: Then `evidence/demo/script.md` contains the shot list and exact commands so it can be re-recorded after a testnet reset.
-   - **Met, with a deviation of path.** The builder asked for the rehearsal to live in `docs/demo-video-script.md`; `evidence/demo/README.md` points to it from the evidence directory. The shot list and the exact commands are in the script, and they run on a freshly built fixture, so the video can be re-recorded after a reset.
+   - **Met, with a deviation of path, decided by the builder (PRD decision D-14).** The rehearsal lives in `docs/demo-video-script.md`; `evidence/demo/README.md` points to it from the evidence directory. The shot list and the exact commands are in the script, and they run on a freshly built fixture, so the video can be re-recorded after a reset.
 
 ## Tasks / Subtasks
 
@@ -51,3 +51,4 @@ As written in `docs/epics-and-stories.md` (Story 4.6):
 ## Change Log
 
 - 2026-09-28: rehearsal script and the video slot. Status: in-progress (AC-1 and AC-2 wait for the builder's recording).
+- 2026-09-29: the script's reference transcript is the metric close on the 0.1.0 code (`evidence/runs/20260929T111408Z-e4-cli/`), and the three lines the independent review found wrong are fixed (`docs/reviews/2026-09-29-e4-review.md`, D-9): the "Unbumped" line is the last line of the build log on standard error, before the summary and the checks on standard output; `dustin plan` prints no unclosable line when there is none; the transcript's line count. The review ran the script as written on a fresh fixture, with the typed confirmation on a pseudo-terminal, and every other quoted line matched. The script's path is backed by PRD decision D-14. Status: in-progress (the video is the builder's).
