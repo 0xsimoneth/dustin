@@ -14,7 +14,7 @@ import { formatStroops } from "../../amounts.js";
 import { verifyHorizonIsTestnet, type ResolvedConfig } from "../../config/network.js";
 import type { Sleep } from "../../config/pauses.js";
 import { DustinError } from "../../errors/dustin-error.js";
-import { redact, redactValue } from "../../errors/redact.js";
+import { redact } from "../../errors/redact.js";
 import { executeClose, recoveredXlmWords, type CloseEvent } from "../../execute/executor.js";
 import type { CloseReport } from "../../execute/report.js";
 import { horizonSubmitter } from "../../execute/submit.js";
@@ -26,7 +26,7 @@ import { horizonJson } from "../../reader/horizon-json.js";
 import { horizonReader, type LedgerReader } from "../../reader/ledger-reader.js";
 import { renderPlan, short, unclosableLines } from "../../render/plan-text.js";
 import { nextStep, renderReport } from "../../render/report-text.js";
-import { textOf, type Channel } from "../channel.js";
+import { jsonText, textOf, type Channel } from "../channel.js";
 import { ExitCode, exitCodeForReport } from "../exit-codes.js";
 import {
   askCloseSigners,
@@ -503,7 +503,7 @@ export function ignoredFlagsNote(options: CloseCommandOptions): string | null {
   return `note: ${list} ${flags.length === 1 ? "has" : "have"} no effect without --execute; this is a dry run.`;
 }
 
-const json = (value: unknown) => JSON.stringify(redactValue(value), null, 2);
+const json = (value: unknown) => jsonText(value, 2);
 
 async function sponsorSpendable(reader: LedgerReader, sponsor: string): Promise<bigint> {
   const [ledger, account] = await Promise.all([reader.latestLedger(), reader.account(sponsor)]);

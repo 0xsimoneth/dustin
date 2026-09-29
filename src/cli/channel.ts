@@ -65,11 +65,11 @@ export interface Channel {
 
 /**
  * The writer of every line the `plan` and `close` commands print (review finding AA-10). Every
- * line passes through `redact()`, and in machine mode through `redactValue()` before
- * `JSON.stringify`, which escapes line breaks, so each object is one line (NDJSON).
+ * line passes through `redact()`, and in machine mode through `jsonText()`, whose
+ * `JSON.stringify` escapes line breaks, so each object is one line (NDJSON).
  */
 export function channel(streams: CliStreams, mode: OutputMode): Channel {
-  const line = (value: NdjsonLine) => streams.stderr(`${JSON.stringify(redactValue(value))}\n`);
+  const line = (value: NdjsonLine) => streams.stderr(`${ndjsonText(value)}\n`);
   return {
     mode,
     say: (text) => {
@@ -105,6 +105,98 @@ export function channel(streams: CliStreams, mode: OutputMode): Channel {
       if (mode.verbose) streams.stderr(redact(verboseText(error)));
     },
   };
+}
+
+/** How deep `plainJson` follows nested objects before it cuts them: far beyond any report. */
+const MAX_DEPTH = 64;
+
+/**
+ * A value as plain JSON data that `JSON.stringify` cannot choke on (Epic 4 review BH-6): a BigInt
+ * becomes its decimal string, a reference back to an enclosing object "[Circular]", an object
+ * with `toJSON` what that returns, a property whose getter throws "[unreadable]", and anything
+ * nested deeper than 64 levels "[too deep]"; functions, symbols and undefined are left out, as
+ * `JSON.stringify` leaves them out.
+ */
+export function plainJson(value: unknown, ancestors = new WeakSet<object>(), depth = 0): unknown {
+  if (typeof value === "bigint") return value.toString();
+  if (typeof value === "function" || typeof value === "symbol") return undefined;
+  if (value === null || typeof value !== "object") return value;
+  if (ancestors.has(value)) return "[Circular]";
+  if (depth >= MAX_DEPTH) return "[too deep]";
+  let toJSON: unknown;
+  try {
+    toJSON = (value as { toJSON?: unknown }).toJSON;
+    if (typeof toJSON === "function") {
+      const shown: unknown = (toJSON as () => unknown).call(value);
+      if (shown !== value) {
+        ancestors.add(value);
+        try {
+          return plainJson(shown, ancestors, depth + 1);
+        } finally {
+          ancestors.delete(value);
+        }
+      }
+    }
+  } catch {
+    return "[unreadable]";
+  }
+  ancestors.add(value);
+  try {
+    if (Array.isArray(value)) {
+      return value.map((item: unknown) => plainJson(item, ancestors, depth + 1) ?? null);
+    }
+    const plain: Record<string, unknown> = {};
+    for (const key of Object.keys(value)) {
+      let item: unknown;
+      try {
+        item = (value as Record<string, unknown>)[key];
+      } catch {
+        item = "[unreadable]";
+      }
+      const copy = plainJson(item, ancestors, depth + 1);
+      if (copy !== undefined) plain[key] = copy;
+    }
+    return plain;
+  } finally {
+    ancestors.delete(value);
+  }
+}
+
+/**
+ * JSON text of a value for the CLI's output (the stdout document, a `--report` copy), with
+ * every secret redacted, and never an exception (Epic 4 review BH-6): the value is made plain
+ * first (`plainJson`), and should even that fail, the text says so as JSON.
+ */
+export function jsonText(value: unknown, space?: number): string {
+  try {
+    return JSON.stringify(redactValue(plainJson(value)), null, space) ?? "null";
+  } catch (error) {
+    return JSON.stringify({ unserialisable: redact(textOf(error)) }, null, space);
+  }
+}
+
+/**
+ * One NDJSON line of standard error in machine mode, never an exception (Epic 4 review BH-6): a
+ * BigInt, a cycle or a throwing getter in an error's details, Horizon's codes or an event cannot
+ * take the stopped path's report and exit code with it. A line that cannot be made plain at all
+ * keeps its type and its top-level text and number fields.
+ */
+function ndjsonText(value: NdjsonLine): string {
+  try {
+    return JSON.stringify(redactValue(plainJson(value)));
+  } catch {
+    const kept: Record<string, string | number | boolean> = { type: "notice" };
+    try {
+      for (const [key, item] of Object.entries(value)) {
+        if (typeof item === "string") kept[key] = redact(item);
+        else if (typeof item === "number" || typeof item === "boolean") kept[key] = item;
+      }
+    } catch {
+      // Nothing more can be read from it; the type and the note below remain.
+    }
+    kept.unserialisable = true;
+    return JSON.stringify(kept);
+  }
 }
 
 /** The widest line for people: the demo terminal's 120 columns (docs/ux-design.md section 4). */
@@ -193,8 +285,11 @@ export function eventLine(event: CloseEvent): NdjsonLine {
  * file that cannot be written.
  */
 function verbatimOf(error: unknown): string[] {
-  if (!(error instanceof DustinError) || !error.details) return [];
-  return Object.values(error.details).filter((v): v is string => typeof v === "string");
+  if (!(error instanceof DustinError)) return [];
+  // Read through plainJson, which never throws (BH-6).
+  const details = plainJson(error.details);
+  if (details === null || typeof details !== "object") return [];
+  return Object.values(details).filter((v): v is string => typeof v === "string");
 }
 
 /** Text of anything thrown, without ever throwing itself (a value may lack a usable toString). */
@@ -258,7 +353,7 @@ export function errorDetail(error: unknown): Record<string, unknown> {
     cause = cause instanceof Error ? cause.cause : undefined;
   }
   if (causes.length > 0) detail.causes = causes;
-  return redactValue(detail);
+  return redactValue(plainJson(detail)) as Record<string, unknown>;
 }
 
 /** The --verbose detail as indented text under the one-line error (AC-E4-S2-2). */
