@@ -170,7 +170,7 @@ describe("X-03: claimable balances claimable by the account (recorded)", () => {
       `This account is a claimant of 2 claimable balances: 1 of CBA issued by ${a.plainIssuer} (0.0000002 CBA) and 1 of XLM (0.0000001 XLM); ` +
         "ids 00000000aec5198b1d7be01d746656c19365387922fc2b4bed090c2cbe2dbb07e9e8942d, 00000000e03686dc54488f51d0bf6f6a735303a29962a3e40867420516b3d805441a6fee. " +
         "The merge does not touch them: they stay on the ledger, and after the merge this account can no longer claim them unless it is created again; any other claimant their predicates allow can still claim them. " +
-        "To keep them, claim them before the close (ClaimClaimableBalance, sourced by this account, with a trustline for an asset other than XLM); claimable balance cleanup is out of scope.",
+        "Before the close, this account can claim those whose predicates still allow it (ClaimClaimableBalance, sourced by this account, with a trustline for an asset other than XLM); claimable balance cleanup is out of scope.",
     ]);
   });
 

@@ -6,8 +6,10 @@ import type {
   HorizonOffer,
 } from "../inspect/horizon-types.js";
 import {
+  PAGE_LIMIT,
   accountOffers,
   latestLedger,
+  readPages,
   type HorizonJsonClient,
   type LedgerSummary,
 } from "./horizon-json.js";
@@ -40,11 +42,14 @@ export interface LedgerReader {
   strictSendPathsToNative(asset: CreditAssetRef, amount: string): Promise<PathRecord[]>;
   claimableBalancesSponsoredBy(id: string): Promise<number>;
   /**
-   * Every claimable balance that names `id` as a claimant (`GET /claimable_balances?claimant=`, the
+   * The claimable balances that name `id` as a claimant (`GET /claimable_balances?claimant=`, the
    * query js-stellar-sdk's `ClaimableBalanceCallBuilder.claimant()` builds:
    * https://github.com/stellar/js-stellar-sdk/blob/master/src/horizon/claimable_balances_call_builder.ts),
-   * following the pages to the end (matrix row X-03). Optional, so a reader written before it
-   * still fits; the inspector then reports that it could not ask.
+   * following the pages (matrix row X-03). Horizon's reader stops after `CLAIMANT_PAGES` pages of
+   * 200: a result of `CLAIMANT_READ_LIMIT` records may be incomplete, and the warning then says
+   * "at least" (Epic 4 review EP-4). Optional, so a reader written before it still fits; the
+   * snapshot then leaves the field out. A read that fails is not fatal: the inspector records it
+   * as `null` and the plan warns that it could not be read.
    */
   claimableBalancesClaimableBy?(id: string): Promise<HorizonClaimableBalance[]>;
   /** Reserve assets of a liquidity pool ("native" or "CODE:ISSUER"), or null if not found. */
@@ -60,8 +65,16 @@ export function strictSendToNativePath(asset: CreditAssetRef, amount: string): s
 }
 
 interface Page<T> {
-  _embedded: { records: (T & { paging_token: string })[] };
+  _embedded: { records: T[] };
 }
+
+/**
+ * How many pages of 200 the claimant read follows before it stops: the balances only feed a
+ * warning, so a claimant of thousands of spam balances costs at most ten requests (EP-4).
+ */
+export const CLAIMANT_PAGES = 10;
+/** The most claimable balances the claimant read returns: at this count there may be more. */
+export const CLAIMANT_READ_LIMIT = CLAIMANT_PAGES * PAGE_LIMIT;
 
 export function horizonReader(client: HorizonJsonClient): LedgerReader {
   return {
@@ -86,30 +99,21 @@ export function horizonReader(client: HorizonJsonClient): LedgerReader {
       return pool ? pool.reserves.map((r) => r.asset) : null;
     },
     async claimableBalancesClaimableBy(id) {
-      const balances: HorizonClaimableBalance[] = [];
-      let cursor = "";
-      for (;;) {
-        const page = await client.get<Page<HorizonClaimableBalance>>(
+      const { records } = await readPages<HorizonClaimableBalance>(
+        client,
+        (cursor) =>
           `/claimable_balances?claimant=${id}&limit=200${cursor ? `&cursor=${cursor}` : ""}`,
-        );
-        const records = page?._embedded.records ?? [];
-        balances.push(...records);
-        if (records.length < 200) return balances;
-        cursor = records[records.length - 1]!.paging_token;
-      }
+        CLAIMANT_PAGES,
+      );
+      return records;
     },
     async claimableBalancesSponsoredBy(id) {
-      let count = 0;
-      let cursor = "";
-      for (;;) {
-        const page = await client.get<Page<{ id: string }>>(
+      const { records } = await readPages<{ id: string }>(
+        client,
+        (cursor) =>
           `/claimable_balances?sponsor=${id}&limit=200${cursor ? `&cursor=${cursor}` : ""}`,
-        );
-        const records = page?._embedded.records ?? [];
-        count += records.length;
-        if (records.length < 200) return count;
-        cursor = records[records.length - 1]!.paging_token;
-      }
+      );
+      return records.length;
     },
   };
 }
