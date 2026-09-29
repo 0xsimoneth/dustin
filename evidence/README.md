@@ -170,7 +170,7 @@ The tests, on the merged code of stories E4-S1 to E4-S3 (commit `0df4d09`, 2026-
 - an account linked on Horizon or StellarExpert is asked on testnet Horizon: a 404 whose history ends in the account's own `account_merge` is "gone (merged)", which is what the evidence shows for a closed account, while a 404 with no history at all is a failure;
 - every other https link must answer below 400.
 
-It sends GET requests only, refuses any network but the testnet without a request, and needs the internet; after the testnet reset of 2026-12-16 it fails by design. It exits 0 when every link is fine, 1 when one failed, 2 for a usage error, and 3 when none failed but one could not be checked (a network error, a timeout, HTTP 429 or 5xx after its retries, or a bot protection's 403). EVIDENCE_CHECK_RESULT
+It sends GET requests only, refuses any network but the testnet without a request, and needs the internet; after the testnet reset of 2026-12-16 it fails by design. It exits 0 when every link is fine, 1 when one failed, 2 for a usage error, and 3 when none failed but one could not be checked (a network error, a timeout, HTTP 429 or 5xx after its retries, or a bot protection's 403). Its run of 2026-09-29 at 11:47 UTC, on the 16 files it reads by default (the Markdown files under `evidence/`, `README.md` and `docs/write-up.md`): 593 links and 12 listed transaction hashes; 579 ok, 24 "gone (merged)" (the closed accounts of the evidence, each with its own `account_merge`), 0 failed, and 2 unchecked: the SCF #44 round recap on medium.com, cited twice in the write-up, whose bot protection answered HTTP 403 to the automated check (open it in a browser). Exit code 3, "unchecked only".
 
 ## What survives a testnet reset
 
