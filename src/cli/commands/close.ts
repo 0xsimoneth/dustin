@@ -26,6 +26,7 @@ import { horizonJson } from "../../reader/horizon-json.js";
 import { horizonReader, type LedgerReader } from "../../reader/ledger-reader.js";
 import { renderPlan, short, unclosableLines } from "../../render/plan-text.js";
 import { nextStep, renderReport } from "../../render/report-text.js";
+import type { Signer } from "../../sponsor/signer.js";
 import { jsonText, textOf, type Channel } from "../channel.js";
 import { ExitCode, exitCodeForReport } from "../exit-codes.js";
 import {
@@ -239,12 +240,14 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
     // as it does for an SDK caller (PRD FR-17), and the receipt, --report and --json carry it. The
     // exit code stays 3, nothing executed (canonical decision 5). The executor plans again before
     // anything else, and a plan that differs from this one (the account came back) is drift, so
-    // nothing can be signed on this path.
+    // nothing can be signed on this path (Epic 4 review BH-10, proved by
+    // test/unit/cli/epic4-review-cli.test.ts). No confirmation was asked either, so the executor
+    // gets signers that cannot sign: the public keys it checks, and a refusal should it ever sign.
     const receipt = options.report !== undefined ? receiptFile(options.report, ctx) : null;
     out.say(
       "\nThe account does not exist on the testnet ledger: nothing is signed, and Horizon's 404 is recorded in the report.\n",
     );
-    return runExecutor(shown, receipt, null);
+    return runExecutor({ ...shown, signers: unconfirmedSigners(shown.signers) }, receipt, null);
   }
   if (plan.transactions.length === 0) {
     return refusedWith(
@@ -492,6 +495,29 @@ function receiptLine(receipt: { path: string; ok: boolean; written: boolean }, o
       : `Report NOT written to ${receipt.path} (see the warning above); ${printed} is the only record of this run's hashes.`;
   if (out.mode.json) out.notice(text);
   else out.say(`${text}\n`);
+}
+
+/**
+ * Signers for a run that was never confirmed (Epic 4 review BH-10): the run after a completed
+ * close, whose executor stops before any signature (ACCOUNT_MISSING, or PLAN_CHANGED when the
+ * account came back). They give the public keys the executor checks; a signature is refused.
+ */
+function unconfirmedSigners(signers: CloseSigners): CloseSigners {
+  const refusing = (signer: Signer): Signer => ({
+    publicKey: () => signer.publicKey(),
+    sign: () => {
+      throw new DustinError(
+        "CONFIRMATION_REQUIRED",
+        "The run after a completed close was not confirmed, so nothing is signed on it.",
+        {
+          stage: "config",
+          remedy:
+            "Run the same command again: Dustin re-reads the account and, if it exists again, shows its plan and asks for the confirmation.",
+        },
+      );
+    },
+  });
+  return { account: refusing(signers.account), feeSponsor: refusing(signers.feeSponsor) };
 }
 
 /** The note printed by `close` without `--execute` when flags that need it were given. */

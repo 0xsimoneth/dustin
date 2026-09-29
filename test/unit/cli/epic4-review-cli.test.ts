@@ -10,7 +10,10 @@ import { guardedWriter, stdoutFallback } from "../../../src/cli/output.js";
 import { buildProgram } from "../../../src/cli/program.js";
 import { VALUE_OPTIONS, run, scanMode } from "../../../src/cli/run.js";
 import { DustinError } from "../../../src/errors/dustin-error.js";
-import type { executeClose } from "../../../src/execute/executor.js";
+import {
+  executeClose as realExecuteClose,
+  type executeClose,
+} from "../../../src/execute/executor.js";
 import type { CloseReport, SubmittedTransaction } from "../../../src/execute/report.js";
 import type { ClosePlan } from "../../../src/plan/model.js";
 import {
@@ -464,5 +467,80 @@ describe("BH-12: --json without --yes is refused before the --report file is tou
     expect(r.code).toBe(3);
     expect(readdirSync(dir)).toEqual(["close.json"]);
     expect(readFileSync(path, "utf8")).toBe('{"marker":"earlier"}\n');
+  });
+});
+
+describe("BH-10: the run after a completed close cannot close an account funded again", () => {
+  /**
+   * A world whose account Horizon answers 404 for when the CLI plans, and that is funded again
+   * (its old entry put back) before the executor makes its fresh plan. The executor is the real
+   * one, with signers that count every signature.
+   */
+  async function fundedAgain(extra: string[] = []) {
+    const world = zeroSpendableWorld();
+    const entry = world.ledger.accounts.get(world.id)!;
+    world.ledger.accounts.delete(world.id);
+    let signatures = 0;
+    const counting: typeof executeClose = (plan, signers, options) => {
+      const count = (s: typeof signers.account) => ({
+        publicKey: () => s.publicKey(),
+        sign: (tx: Parameters<typeof s.sign>[0]) => {
+          signatures += 1;
+          return s.sign(tx);
+        },
+      });
+      // Funded again after the CLI's 404 plan, before the executor's fresh plan.
+      world.ledger.accounts.set(world.id, entry);
+      return realExecuteClose(
+        plan,
+        { account: count(signers.account), feeSponsor: count(signers.feeSponsor) },
+        options,
+      );
+    };
+    const r = await closeCli(world, executeArgs(world, "--yes", ...extra), {
+      executeClose: counting,
+    });
+    return { world, r, signatures: () => signatures };
+  }
+
+  it("BH-10: the fresh plan is drift: exit 3, nothing signed or submitted, the account stays", async () => {
+    const { world, r, signatures } = await fundedAgain();
+    expect(r.code).toBe(3);
+    expect(signatures()).toBe(0);
+    expect(world.ledger.submissions).toHaveLength(0);
+    expect(world.ledger.accounts.has(world.id)).toBe(true);
+    expect(r.out).toContain("Dustin close receipt   ABORTED: nothing was submitted");
+    expect(r.out.replace(/\s+/g, " ")).toContain("PLAN_CHANGED");
+  });
+
+  it("BH-10: the executor on that path gets signers that refuse to sign", async () => {
+    const world = zeroSpendableWorld();
+    world.ledger.accounts.delete(world.id);
+    let keys: string[] = [];
+    const signing: typeof executeClose = (_plan, signers) => {
+      keys = [signers.account.publicKey(), signers.feeSponsor.publicKey()];
+      try {
+        void signers.account.sign({} as never);
+      } catch (error) {
+        return Promise.reject(error instanceof Error ? error : new Error(String(error)));
+      }
+      return Promise.reject(new Error("signed without a confirmation"));
+    };
+    const r = await closeCli(world, executeArgs(world, "--yes"), { executeClose: signing });
+    expect(keys).toEqual([world.id, world.sponsor.publicKey()]);
+    expect(r.code).toBe(3);
+    expect(r.err).toContain(
+      "CONFIRMATION_REQUIRED: The run after a completed close was not confirmed",
+    );
+  });
+
+  it("BH-10: the same with --json: the report is the document and the error line says PLAN_CHANGED", async () => {
+    const { r, signatures } = await fundedAgain(["--json"]);
+    expect(r.code).toBe(3);
+    expect(signatures()).toBe(0);
+    expect(JSON.parse(r.out)).toMatchObject({ status: "aborted", stop: { code: "PLAN_CHANGED" } });
+    expect(ndjson(r.err).filter((l) => l.type === "error")).toEqual([
+      expect.objectContaining({ code: "PLAN_CHANGED", exitCode: 3 }),
+    ]);
   });
 });
