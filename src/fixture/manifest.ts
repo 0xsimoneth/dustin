@@ -159,6 +159,28 @@ function allPublicKeys(accounts: unknown, roles: readonly string[]): boolean {
 const hasPassphrase = (network: { passphrase?: unknown } | undefined): boolean =>
   typeof network?.passphrase === "string" && network.passphrase.length > 0;
 
+const isLedger = (value: unknown): boolean =>
+  typeof value === "number" && Number.isSafeInteger(value) && value > 0;
+
+/**
+ * The ledgers the reset check compares with Horizon's latest one (`recordedLedger`): the creation
+ * ledger and a ledger for every build transaction, each a positive integer. Without them a NaN
+ * would silently disable the ledger comparison, and a missing `transactions` would end the command
+ * with a TypeError instead of MANIFEST_INVALID (Epic 4 review EP-3).
+ */
+function hasRecordedLedgers(m: { createdAtLedger?: unknown; transactions?: unknown }): boolean {
+  return (
+    isLedger(m.createdAtLedger) &&
+    Array.isArray(m.transactions) &&
+    m.transactions.every(
+      (t: unknown) =>
+        typeof t === "object" && t !== null && isLedger((t as { ledger?: unknown }).ledger),
+    )
+  );
+}
+
+const hasId = (id: unknown): boolean => typeof id === "string" && id.length > 0;
+
 /**
  * A manifest that is truncated or edited by hand is refused here with MANIFEST_INVALID, before
  * anything reads Horizon: a missing role would become a read of `/accounts/undefined`, answered
@@ -170,8 +192,10 @@ export function readManifest(path: string): FixtureManifest {
   if (
     m.kind !== "dustin-fixture" ||
     m.schemaVersion !== 1 ||
+    !hasId(m.id) ||
     !allPublicKeys(m.accounts, MESSY_ROLES) ||
-    !hasPassphrase(m.network)
+    !hasPassphrase(m.network) ||
+    !hasRecordedLedgers(m)
   ) {
     throw notAManifest(path);
   }
@@ -185,17 +209,25 @@ export function readAnyManifest(path: string): FixtureManifest | EdgeFixtureMani
     // Every account role and the multisig signer are public keys, the network is named and the
     // pool id is Horizon's 64 lowercase hex digits (closing review CP-14). The variant roles are
     // those the manifest lists: a fixture built before a variant was added has no account for it
-    // (E4-S3), and every listed variant must be one the recipe knows.
+    // (E4-S3), and every listed variant must be one the recipe knows. At least one variant, each
+    // listed once with the account `accounts` names for it, and the recorded ledgers the reset
+    // check compares (Epic 4 review EP-3, EP-17): with `variants: []` only the helpers would be
+    // verified, and the fixture would pass without a single edge case.
     const listed = Array.isArray(m.variants) ? m.variants.map((v) => v?.role) : null;
+    const accounts = (m.accounts ?? {}) as Record<string, unknown>;
     if (
       !listed ||
+      listed.length === 0 ||
+      new Set(listed).size !== listed.length ||
       !listed.every((role) => EDGE.variants.some((v) => v.role === role)) ||
       !allPublicKeys(m.accounts, [...EDGE_HELPER_ROLES, ...listed]) ||
+      !m.variants!.every((v) => v.account === accounts[v.role]) ||
       !isPublicKey(m.multisigSigner) ||
+      !hasId(m.id) ||
       !hasPassphrase(m.network) ||
+      !hasRecordedLedgers(m) ||
       typeof m.pool?.id !== "string" ||
-      !/^[0-9a-f]{64}$/.test(m.pool.id) ||
-      !Array.isArray(m.variants)
+      !/^[0-9a-f]{64}$/.test(m.pool.id)
     ) {
       throw notAManifest(path);
     }

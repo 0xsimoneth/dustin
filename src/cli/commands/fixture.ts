@@ -181,10 +181,12 @@ export function renderEdgeVariants(manifest: EdgeFixtureManifest): string[] {
 
 /**
  * Exit code 3 when a check fails (docs/prd.md section 6). Before any check, a suspected testnet
- * reset stops the command with RESET_SUSPECTED, also exit 3 (matrix row X-15): the manifest records
- * a ledger beyond Horizon's latest one, or one of its accounts answers 404 while Horizon holds no
- * operation for it. An account that answers 404 with its account_merge still on Horizon was closed,
- * not reset: its "exists" check fails and names the merge.
+ * reset stops the command with RESET_SUSPECTED, also exit 3 (matrix row X-15): none of the
+ * manifest accounts it reads exists, and either Horizon's latest ledger lies more than a small lag
+ * tolerance below the one the manifest records, or Horizon holds no operation for any of them
+ * (src/fixture/reset.ts; Epic 4 review EP-1). Any other account that answers 404 fails its
+ * "exists" check with the reason: closed by its account_merge (in ledger N, with the hash), gone
+ * without a merge among its latest operations, or never seen by Horizon (EP-2, EP-20).
  */
 export async function fixtureVerify(
   manifestPath: string,
@@ -206,11 +208,12 @@ export async function fixtureVerify(
     expectationFromManifest(manifest),
     manifest.accounts.fixture,
   );
-  const { closed } = await assertNoReset(client, {
+  const { missing } = await assertNoReset(client, {
     manifestId: manifest.id,
     profile: "messy",
     recordedLedger: recordedLedger(manifest),
-    latestLedger: loaded.latestLedger ?? 0,
+    // Not read is not ledger 0 (EP-1).
+    latestLedger: loaded.latestLedger ?? null,
     accounts: [
       { role: "fixture", account: manifest.accounts.fixture, found: loaded.account !== null },
       {
@@ -220,8 +223,11 @@ export async function fixtureVerify(
       },
     ],
   });
-  const merge = closed.find((c) => c.role === "fixture");
-  const input = merge ? { ...loaded, closed: merge } : loaded;
+  const input = {
+    ...loaded,
+    ...(missing.fixture ? { missing: missing.fixture } : {}),
+    ...(missing.destination ? { destinationMissing: missing.destination } : {}),
+  };
   const result = verifyFixture(input);
   const snapshot = {
     checkedAt: new Date().toISOString(),
@@ -262,18 +268,19 @@ async function fixtureVerifyEdge(
     manifest.pool.id,
     manifest.variants.map((v) => v.role),
   );
-  const { closed } = await assertNoReset(client, {
+  const { missing } = await assertNoReset(client, {
     manifestId: manifest.id,
     profile: "edge",
     recordedLedger: recordedLedger(manifest),
-    latestLedger: loaded.latestLedger ?? 0,
+    // Not read is not ledger 0 (EP-1).
+    latestLedger: loaded.latestLedger ?? null,
     accounts: Object.entries(loaded.accounts).map(([role, account]) => ({
       role,
       account: manifest.accounts[role as EdgeAccountRole],
       found: account !== null && account !== undefined,
     })),
   });
-  const input = { ...loaded, closed: Object.fromEntries(closed.map((c) => [c.role, c])) };
+  const input = { ...loaded, missing };
   const result = verifyEdgeFixture(input);
   const snapshot = {
     checkedAt: new Date().toISOString(),

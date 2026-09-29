@@ -1,0 +1,73 @@
+{
+  "note": "Recorded from testnet Horizon on 2026-09-29: the transaction of that account_merge, whose `ledger` the reset check reports (Epic 4 review EP-20). Public data only.",
+  "path": "/transactions/36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c",
+  "status": 200,
+  "body": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/transactions/36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c"
+      },
+      "account": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7"
+      },
+      "ledger": {
+        "href": "https://horizon-testnet.stellar.org/ledgers/4914211"
+      },
+      "operations": {
+        "href": "https://horizon-testnet.stellar.org/transactions/36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c/operations{?cursor,limit,order}",
+        "templated": true
+      },
+      "effects": {
+        "href": "https://horizon-testnet.stellar.org/transactions/36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c/effects{?cursor,limit,order}",
+        "templated": true
+      },
+      "precedes": {
+        "href": "https://horizon-testnet.stellar.org/transactions?order=asc&cursor=21106375530659840"
+      },
+      "succeeds": {
+        "href": "https://horizon-testnet.stellar.org/transactions?order=desc&cursor=21106375530659840"
+      },
+      "transaction": {
+        "href": "https://horizon-testnet.stellar.org/transactions/36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c"
+      }
+    },
+    "id": "36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c",
+    "paging_token": "21106375530659840",
+    "successful": true,
+    "hash": "36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c",
+    "ledger": 4914211,
+    "created_at": "2026-09-28T11:24:02Z",
+    "source_account": "GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7",
+    "source_account_sequence": "21106323991035911",
+    "fee_account": "GBCHRHGJMTMA2MNEVJWZL5GRYXQ3OF5CRKVMZHPFPASSW2DBLPQFEHOG",
+    "fee_charged": "200",
+    "max_fee": "168324",
+    "operation_count": 1,
+    "envelope_xdr": "AAAABQAAAABEeJzJZNgNMaSqbZX00cXhtxeiiqrMneV4JStoYVvgUgAAAAAAApGEAAAAAgAAAACe8pzLUD5hBsm4T8Jct5bdcDLlW4IMrppW1KY7yVZdFgAAAAAASvwXAAAABwAAAAEAAAAAAAAAAAAAAABquk7FAAAAAAAAAAEAAAAAAAAACAAAAADflG3AxggLzxjTjlHkBCG4+7Qt+A7VwmQ+tO6eYTBlUAAAAAAAAAAByVZdFgAAAEBBFgOXnAiDigPgF4Dl/um9WyDpBcFZF98F4NAli83kxLEfUUMZa3nkzNnXkrxC0/14rj4KNreTCGZn1DpSlzEKAAAAAAAAAAFhW+BSAAAAQImIL1pwugwFQmxRTnkolB0XiqYtiLRdmd0a/iQTLu08AF80Oi6mvId/FuFQIKmjKbajW7rLo+x+qnulHlGeewI=",
+    "result_xdr": "AAAAAAAAAMgAAAABqhQNwSYWjwoB8mHjYuMu28CINlkwhZ9F6pxNPIRrmAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAgAAAAAAAAAAAJiWgcAAAAAAAAAAA==",
+    "fee_meta_xdr": "AAAAAgAAAAMASvwiAAAAAAAAAABEeJzJZNgNMaSqbZX00cXhtxeiiqrMneV4JStoYVvgUgAAABb4mBD8AEr8FgAAAAEAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAADAAAAAABK/BcAAAAAarpOFgAAAAAAAAABAEr8IwAAAAAAAAAARHicyWTYDTGkqm2V9NHF4bcXooqqzJ3leCUraGFb4FIAAAAW+JgQNABK/BYAAAABAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAACAAAAAAAAAAAAAAAAAAAAAwAAAAAASvwXAAAAAGq6ThYAAAAA",
+    "memo_type": "none",
+    "signatures": [
+      "iYgvWnC6DAVCbFFOeSiUHReKpi2ItF2Z3Rr+JBMu7TwAXzQ6Lqa8h38W4VAgqaMptqNbusuj7H6qe6UeUZ57Ag=="
+    ],
+    "preconditions": {
+      "timebounds": {
+        "min_time": "0",
+        "max_time": "1790594757"
+      }
+    },
+    "fee_bump_transaction": {
+      "hash": "36e53646514a36c673830955b661b91de297842481295f458de8c5911e5c989c",
+      "signatures": [
+        "iYgvWnC6DAVCbFFOeSiUHReKpi2ItF2Z3Rr+JBMu7TwAXzQ6Lqa8h38W4VAgqaMptqNbusuj7H6qe6UeUZ57Ag=="
+      ]
+    },
+    "inner_transaction": {
+      "hash": "aa140dc126168f0a01f261e362e32edbc088365930859f45ea9c4d3c846b9801",
+      "signatures": [
+        "QRYDl5wIg4oD4BeA5f7pvVsg6QXBWRffBeDQJYvN5MSxH1FDGWt55MzZ15K8QtP9eK4+Cja3kwhmZ9Q6UpcxCg=="
+      ],
+      "max_fee": "0"
+    }
+  }
+}
