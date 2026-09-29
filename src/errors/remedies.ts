@@ -48,6 +48,8 @@ export const DEFAULT_REMEDIES: Partial<Readonly<Record<DustinErrorCode, string>>
     "Check the address; if an earlier close merged the account, there is nothing left to close.",
   RESET_SUSPECTED:
     "A testnet reset deletes every account a fixture had: build a new fixture with dustin fixture create (new keys, new manifest).",
+  LEDGER_DATA_INVALID:
+    "Run the command again: Dustin reads the account again, and one Horizon instance may have answered wrongly. If the snapshot or plan came from your own code, fix the value the message names; if Horizon keeps answering it, report it with the account address and that value.",
 };
 
 /** The fallback for a code without an entry. */

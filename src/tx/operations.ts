@@ -6,6 +6,7 @@ import {
   getLiquidityPoolId,
   type xdr,
 } from "@stellar/stellar-sdk";
+import { DustinError } from "../errors/dustin-error.js";
 import type { AssetRef } from "../inspect/snapshot.js";
 import type { OperationDescriptor, PoolShareAssetRef } from "../plan/model.js";
 
@@ -33,8 +34,11 @@ function poolShareAsset(ref: PoolShareAssetRef): LiquidityPoolAsset {
     getLiquidityPoolId("constant_product", { assetA, assetB, fee: LiquidityPoolFeeV18 }),
   ).toString("hex");
   if (id !== ref.poolId) {
-    throw new Error(
+    // Epic 4 review AC-12: a DustinError, as every error of the SDK is.
+    throw new DustinError(
+      "LEDGER_DATA_INVALID",
       `The assets ${ref.assets.join(" / ")} do not match liquidity pool ${ref.poolId}.`,
+      { stage: "build" },
     );
   }
   return new LiquidityPoolAsset(assetA, assetB, LiquidityPoolFeeV18);
@@ -45,8 +49,24 @@ function poolShareAsset(ref: PoolShareAssetRef): LiquidityPoolAsset {
  * an offer is deleted with amount 0 and its id (any origin, day-1 experiment 2), a trustline with
  * limit "0" (a numeric 0 would become the maximum limit in SDK 17.1.0), a data entry with a null
  * value (https://developers.stellar.org/docs/learn/fundamentals/transactions/list-of-operations).
+ * A descriptor the SDK refuses (an asset code or an address it cannot encode) is refused with
+ * LEDGER_DATA_INVALID, its error the cause (Epic 4 review AC-12): the values come from Horizon,
+ * or from a plan built from what Horizon answered.
  */
 export function toOperation(d: OperationDescriptor): xdr.Operation {
+  try {
+    return sdkOperation(d);
+  } catch (error) {
+    if (error instanceof DustinError) throw error;
+    throw new DustinError(
+      "LEDGER_DATA_INVALID",
+      `The ${d.type} operation of the plan cannot be encoded: ${error instanceof Error ? error.message : String(error)}.`,
+      { stage: "build", cause: error },
+    );
+  }
+}
+
+function sdkOperation(d: OperationDescriptor): xdr.Operation {
   switch (d.type) {
     case "manageSellOffer":
       return Operation.manageSellOffer({
