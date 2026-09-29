@@ -59,8 +59,12 @@ export interface Channel {
   event(event: CloseEvent): void;
   /** The error or the stop the command ends with, on standard error; `keep` as for `notice`. */
   fail(failure: Failure, extra?: Record<string, unknown>, keep?: readonly string[]): void;
-  /** An error as caught, reported with its code and remedy, and its detail with --verbose. */
-  error(error: unknown, exitCode: number): void;
+  /**
+   * An error as caught, reported with its code and remedy, and its detail with --verbose. With
+   * `receiptFollows`, the receipt of the run is printed after it, which an unexpected error's
+   * remedy then points to (Epic 4 review BH-14).
+   */
+  error(error: unknown, exitCode: number, options?: { receiptFollows?: boolean }): void;
 }
 
 /**
@@ -95,8 +99,9 @@ export function channel(streams: CliStreams, mode: OutputMode): Channel {
           (failure.remedy ? redact(wrapped(`  ${failure.remedy}`, 2, keep)) : ""),
       );
     },
-    error(error, exitCode) {
-      const failure = failureOf(error, exitCode);
+    error(error, exitCode, options = {}) {
+      const hashes: HashesAt = mode.json ? "json" : options.receiptFollows ? "below" : "above";
+      const failure = failureOf(error, exitCode, hashes);
       if (mode.json) {
         this.fail(failure, mode.verbose ? errorDetail(error) : {});
         return;
@@ -307,8 +312,21 @@ export function textOf(value: unknown): string {
   }
 }
 
+/**
+ * Where the hashes of the transactions submitted before an unexpected error are to be found
+ * (Epic 4 review BH-14): printed above it for people, in the receipt printed below it when the
+ * run's receipt follows, or with --json in the `tx:submitted` lines and the report document.
+ */
+export type HashesAt = "above" | "below" | "json";
+
+const HASHES: Record<HashesAt, string> = {
+  above: "if a transaction was submitted, its hash is printed above.",
+  below: "the receipt printed below lists every transaction that was submitted, with its hash.",
+  json: "if a transaction was submitted, its hash is in a tx:submitted line on standard error and in the close report on standard output.",
+};
+
 /** The code, message and remedy of a caught error; a non-DustinError is UNEXPECTED_ERROR. */
-export function failureOf(error: unknown, exitCode: number): Failure {
+export function failureOf(error: unknown, exitCode: number, hashes: HashesAt = "above"): Failure {
   if (error instanceof DustinError) {
     // Every error is printed with a remedy: its own, else its code's (AC-E4-S2-1, docs/errors.md).
     return { code: error.code, message: error.message, remedy: remedyOf(error), exitCode };
@@ -316,8 +334,7 @@ export function failureOf(error: unknown, exitCode: number): Failure {
   return {
     code: UNEXPECTED_ERROR,
     message: `unexpected error: ${redact(textOf(error))}`,
-    remedy:
-      "This is a bug in Dustin. Run the same command with --verbose and report the output; if a transaction was submitted, its hash is above.",
+    remedy: `This is a bug in Dustin. Run the same command with --verbose and report the output; ${HASHES[hashes]}`,
     exitCode,
   };
 }

@@ -422,7 +422,8 @@ async function runExecutor(
       // Something was submitted: never lose a hash (PRD NFR-03). The run stopped: exit 5.
       const stopped = stoppedReport(known, error, account);
       receipt?.write(stopped);
-      out.error(error, ExitCode.STOPPED);
+      // The receipt follows the error: an unexpected error's remedy points to it (BH-14).
+      out.error(error, ExitCode.STOPPED, { receiptFollows: true });
       document(stopped);
       out.say(
         `\n${renderReport(stopped, { plans: receiptPlans(), explorerBaseUrl: config.explorerBaseUrl })}`,

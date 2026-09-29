@@ -2,7 +2,7 @@ import { EventEmitter } from "node:events";
 import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { channel, jsonText, plainJson, wrapped } from "../../../src/cli/channel.js";
+import { channel, failureOf, jsonText, plainJson, wrapped } from "../../../src/cli/channel.js";
 import type { HandledSignal, SignalSource } from "../../../src/cli/commands/close.js";
 import { DustinError } from "../../../src/errors/dustin-error.js";
 import type { executeClose } from "../../../src/execute/executor.js";
@@ -249,5 +249,56 @@ describe("BH-6: machine output survives values JSON.stringify cannot write", () 
     let deep: unknown = "end";
     for (let i = 0; i < 100; i++) deep = { deep };
     expect(jsonText(deep)).toContain('"[too deep]"');
+  });
+});
+
+/** An executor that submits one envelope, then throws something that is not a DustinError. */
+const bugAfterSubmission: typeof executeClose = (plan, _signers, options) => {
+  options.onReport?.(stubReport(plan, { transactions: [postedEnvelope(plan)] }));
+  options.onEvent?.({
+    type: "tx:submitted",
+    index: 0,
+    hash: "a".repeat(64),
+    explorerUrl: "https://stellar.expert/explorer/testnet/tx/aaaa",
+    attempt: 1,
+    round: 0,
+  });
+  return Promise.reject(new TypeError("a bug"));
+};
+
+describe("BH-14: an unexpected error's remedy says where the hashes are", () => {
+  it("BH-14: printed before the receipt, it points to the receipt below", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(world, executeArgs(world, "--yes"), {
+      executeClose: bugAfterSubmission,
+    });
+    expect(r.code).toBe(5);
+    const err = r.err.replace(/\s+/g, " ");
+    expect(err).toContain("dustin: unexpected error: a bug");
+    // Before the fix: "if a transaction was submitted, its hash is above", with the receipt below.
+    expect(err).not.toContain("its hash is above");
+    expect(err).toContain("the receipt printed below lists every transaction that was submitted");
+    expect(r.out).toContain("Dustin close receipt");
+  });
+
+  it("BH-14: with --json, it points to the tx:submitted lines and the report document", async () => {
+    const world = zeroSpendableWorld();
+    const r = await closeCli(world, executeArgs(world, "--yes", "--json"), {
+      executeClose: bugAfterSubmission,
+    });
+    expect(r.code).toBe(5);
+    const error = ndjson(r.err).find((l) => l.type === "error")!;
+    expect(error).toMatchObject({ code: "UNEXPECTED_ERROR", exitCode: 5 });
+    expect(String(error.remedy)).not.toContain("above");
+    expect(String(error.remedy)).toContain(
+      "in a tx:submitted line on standard error and in the close report on standard output",
+    );
+    expect(JSON.parse(r.out)).toMatchObject({ kind: "dustin-close-report" });
+  });
+
+  it("BH-14: elsewhere, for people, the hashes are above", () => {
+    expect(failureOf(new Error("x"), 1).remedy).toContain(
+      "if a transaction was submitted, its hash is printed above.",
+    );
   });
 });
