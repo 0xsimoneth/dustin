@@ -1,0 +1,17 @@
+$ dustin fixture create --profile messy --dir .fixture --json
+(standard output is saved as fixture-manifest.json; standard error follows)
+Secret keys saved to .fixture/messy-20260929T111410Z-0b6cd8/keys.json (mode 600, testnet only, never commit)
+Funding the fee sponsor GBDOAFW4WYIOVCBZNVI4CF4QOD2J3HZYMMQZSOF2LOSNZGZCSMVBIGMQ from Friendbot
+Fee bid 41763 stroops per operation (the sponsor is charged the ledger's clearing fee)
+Building fixture GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT
+  create-accounts        ok  ledger 4931375  68508092b92d9cd08fe377985d711575b2a26261b45ac67d281ef568d6dded03
+  trustlines             ok  ledger 4931376  624dca48382cc5021101ee72f0d7838ca3854aa595427833b9f9b1a193fc7e3d
+  sponsored-trustline    ok  ledger 4931377  1a4a89617763f94bd8366dbad2936539c66dab7bdf0618579133747f21976015
+  dust-payments          ok  ledger 4931378  221ba810b12ad87a8fb9fdfba019595b84fde36ab990a46e053501bf8f03f7e4
+  market-maker-bid       ok  ledger 4931379  1b87c6d5c3721171ea574590dfb5f18fe1ffb1506fd522761fe433f9f8756523
+  offers-and-data        ok  ledger 4931380  cf1b1ad4b6e64cabab79367ae2c0298a89b2eb80c3202e3dade7de990d0aaf2b
+  drain-to-minimum       ok  ledger 4931381  7c80447e5466eb92d371036168d39baed785c333498355949dbec50cb160a61b
+Drained: balance 4.0000000 = minimum 4.0000000, spendable 0
+Strict-send path for DUSTA: 0.0000007 -> 0.0000007 XLM
+Unbumped transaction from the fixture rejected with tx_insufficient_balance
+[exit code 0]

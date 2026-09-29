@@ -1,0 +1,341 @@
+{
+  "schemaVersion": 1,
+  "kind": "dustin-close-report",
+  "network": {
+    "passphrase": "Test SDF Network ; September 2015",
+    "horizon": "https://horizon-testnet.stellar.org"
+  },
+  "account": "GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT",
+  "destination": "GBR43GJ2WAHU7FPEAYLNFR4WJUQMCJGOOS6ESF2O6ZBB6GVWL6FVS3OY",
+  "feeSponsor": "GBDOAFW4WYIOVCBZNVI4CF4QOD2J3HZYMMQZSOF2LOSNZGZCSMVBIGMQ",
+  "planHash": "c6ab874babbf474e6ce8ab16a70b5a27f4c847349190b8fe4a3b5d892fa03427",
+  "links": {
+    "account": {
+      "explorer": "https://stellar.expert/explorer/testnet/account/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT",
+      "horizon": "https://horizon-testnet.stellar.org/accounts/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT"
+    },
+    "destination": {
+      "explorer": "https://stellar.expert/explorer/testnet/account/GBR43GJ2WAHU7FPEAYLNFR4WJUQMCJGOOS6ESF2O6ZBB6GVWL6FVS3OY",
+      "horizon": "https://horizon-testnet.stellar.org/accounts/GBR43GJ2WAHU7FPEAYLNFR4WJUQMCJGOOS6ESF2O6ZBB6GVWL6FVS3OY"
+    }
+  },
+  "status": "closed",
+  "message": null,
+  "stop": null,
+  "startedAt": "2026-09-29T11:15:11.056Z",
+  "finishedAt": "2026-09-29T11:15:28.993Z",
+  "transactions": [
+    {
+      "index": 0,
+      "phase": "cleanup",
+      "stepIds": [
+        "S01",
+        "S02",
+        "S03",
+        "S04",
+        "S05",
+        "S06",
+        "S07",
+        "S08",
+        "S09"
+      ],
+      "attempts": 1,
+      "attempt": 1,
+      "round": 0,
+      "sequence": "21180094349312005",
+      "baseFeeStroops": 30853,
+      "maxTime": 1790680632,
+      "hash": "835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b",
+      "innerHash": "dcdbd48e109cb5e63dac00de87c235dabfc00e19819f9d870e89a30d0c2ef396",
+      "result": "applied",
+      "ledger": 4931386,
+      "feeChargedStroops": 1000,
+      "feeAccount": "GBDOAFW4WYIOVCBZNVI4CF4QOD2J3HZYMMQZSOF2LOSNZGZCSMVBIGMQ",
+      "innerEnvelopeXdr": "AAAAAgAAAACRUgPYqkUsE1j9dIoTAJudv1/mg4GGuRpg2ut86OLemgAAAAAASz8vAAAABQAAAAEAAAAAAAAAAAAAAABqu544AAAAAAAAAAkAAAAAAAAAAwAAAAJEVVNUQQAAAAAAAAAAAAAAIpnYiGDNEhYHy8rQs7dvTTHgU5iGFjBag/MLneUs5LEAAAAAAAAAAAAAAAAAAABkAAAAAQAAAAAADMsrAAAAAAAAAAMAAAACRFVTVEMAAAAAAAAAAAAAACKZ2IhgzRIWB8vK0LO3b00x4FOYhhYwWoPzC53lLOSxAAAAAkRVU1RCAAAAAAAAAAAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAAAAAAAAAAAAQAAAAEAAAAAAAzLLAAAAAAAAAABAAAAACKZ2IhgzRIWB8vK0LO3b00x4FOYhhYwWoPzC53lLOSxAAAAAkRVU1RCAAAAAAAAAAAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAAAAAADAAAAAAAAAAYAAAACRFVTVEIAAAAAAAAAAAAAACKZ2IhgzRIWB8vK0LO3b00x4FOYhhYwWoPzC53lLOSxAAAAAAAAAAAAAAAAAAAAAQAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAJEVVNUQwAAAAAAAAAAAAAAIpnYiGDNEhYHy8rQs7dvTTHgU5iGFjBag/MLneUs5LEAAAAAAAAABQAAAAAAAAAGAAAAAkRVU1RDAAAAAAAAAAAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAAAAAAAAAAAAAAAAAEAAAAAIpnYiGDNEhYHy8rQs7dvTTHgU5iGFjBag/MLneUs5LEAAAABU1BUQQAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAAAAAABAAAAAAAAAAYAAAABU1BUQQAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAAAAAAAAAAAAAAAAAoAAAAOZHVzdGluLmZpeHR1cmUAAAAAAAAAAAAAAAAAAeji3poAAABAC7cMkrBFgjZuL/nAoz9UdPzqACxpyu+lg8150d2piToJkkRAbGqDRCYJYrzjQRaLg6sNl5FZttQOl7WAtXBiCg==",
+      "feeBumpEnvelopeXdr": "AAAABQAAAABG4BbcthDqiDltUcEXkHD0nZ84YyGZOLpbpNybIpMqFAAAAAAABLUyAAAAAgAAAACRUgPYqkUsE1j9dIoTAJudv1/mg4GGuRpg2ut86OLemgAAAAAASz8vAAAABQAAAAEAAAAAAAAAAAAAAABqu544AAAAAAAAAAkAAAAAAAAAAwAAAAJEVVNUQQAAAAAAAAAAAAAAIpnYiGDNEhYHy8rQs7dvTTHgU5iGFjBag/MLneUs5LEAAAAAAAAAAAAAAAAAAABkAAAAAQAAAAAADMsrAAAAAAAAAAMAAAACRFVTVEMAAAAAAAAAAAAAACKZ2IhgzRIWB8vK0LO3b00x4FOYhhYwWoPzC53lLOSxAAAAAkRVU1RCAAAAAAAAAAAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAAAAAAAAAAAAQAAAAEAAAAAAAzLLAAAAAAAAAABAAAAACKZ2IhgzRIWB8vK0LO3b00x4FOYhhYwWoPzC53lLOSxAAAAAkRVU1RCAAAAAAAAAAAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAAAAAADAAAAAAAAAAYAAAACRFVTVEIAAAAAAAAAAAAAACKZ2IhgzRIWB8vK0LO3b00x4FOYhhYwWoPzC53lLOSxAAAAAAAAAAAAAAAAAAAAAQAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAJEVVNUQwAAAAAAAAAAAAAAIpnYiGDNEhYHy8rQs7dvTTHgU5iGFjBag/MLneUs5LEAAAAAAAAABQAAAAAAAAAGAAAAAkRVU1RDAAAAAAAAAAAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAAAAAAAAAAAAAAAAAEAAAAAIpnYiGDNEhYHy8rQs7dvTTHgU5iGFjBag/MLneUs5LEAAAABU1BUQQAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAAAAAABAAAAAAAAAAYAAAABU1BUQQAAAAAimdiIYM0SFgfLytCzt29NMeBTmIYWMFqD8wud5SzksQAAAAAAAAAAAAAAAAAAAAoAAAAOZHVzdGluLmZpeHR1cmUAAAAAAAAAAAAAAAAAAeji3poAAABAC7cMkrBFgjZuL/nAoz9UdPzqACxpyu+lg8150d2piToJkkRAbGqDRCYJYrzjQRaLg6sNl5FZttQOl7WAtXBiCgAAAAAAAAABIpMqFAAAAEApgc3dV44wd1RpcVVRZp+sTDJ8nzqVgW8kwk+0AJS4B8EyC0R89pME5tcPDXZlotqcyh0S+hak7ihcll9aRxME",
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b",
+      "horizonUrl": "https://horizon-testnet.stellar.org/transactions/835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b",
+      "operations": [
+        {
+          "stepId": "S01",
+          "kind": "cancel_offer",
+          "type": "manageSellOffer",
+          "subject": "offer 838443",
+          "offerId": "838443",
+          "summary": "cancel offer 838443: sells 0.0000002 DUSTA for XLM"
+        },
+        {
+          "stepId": "S02",
+          "kind": "cancel_offer",
+          "type": "manageSellOffer",
+          "subject": "offer 838444",
+          "offerId": "838444",
+          "summary": "cancel offer 838444: sells 0.0000002 DUSTC for DUSTB"
+        },
+        {
+          "stepId": "S03",
+          "kind": "dispose_balance",
+          "type": "payment",
+          "subject": "trustline DUSTB:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "asset": "DUSTB:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "amount": "0.0000003",
+          "rung": "return_to_issuer",
+          "to": "GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "summary": "return 0.0000003 DUSTB to issuer GARJ...CVXL (burn)"
+        },
+        {
+          "stepId": "S04",
+          "kind": "remove_trustline",
+          "type": "changeTrust",
+          "subject": "trustline DUSTB:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "asset": "DUSTB:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "summary": "remove trustline DUSTB"
+        },
+        {
+          "stepId": "S05",
+          "kind": "dispose_balance",
+          "type": "payment",
+          "subject": "trustline DUSTC:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "asset": "DUSTC:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "amount": "0.0000005",
+          "rung": "return_to_issuer",
+          "to": "GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "summary": "return 0.0000005 DUSTC to issuer GARJ...CVXL (burn)"
+        },
+        {
+          "stepId": "S06",
+          "kind": "remove_trustline",
+          "type": "changeTrust",
+          "subject": "trustline DUSTC:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "asset": "DUSTC:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "summary": "remove trustline DUSTC"
+        },
+        {
+          "stepId": "S07",
+          "kind": "dispose_balance",
+          "type": "payment",
+          "subject": "trustline SPTA:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "asset": "SPTA:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "amount": "0.0000001",
+          "rung": "return_to_issuer",
+          "to": "GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "summary": "return 0.0000001 SPTA to issuer GARJ...CVXL (burn)"
+        },
+        {
+          "stepId": "S08",
+          "kind": "remove_trustline",
+          "type": "changeTrust",
+          "subject": "trustline SPTA:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "asset": "SPTA:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "summary": "remove trustline SPTA (reserve sponsored by GCKX...T7BB)"
+        },
+        {
+          "stepId": "S09",
+          "kind": "remove_data",
+          "type": "manageData",
+          "subject": "data entry dustin.fixture",
+          "dataName": "dustin.fixture",
+          "summary": "delete data entry \"dustin.fixture\""
+        }
+      ]
+    },
+    {
+      "index": 1,
+      "phase": "convert",
+      "stepIds": [
+        "S10",
+        "S11"
+      ],
+      "attempts": 1,
+      "attempt": 1,
+      "round": 0,
+      "sequence": "21180094349312006",
+      "baseFeeStroops": 30853,
+      "maxTime": 1790680637,
+      "hash": "c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61",
+      "innerHash": "8ce327efd55a2e42c153d03cb9025d1c6dda7eefab5c6d46782f640bf2054c7f",
+      "result": "applied",
+      "ledger": 4931387,
+      "feeChargedStroops": 300,
+      "feeAccount": "GBDOAFW4WYIOVCBZNVI4CF4QOD2J3HZYMMQZSOF2LOSNZGZCSMVBIGMQ",
+      "innerEnvelopeXdr": "AAAAAgAAAACRUgPYqkUsE1j9dIoTAJudv1/mg4GGuRpg2ut86OLemgAAAAAASz8vAAAABgAAAAEAAAAAAAAAAAAAAABqu549AAAAAAAAAAIAAAAAAAAADQAAAAJEVVNUQQAAAAAAAAAAAAAAIpnYiGDNEhYHy8rQs7dvTTHgU5iGFjBag/MLneUs5LEAAAAAAAAABwAAAACRUgPYqkUsE1j9dIoTAJudv1/mg4GGuRpg2ut86OLemgAAAAAAAAAAAAAABgAAAAAAAAAAAAAABgAAAAJEVVNUQQAAAAAAAAAAAAAAIpnYiGDNEhYHy8rQs7dvTTHgU5iGFjBag/MLneUs5LEAAAAAAAAAAAAAAAAAAAAB6OLemgAAAEBSV3wqr/o7qxF/87D3RGxmxgJya8j+rWLNp2/o56LCtp/qWgQET2xCF9DBlr/vnUxqcx7In5WaE0EU5HG9sRUK",
+      "feeBumpEnvelopeXdr": "AAAABQAAAABG4BbcthDqiDltUcEXkHD0nZ84YyGZOLpbpNybIpMqFAAAAAAAAWmPAAAAAgAAAACRUgPYqkUsE1j9dIoTAJudv1/mg4GGuRpg2ut86OLemgAAAAAASz8vAAAABgAAAAEAAAAAAAAAAAAAAABqu549AAAAAAAAAAIAAAAAAAAADQAAAAJEVVNUQQAAAAAAAAAAAAAAIpnYiGDNEhYHy8rQs7dvTTHgU5iGFjBag/MLneUs5LEAAAAAAAAABwAAAACRUgPYqkUsE1j9dIoTAJudv1/mg4GGuRpg2ut86OLemgAAAAAAAAAAAAAABgAAAAAAAAAAAAAABgAAAAJEVVNUQQAAAAAAAAAAAAAAIpnYiGDNEhYHy8rQs7dvTTHgU5iGFjBag/MLneUs5LEAAAAAAAAAAAAAAAAAAAAB6OLemgAAAEBSV3wqr/o7qxF/87D3RGxmxgJya8j+rWLNp2/o56LCtp/qWgQET2xCF9DBlr/vnUxqcx7In5WaE0EU5HG9sRUKAAAAAAAAAAEikyoUAAAAQH42PccIbMWgTzmgMIEt2kHeRty1yCrLP/zDacUQ7XCCQsfRR/xG/uvEC5C1zarn4DNMI79ww1rX1e/6RgxSGg4=",
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61",
+      "horizonUrl": "https://horizon-testnet.stellar.org/transactions/c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61",
+      "operations": [
+        {
+          "stepId": "S10",
+          "kind": "dispose_balance",
+          "type": "pathPaymentStrictSend",
+          "subject": "trustline DUSTA:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "asset": "DUSTA:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "amount": "0.0000007",
+          "rung": "path_payment",
+          "to": "GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT",
+          "summary": "sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006"
+        },
+        {
+          "stepId": "S11",
+          "kind": "remove_trustline",
+          "type": "changeTrust",
+          "subject": "trustline DUSTA:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "asset": "DUSTA:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL",
+          "summary": "remove trustline DUSTA"
+        }
+      ]
+    },
+    {
+      "index": 2,
+      "phase": "merge",
+      "stepIds": [
+        "S12"
+      ],
+      "attempts": 1,
+      "attempt": 1,
+      "round": 0,
+      "sequence": "21180094349312007",
+      "baseFeeStroops": 30853,
+      "maxTime": 1790680642,
+      "hash": "dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2",
+      "innerHash": "c45bb68d9f57857d26b6779a5ed2a9188330cfc94ce5e96186ffce035014472d",
+      "result": "applied",
+      "ledger": 4931388,
+      "feeChargedStroops": 200,
+      "feeAccount": "GBDOAFW4WYIOVCBZNVI4CF4QOD2J3HZYMMQZSOF2LOSNZGZCSMVBIGMQ",
+      "innerEnvelopeXdr": "AAAAAgAAAACRUgPYqkUsE1j9dIoTAJudv1/mg4GGuRpg2ut86OLemgAAAAAASz8vAAAABwAAAAEAAAAAAAAAAAAAAABqu55CAAAAAAAAAAEAAAAAAAAACAAAAABjzZk6sA9PleQGFtLHlk0gwSTOdLxJF072Qh8atl+LWQAAAAAAAAAB6OLemgAAAEDWhdCYkoOxeqJcQ0CLKrWwI04vRQIGSJ6AJ8OLy/9C5xZ1dWyUlvzfIi5OI1pboGpWlapaVsbIV9NmG6TSwicD",
+      "feeBumpEnvelopeXdr": "AAAABQAAAABG4BbcthDqiDltUcEXkHD0nZ84YyGZOLpbpNybIpMqFAAAAAAAAPEKAAAAAgAAAACRUgPYqkUsE1j9dIoTAJudv1/mg4GGuRpg2ut86OLemgAAAAAASz8vAAAABwAAAAEAAAAAAAAAAAAAAABqu55CAAAAAAAAAAEAAAAAAAAACAAAAABjzZk6sA9PleQGFtLHlk0gwSTOdLxJF072Qh8atl+LWQAAAAAAAAAB6OLemgAAAEDWhdCYkoOxeqJcQ0CLKrWwI04vRQIGSJ6AJ8OLy/9C5xZ1dWyUlvzfIi5OI1pboGpWlapaVsbIV9NmG6TSwicDAAAAAAAAAAEikyoUAAAAQCOssPluhZMpvI4GLrO9NXTELgGEMYGbUy+ch03dM4WlgQRwOSHd5R3EjuLZDShR6K7YanW82GtW1Yx2iE6XQwk=",
+      "explorerUrl": "https://stellar.expert/explorer/testnet/tx/dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2",
+      "horizonUrl": "https://horizon-testnet.stellar.org/transactions/dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2",
+      "operations": [
+        {
+          "stepId": "S12",
+          "kind": "merge",
+          "type": "accountMerge",
+          "subject": "account",
+          "to": "GBR43GJ2WAHU7FPEAYLNFR4WJUQMCJGOOS6ESF2O6ZBB6GVWL6FVS3OY",
+          "summary": "merge into GBR4...S3OY (cannot be undone)"
+        }
+      ]
+    }
+  ],
+  "steps": [
+    {
+      "stepId": "S01",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b"
+    },
+    {
+      "stepId": "S02",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b"
+    },
+    {
+      "stepId": "S03",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b",
+      "rung": "return_to_issuer"
+    },
+    {
+      "stepId": "S04",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b"
+    },
+    {
+      "stepId": "S05",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b",
+      "rung": "return_to_issuer"
+    },
+    {
+      "stepId": "S06",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b"
+    },
+    {
+      "stepId": "S07",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b",
+      "rung": "return_to_issuer"
+    },
+    {
+      "stepId": "S08",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b"
+    },
+    {
+      "stepId": "S09",
+      "status": "applied",
+      "txIndex": 0,
+      "txHash": "835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b"
+    },
+    {
+      "stepId": "S10",
+      "status": "applied",
+      "txIndex": 1,
+      "txHash": "c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61",
+      "rung": "path_payment"
+    },
+    {
+      "stepId": "S11",
+      "status": "applied",
+      "txIndex": 1,
+      "txHash": "c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61"
+    },
+    {
+      "stepId": "S12",
+      "status": "applied",
+      "txIndex": 2,
+      "txHash": "dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2"
+    }
+  ],
+  "replans": [],
+  "unclosable": [],
+  "blockers": [],
+  "warnings": [],
+  "recovery": {
+    "mergedXlm": "4.0000007",
+    "reservesReturnedToSponsors": [
+      {
+        "sponsor": "GCKXIJUENGYY2LO6PYVDWIDMJ6XEXZZUOM3NBQR2BCAWODSSP6NNT7BB",
+        "xlm": "0.5000000",
+        "entries": [
+          "trustline SPTA:GARJTWEIMDGREFQHZPFNBM5XN5GTDYCTTCDBMMC2QPZQXHPFFTSLCVXL"
+        ]
+      }
+    ],
+    "feesPaidByAccount": "0",
+    "feesPaidBySponsorStroops": 1500,
+    "sponsorsObserved": [
+      {
+        "sponsor": "GCKXIJUENGYY2LO6PYVDWIDMJ6XEXZZUOM3NBQR2BCAWODSSP6NNT7BB",
+        "before": {
+          "numSponsoring": 1,
+          "balance": "10.0000000",
+          "minimumBalance": "1.5000000",
+          "ledger": 4931384
+        },
+        "after": {
+          "numSponsoring": 0,
+          "balance": "10.0000000",
+          "minimumBalance": "1.0000000",
+          "ledger": 4931388
+        }
+      }
+    ]
+  },
+  "verification": {
+    "accountExists": false,
+    "horizonStatus": 404,
+    "checkedAt": "2026-09-29T11:15:28.165Z",
+    "ledger": 4931388,
+    "accountUrl": "https://stellar.expert/explorer/testnet/account/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT"
+  }
+}
