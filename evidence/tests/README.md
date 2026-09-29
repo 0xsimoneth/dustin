@@ -2,14 +2,14 @@
 
 The SOW's evidence for Deliverable 3 is a "test results screenshot" of the passing matrix, the public repository and the baseline recording (`SUCCESSFUL_SOW.md` section 6.1). This directory holds the first: the complete output of one full green run of each tier on the same code, and an image of each run's summary. The matrix these runs cover, row by row, is [`docs/test-matrix.md`](../../docs/test-matrix.md).
 
-`offline.txt` is of commit `3fd5fe5` (`3fd5fe5a27bf098560e01976dea4673b17966de1`), the 0.1.0 code with every fix of the Epic 4 review merged, on 2026-09-29; `testnet.txt` is of commit `049274f` (`049274f4f80c0c19de60222d940273b01b8ab1bb`), the branch of story E4-S3 after the merge of main at `af62f8e`, on 2026-09-28, and the live tier of the 0.1.0 code ran in CI (below). Both with Node v24.15.0 on macOS (arm64).
+`offline.txt` is of commit `97454bf` (`97454bf760ba3301adb8ccc8f8c3fcf980640a18`), `main` on 2026-09-30 after the history rewrite, whose package code is the 0.1.0 code with every fix of the Epic 4 review merged; `testnet.txt` is of commit `049274f` (`049274f4f80c0c19de60222d940273b01b8ab1bb`), the branch of story E4-S3 after the merge of main at `af62f8e`, on 2026-09-28, and the live tier of the 0.1.0 code ran in CI (below). Both with Node v24.15.0 on macOS (arm64).
 
 | File | What it is |
 |---|---|
-| [`offline.txt`](offline.txt) | The complete output of `npm test -- --reporter=default`, started 11:50:37 UTC on 2026-09-29: 122 files, 1212 tests passed in 7.30 s, with the network blocked for the whole tier (`test/setup/no-network.ts`). (The first capture of this file, on `049274f`, passed 113 files and 1057 tests in 15.18 s while the live tier ran at the same time; the independent review of 2026-09-29 measured 14.8 s and 10.9 s, vitest's own figures, on two fresh clones of `7c53a1b` ([review](../../docs/reviews/2026-09-29-e4-review.md), step 1).) The default reporter is named because vitest picks its `minimal` reporter in a shell it takes for an AI agent, and that one prints no per-file lines. |
-| [`offline.png`](offline.png) | The 122 per-file lines and the summary of `offline.txt`, rendered from the captured terminal output. |
+| [`offline.txt`](offline.txt) | The complete output of `npm test -- --reporter=default`, started 22:50:54 UTC on 2026-09-29 (2026-09-30 at UTC+3): 124 files, 1231 tests passed in 8.15 s, with the network blocked for the whole tier (`test/setup/no-network.ts`). (The earlier captures of this file: on `3fd5fe5` (2026-09-29), 122 files and 1212 tests in 7.30 s; the first, on `049274f`, 113 files and 1057 tests in 15.18 s while the live tier ran at the same time; the independent review of 2026-09-29 measured 14.8 s and 10.9 s, vitest's own figures, on two fresh clones of `7c53a1b` ([review](../../docs/reviews/2026-09-29-e4-review.md), step 1).) The default reporter is named because vitest picks its `minimal` reporter in a shell it takes for an AI agent, and that one prints no per-file lines. |
+| [`offline.png`](offline.png) | The 124 per-file lines and the summary of `offline.txt`, rendered from the captured terminal output (again on 2026-09-30, with the capture). |
 | [`testnet.txt`](testnet.txt) | The complete output of `DUSTIN_TESTNET=1 npm run test:testnet -- --reporter=verbose`, 22:30:31 to 22:35:33 UTC: 11 files, 58 tests passed in 301.09 s against the public testnet. Every test built its own accounts from Friendbot with fresh keys; the output holds every transaction hash the tests printed, with its purpose. |
-| [`testnet.png`](testnet.png) | The 58 per-test lines (cut at 150 characters) and the summary of `testnet.txt`, rendered from the captured terminal output. |
+| [`testnet.png`](testnet.png) | The 58 per-test lines (cut at 150 characters) and the summary of `testnet.txt`, rendered from the captured terminal output; rendered again on 2026-09-30 only so that its header names the commit as the rewritten history does (`049274f`). |
 | [`testnet-ci-36560464977.txt`](testnet-ci-36560464977.txt) | The complete log of the CI run of the live tier on the 0.1.0 code, [Testnet tier, run 36560464977](https://github.com/0xsimoneth/dustin/actions/runs/36560464977) (11 files, 58 tests, 341.93 s), downloaded on 2026-09-30 with `gh run view 36560464977 --log`, because GitHub deletes a run's logs after the repository's retention period, 90 days here (`gh api repos/0xsimoneth/dustin/actions/permissions/artifact-and-log-retention`). Only the job name and the timestamp at the start of each line, the terminal colour codes and the runner's checkout directory (`<repository root>`) were changed; its header says so. |
 | [`transactions/`](transactions/README.md) | Horizon's record of each of the 208 transactions that the test matrix, the write-up, the baseline protocol and stories 3-1 to 3-4 cite only as text, one `<hash>.json` per transaction, captured on 2026-09-30 before the testnet reset of 2026-12-16; `npm run evidence:check` checks every file, compares it with Horizon while the testnet keeps it, and fails a cited transaction without a record. |
 
@@ -18,16 +18,18 @@ What the text files hold: the output as it was captured, under three header line
 The images are not screen captures, and the builder accepted them as the SOW's "test results screenshot" on 2026-09-29 (PRD decision D-16), with one real screen capture of a CI run beside them (next section). Each is rendered from the captured terminal output with ImageMagick and says so in its first line. The summary text is the header, the per-file (offline) or per-test (live) result lines and vitest's closing lines:
 
 ```
-grep -E '^ (✓|×) \|unit\||^ +(Test Files|Tests|Start at|Duration) ' offline.txt > offline-summary.txt
-magick -background white -fill '#1a1a1a' -font Menlo.ttc -pointsize 13 -interline-spacing 3 \
+{ echo "Rendered from the captured terminal output (evidence/tests/offline.txt), not a screen capture."
+  sed -n '1,2p' offline.txt
+  grep -E '^ (✓|×) \|unit\||^ +(Test Files|Tests|Start at|Duration) ' offline.txt; } > offline-summary.txt
+magick -background white -fill '#1a1a1a' -font /System/Library/Fonts/Menlo.ttc -pointsize 13 -interline-spacing 3 \
   label:@offline-summary.txt -bordercolor white -border 24 -strip offline.png
 ```
 
-(the same for `testnet.txt`, with `|testnet|`; `Menlo.ttc` is the macOS system font, given by its file path.)
+(the same for `testnet.txt`, with `|testnet|`, its command and time written out as the first three lines, each test line cut at 150 characters, and a blank line before the tests and before the summary; `Menlo.ttc` is the macOS system font, given by its file path.)
 
 The live tier ran three times on this branch. Before the merge of main, on `f3b483a`: a first run (21:21:46 to 21:36:53 UTC) passed 57 of 58, `S-07b` timing out at 300 s while this machine's network was down (no test file logged anything from 21:22:55 to 21:33:52 UTC; its fee-bumped close applied once the network was back), and a second run passed 58 of 58 (21:37:48 to 21:42:52 UTC, 304 s). `testnet.txt` is the third, after the merge, green in full.
 
-Reproduce: `npm ci`, then `npm test` (11 to 15 s by the figures above) and `DUSTIN_TESTNET=1 npm run test:testnet` (about 5 minutes; it needs Friendbot and testnet Horizon, and no key or `.env`: every live test makes its own throwaway accounts).
+Reproduce: `npm ci`, then `npm test` (8 to 15 s by the figures above) and `DUSTIN_TESTNET=1 npm run test:testnet` (about 5 minutes; it needs Friendbot and testnet Horizon, and no key or `.env`: every live test makes its own throwaway accounts).
 
 CI runs of the 0.1.0 code, commit `ab1fdae` (its source is the source of `3fd5fe5`; the commits after it change documents and evidence only): the manual testnet tier job [Testnet tier, run 36560464977](https://github.com/0xsimoneth/dustin/actions/runs/36560464977), 2026-09-29 11:14 to 11:20 UTC, passed 11 files and 58 tests in 341.93 s (Node 24, on GitHub's runner); the offline tier [CI, run 36560430762](https://github.com/0xsimoneth/dustin/actions/runs/36560430762) passed on Node 22.12.0, 22 and 24. CI passes the offline tier on every push to main.
 
