@@ -1,0 +1,83 @@
+#!/usr/bin/expect -f
+# One on-camera terminal take of the demo video (docs/demo-video-script.md), run inside
+# `asciinema rec` by scripts/demo/make-demo.mjs. It starts a clean bash whose prompt is "$ ", types
+# one command at a steady speed, and for the close answers the typed confirmation with the last
+# four characters of the destination, typed slowly, as a person would. It reads no secret: the
+# close takes its keys from the .env of the working directory, which the orchestrator writes
+# before the take and removes after it.
+#
+# Environment: DEMO_MODE (create, plan or close), DEMO_COLS, DEMO_ROWS, and for plan and close
+# DEMO_ACCOUNT, DEMO_DESTINATION, DEMO_SPONSOR; for close DEMO_CONFIRM (four characters).
+# Exit codes: 0 the command ended and its prompt came back, 1 a timeout or a missing variable.
+
+set timeout 600
+foreach name {DEMO_MODE DEMO_COLS DEMO_ROWS} {
+  if {![info exists env($name)]} { puts stderr "take.exp: $name is not set"; exit 1 }
+}
+set mode $env(DEMO_MODE)
+set stty_init "rows $env(DEMO_ROWS) columns $env(DEMO_COLS)"
+
+# Types text one character at a time, `delay` milliseconds apart. Each echo is read (and so
+# recorded) before the next character, or the recording would show the whole line at once.
+proc type {text delay} {
+  foreach c [split $text ""] {
+    send -- $c
+    expect -timeout 1 -re {.+} {}
+    after $delay
+  }
+}
+
+# Waits for the prompt that follows a finished command.
+proc prompt {} {
+  expect {
+    -re {\n\$ $} { return }
+    timeout { puts stderr "take.exp: timed out waiting for the prompt"; exit 1 }
+    eof { puts stderr "take.exp: the shell ended"; exit 1 }
+  }
+}
+
+# A shell with no profile, no history file and the prompt "$ "; its start-up is not recorded.
+log_user 0
+spawn -noecho env "PS1=\$ " HISTFILE=/dev/null BASH_SILENCE_DEPRECATION_WARNING=1 bash --noprofile --norc -i
+expect -re {\$ $}
+log_user 1
+send_user -- {$ }
+after 800
+
+switch -- $mode {
+  create {
+    type "dustin fixture create --profile messy" 40
+    send "\r"
+    prompt
+    after 1500
+  }
+  plan {
+    type "dustin plan $env(DEMO_ACCOUNT) --to $env(DEMO_DESTINATION) --sponsor $env(DEMO_SPONSOR)" 12
+    send "\r"
+    prompt
+    after 2500
+  }
+  close {
+    type "dustin close $env(DEMO_ACCOUNT) --to $env(DEMO_DESTINATION) --execute" 12
+    send "\r"
+    expect {
+      -re {to confirm: } {}
+      timeout { puts stderr "take.exp: the confirmation question never came"; exit 1 }
+      eof { puts stderr "take.exp: the shell ended"; exit 1 }
+    }
+    after 2500
+    type $env(DEMO_CONFIRM) 280
+    after 400
+    send "\r"
+    prompt
+    after 2500
+  }
+  default {
+    puts stderr "take.exp: DEMO_MODE must be create, plan or close"
+    exit 1
+  }
+}
+# Leave the shell off camera.
+log_user 0
+send "exit\r"
+expect eof

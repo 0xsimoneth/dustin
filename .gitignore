@@ -35,3 +35,6 @@ coverage/
 
 # Editor settings (local, never committed)
 .vscode/
+
+# The demo video: hosted as a release asset, never committed (evidence/demo/README.md)
+evidence/demo/*.mp4

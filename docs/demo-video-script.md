@@ -1,6 +1,6 @@
 ---
 title: Dustin 60-second demo, rehearsal script
-status: final rehearsal script for the builder's recording (story E4-S6); the video itself is pending
+status: final rehearsal script (story E4-S6); the automated take of 2026-09-29 follows it (section "The automated take"); hosting the video is pending
 owner: the builder
 aligns with: docs/ux-design.md section 4 (storyboard), SUCCESSFUL_SOW.md section 3 (binary success metric), Appendix B, evidence/README.md
 ---
@@ -11,7 +11,7 @@ The video has one job: let a viewer with no Stellar knowledge see the messy acco
 
 This page is a rehearsal the builder can follow word for word: the setup, the commands in order, what each one prints, the 60-second cut, and a reference for every value. The reference values come from the CLI metric close recorded on the 0.1.0 code on 2026-09-29 ([`evidence/runs/20260929T111408Z-e4-cli/`](../evidence/runs/20260929T111408Z-e4-cli/summary.md), its [fixture build](../evidence/runs/20260929T111408Z-e4-cli/fixture-create.txt), its [plan](../evidence/runs/20260929T111408Z-e4-cli/plan.txt) and its [transcript](../evidence/runs/20260929T111408Z-e4-cli/transcript.txt)); the independent review of 2026-09-29 ran this script as written on a fresh fixture, with the typed confirmation, and every quoted line matched ([review](reviews/2026-09-29-e4-review.md), step 2). They are there so a take can be compared against a known good run. **Every address, hash, ledger, bid and plan hash in a take will differ: replace each reference value with your fresh fixture's values** in the evidence package after the take. The shapes (12 steps, 3 transactions, 4.0000007 XLM, 1,500 stroops, the 404) should match.
 
-The video link, once recorded, goes in [`evidence/demo/README.md`](../evidence/demo/README.md): `<pending: builder records the 60-second video (E4-S6)>`.
+The video was produced from this script on 2026-09-29 (section "The automated take"); its record and, once hosted, its link are in [`evidence/demo/README.md`](../evidence/demo/README.md): `<pending: builder approves and hosts the 60-second video (E4-S6)>`.
 
 ## What the video has to prove
 
@@ -212,7 +212,29 @@ Dustin has no command that submits an unsponsored transaction on purpose, and th
 
 ## Tooling note
 
-The `demo-video` skill available to the builder drives a web page with Playwright and composites a screencast; it is built for browser UIs. The browser shots (2 and 8) can be produced with it; the terminal shots are recorded with an ordinary screen recorder. Because the close is irreversible, the checklist assumes one continuous manual take per fixture.
+The `demo-video` skill available to the builder drives a web page with Playwright and composites a screencast; it is built for browser UIs, not for a terminal. The take is therefore produced by the repository's own script (next section), and the manual procedure above stays valid for a take by hand.
+
+## The automated take (`scripts/demo/make-demo.mjs`)
+
+On 2026-09-29 the video was produced from this script by `node scripts/demo/make-demo.mjs --playwright <directory where playwright is installed>`, on a fresh fixture, without any other input. Its record is `evidence/demo/take-<UTC stamp>/summary.md`: the accounts, the three transactions with Horizon's records, the shots with the second of the recording each one comes from, and the three recordings themselves.
+
+What it does, in the order of this page:
+
+1. **Builds the CLI** and puts `dustin` on the PATH through `npm link` into a temporary prefix (the global npm prefix is not touched).
+2. **Records the terminal takes** with asciinema (`asciinema rec --headless`, 120 columns by 60 rows, asciicast v2), while `scripts/demo/take.exp` (expect) types each command at a steady speed in a clean bash whose prompt is `$ `: `dustin fixture create --profile messy` (the build, on camera, for shot 3), then `dustin plan <G> --to <G> --sponsor <G>`, then `dustin close <G> --to <G> --execute`, answering the typed confirmation with the destination's last four characters, 280 ms apart. Between the takes, off camera: `dustin fixture verify` with its snapshot, the wait for Horizon's DUSTA path, and the `.env` of the take's directory (mode 600), written right before the close and removed right after it. No secret is typed, printed or passed on a command line.
+3. **Captures the browser pages** with Playwright (Chromium, 1920 x 910, under a strip that names the URL): before the close, the account's balances and its two offers on Stellar Explorer (https://testnet.steexp.com, which reads Horizon live) and its data entry on Horizon; after the close, Horizon's 404 for the account and the account's last operation, the `account_merge` of transaction 3.
+4. **Checks the close** before anything is kept: three transactions shown, the receipt CLOSED, each transaction successful on Horizon with `fee_account` the sponsor and `source_account` the account, Horizon 404 for the account, the merge its last operation.
+5. **Cuts the video** as the table of "The 60-second cut" says: each terminal shot is rendered from its recording with agg (theme github-light, 26-pixel font) and framed at 1080p; only the pauses are shortened (the confirmation's typing never is; the ledger waits of shot 6 keep as much of their length as fits); captions are burned in on a band at the top; the whole is 59.8 seconds, 1920 x 1080, H.264, no sound. It also writes the captions as `evidence/demo/dustin-demo.srt`, a short GIF of the close (`evidence/demo/dustin-demo.gif`) and seven key frames.
+6. **Scans** every text file for secret seeds, the fixture's secret keys and local paths before writing under `evidence/demo/`; the MP4 (`evidence/demo/dustin-demo-60s.mp4`) is ignored by git and is hosted as a release asset.
+
+Differences from the manual take, and why:
+
+- **The explorer pages.** On 2026-09-29 StellarExpert's testnet explorer had stopped ingesting at ledger 4,935,523 (its API's last ledger did not move for a minute while Horizon was 784 ledgers ahead), so an account built that day did not exist on it. The automated take shows the same facts from Stellar Explorer and from Horizon itself, which the evidence package already treats as the check that does not depend on a third-party site (`evidence/README.md`, assumption 2). Shot 8 shows Horizon's "Resource Missing" 404 and the account's `account_merge`, both fetched after the close. A manual take on StellarExpert, as written above, remains possible once it has caught up.
+- **Shot 3** uses option 2: a frame of the take's own fixture build, the moment the builder's unsponsored transaction is refused with `tx_insufficient_balance`; the caption says it is the fixture builder's check.
+- **The terminal window** is recorded at 60 rows, so that the whole receipt stays on the recorded screen, and each shot shows a 1080p window of it (the plan's steps, then its summary; the confirmation block; the transactions; the receipt's heading, then its Result block). Nothing is drawn on the terminal's picture but that window.
+- **The prompt and the typing** are a script's: the characters appear one by one at a steady speed. The video is a recording of a real run, not a screen capture of a person typing.
+
+To make it again (after a testnet reset, or to replace the take): install asciinema 3, agg 1.9 or newer and ffmpeg with libass (on macOS: `brew install asciinema agg ffmpeg`; `expect` ships with macOS), Playwright in any directory (`npm install playwright` there; its Chromium is `npx playwright install chromium`), then run the command above from the repository root. It takes about six minutes and makes a new take directory.
 
 ## Assumptions
 

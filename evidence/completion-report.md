@@ -86,9 +86,9 @@ Every row is Met on committed evidence. The builder confirms each link in a fres
 
 - Transaction chain: the three hashes above, with explorer and Horizon links in [`evidence/README.md`](README.md#the-transaction-chain-of-the-metric-close)
 - Closed account: [explorer](https://stellar.expert/explorer/testnet/account/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT) (the latest metric close); the first recording's, [explorer](https://stellar.expert/explorer/testnet/account/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7)
-- Video: `<pending: builder records the 60-second video (E4-S6) and adds its link>`
+- Video: produced on 2026-09-29 from the rehearsal script on a fresh fixture ([record](demo/README.md), [take](demo/take-20260929T184550Z/summary.md): account `GCJDPLX33KGDE23WETABGFZSGIUXTLTGCB3PN3RY2CLW3DTTE3VJ2PID`, three sponsor-paid fee bumps, Horizon 404); its link `<pending: builder approves and hosts the 60-second video (E4-S6)>`
 
-**Status:** in progress. The live close is done and linked; the 60-second video that SOW 6.1 lists as D2's evidence too is pending (the builder's), so D2 is not reported as done before it is linked.
+**Status:** in progress. The live close is done and linked; the 60-second video that SOW 6.1 lists as D2's evidence too is produced and waits for the builder's approval and hosting, so D2 is not reported as done before it is linked.
 
 **Deviations:** the metric close ran on fresh messy fixtures built from the recipe of the builder's baseline fixture; closing the baseline fixture itself follows its recording (matrix row B-03, pending). Evidence lives in `evidence/runs/<stamp>/` rather than `evidence/closes/` (PRD decision D-4).
 
@@ -136,7 +136,7 @@ Every row is Met on committed evidence. The builder confirms each link in a fres
 |---|---|---|
 | README and integration notes | Met | [README.md](../README.md), [docs/integration-notes.md](../docs/integration-notes.md) |
 | Write-up: ordering rules and what is not handled | Met | [docs/write-up.md](../docs/write-up.md) |
-| 60-second demo video | Pending | `<pending: builder records the 60-second video (E4-S6)>`; script [docs/demo-video-script.md](../docs/demo-video-script.md); link slot [evidence/demo/README.md](demo/README.md) |
+| 60-second demo video | Produced, hosting pending | 59.8 s, 1920 x 1080, captions burned in and as `.srt`, SHA-256 `7de0640d94ccc669efa14fdcc3d46af177874a79eaa76152c2f5ca16cdbc2f1b`; `<pending: builder approves and hosts the 60-second video (E4-S6)>`; script [docs/demo-video-script.md](../docs/demo-video-script.md); link slot [evidence/demo/README.md](demo/README.md) |
 | Evidence package with hashes and explorer links | Met | [evidence/README.md](README.md) |
 | npm package published | Pending | `<pending: builder publishes stellar-dustin 0.1.0 to npm>`; until then the README gives the from-source path |
 
@@ -151,7 +151,7 @@ Every row is Met on committed evidence. The builder confirms each link in a fres
 | 1 — Inventory and planner | Build fixture; run the existing tool and record where it stops; write inspector and ordering logic; CLI | Correct dry-run plan for the fixture printed in the CLI; baseline recording | Fixture built and its dry-run plan committed; inspector, planner and `dustin plan` done. The baseline recording is pending (the builder's). | Plan committed 2026-09-26 |
 | 2 — Simple close, end to end | `executeClose()` for cases with no leftover balance; fee sponsorship wired | Zero-XLM account closed on testnet with sponsored fees; hashes; account gone | Delivered early: zero-spendable messy accounts closed through the SDK and the CLI with sponsor-paid fee bumps; Horizon 404 | 2026-09-26 and 2026-09-27 (planned week 2026-09-29 to 2026-10-05) |
 | 3 — Leftover balance ladder | Disposal ladder; sponsored trustline unwinding; sequence guard; edge-case matrix; close the full fixture | Messy fixture closed; tests pass including the illiquid asset via the unclosable path | Delivered early: the ladder with its fall-back, the sponsored unwind with the observed release, the sequence-guard wait, the 32-row matrix, the metric close, and the illiquid frozen asset's unclosable exit on the `edge` fixture | 2026-09-28 (planned week 2026-10-06 to 2026-10-12) |
-| 4 — Publish and demo | Error handling and CLI polish; npm publish; 60-second demo; evidence package; write-up | Demo, evidence package, write-up; D1 to D3 closed | Being done early: CLI output and error handling polish (stories E4-S1 and E4-S2: machine mode with `--json`, the `--verbose` detail, the interruption on SIGINT or SIGTERM, the hidden prompt, `docs/errors.md` and the JSON schemas), the test evidence (E4-S3), the write-up, the integration notes and the evidence package on 2026-09-28; the independent pre-release review, its fixes and the metric close on the 0.1.0 code on 2026-09-29. Pending, the builder's: the npm publish, the video, the baseline recording that closes D3 | from 2026-09-28 (planned week 2026-10-13 to 2026-10-19) |
+| 4 — Publish and demo | Error handling and CLI polish; npm publish; 60-second demo; evidence package; write-up | Demo, evidence package, write-up; D1 to D3 closed | Being done early: CLI output and error handling polish (stories E4-S1 and E4-S2: machine mode with `--json`, the `--verbose` detail, the interruption on SIGINT or SIGTERM, the hidden prompt, `docs/errors.md` and the JSON schemas), the test evidence (E4-S3), the write-up, the integration notes and the evidence package on 2026-09-28; the independent pre-release review, its fixes and the metric close on the 0.1.0 code on 2026-09-29. The video was produced on 2026-09-29. Pending, the builder's: the npm publish, the video's hosting, the baseline recording that closes D3 | from 2026-09-28 (planned week 2026-10-13 to 2026-10-19) |
 
 ## D. Evidence verification checklist (SOW section 6.2, for the chapter lead)
 

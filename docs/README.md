@@ -71,7 +71,7 @@ The documents were written in parallel and disagree in a few places. The followi
 3. Resolved on 2026-09-26 by the day-1 experiment (`progress-log.md`, row 4): a payment to an issuer that has been merged away succeeds and burns the balance, and trustlines to it can still be deleted. Return to issuer therefore needs only an authorized holder trustline; the `op_no_destination` expectation in `technical-spike.md` was wrong.
 4. Resolved: ladder policy is decision 8 (SOW order by default, `--prefer-destination` as an option), approved 2026-09-25.
 5. Publishing identity: the npm organisation or prefix, matching the repository's pseudonymous identity, plus 2FA.
-6. Video hosting for the 60-second demo, and whether the raw take is archived in the repository.
+6. Video hosting for the 60-second demo, and whether the raw take is archived in the repository. Proposed on 2026-09-29: the MP4 as an asset of the `v0.1.0` GitHub release, linked from the README and the evidence package (`runbooks/release.md`, step 4), and the raw take archived in the repository as its terminal recordings, captions, key frames and record (`evidence/demo/take-*/`); the builder approves the video and uploads it.
 7. After the sprint: follow-on Instaward versus SCF Build Award, and whether Instaward funding counts toward the SCF lifetime cap (`next-steps/scf-path.md`; SCF #46 Build submission deadline is 2026-11-08).
 
 ## Known disagreements between documents

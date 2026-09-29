@@ -1,6 +1,6 @@
 # Story 4.6: 60-second demo video
 
-Status: in-progress
+Status: review
 
 ## Story
 
@@ -13,9 +13,10 @@ so that I can see the tool work start to finish.
 As written in `docs/epics-and-stories.md` (Story 4.6):
 
 1. AC-E4-S6-1: Then the video is at most 60 seconds and shows `dustin plan` on a freshly rebuilt messy fixture, the confirmation, `dustin close`, the receipt and the explorer page returning "account not found".
-   - **Pending: human action by the builder.** The builder records the video by following `docs/demo-video-script.md`, which gives the setup, the commands in order (`dustin fixture create --profile messy`, `dustin fixture verify`, `dustin plan <G> --to <G> --sponsor <G>`, `dustin close <G> --to <G> --execute`, the typed confirmation, the explorer and Horizon pages), the 60-second cut and the reference values of the recorded CLI metric close to compare a take against.
+   - **Met by the take of 2026-09-29, with one deviation, awaiting the builder's approval of the video.** `scripts/demo/make-demo.mjs` produced the video from `docs/demo-video-script.md` on a freshly built messy fixture (`messy-20260929T184553Z-26ba57`): 59.8 s, 1920 x 1080, with the fixture build and its refused unsponsored transaction, `dustin plan`, `dustin close --execute` with the destination's last four characters typed, the three sponsor-paid transactions, the receipt (CLOSED, 0.0000000 XLM paid by the account), then Horizon's 404 "Resource Missing" for the account and its `account_merge`. Record: `evidence/demo/README.md` and `evidence/demo/take-20260929T184550Z/summary.md`.
+   - Deviation (the explorer page): StellarExpert's testnet explorer had stopped ingesting ledgers that day (its last ledger 4,935,523 did not move while Horizon was 784 ledgers ahead), so a fresh account did not exist on it. The "not found" page is Horizon's 404, the check the evidence package already treats as independent of a third-party site; the "before" balances and offers come from Stellar Explorer (https://testnet.steexp.com), which reads Horizon live. `docs/demo-video-script.md`, "The automated take", lists every difference from a take by hand.
 2. AC-E4-S6-2: Then it is published (unlisted is acceptable) and linked from the README and `evidence/README.md`.
-   - **Pending: human action by the builder.** The link slot is `<pending: builder records the 60-second video (E4-S6)>` in `evidence/demo/README.md`, the README's Demo section and the SOW 6.1 table of `evidence/README.md`.
+   - **Pending: human action by the builder.** The builder watches and approves the video and hosts it; proposed: the asset `dustin-demo-60s.mp4` of the `v0.1.0` release (`docs/runbooks/release.md`, step 4). The link slot is `<pending: builder approves and hosts the 60-second video (E4-S6)>` in `evidence/demo/README.md`, the README's Demo section, the SOW 6.1 table of `evidence/README.md` and the completion report. The README already shows the GIF of the close (`evidence/demo/dustin-demo.gif`).
 3. AC-E4-S6-3: Then `evidence/demo/script.md` contains the shot list and exact commands so it can be re-recorded after a testnet reset.
    - **Met, with a deviation of path, decided by the builder (PRD decision D-14).** The rehearsal lives in `docs/demo-video-script.md`; `evidence/demo/README.md` points to it from the evidence directory. The shot list and the exact commands are in the script, and they run on a freshly built fixture, so the video can be re-recorded after a reset.
 
@@ -23,8 +24,10 @@ As written in `docs/epics-and-stories.md` (Story 4.6):
 
 - [x] Task 1: the demo script as a rehearsal: setup, commands, reference values, the cut, the checklists (`docs/demo-video-script.md`)
 - [x] Task 2: `evidence/demo/README.md` with the video slot and the pointer to the script
-- [ ] Task 3: record, edit and upload the video — human action by the builder
-- [ ] Task 4: fill the video link, duration and SHA-256 in `evidence/demo/README.md`, the README and `evidence/README.md` — the builder, after Task 3
+- [x] Task 3: record and edit the video: `scripts/demo/make-demo.mjs` (asciinema and `scripts/demo/take.exp` for the terminal, Playwright for the pages, agg and ffmpeg for the cut), the take of 2026-09-29
+- [ ] Task 3b: approve and upload the video — human action by the builder
+- [x] Task 4a: the duration, the SHA-256, the captions, the fixture and its transactions in `evidence/demo/README.md`
+- [ ] Task 4b: the video link in `evidence/demo/README.md`, the README, `evidence/README.md` and the completion report — the agent, once the builder has hosted it (`docs/runbooks/release.md`, step 5)
 
 ## Dev Notes
 
@@ -52,3 +55,4 @@ As written in `docs/epics-and-stories.md` (Story 4.6):
 
 - 2026-09-28: rehearsal script and the video slot. Status: in-progress (AC-1 and AC-2 wait for the builder's recording).
 - 2026-09-29: the script's reference transcript is the metric close on the 0.1.0 code (`evidence/runs/20260929T111408Z-e4-cli/`), and the three lines the independent review found wrong are fixed (`docs/reviews/2026-09-29-e4-review.md`, D-9): the "Unbumped" line is the last line of the build log on standard error, before the summary and the checks on standard output; `dustin plan` prints no unclosable line when there is none; the transcript's line count. The review ran the script as written on a fresh fixture, with the typed confirmation on a pseudo-terminal, and every other quoted line matched. The script's path is backed by PRD decision D-14. Status: in-progress (the video is the builder's).
+- 2026-09-29: the video produced by `scripts/demo/make-demo.mjs` from the rehearsal script on a fresh fixture (take `evidence/demo/take-20260929T184550Z/`): 59.8 s, 1920 x 1080, captions burned in and as `.srt`, a GIF of the close, seven key frames and the three terminal recordings committed; the MP4 ignored by git. The explorer shots come from Stellar Explorer and Horizon, since StellarExpert's testnet ingestion had stopped. Status: review (the builder approves and hosts the video; then its link, and done).
