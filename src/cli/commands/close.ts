@@ -289,6 +289,21 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
     );
   }
 
+  if (options.json && !options.yes) {
+    // Review finding AA-10: --json is machine mode, so nothing is ever asked; without --yes the
+    // run is refused before anything is signed (docs/ux-design.md section 2.8), and before the
+    // --report file is touched (Epic 4 review BH-12): its directory is not created, nor is an
+    // earlier report there moved aside. The plan stays the one document on standard output.
+    throw new DustinError(
+      "CONFIRMATION_REQUIRED",
+      "--json makes the run non-interactive, so the typed confirmation was not asked; nothing was executed.",
+      {
+        stage: "config",
+        remedy:
+          "Add --yes to run it without the typed confirmation, or leave --json out to confirm in a terminal.",
+      },
+    );
+  }
   // The report file is checked (and its directory created) before the confirmation.
   const receipt = options.report !== undefined ? receiptFile(options.report, ctx) : null;
   out.say(summary(plan, spendable, baseFee));
@@ -299,18 +314,6 @@ async function executeShownPlan(shown: ShownPlan): Promise<ExitCode> {
     if (options.json) {
       out.notice("CONFIRMATION SKIPPED: --yes was given, so the typed confirmation was not asked.");
     }
-  } else if (options.json) {
-    // Review finding AA-10: --json is machine mode, so nothing is ever asked; without --yes the
-    // run is refused before anything is signed (docs/ux-design.md section 2.8).
-    throw new DustinError(
-      "CONFIRMATION_REQUIRED",
-      "--json makes the run non-interactive, so the typed confirmation was not asked; nothing was executed.",
-      {
-        stage: "config",
-        remedy:
-          "Add --yes to run it without the typed confirmation, or leave --json out to confirm in a terminal.",
-      },
-    );
   } else {
     await confirm(destination, ctx.prompt);
   }

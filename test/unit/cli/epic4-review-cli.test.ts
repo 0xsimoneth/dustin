@@ -1,5 +1,5 @@
 import { EventEmitter } from "node:events";
-import { mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { Writable } from "node:stream";
 import type { Command } from "commander";
@@ -428,5 +428,41 @@ describe("EX-4 / AC-13: with --json and standard output closed, standard error s
     expect(r.code).toBe(0);
     expect(r.err).toMatch(/^dustin: standard output was closed; the rest of the output goes/);
     expect(r.err).toContain("Dustin plan");
+  });
+});
+
+describe("BH-12: --json without --yes is refused before the --report file is touched", () => {
+  it("BH-12: the report's directory is not created, and the plan is the one document", async () => {
+    const world = zeroSpendableWorld();
+    const path = join(emptyDir(), "not-yet", "close.json");
+    const r = await closeCli(world, executeArgs(world, "--json", "--report", path));
+    expect(r.code).toBe(3);
+    expect(ndjson(r.err)).toEqual([
+      expect.objectContaining({ type: "error", code: "CONFIRMATION_REQUIRED", exitCode: 3 }),
+    ]);
+    expect(JSON.parse(r.out)).toMatchObject({ kind: "dustin-close-plan" });
+    // Before the fix receiptFile() had created the directory.
+    expect(existsSync(dirname(path))).toBe(false);
+  });
+
+  it("BH-12: a report path that is a directory does not replace the refusal", async () => {
+    const world = zeroSpendableWorld();
+    const dir = emptyDir();
+    const r = await closeCli(world, executeArgs(world, "--json", "--report", dir));
+    expect(r.code).toBe(3);
+    expect(ndjson(r.err)).toEqual([
+      expect.objectContaining({ type: "error", code: "CONFIRMATION_REQUIRED" }),
+    ]);
+  });
+
+  it("BH-12: an earlier report at the path stays where it is, untouched", async () => {
+    const world = zeroSpendableWorld();
+    const dir = emptyDir();
+    const path = join(dir, "close.json");
+    writeFileSync(path, '{"marker":"earlier"}\n');
+    const r = await closeCli(world, executeArgs(world, "--json", "--report", path));
+    expect(r.code).toBe(3);
+    expect(readdirSync(dir)).toEqual(["close.json"]);
+    expect(readFileSync(path, "utf8")).toBe('{"marker":"earlier"}\n');
   });
 });
