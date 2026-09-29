@@ -845,6 +845,8 @@ function receiptFile(path: string, ctx: CloseContext) {
     new DustinError("CONFIG_INVALID", `Cannot write the report file ${path}: ${detail}.`, {
       stage: "config",
       remedy: "Choose a writable file path for --report.",
+      // The path is printed as it is, never broken or collapsed (Epic 4 review EX-8).
+      details: { path },
     });
   try {
     if (path.trim() === "") throw refuse("the path is empty");
@@ -880,11 +882,12 @@ function receiptFile(path: string, ctx: CloseContext) {
     for (let n = 1; existsSync(aside); n += 1) aside = `${path}.${stamp}-${n}`;
     try {
       renameSync(path, aside);
-      ctx.out.notice(`the earlier report ${path} was kept as ${aside}.`);
+      ctx.out.notice(`the earlier report ${path} was kept as ${aside}.`, [path, aside]);
       return (target = path);
     } catch {
       ctx.out.notice(
         `warning: the earlier report ${path} could not be moved aside; this run's report is written to ${aside}.`,
+        [path, aside],
       );
       return (target = aside);
     }
@@ -923,6 +926,7 @@ function receiptFile(path: string, ctx: CloseContext) {
           const code = (error as NodeJS.ErrnoException).code ?? "unknown error";
           ctx.out.notice(
             `warning: cannot write the report file ${file} (${code}); the run goes on and the report is printed at the end.`,
+            [file],
           );
         }
       }
