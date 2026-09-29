@@ -1,0 +1,293 @@
+{
+  "checkedAt": "2026-09-29T18:57:12.737Z",
+  "fixture": "GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM",
+  "horizonUrl": "https://horizon-testnet.stellar.org",
+  "result": {
+    "pass": true,
+    "checks": [
+      {
+        "id": "zero-spendable-xlm",
+        "label": "holds zero spendable XLM",
+        "appendixB": true,
+        "pass": true,
+        "observed": "balance 4.0000000, minimum 4.0000000, native selling liabilities 0.0000000, spendable 0.0000000",
+        "expected": "spendable 0.0000000"
+      },
+      {
+        "id": "trustlines-with-balance",
+        "label": "at least 3 trustlines with non-zero balances",
+        "appendixB": true,
+        "pass": true,
+        "observed": "4 (DUSTA 0.0000007, DUSTB 0.0000003, DUSTC 0.0000005, SPTA 0.0000001)",
+        "expected": "3 or more"
+      },
+      {
+        "id": "open-offer",
+        "label": "at least 1 open offer",
+        "appendixB": true,
+        "pass": true,
+        "observed": "2 (ids 838755, 838756)",
+        "expected": "1 or more"
+      },
+      {
+        "id": "data-entry",
+        "label": "at least 1 data entry",
+        "appendixB": true,
+        "pass": true,
+        "observed": "1 (dustin.fixture)",
+        "expected": "1 or more"
+      },
+      {
+        "id": "sponsored-trustline",
+        "label": "trustline SPTA is sponsored by the reserve sponsor",
+        "appendixB": false,
+        "pass": true,
+        "observed": "sponsor GAPQUW7PQXX5GPHQK3VTO2JFXV75JGWZZRAVCD7GZLKLISQZJSJ46FGL",
+        "expected": "sponsor GAPQUW7PQXX5GPHQK3VTO2JFXV75JGWZZRAVCD7GZLKLISQZJSJ46FGL"
+      },
+      {
+        "id": "subentry-count",
+        "label": "subentry count",
+        "appendixB": false,
+        "pass": true,
+        "observed": "7",
+        "expected": "7"
+      },
+      {
+        "id": "num-sponsored",
+        "label": "entries sponsored by another account",
+        "appendixB": false,
+        "pass": true,
+        "observed": "1",
+        "expected": "1"
+      },
+      {
+        "id": "not-sponsoring",
+        "label": "sponsors nothing (a sponsoring account cannot be merged)",
+        "appendixB": false,
+        "pass": true,
+        "observed": "0",
+        "expected": "0"
+      },
+      {
+        "id": "no-pool-shares",
+        "label": "holds no liquidity pool shares",
+        "appendixB": false,
+        "pass": true,
+        "observed": "0",
+        "expected": "0"
+      },
+      {
+        "id": "not-immutable",
+        "label": "AUTH_IMMUTABLE is not set",
+        "appendixB": false,
+        "pass": true,
+        "observed": "false",
+        "expected": "false"
+      },
+      {
+        "id": "master-key-can-merge",
+        "label": "the master key alone meets the high threshold",
+        "appendixB": false,
+        "pass": true,
+        "observed": "master weight 1, high threshold 0",
+        "expected": "weight >= high threshold and > 0"
+      },
+      {
+        "id": "destination-exists",
+        "label": "the destination account exists",
+        "appendixB": false,
+        "pass": true,
+        "observed": "exists",
+        "expected": "account GBWWAI5TUITATE6PEAPKXQK6Y2WI6B7BPGZ27QSSE2M3LBWOXQGDVDWK exists"
+      }
+    ]
+  },
+  "baseReserveStroops": "5000000",
+  "account": {
+    "_links": {
+      "self": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM"
+      },
+      "transactions": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM/transactions{?cursor,limit,order}",
+        "templated": true
+      },
+      "operations": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM/operations{?cursor,limit,order}",
+        "templated": true
+      },
+      "payments": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM/payments{?cursor,limit,order}",
+        "templated": true
+      },
+      "effects": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM/effects{?cursor,limit,order}",
+        "templated": true
+      },
+      "offers": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM/offers{?cursor,limit,order}",
+        "templated": true
+      },
+      "trades": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM/trades{?cursor,limit,order}",
+        "templated": true
+      },
+      "data": {
+        "href": "https://horizon-testnet.stellar.org/accounts/GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM/data/{key}",
+        "templated": true
+      }
+    },
+    "id": "GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM",
+    "account_id": "GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM",
+    "sequence": "21203918532902916",
+    "sequence_ledger": 4936928,
+    "sequence_time": "1790708227",
+    "subentry_count": 7,
+    "last_modified_ledger": 4936928,
+    "last_modified_time": "2026-09-29T18:57:07Z",
+    "thresholds": {
+      "low_threshold": 0,
+      "med_threshold": 0,
+      "high_threshold": 0
+    },
+    "flags": {
+      "auth_required": false,
+      "auth_revocable": false,
+      "auth_immutable": false,
+      "auth_clawback_enabled": false
+    },
+    "balances": [
+      {
+        "balance": "0.0000007",
+        "limit": "922337203685.4775807",
+        "buying_liabilities": "0.0000000",
+        "selling_liabilities": "0.0000002",
+        "last_modified_ledger": 4936927,
+        "is_authorized": true,
+        "is_authorized_to_maintain_liabilities": true,
+        "asset_type": "credit_alphanum12",
+        "asset_code": "DUSTA",
+        "asset_issuer": "GASPSULPSHRT2UES5GO63XVOI3APIIGM43H3P43RYOEJZPV63J3RA5LW"
+      },
+      {
+        "balance": "0.0000003",
+        "limit": "922337203685.4775807",
+        "buying_liabilities": "0.0000002",
+        "selling_liabilities": "0.0000000",
+        "last_modified_ledger": 4936927,
+        "is_authorized": true,
+        "is_authorized_to_maintain_liabilities": true,
+        "asset_type": "credit_alphanum12",
+        "asset_code": "DUSTB",
+        "asset_issuer": "GASPSULPSHRT2UES5GO63XVOI3APIIGM43H3P43RYOEJZPV63J3RA5LW"
+      },
+      {
+        "balance": "0.0000005",
+        "limit": "922337203685.4775807",
+        "buying_liabilities": "0.0000000",
+        "selling_liabilities": "0.0000002",
+        "last_modified_ledger": 4936927,
+        "is_authorized": true,
+        "is_authorized_to_maintain_liabilities": true,
+        "asset_type": "credit_alphanum12",
+        "asset_code": "DUSTC",
+        "asset_issuer": "GASPSULPSHRT2UES5GO63XVOI3APIIGM43H3P43RYOEJZPV63J3RA5LW"
+      },
+      {
+        "balance": "0.0000001",
+        "limit": "922337203685.4775807",
+        "buying_liabilities": "0.0000000",
+        "selling_liabilities": "0.0000000",
+        "sponsor": "GAPQUW7PQXX5GPHQK3VTO2JFXV75JGWZZRAVCD7GZLKLISQZJSJ46FGL",
+        "last_modified_ledger": 4936925,
+        "is_authorized": true,
+        "is_authorized_to_maintain_liabilities": true,
+        "asset_type": "credit_alphanum4",
+        "asset_code": "SPTA",
+        "asset_issuer": "GASPSULPSHRT2UES5GO63XVOI3APIIGM43H3P43RYOEJZPV63J3RA5LW"
+      },
+      {
+        "balance": "4.0000000",
+        "buying_liabilities": "0.0000200",
+        "selling_liabilities": "0.0000000",
+        "asset_type": "native"
+      }
+    ],
+    "signers": [
+      {
+        "weight": 1,
+        "key": "GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM",
+        "type": "ed25519_public_key"
+      }
+    ],
+    "data": {
+      "dustin.fixture": "bWVzc3k="
+    },
+    "num_sponsoring": 0,
+    "num_sponsored": 1,
+    "paging_token": "GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM"
+  },
+  "offers": [
+    {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/offers/838755"
+        },
+        "offer_maker": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM"
+        }
+      },
+      "id": "838755",
+      "paging_token": "838755",
+      "seller": "GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM",
+      "selling": {
+        "asset_type": "credit_alphanum12",
+        "asset_code": "DUSTA",
+        "asset_issuer": "GASPSULPSHRT2UES5GO63XVOI3APIIGM43H3P43RYOEJZPV63J3RA5LW"
+      },
+      "buying": {
+        "asset_type": "native"
+      },
+      "amount": "0.0000002",
+      "price_r": {
+        "n": 100,
+        "d": 1
+      },
+      "price": "100.0000000",
+      "last_modified_ledger": 4936927,
+      "last_modified_time": "2026-09-29T18:57:02Z"
+    },
+    {
+      "_links": {
+        "self": {
+          "href": "https://horizon-testnet.stellar.org/offers/838756"
+        },
+        "offer_maker": {
+          "href": "https://horizon-testnet.stellar.org/accounts/GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM"
+        }
+      },
+      "id": "838756",
+      "paging_token": "838756",
+      "seller": "GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM",
+      "selling": {
+        "asset_type": "credit_alphanum12",
+        "asset_code": "DUSTC",
+        "asset_issuer": "GASPSULPSHRT2UES5GO63XVOI3APIIGM43H3P43RYOEJZPV63J3RA5LW"
+      },
+      "buying": {
+        "asset_type": "credit_alphanum12",
+        "asset_code": "DUSTB",
+        "asset_issuer": "GASPSULPSHRT2UES5GO63XVOI3APIIGM43H3P43RYOEJZPV63J3RA5LW"
+      },
+      "amount": "0.0000002",
+      "price_r": {
+        "n": 1,
+        "d": 1
+      },
+      "price": "1.0000000",
+      "last_modified_ledger": 4936927,
+      "last_modified_time": "2026-09-29T18:57:02Z"
+    }
+  ]
+}

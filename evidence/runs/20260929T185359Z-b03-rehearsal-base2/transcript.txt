@@ -1,0 +1,169 @@
+$ dustin close GB6A3WJRNHSY5ZDZWB7GJY5ZVY2XTCQWO32W6SZ7AUYI4GEG6PQR44KZ --to GAQOROCDHEDKF5XN4XSMKA7TEK6TVSNPGRGRZF7H6WKIXYRZNJDGKI6Y --execute --yes --report report.json
+Dustin plan  (re-read for execution: nothing is signed before you confirm)
+Network      testnet   ledger 4,936,902   observed 2026-09-29T18:54:57Z
+Account      GB6A3WJRNHSY5ZDZWB7GJY5ZVY2XTCQWO32W6SZ7AUYI4GEG6PQR44KZ
+Balance      5.0000000 XLM, minimum balance 4.0000000 XLM, spendable 1.0000000 XLM (base reserve 0.5000000)
+Destination  GAQOROCDHEDKF5XN4XSMKA7TEK6TVSNPGRGRZF7H6WKIXYRZNJDGKI6Y
+Sponsor      GAV7HAB33Q5J7LJO33XZ75RWLJUGDV3J52BJ4E7Q34MN3MLMUT424OGB
+Fees         bid up to 0.0896520 XLM (59,768 stroops per operation), paid by the sponsor; the account pays 0
+Budget       5.0000000 XLM per close for the sponsor; the bid above is within it
+Status       CLOSABLE: the plan ends in a merge
+
+Steps, in execution order
+  S01  tx 1  cancel offer 838752: sells 0.0000002 DUSTA for XLM
+             why: Open offer 838752 sells 0.0000002 DUSTA for XLM. Offers are subentries that block the merge, and their
+             liabilities stop the balance from moving and the trustline from being removed; it is cancelled with amount
+             0.
+  S02  tx 1  cancel offer 838753: sells 0.0000002 DUSTC for DUSTB
+             why: Open offer 838753 sells 0.0000002 DUSTC for DUSTB. Offers are subentries that block the merge, and
+             their liabilities stop the balance from moving and the trustline from being removed; it is cancelled with
+             amount 0.
+  S03  tx 1  return 0.0000003 DUSTB to issuer GCVJ...X5P4 (burn)
+             why: Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000003 DUSTB back to its
+             issuer GCVJVGJETTCVLESFN2KHHRDJ2NY6GPN67LSC73RSNKALQ5ZPZOQ4X5P4, which burns it.
+  S04  tx 1  remove trustline DUSTB
+             why: The DUSTB trustline is empty once the balance is disposed of; a trustline is a subentry that blocks
+             the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.
+  S05  tx 1  return 0.0000005 DUSTC to issuer GCVJ...X5P4 (burn)
+             why: Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000005 DUSTC back to its
+             issuer GCVJVGJETTCVLESFN2KHHRDJ2NY6GPN67LSC73RSNKALQ5ZPZOQ4X5P4, which burns it.
+  S06  tx 1  remove trustline DUSTC
+             why: The DUSTC trustline is empty once the balance is disposed of; a trustline is a subentry that blocks
+             the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.
+  S07  tx 1  return 0.0000001 SPTA to issuer GCVJ...X5P4 (burn)
+             why: Horizon found no strict-send path to XLM for the full balance. Pay the 0.0000001 SPTA back to its
+             issuer GCVJVGJETTCVLESFN2KHHRDJ2NY6GPN67LSC73RSNKALQ5ZPZOQ4X5P4, which burns it.
+  S08  tx 1  remove trustline SPTA (reserve sponsored by GDGD...2AR4)
+             why: The SPTA trustline is empty once the balance is disposed of; a trustline is a subentry that blocks the
+             merge. Removing it (limit 0) needs only this account's signature and returns its 0.5 XLM reserve to the
+             reserve sponsor GDGD7WV4JX2YOZYOOFBELSUVQBY6QJZEI2LH6EGIVJMM6PMWDZ2Y2AR4, not to this account.
+  S09  tx 1  delete data entry "dustin.fixture"
+             why: Data entry "dustin.fixture" is a subentry that blocks the merge; a manage-data operation without a
+             value deletes it.
+  S10  tx 2  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+             why: Sell the full 0.0000007 DUSTA for about 0.0000007 XLM (at least 0.0000006) with a strict-send path
+             payment to this account; the XLM leaves with the merge. It runs in its own transaction so a moved market
+             cannot roll back the rest.
+  S11  tx 2  remove trustline DUSTA
+             why: The DUSTA trustline is empty once the balance is disposed of; a trustline is a subentry that blocks
+             the merge. Removing it (limit 0) releases its 0.5 XLM reserve to this account.
+  S12  tx 3  merge into GAQO...KI6Y (cannot be undone)
+             why: Every subentry is removed by the earlier steps; the account sponsors nothing, is not immutable and the
+             destination exists. The merge sends the whole XLM balance to
+             GAQOROCDHEDKF5XN4XSMKA7TEK6TVSNPGRGRZF7H6WKIXYRZNJDGKI6Y and deletes the account. It cannot be undone.
+
+Transactions (3, each fee-bumped by the sponsor; inner fee 0)
+  tx 1  cleanup    9 ops   bid 597,680 stroops
+             Deterministic cleanup with no market dependency (offer cancellations, returns to issuers, transfers to the
+             destination, removal of emptied trustlines and data entries), grouped into one fee-bumped transaction of at
+             most 100 operations.
+  tx 2  convert    2 ops   bid 179,304 stroops
+             Market-dependent sale of DUSTA isolated with its trustline removal, so a moved market cannot roll back the
+             rest of the close.
+  tx 3  merge      1 op    bid 119,536 stroops
+             The merge runs alone after a fresh preflight, because the path payments before it depend on the market and
+             could change the plan.
+
+If everything succeeds
+  5.0000007 XLM arrives at GAQO...KI6Y (balance 5.0000000 + sale 0.0000007)
+  Reserves released to sponsors: 0.5000000 XLM, never this account's
+    0.5000000 XLM reserve unlocked for sponsor GDGD...2AR4 (trustline SPTA)
+  0.0000000 XLM paid by the account; every fee is sponsored
+  sequence guard ok: sequence at merge 21203793978851335 is below ledger 4,936,903 << 32
+  plan hash ac0a9654cb2aa2220bc4c9b7de32d74135c15823e363c208b497380091b5ca4d
+
+You are about to close GB6A3WJRNHSY5ZDZWB7GJY5ZVY2XTCQWO32W6SZ7AUYI4GEG6PQR44KZ on testnet.
+  destination  GAQOROCDHEDKF5XN4XSMKA7TEK6TVSNPGRGRZF7H6WKIXYRZNJDGKI6Y
+  receives     5.0000007 XLM through the merge in tx 3, which cannot be undone
+  sponsor      GAV7HAB33Q5J7LJO33XZ75RWLJUGDV3J52BJ4E7Q34MN3MLMUT424OGB
+  pays         every fee; the plan bids 0.0896520 XLM
+  at most      5.0000000 XLM, the close budget; retries and re-plans can bid more than the plan, never more
+  can spend    9863.9997100 XLM
+  signs        3 fee-bumped transactions, 12 operations, signed by the account
+  unclosable   0 items
+
+CONFIRMATION SKIPPED: --yes was given, so the typed confirmation was not asked. Executing now.
+
+Closing GB6A3WJRNHSY5ZDZWB7GJY5ZVY2XTCQWO32W6SZ7AUYI4GEG6PQR44KZ on testnet.
+Every fee is paid by the sponsor GAV7HAB33Q5J7LJO33XZ75RWLJUGDV3J52BJ4E7Q34MN3MLMUT424OGB; the account pays nothing.
+
+tx 1/3  cleanup  9 operations, signed by the account, fee-bumped by the sponsor
+        cancel 2 offers, dispose of 3 balances, remove 3 trustlines, delete 1 data entry
+        submitted  cce9e853202220b0302138b8a57e1a996fbbd5f8846b8f8c8e2405d42c876483
+        https://stellar.expert/explorer/testnet/tx/cce9e853202220b0302138b8a57e1a996fbbd5f8846b8f8c8e2405d42c876483
+        confirmed  ledger 4,936,904, fee charged to the sponsor 0.0001000 XLM (1,000 stroops)
+
+tx 2/3  convert  2 operations, signed by the account, fee-bumped by the sponsor
+        dispose of 1 balance, remove 1 trustline
+        submitted  a932f3dc988e1ea913ea774c086fedd431d185f73cd8eb9e3ea5ebb7433fd609
+        https://stellar.expert/explorer/testnet/tx/a932f3dc988e1ea913ea774c086fedd431d185f73cd8eb9e3ea5ebb7433fd609
+        confirmed  ledger 4,936,905, fee charged to the sponsor 0.0000300 XLM (300 stroops)
+
+tx 3/3  merge preflight ok: no subentries left, nothing sponsored, destination exists, sequence guard ok
+
+tx 3/3  merge  1 operation, signed by the account, fee-bumped by the sponsor
+        merge into GAQO...KI6Y
+        submitted  6d4307854ac2e977f57f5d10539647c8653c95f0f2285f647545c72928540a46
+        https://stellar.expert/explorer/testnet/tx/6d4307854ac2e977f57f5d10539647c8653c95f0f2285f647545c72928540a46
+        confirmed  ledger 4,936,906, fee charged to the sponsor 0.0000200 XLM (200 stroops)
+
+Verifying    GET /accounts/GB6A3WJRNHSY5ZDZWB7GJY5ZVY2XTCQWO32W6SZ7AUYI4GEG6PQR44KZ -> 404: the account no longer exists
+
+Dustin close receipt   CLOSED: the account was merged and no longer exists
+Network      testnet, Horizon https://horizon-testnet.stellar.org
+Account      GB6A3WJRNHSY5ZDZWB7GJY5ZVY2XTCQWO32W6SZ7AUYI4GEG6PQR44KZ
+Destination  GAQOROCDHEDKF5XN4XSMKA7TEK6TVSNPGRGRZF7H6WKIXYRZNJDGKI6Y
+Sponsor      GAV7HAB33Q5J7LJO33XZ75RWLJUGDV3J52BJ4E7Q34MN3MLMUT424OGB   paid every fee
+Run          started 2026-09-29T18:55:00.456Z, finished 2026-09-29T18:55:18.941Z
+Plan hash    ac0a9654cb2aa2220bc4c9b7de32d74135c15823e363c208b497380091b5ca4d
+
+Transactions (3 submitted; every fee was paid by the sponsor, the account paid nothing)
+  tx 1  cleanup  applied  ledger 4,936,904  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+        outer hash  cce9e853202220b0302138b8a57e1a996fbbd5f8846b8f8c8e2405d42c876483
+        inner hash  79795969674a7250ae46f249db33a677213223769b26a31b3067d57f5fc5391e
+        https://stellar.expert/explorer/testnet/tx/cce9e853202220b0302138b8a57e1a996fbbd5f8846b8f8c8e2405d42c876483
+        operations  cancel offer 838752: sells 0.0000002 DUSTA for XLM
+                    cancel offer 838753: sells 0.0000002 DUSTC for DUSTB
+                    return 0.0000003 DUSTB to issuer GCVJ...X5P4 (burn)
+                    remove trustline DUSTB
+                    return 0.0000005 DUSTC to issuer GCVJ...X5P4 (burn)
+                    remove trustline DUSTC
+                    return 0.0000001 SPTA to issuer GCVJ...X5P4 (burn)
+                    remove trustline SPTA (reserve sponsored by GDGD...2AR4)
+                    delete data entry "dustin.fixture"
+  tx 2  convert  applied  ledger 4,936,905  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+        outer hash  a932f3dc988e1ea913ea774c086fedd431d185f73cd8eb9e3ea5ebb7433fd609
+        inner hash  821184b0d37cf76162753378bf5773ab48d809c3d1d9f8d423885d2341c7870e
+        https://stellar.expert/explorer/testnet/tx/a932f3dc988e1ea913ea774c086fedd431d185f73cd8eb9e3ea5ebb7433fd609
+        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+                    remove trustline DUSTA
+  tx 3  merge  applied  ledger 4,936,906  fee 0.0000200 XLM (200 stroops) charged to the sponsor
+        outer hash  6d4307854ac2e977f57f5d10539647c8653c95f0f2285f647545c72928540a46
+        inner hash  43bf6215758884a88f9f335adf16863e5b6ea242dc703422eb364ebd7d494c34
+        https://stellar.expert/explorer/testnet/tx/6d4307854ac2e977f57f5d10539647c8653c95f0f2285f647545c72928540a46
+        operations  merge into GAQO...KI6Y (cannot be undone)
+
+Result
+  5.0000007 XLM merged into the destination GAQO...KI6Y (read from the merge result)
+  Reserves released to sponsors: 0.5000000 XLM, never this account's
+    0.5000000 XLM reserve returned to sponsor GDGD...2AR4, never this account's (trustline SPTA)
+      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+  0.0000000 XLM in fees paid by the account
+  0.0001500 XLM (1,500 stroops) in fees paid by the sponsor
+
+Disposals (what became of each leftover balance)
+  DUSTB 0.0000003  burned: returned to its issuer GCVJ...X5P4 in tx 1
+  DUSTC 0.0000005  burned: returned to its issuer GCVJ...X5P4 in tx 1
+  SPTA 0.0000001  burned: returned to its issuer GCVJ...X5P4 in tx 1
+  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM left with the merge
+
+Verify it yourself
+  account      https://stellar.expert/explorer/testnet/account/GB6A3WJRNHSY5ZDZWB7GJY5ZVY2XTCQWO32W6SZ7AUYI4GEG6PQR44KZ
+               https://horizon-testnet.stellar.org/accounts/GB6A3WJRNHSY5ZDZWB7GJY5ZVY2XTCQWO32W6SZ7AUYI4GEG6PQR44KZ
+  destination  https://stellar.expert/explorer/testnet/account/GAQOROCDHEDKF5XN4XSMKA7TEK6TVSNPGRGRZF7H6WKIXYRZNJDGKI6Y
+               https://horizon-testnet.stellar.org/accounts/GAQOROCDHEDKF5XN4XSMKA7TEK6TVSNPGRGRZF7H6WKIXYRZNJDGKI6Y
+  verified     account GB6A3WJRNHSY5ZDZWB7GJY5ZVY2XTCQWO32W6SZ7AUYI4GEG6PQR44KZ no longer exists on Horizon (404)
+               checked 2026-09-29T18:55:18.117Z at ledger 4,936,906
+Report written to report.json
+[exit code 0]

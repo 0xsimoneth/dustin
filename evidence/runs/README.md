@@ -13,8 +13,10 @@ Two writers produce them:
 | `edge-frozen` | `edge-frozen` | The SOW's week-3 outcome on the `edge` fixture (docs/README.md canonical decision 3; matrix rows S-02 and S-01): the `auth-frozen` account's frozen, illiquid FRZ. Without `--partial` the close exits 3 and signs nothing, naming `TRUSTLINE_NOT_AUTHORIZED`, the issuer and the remedy; with `--partial --report` it exits 4: ILQX is returned to its issuer, its trustline and the data entry are removed, no merge is submitted, and the account keeps only the frozen trustline. |
 | `memo-partial` | `e3s2-partial` | Story E3-S2 (AC-E3-S2-3), the partial-close receipt: the issuer sets the SEP-29 data entry `config.memo_required` = 1, so the plan sends DUSTC to the destination (rung 3) and finds no route for DUSTB and SPTA (`NO_DISPOSAL_ROUTE`, every rung ruled out). Without `--partial` the close exits 3; with `--partial --report` it exits 4, and its receipt lists each unclosable item. |
 | `seq-wait` | `e3s4-wait` | Story E3-S4 (AC-E3-S4-2; matrix row S-04): a BumpSequence, fee-bumped by the sponsor, raises the account's sequence number to (latest ledger + 12) << 32. The plan runs the merge alone; the close runs the cleanup, prints the wait for the sequence guard, merges in or after the unblocking ledger (exit 0), and Horizon answers 404. |
+| `baseline-zero` | `b03-base1` | Matrix row B-03, after the recordings B-01 and B-02 (`evidence/baseline/README.md`): the recipe of the baseline fixture `messy-20260926T035942Z` rebuilt (FIX-base-1, zero spendable XLM; the run checks that its recipe hash is the baseline fixture's), planned and closed with `dustin close --execute --yes --report` (exit 0); Horizon answers 404 afterwards. `scripts/baseline-b03.mjs` runs it together with the next case. |
+| `baseline-plus1` | `b03-base2` | Matrix row B-03: the same recipe rebuilt (FIX-base-2), then 1 XLM paid to the account by its fee sponsor (in `setup.json`), planned and closed; the destination receives the whole balance, 5 XLM plus the sale. |
 
-Older labels: `-cli` is the week-2 close through the command line. The runs up to `20260928T112252Z-e3-cli` were written before this script and hold fewer files; each run's `summary.md` lists its own.
+Older labels: `-cli` is the week-2 close through the command line; `-b03-rehearsal-base1` and `-b03-rehearsal-base2` are the rehearsal of `node scripts/baseline-b03.mjs --before-recordings` on 2026-09-29, which ran the two B-03 cases end to end before the recordings exist (every check passed; matrix row B-03 itself runs after the recordings). The runs up to `20260928T112252Z-e3-cli` were written before this script and hold fewer files; each run's `summary.md` lists its own.
 
 ## Layout
 
@@ -57,6 +59,8 @@ node scripts/evidence-cli.mjs metric          # evidence/runs/<stamp>-e3-cli/
 node scripts/evidence-cli.mjs edge-frozen     # evidence/runs/<stamp>-edge-frozen/
 node scripts/evidence-cli.mjs memo-partial    # evidence/runs/<stamp>-e3s2-partial/
 node scripts/evidence-cli.mjs seq-wait        # evidence/runs/<stamp>-e3s4-wait/
+node scripts/evidence-cli.mjs baseline-zero   # evidence/runs/<stamp>-b03-base1/ (or both: node scripts/baseline-b03.mjs)
+node scripts/evidence-cli.mjs baseline-plus1  # evidence/runs/<stamp>-b03-base2/
 ```
 
 A second argument replaces the default label. Each run takes one to three minutes, prints each command with its exit code, and ends with a JSON summary that names its directory. The script checks every exit code against the case: an unexpected one stops the run and prints that command's output, with any secret removed. It exits 0 when the run met every expectation, 1 otherwise, and 2 for a usage error. The fixture's keys stay in the gitignored `.fixture/` directory and reach `dustin close` only through its environment, never its command line; the network settings of the environment (`DUSTIN_HORIZON_URL`, `DUSTIN_EXPLORER_BASE`) are not passed on, so every run uses the public testnet and its explorer. Commit a directory together with the code it was captured with, and only when it has no `FAILED.md`.

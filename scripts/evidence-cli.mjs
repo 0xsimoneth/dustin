@@ -10,6 +10,11 @@
 //   memo-partial  label e3s2-partial  E3-S2: the issuer requires a memo (SEP-29); the partial close
 //                                     and its receipt
 //   seq-wait      label e3s4-wait     E3-S4: a bumped sequence number; the executor waits, then merges
+//   baseline-zero   label b03-base1   matrix row B-03, after the recordings B-01 and B-02: the
+//                                     baseline recipe rebuilt (FIX-base-1, zero spendable XLM)
+//                                     and closed; its recipe hash is the baseline fixture's
+//   baseline-plus1  label b03-base2   matrix row B-03: the same with 1 XLM added by the fee sponsor
+//                                     (FIX-base-2); scripts/baseline-b03.mjs runs both
 //
 // Usage, after `npm run build`:  node scripts/evidence-cli.mjs <case> [label]
 //
@@ -53,6 +58,8 @@ const DEFAULT_LABELS = {
   "edge-frozen": "edge-frozen",
   "memo-partial": "e3s2-partial",
   "seq-wait": "e3s4-wait",
+  "baseline-zero": "b03-base1",
+  "baseline-plus1": "b03-base2",
 };
 const LABEL_RULE = /^[a-z0-9][a-z0-9-]*$/;
 const USAGE = [
@@ -96,7 +103,7 @@ const SHOWN = `evidence/runs/${NAME}`;
 if (existsSync(TARGET)) refuse(`${SHOWN} exists; a run directory is never overwritten`, 1);
 
 const require = createRequire(join(ROOT, "package.json"));
-const { Account, Keypair, Operation, TransactionBuilder } = require("@stellar/stellar-sdk");
+const { Account, Asset, Keypair, Operation, TransactionBuilder } = require("@stellar/stellar-sdk");
 // The rules and the network constants of the build whose CLI runs here.
 const lib = await import(pathToFileURL(LIB).href);
 const { redact, verifyHorizonIsTestnet } = lib;
@@ -162,6 +169,7 @@ const run = {
   ledgerAfter: null,
   refusal: null,
   bump: null,
+  topUp: null,
   gathered: false,
 };
 
@@ -1217,7 +1225,140 @@ const CASES = {
       ];
     },
   },
+
+  "baseline-zero": {
+    title: "Matrix row B-03, the rebuilt baseline fixture (FIX-base-1)",
+    purpose: "matrix row B-03 after the recording B-01; SOW 6.1 Deliverable 3",
+    run: () => baselineClose(false),
+    intro: () =>
+      "Matrix row B-03 (docs/edge-cases-and-test-matrix.md, section 4): the recipe of the builder's baseline fixture `messy-20260926T035942Z`, on which the existing tool was recorded (B-01, evidence/baseline/README.md), rebuilt from Friendbot with `dustin fixture create --profile messy` (FIX-base-1: zero spendable XLM) and closed by Dustin through the command line with the default ladder order. The recipe hash in the new manifest is the baseline fixture's, so the account Dustin closes is built identically to the one the existing tool stopped on.",
+    see: () => baselineSee(false),
+  },
+
+  "baseline-plus1": {
+    title: "Matrix row B-03, the rebuilt baseline fixture plus 1 XLM (FIX-base-2)",
+    purpose: "matrix row B-03 after the recording B-02; SOW 6.1 Deliverable 3",
+    run: () => baselineClose(true),
+    intro: () =>
+      "Matrix row B-03 (docs/edge-cases-and-test-matrix.md, section 4): the baseline recipe rebuilt as for B-02 (FIX-base-2), a fresh `messy` fixture to which the fee sponsor pays 1 XLM, so the account holds 1 XLM it can spend, then closed by Dustin through the command line with the default ladder order. The recipe hash in the new manifest is the baseline fixture's.",
+    see: () => baselineSee(true),
+  },
 };
+
+/** The recipe hash of the builder's baseline fixture, from its public manifest. */
+function baselineRecipeHash() {
+  const path = join(ROOT, "test", "fixtures", "horizon", "messy", "manifest.json");
+  const manifest = JSON.parse(readFileSync(path, "utf8"));
+  if (manifest.id !== "messy-20260926T035942Z" || !manifest.recipeHash) {
+    throw new StepFailure(
+      "read the baseline manifest",
+      "it is not the baseline fixture's manifest",
+    );
+  }
+  return manifest.recipeHash;
+}
+
+/** B-03: build the baseline recipe again, with 1 XLM added when `plusOne`, and close it. */
+async function baselineClose(plusOne) {
+  const baselineHash = baselineRecipeHash();
+  await buildFixture("messy");
+  useMessyFixture(["Account", "Destination", "Reserve sponsor", "Fee sponsor"]);
+  requireChecks("the recipe", [
+    check(
+      "The rebuilt fixture's recipe hash is the baseline fixture's (messy-20260926T035942Z)",
+      () => ({
+        pass: run.manifest.recipeHash === baselineHash,
+        observed: `${run.manifest.recipeHash} (baseline ${baselineHash})`,
+      }),
+    ),
+  ]);
+  await step("wait for Horizon's DUSTA path", () => waitForDustaPath(false));
+  if (plusOne) await step("the 1 XLM from the fee sponsor", () => topUp("1"));
+  const plan = dryRunPlan();
+  requireChecks("the dry-run plan", [
+    check("The dry-run plan is closable and ends in the merge", () => ({
+      pass: plan.status === "closable" && lastTx(plan)?.phase === "merge",
+      observed: `status ${plan.status}; transactions ${phasesOf(plan)}`,
+    })),
+  ]);
+  await step("read the account and the balances before the close", recordBefore);
+  closeCommand({ step: "the close", transcript: "transcript.txt", report: true, expected: 0 });
+  await gatherAfter();
+  run.checks.push(
+    ...closedChecks(),
+    check("The whole XLM balance of the account reached the destination, plus the sale", () => {
+      const before = roleState(run.before, "Account");
+      const merged = toStroops(run.report.recovery.mergedXlm);
+      const floor = toStroops(before.balance);
+      return {
+        pass: merged >= floor && merged - floor <= 10n,
+        observed: `account ${before.balance} XLM before; merged ${run.report.recovery.mergedXlm} XLM`,
+      };
+    }),
+  );
+}
+
+/** A payment of `amount` XLM from the fee sponsor to the account, signed and paid by the sponsor. */
+async function topUp(amount) {
+  const sponsor = Keypair.fromSecret(run.secrets.sponsor);
+  const loaded = await accountOf(sponsor.publicKey());
+  const before = await accountOf(run.account);
+  const fee = await feeBid();
+  const tx = new TransactionBuilder(new Account(sponsor.publicKey(), loaded.sequence), {
+    fee: String(fee),
+    networkPassphrase: PASSPHRASE,
+  })
+    .addOperation(Operation.payment({ destination: run.account, asset: Asset.native(), amount }))
+    .setTimeout(120)
+    .build();
+  tx.sign(sponsor);
+  run.changed.push(`the payment of ${amount} XLM to the account`);
+  const outcome = await submitEnvelope(tx);
+  await recordSetup(
+    `Payment of ${amount} XLM from the fee sponsor to the account (matrix row B-02's "plus 1 XLM"), signed and paid by the sponsor`,
+    tx,
+    outcome,
+    sponsor.publicKey(),
+    sponsor.publicKey(),
+  );
+  if (outcome.result !== "applied") {
+    throw new Error(
+      `the transaction ${outcome.hash} ${outcome.result}: ${JSON.stringify(outcome.codes ?? null)}`,
+    );
+  }
+  const native = (a) => a.balances.find((b) => b.asset_type === "native").balance;
+  const after = await accountOf(run.account);
+  if (toStroops(native(after)) - toStroops(native(before)) !== toStroops(amount)) {
+    throw new Error(`the account went from ${native(before)} to ${native(after)} XLM`);
+  }
+  run.topUp = {
+    amount,
+    hash: outcome.hash,
+    ledger: outcome.ledger,
+    before: native(before),
+    after: native(after),
+  };
+}
+
+function baselineSee(plusOne) {
+  const v = run.verification.result;
+  const merged = run.report?.recovery?.mergedXlm;
+  const lines = [
+    `The recipe: the rebuilt fixture \`${run.manifest.id}\` has the recipe hash \`${run.manifest.recipeHash}\`, the baseline fixture's (\`test/fixtures/horizon/messy/manifest.json\`). See \`fixture-manifest.json\`.`,
+    `${ran("verify the fixture")}: ${passed(v)} right after the build, zero spendable XLM among them. See \`fixture-verify.txt\` and \`fixture-verification.json\`.`,
+  ];
+  if (plusOne && run.topUp) {
+    lines.push(
+      `Then the fee sponsor paid the account ${run.topUp.amount} XLM: ${linkTx(run.topUp.hash)} (ledger ${run.topUp.ledger}); its balance went from ${run.topUp.before} to ${run.topUp.after} XLM, so it can spend 1 XLM. See \`setup.json\`.`,
+    );
+  }
+  lines.push(
+    `${ran("the dry-run plan")}: status ${run.plan.status.toUpperCase()}, ${run.plan.transactions.length} transactions (${phasesOf(run.plan)}). See \`plan.txt\` and \`plan.json\`.`,
+    `${ran("the close")}: report status \`${run.report?.status}\`; ${txList(run.report?.transactions ?? [])}, each a fee bump paid by the sponsor. See \`transcript.txt\` and \`report.json\`.`,
+    `Horizon answers HTTP ${run.accountAfter?.status} for the account afterwards (${horizonAccount(run.account)}, \`account-after.json\`); the destination received the merged ${merged} XLM (\`balances.json\`). The side-by-side table with the existing tool's recordings is \`evidence/baseline/${label.includes("rehearsal") ? "b03-comparison-rehearsal.md" : "b03-comparison.md"}\`.`,
+  );
+  return lines;
+}
 
 /** The issuer sets SEP-29's config.memo_required = 1, in its own transaction (it holds XLM). */
 async function issuerRequiresMemo() {
