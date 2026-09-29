@@ -38,7 +38,7 @@ The fixtures the live tests build can also be built by hand:
 
 `fixture create` writes the keys to `.fixture/<id>/keys.json` (mode 600, gitignored, testnet only), and the public manifest and the recorded Horizon JSON beside them.
 
-The `edge` profile (`src/fixture/edge.ts`) has these variants, all funded by one Friendbot call and holding zero spendable XLM (E4-S3 added the last three and left the ten before them unchanged; the plain issuer starts with 3 XLM instead of 2, for the claimant's two claimable balances):
+The `edge` profile (`src/fixture/edge.ts`) has these variants, all funded by one Friendbot call and holding zero spendable XLM (E4-S3 added the last three and left the ten before them unchanged; the plain issuer, which funds the claimant's two claimable balances, starts with 5 base reserves plus 0.0000006 XLM since the Epic 4 review, EP-21: 2.5000006 XLM at a base reserve of 0.5 XLM; the E4-S3 build gave it 3 XLM):
 
 | Variant | Rows | What it holds |
 |---|---|---|

@@ -1,10 +1,19 @@
 import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { Account, Keypair, Networks, TransactionBuilder } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
+import { toStroops } from "../../../src/amounts.js";
 import { run } from "../../../src/cli/run.js";
 import { TESTNET_PASSPHRASE } from "../../../src/config/network.js";
 import type { DustinError } from "../../../src/errors/dustin-error.js";
+import {
+  EDGE,
+  EDGE_KEY_ROLES,
+  edgePlainIssuerBalance,
+  edgeSteps,
+  type EdgeRoles,
+} from "../../../src/fixture/edge.js";
 import { readAnyManifest, readManifest } from "../../../src/fixture/manifest.js";
 import { EDGE_DIR, EDGE_E4_DIR } from "../../helpers/edge-ledger.js";
 import { MESSY_DIR } from "../../helpers/recorded-horizon.js";
@@ -123,5 +132,54 @@ describe("EP-17: an edge manifest lists at least one variant, each once, with it
       change(m);
       expect(codeOf(readAnyManifest, writeManifest(m)), name).toBe("MANIFEST_INVALID");
     }
+  });
+});
+
+describe("EP-21: the plain issuer's funding scales with the base reserve", () => {
+  const roles = Object.fromEntries(
+    EDGE_KEY_ROLES.map((r, i) => [
+      r,
+      Keypair.fromRawEd25519Seed(Buffer.alloc(32, 60 + i)).publicKey(),
+    ]),
+  ) as EdgeRoles;
+  /** The plain issuer's createAccount startingBalance in the recipe's first step. */
+  const funded = (baseReserve: bigint) => {
+    const step = edgeSteps(roles, baseReserve)[0]!;
+    const builder = new TransactionBuilder(new Account(roles.sponsor, "1"), {
+      fee: "0",
+      networkPassphrase: Networks.TESTNET,
+    }).setTimeout(0);
+    for (const op of step.operations) builder.addOperation(op);
+    const op = builder
+      .build()
+      .operations.find((o) => o.type === "createAccount" && o.destination === roles.plainIssuer);
+    return op?.type === "createAccount" ? op.startingBalance : null;
+  };
+
+  it("covers its 2 own reserves, 3 claimant reserves, the 0.0000001 XLM held and the 0.0000005 XLM for the X-08 offer, whatever the base reserve", () => {
+    for (const [reserve, expected] of [
+      [5_000_000n, "2.5000006"],
+      [10_000_000n, "5.0000006"],
+      [25_000_000n, "12.5000006"],
+    ] as const) {
+      expect(funded(reserve), `base reserve ${reserve}`).toBe(expected);
+      const obligations = 5n * reserve + toStroops("0.0000001") + toStroops(EDGE.staleOffer.amount);
+      expect(toStroops(funded(reserve)!) >= obligations, `base reserve ${reserve}`).toBe(true);
+    }
+  });
+
+  it("keeps the recorded build valid: at its base reserve the E4-S3 plain issuer held at least what the formula gives", () => {
+    const recorded = JSON.parse(
+      readFileSync(join(EDGE_E4_DIR, "account-plain-issuer.json"), "utf8"),
+    ) as {
+      body: { balances: Array<{ asset_type: string; balance: string }>; num_sponsoring: number };
+    };
+    const xlm = recorded.body.balances.find((b) => b.asset_type === "native")!;
+    expect(recorded.body.num_sponsoring).toBe(3);
+    // Funded, less the 0.0000001 XLM its claimable balance holds.
+    expect(
+      toStroops(xlm.balance) >=
+        toStroops(edgePlainIssuerBalance(5_000_000n)) - toStroops("0.0000001"),
+    ).toBe(true);
   });
 });
