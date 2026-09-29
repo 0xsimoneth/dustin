@@ -301,6 +301,26 @@ describe("EP-7: an answer that could not be had is UNCHECKED, with its own exit 
     expect(m.parseRetryAfter(null)).toBeNull();
   });
 
+  it("a 403 from Cloudflare's bot protection is unchecked, any other 403 a failure", async () => {
+    const page = { kind: "https", url: "https://medium.com/x" } as const;
+    const blocked = await m.get("https://medium.com/x", {
+      fetch: () =>
+        Promise.resolve(
+          new Response("<title>Attention Required! | Cloudflare</title>", {
+            status: 403,
+            headers: { server: "cloudflare" },
+          }),
+        ),
+    });
+    expect(blocked).toEqual({ status: 403, tries: 1, server: "cloudflare" });
+    expect(m.judgeResponse(page, blocked)).toEqual({
+      verdict: "unchecked",
+      detail:
+        "could not check https://medium.com/x: its bot protection (Cloudflare) answered HTTP 403 to this automated check; open it in a browser",
+    });
+    expect(m.judgeResponse(page, { status: 403, server: "nginx" }).verdict).toBe("failed");
+  });
+
   it("exits 3 when a link could not be checked and nothing failed, and documents it", async () => {
     const { root, git } = repo({
       "evidence/README.md": `[tx](https://stellar.expert/explorer/testnet/tx/${TX})`,

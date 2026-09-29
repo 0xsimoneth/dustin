@@ -30,6 +30,7 @@ export interface Answer {
   error?: string;
   retryAfterMs?: number;
   tooManyRedirects?: boolean;
+  server?: string;
   refusedRedirect?: { location: string; reason: string };
   body?: unknown;
 }

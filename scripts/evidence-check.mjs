@@ -21,9 +21,10 @@
 //   Lab links that name the mainnet.
 //
 // Outcomes: OK, GONE (a merged account), SKIP (mailto), FAIL (the link or hash is wrong) and
-// UNCHECKED (no answer could be had: a network error, a timeout, or HTTP 429 or 5xx after the
-// retries; a Retry-After of up to 60 seconds is honoured). Exit code 0 when every link is OK, GONE
-// or SKIP; 1 when one FAILED; 3 when none failed but one is UNCHECKED; 2 for a usage error.
+// UNCHECKED (no answer could be had: a network error, a timeout, HTTP 429 or 5xx after the
+// retries, or a bot protection's 403; a Retry-After of up to 60 seconds is honoured). Exit code 0
+// when every link is OK, GONE or SKIP; 1 when one FAILED; 3 when none failed but one is UNCHECKED;
+// 2 for a usage error.
 //
 // Usage: npm run evidence:check [-- <file.md> ...]
 // Default files: every Markdown file under evidence/, README.md and docs/write-up.md.
@@ -59,7 +60,7 @@ Markdown file under evidence/, README.md and docs/write-up.md. Only the testnet 
 
 Exit codes: 0 every link checked and fine (a merged account counts as fine), 1 a link or hash
 failed, 3 none failed but some could not be checked (network error, timeout, HTTP 429 or 5xx after
-the retries), 2 usage error.
+the retries, a bot protection's 403), 2 usage error.
 `;
 
 /** The Horizon this script asks, from DUSTIN_HORIZON_URL; empty counts as unset (EP-16). */
@@ -568,6 +569,14 @@ export function judgeResponse(c, answer) {
   if (status >= 500) {
     return { verdict: "unchecked", detail: `could not check ${what}: HTTP ${status}${after}` };
   }
+  // Cloudflare's block page ("Attention Required!") answers an automated client with 403: that
+  // says nothing about the page, which a browser still opens (observed for medium.com, 2026-09-29).
+  if (status === 403 && /cloudflare/i.test(answer.server ?? "")) {
+    return {
+      verdict: "unchecked",
+      detail: `could not check ${what}: its bot protection (Cloudflare) answered HTTP 403 to this automated check; open it in a browser`,
+    };
+  }
   if (answer.tooManyRedirects) {
     return {
       verdict: "failed",
@@ -793,7 +802,10 @@ export async function get(
     }
     status = response.status;
     if (tooManyRedirects) return { status, tries, tooManyRedirects };
-    if (status !== 429 && status < 500) return { status, tries, ...(wantBody ? { body } : {}) };
+    if (status !== 429 && status < 500) {
+      const server = status === 403 ? response.headers.get("server") : null;
+      return { status, tries, ...(wantBody ? { body } : {}), ...(server ? { server } : {}) };
+    }
     error = `HTTP ${status}`;
     const retryAfter = parseRetryAfter(response.headers.get("retry-after"), now());
     if (retryAfter !== null) {
