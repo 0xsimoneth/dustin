@@ -93,7 +93,7 @@ dev-story workflow (AI developer agent)
 ## Senior Developer Review (AI)
 
 - Date: 2026-09-26
-- Scope: commits f18ba2f..b7ce1c4, adversarial review plus an edge-case walk by an independent review agent (read-only).
+- Scope: commits aacd0d9..97bc569, adversarial review plus an edge-case walk by an independent review agent (read-only).
 - Outcome: changes requested, all resolved in the follow-up commit.
 
 ### Action Items

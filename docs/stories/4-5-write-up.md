@@ -27,7 +27,7 @@ As written in `docs/epics-and-stories.md` (Story 4.5):
 - [x] Task 4: the fee arithmetic from `plan.txt`, `report.json` and `tx-1.json` to `tx-3.json` of the CLI metric close
 - [x] Task 5: the observed reserve release and the recorded sequence-guard wait
 - [x] Task 6: known limits in three groups; prior art by project name and URL
-- [x] Task 7 (reconcile pass, after the merge of main at `ed0ab62`): check every statement that depends on the parallel work against the merged code of E4-S1 to E4-S3 (the hidden prompt, the interruption, D-10, the 404 on a re-run, `docs/errors.md`, the claimant warning, `RESET_SUSPECTED`, `evidence/tests/`)
+- [x] Task 7 (reconcile pass, after the merge of main at `2f213f7`): check every statement that depends on the parallel work against the merged code of E4-S1 to E4-S3 (the hidden prompt, the interruption, D-10, the 404 on a re-run, `docs/errors.md`, the claimant warning, `RESET_SUSPECTED`, `evidence/tests/`)
 
 ## Dev Notes
 
@@ -55,5 +55,5 @@ As written in `docs/epics-and-stories.md` (Story 4.5):
 ## Change Log
 
 - 2026-09-28: final write-up. Status: review (the reconcile pass against E4-S1 to E4-S3 follows the merge).
-- 2026-09-28: reconciled with E4-S1 to E4-S3 as merged: the hidden prompt's conditions, the interruption and `INTERRUPTED`, D-10, the 404 on a re-run, `docs/errors.md`, the claimant warning (X-03), `RESET_SUSPECTED` (X-15), and the live rows X-08, X-11 and X-16 with their hashes from the evidence run on `0df4d09`. Status: review.
+- 2026-09-28: reconciled with E4-S1 to E4-S3 as merged: the hidden prompt's conditions, the interruption and `INTERRUPTED`, D-10, the 404 on a re-run, `docs/errors.md`, the claimant warning (X-03), `RESET_SUSPECTED` (X-15), and the live rows X-08, X-11 and X-16 with their hashes from the evidence run on `049274f`. Status: review.
 - 2026-09-29: the write-up cites the metric close on the 0.1.0 code (`evidence/runs/20260929T111408Z-e4-cli/`) in its summary, rules R1 to R9, grouping, fee arithmetic (a bid of 30,853 stroops per operation, 462,795 in all, 1,500 charged) and reserve release, and keeps the runs of 2026-09-28 as history (Epic 4 review AC-4); the interruption, the reset rule and the claimant read follow the code as fixed. The nine rules against the criterion's "six" are backed by PRD decision D-14. Status: done.

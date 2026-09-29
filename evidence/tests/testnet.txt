@@ -1,5 +1,5 @@
 # DUSTIN_TESTNET=1 npm run test:testnet -- --reporter=verbose
-# UTC 2026-09-28T22:30:31Z to 2026-09-28T22:35:33Z; commit 0df4d0957448bf8eaf41437e5a9f403e286443df; Node v24.15.0
+# UTC 2026-09-28T22:30:31Z to 2026-09-28T22:35:33Z; commit 049274f4f80c0c19de60222d940273b01b8ab1bb; Node v24.15.0
 # The complete output follows, unchanged except that the local working directory on vitest's RUN line reads <repository root>.
 
 

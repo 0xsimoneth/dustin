@@ -1,6 +1,6 @@
 # Review of the Epic 2 integration (2026-09-27)
 
-Review of the work merged to `main` on 2026-09-26 and 2026-09-27, git range `706cd73..ee001d5`:
+Review of the work merged to `main` on 2026-09-26 and 2026-09-27, git range `bca0853..8514955`:
 
 - a shared-contract commit;
 - three branches built in parallel and merged in order A, B, C:
@@ -49,24 +49,24 @@ The review found real defects in the recovery paths, most of them reachable only
 
 | ID | Status | Where |
 |---|---|---|
-| R1 report survives thrown errors | closed | c161ad5; hardened in 03f472e, 40d8c50 |
-| R2 over-budget plan refused before signing | closed | 0869136 (executor), 0ce4ebf (budget line in the plan), bbde119 (re-plans) |
-| R3 executor exported, `close --execute` wired | closed | 3c6c3e8, d9bb80c |
-| R4 personal data in the SOW copy | redacted in the tree (706cd73); history still holds it | builder decision below |
+| R1 report survives thrown errors | closed | 4a41974; hardened in be417dd, 9fadb52 |
+| R2 over-budget plan refused before signing | closed | f783100 (executor), fa7dd7e (budget line in the plan), 9dd22e6 (re-plans) |
+| R3 executor exported, `close --execute` wired | closed | 3b6d21c, e7208b8 |
+| R4 personal data in the SOW copy | redacted in the tree (bca0853); history still holds it | builder decision below |
 | R5 personal e-mail in the first commit's author | open | builder decision below |
-| R6 testnet check on every entry point | closed | afa0e8a (CLI), 0869136 (executor submit endpoint) |
-| R7 `.env` only in `close --execute`, only the two secrets | closed | 3130434 |
+| R6 testnet check on every entry point | closed | 1fd0820 (CLI), f783100 (executor submit endpoint) |
+| R7 `.env` only in `close --execute`, only the two secrets | closed | beee532 |
 | R8 plan text promises a sequence-guard wait | open | E3-S4 |
-| R9, R10 merge preflight: muxed destination, SEP-29 | closed | 9246dd6 |
-| R11 refused POSTs, decoded polled failures | closed | a2cc215; three-state lookups 57fcb41; validation-time `tx_failed` f5dc4e2 |
-| R12 re-plan reproduces the plan's options | closed | 9747ff8 |
-| R13 unknown pool on a 404 | closed | d7bb121 |
-| R14 pool-share removal coverage | closed | 4210820 (fake ledger), 3901c89 (live probe) |
-| R15 tracker | closed | 133f4ef (E1); E2 rows reconciled in this session's tracker update |
-| R16 live close evidence | closed | e42b6e2 (writer), 5e1fda7 and ee001d5 (evidence) |
-| R17 repository seed scan in CI | closed | 9e1894d |
-| R18 fee override clamped in the estimate | closed | 4f7cc31 |
-| R19 local configuration detail in HANDOFF | done | 706cd73 |
+| R9, R10 merge preflight: muxed destination, SEP-29 | closed | 4a59b2b |
+| R11 refused POSTs, decoded polled failures | closed | e8716ad; three-state lookups 4434651; validation-time `tx_failed` dcd729b |
+| R12 re-plan reproduces the plan's options | closed | 1210aa9 |
+| R13 unknown pool on a 404 | closed | 20fb1e4 |
+| R14 pool-share removal coverage | closed | 2bf6fae (fake ledger), 2a0a3ec (live probe) |
+| R15 tracker | closed | 8aa8807 (E1); E2 rows reconciled in this session's tracker update |
+| R16 live close evidence | closed | 970d811 (writer), acd0c6f and 8514955 (evidence) |
+| R17 repository seed scan in CI | closed | a8ef4d5 |
+| R18 fee override clamped in the estimate | closed | df0a776 |
+| R19 local configuration detail in HANDOFF | done | bca0853 |
 
 ## Findings of this review
 
@@ -81,60 +81,60 @@ Duplicates are merged under the first ID.
 
 ### Fixed in this session
 
-**Executor (merged in 953fbd7; each fix has a test that failed first):**
+**Executor (merged in 7ba2779; each fix has a test that failed first):**
 
 | ID | Finding | Fix |
 |---|---|---|
-| IR-1 (major) | A lookup error (429, 5xx, timeout) after a 504 read as "not found"; the same operations were rebuilt at the next sequence number and the sponsor paid again | 57fcb41: lookups are found, missing or error; an error never allows a rebuild |
-| IR-2 (major) | A merge that applied unseen ended `failed`/`stop` | 2084394 |
-| IR-3 | A throwing `onReport`/`onEvent` observer lost an applied merge | 03f472e |
-| IR-4 | A failed final check overwrote the real stop reason | 40d8c50 |
-| IR-5 | A re-plan was not checked against the remaining budget | bbde119 |
-| IR-6 | Waits judged by the local clock | eb6d3db |
-| IR-7 | A re-run after `OUTCOME_UNKNOWN` knew nothing of the pending envelope | 387335b: the stop carries its hash and `maxTime` |
-| IR-8 | Fake ledger's `tx_no_account` string | 2ddf6c3: `tx_no_source_account` |
-| EX-1 | A second `tx_bad_seq` stopped without looking up an applied envelope | 2f424eb |
-| EX-2 | A merge rebuilt after `tx_bad_seq` skipped the preflight | c65eeb4 |
-| EX-3, EX-4 | An account read lagging the run's own transactions | 280a0c4: read again, bounded |
-| EX-5, BH-15 | A 404 from a Horizon instance behind the one that answered the ledger time | 65af78a: the account's sequence number is the witness, since testnet Horizon sends no `Latest-Ledger` header on a 404 |
-| EX-6, BH-10 | A 400 with inner `tx_failed` assumed included | 417cd96, f5dc4e2: the ledger decides, both ways |
-| EX-7 | A refused bid still counted after a rebuild at a new sequence number | e958ebb |
-| EX-8 | A re-plan that finds the account gone reported `partial` | 530aa7f |
-| EX-9 | Reserves returned to sponsors taken from the first plan only | 98e238e |
-| EX-11 | NaN or negative execute options: unbounded rebuild loop | 7a5b184 |
-| BH-1 (major) | Copies published during a run said `aborted` | 2032559: new status `running` on copies |
-| BH-3 | An unknown envelope was always rendered "can never apply" | c58decb (`mayStillApply`), receipt in 953fbd7 |
-| BH-11 | The preflight passed a failed guard without an unblock ledger | 2ff749d |
-| BH-16 | The sponsor's budget update spanned an await | 958485e |
-| AA-4 | A step that fails twice was not reported as a blocker (AC-E2-S3-4) | 3acb031 |
-| AA-5 | Story 2-3 reworded three ACs without marking the deviations | 4a216ce |
+| IR-1 (major) | A lookup error (429, 5xx, timeout) after a 504 read as "not found"; the same operations were rebuilt at the next sequence number and the sponsor paid again | 4434651: lookups are found, missing or error; an error never allows a rebuild |
+| IR-2 (major) | A merge that applied unseen ended `failed`/`stop` | 204039c |
+| IR-3 | A throwing `onReport`/`onEvent` observer lost an applied merge | be417dd |
+| IR-4 | A failed final check overwrote the real stop reason | 9fadb52 |
+| IR-5 | A re-plan was not checked against the remaining budget | 9dd22e6 |
+| IR-6 | Waits judged by the local clock | 8e0f520 |
+| IR-7 | A re-run after `OUTCOME_UNKNOWN` knew nothing of the pending envelope | b1f5c8c: the stop carries its hash and `maxTime` |
+| IR-8 | Fake ledger's `tx_no_account` string | 7c9403f: `tx_no_source_account` |
+| EX-1 | A second `tx_bad_seq` stopped without looking up an applied envelope | 55ed8e4 |
+| EX-2 | A merge rebuilt after `tx_bad_seq` skipped the preflight | 90f23bf |
+| EX-3, EX-4 | An account read lagging the run's own transactions | 040ec79: read again, bounded |
+| EX-5, BH-15 | A 404 from a Horizon instance behind the one that answered the ledger time | 7a2d6d9: the account's sequence number is the witness, since testnet Horizon sends no `Latest-Ledger` header on a 404 |
+| EX-6, BH-10 | A 400 with inner `tx_failed` assumed included | 2b53a38, dcd729b: the ledger decides, both ways |
+| EX-7 | A refused bid still counted after a rebuild at a new sequence number | 0c233a3 |
+| EX-8 | A re-plan that finds the account gone reported `partial` | 3553dd6 |
+| EX-9 | Reserves returned to sponsors taken from the first plan only | 436017f |
+| EX-11 | NaN or negative execute options: unbounded rebuild loop | a88fad6 |
+| BH-1 (major) | Copies published during a run said `aborted` | f4524ef: new status `running` on copies |
+| BH-3 | An unknown envelope was always rendered "can never apply" | e09ecdb (`mayStillApply`), receipt in 7ba2779 |
+| BH-11 | The preflight passed a failed guard without an unblock ledger | cd583e4 |
+| BH-16 | The sponsor's budget update spanned an await | 080b053 |
+| AA-4 | A step that fails twice was not reported as a blocker (AC-E2-S3-4) | dccf3b2 |
+| AA-5 | Story 2-3 reworded three ACs without marking the deviations | 803c5e6 |
 
 **CLI, renderer and evidence:**
 
 | ID | Finding | Fix |
 |---|---|---|
-| AA-1 | A re-run with the same `--report` path replaced the earlier file and its hashes | 1e5c5af: kept under a timestamped name |
-| AA-3, AA-6, AA-7 | README Status, story 2-4 and the README `--base-fee` row stale after the merge | 1e5c5af |
-| AA-8, BH-6 | The confirmation named the first bid as the fee ceiling | 1e5c5af |
-| CL-2, BH-12 | A closed stdout pipe (EPIPE) crashed a close mid-run | aefba65 |
-| CL-3, BH-8 | An interruption before any submission exited 5 | aefba65: exits 1 |
-| CL-4, BH-9 | An executor over-budget refusal exited 3, the CLI's own check 2 | aefba65: both 2 |
-| CL-5, BH-4 | "Report written" printed when the writes failed | aefba65 |
-| CL-6 | `--report ""` silently skipped | aefba65 |
-| CL-7 | The memo was shown nowhere before the confirmation | aefba65 |
-| CL-8 | The question was asked with stderr redirected to a log | aefba65 |
-| CL-9 | A `.env` with a byte-order mark hid its first key | aefba65 |
-| CL-10 | The plan suggested `--sponsor`, which `close` did not accept | aefba65 |
-| CL-11 | A failed run whose merge applied read "stopped before the account was closed" | aefba65 |
-| CL-13 | The evidence writer did not forbid raw seed forms | aefba65 |
-| CL-14 | Evidence was written only after every assertion passed | aefba65 |
-| BH-2 | A drift found after submissions printed "nothing was submitted" | 3dabfc0 |
-| BH-5 | Predictable report temporary names followed symlinks; `--report .env` was accepted | 3dabfc0 |
-| BH-13 | `--execute --json` refusals printed nothing on stdout | 3dabfc0 |
-| BH-17 | The README quick start typed secrets into the shell history | 3dabfc0 |
-| AA-2 | E2-S6 had no story record and no CLI transcript | ee001d5 (CLI run), `docs/stories/2-6-live-simple-close.md` |
+| AA-1 | A re-run with the same `--report` path replaced the earlier file and its hashes | f4496ef: kept under a timestamped name |
+| AA-3, AA-6, AA-7 | README Status, story 2-4 and the README `--base-fee` row stale after the merge | f4496ef |
+| AA-8, BH-6 | The confirmation named the first bid as the fee ceiling | f4496ef |
+| CL-2, BH-12 | A closed stdout pipe (EPIPE) crashed a close mid-run | 7db6643 |
+| CL-3, BH-8 | An interruption before any submission exited 5 | 7db6643: exits 1 |
+| CL-4, BH-9 | An executor over-budget refusal exited 3, the CLI's own check 2 | 7db6643: both 2 |
+| CL-5, BH-4 | "Report written" printed when the writes failed | 7db6643 |
+| CL-6 | `--report ""` silently skipped | 7db6643 |
+| CL-7 | The memo was shown nowhere before the confirmation | 7db6643 |
+| CL-8 | The question was asked with stderr redirected to a log | 7db6643 |
+| CL-9 | A `.env` with a byte-order mark hid its first key | 7db6643 |
+| CL-10 | The plan suggested `--sponsor`, which `close` did not accept | 7db6643 |
+| CL-11 | A failed run whose merge applied read "stopped before the account was closed" | 7db6643 |
+| CL-13 | The evidence writer did not forbid raw seed forms | 7db6643 |
+| CL-14 | Evidence was written only after every assertion passed | 7db6643 |
+| BH-2 | A drift found after submissions printed "nothing was submitted" | b1be3ac |
+| BH-5 | Predictable report temporary names followed symlinks; `--report .env` was accepted | b1be3ac |
+| BH-13 | `--execute --json` refusals printed nothing on stdout | b1be3ac |
+| BH-17 | The README quick start typed secrets into the shell history | b1be3ac |
+| AA-2 | E2-S6 had no story record and no CLI transcript | 8514955 (CLI run), `docs/stories/2-6-live-simple-close.md` |
 
-**Documentation:** 8c890b9 corrected Horizon's spelling of three result codes in ADR-0006 and architecture section 4.7 (`op_offer_not_found`, `op_not_aut_maintain_liabilities`, `op_under_dest_min`) and recorded how the planner resolves an unknown pool.
+**Documentation:** 448e858 corrected Horizon's spelling of three result codes in ADR-0006 and architecture section 4.7 (`op_offer_not_found`, `op_not_aut_maintain_liabilities`, `op_under_dest_min`) and recorded how the planner resolves an unknown pool.
 
 ### Kept by decision
 

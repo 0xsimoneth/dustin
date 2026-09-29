@@ -27,11 +27,11 @@ Also written for this story: `evidence/completion-report.md`, the draft of the c
 - [x] Task 2: `SUCCESSFUL_SOW.md` Appendices A and B (AC-2); each Appendix B box checked against `evidence/README.md` before it was ticked
 - [x] Task 3: `evidence/completion-report.md`, the draft for the builder
 - [ ] Task 4: the baseline recording and the video linked — human action by the builder (E1-S2, E4-S6)
-- [x] Task 5 (reconcile pass, after the merge of main at `ed0ab62`): run `npm run evidence:check` on the merged package (AC-3) and check the statements that depend on stories E4-S1 to E4-S3
+- [x] Task 5 (reconcile pass, after the merge of main at `2f213f7`): run `npm run evidence:check` on the merged package (AC-3) and check the statements that depend on stories E4-S1 to E4-S3
 
 ## Dev Notes
 
-- Every figure is copied from the committed run directories; the capture record names the code commit (`d6cd66ef8d7fcf0e46163667e1a13c20c1f02d6a`) and the commit that recorded the run (`562d5420b0002ec3af32b788a6d1826c72e10d45`).
+- Every figure is copied from the committed run directories; the capture record names the code commit (`8cdf5b84820a7b5debae7d4cc7a812d1a495cbc7`) and the commit that recorded the run (`88fd05d48754ca961790e85c621966435006debb`).
 - The files under `evidence/runs/` are historical records and were not edited; the package links to them.
 - The template's screenshot list (`evidence/screenshots/`) does not exist in this repository; the package links the JSON, XDR and transcripts that do, and the builder's screenshots of the take are listed in the demo script's checklist.
 
@@ -55,5 +55,5 @@ Also written for this story: `evidence/completion-report.md`, the draft of the c
 ## Change Log
 
 - 2026-09-28: evidence package, SOW tracker and the completion report draft. Status: in-progress (the baseline recording and the video are the builder's; AC-3 follows the merge of E4-S3).
-- 2026-09-28: reconciled with E4-S1 to E4-S3 as merged: the test evidence of `evidence/tests/` on `0df4d09`, the matrix counts (27 green, 1 planned, 2 not covered, 2 human action), `RESET_SUSPECTED`, and the result of `npm run evidence:check` (AC-3 met). Status: in-progress (the baseline recording and the video are the builder's).
+- 2026-09-28: reconciled with E4-S1 to E4-S3 as merged: the test evidence of `evidence/tests/` on `049274f`, the matrix counts (27 green, 1 planned, 2 not covered, 2 human action), `RESET_SUSPECTED`, and the result of `npm run evidence:check` (AC-3 met). Status: in-progress (the baseline recording and the video are the builder's).
 - 2026-09-29: the Epic 4 review's documentation findings fixed in the package, the SOW tracker and the completion report draft: D2 is in progress until the 60-second video, since SOW 6.1 lists the video as D2's evidence too (AC-1); the metric close on the 0.1.0 code (`evidence/runs/20260929T111408Z-e4-cli/`) is the current D1 output and the latest metric close, with the runs of 2026-09-28 kept as history (AC-4); D4's documents are "written", with what is pending named (AC-10); the evidence:check paragraph and result and the reset rule follow the code. Status: in-progress (the baseline recording and the video are the builder's).

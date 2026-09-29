@@ -68,18 +68,18 @@ Next: E2-S3 retry and recovery (unknown outcomes, ladder fallback, fee escalatio
 
 Done:
 
-- The SOW copy is redacted and the E0 to E2 review is recorded (706cd73).
-- Epic 2 was built in three parallel branches on a shared contract (82b337a), merged in order and each checked in CI:
-  - Executor hardening and E2-S3 (25fdcc1): retry, recovery and resume. Covers 504s, `tx_too_late`, `tx_bad_seq`, `tx_insufficient_fee`, 429s, re-planning on operation failures with fallback down the ladder, and the report kept on thrown errors.
-  - Public API, CLI and E2-S4 (185f85c): `dustin close --execute` with a fresh plan, the typed confirmation of the destination's last four characters, `--yes`, `--partial`, `--memo`, `--json`, `--report`, exit codes 0 to 6 and the receipt.
-  - Pool-share handling, test infrastructure and the evidence writer (321eea8).
+- The SOW copy is redacted and the E0 to E2 review is recorded (bca0853).
+- Epic 2 was built in three parallel branches on a shared contract (994cd64), merged in order and each checked in CI:
+  - Executor hardening and E2-S3 (bcfdfff): retry, recovery and resume. Covers 504s, `tx_too_late`, `tx_bad_seq`, `tx_insufficient_fee`, 429s, re-planning on operation failures with fallback down the ladder, and the report kept on thrown errors.
+  - Public API, CLI and E2-S4 (0f68c80): `dustin close --execute` with a fresh plan, the typed confirmation of the destination's last four characters, `--yes`, `--partial`, `--memo`, `--json`, `--report`, exit codes 0 to 6 and the receipt.
+  - Pool-share handling, test infrastructure and the evidence writer (e512560).
 - Review findings R1 to R3, R6, R7 and R9 to R18 are closed.
 - E2-S6: two live closes on testnet, each of a fresh zero-spendable messy fixture with sponsor-paid fee bumps:
-  - through the SDK: `evidence/runs/20260926T125350Z/` (5e1fda7);
-  - through the CLI, with its transcript: `evidence/runs/20260927T200015Z-cli/` (ee001d5).
+  - through the SDK: `evidence/runs/20260926T125350Z/` (acd0c6f);
+  - through the CLI, with its transcript: `evidence/runs/20260927T200015Z-cli/` (8514955).
 
   The SOW week 2 expected output is met a week early. The builder's baseline fixture was not touched.
-- A combined code review ran over the merged work, with four layers (Blind Hunter, two Edge Case Hunters, Acceptance Auditor) plus an independent executor review. Findings and dispositions are in `docs/reviews/2026-09-27-e2-integration-review.md`. Fixes are in 1e5c5af, aefba65, 3dabfc0 and 953fbd7; documentation corrections are in 8c890b9.
+- A combined code review ran over the merged work, with four layers (Blind Hunter, two Edge Case Hunters, Acceptance Auditor) plus an independent executor review. Findings and dispositions are in `docs/reviews/2026-09-27-e2-integration-review.md`. Fixes are in f4496ef, 7db6643, b1be3ac and 7ba2779; documentation corrections are in 448e858.
 - The offline tier stands at 58 files and 508 tests. CI is green on Node 22 and 24 for every push.
 
 Traps recorded this session:
@@ -103,7 +103,7 @@ Blocked (human actions):
 - **Testnet CI job.** Dispatch the manual testnet CI job once (E2-S6 task 6).
 
 Next:
-1. Re-review the second-round fixes of E2-S3 and E2-S4 (953fbd7, aefba65, 3dabfc0) and move both stories to done.
+1. Re-review the second-round fixes of E2-S3 and E2-S4 (7ba2779, 7db6643, b1be3ac) and move both stories to done.
 2. Check E2-S5 against the existing ladder and write its record.
 3. Epic 3:
    - E3-S4: the sequence-guard wait (R8);
@@ -118,18 +118,18 @@ Next:
 
 Done:
 
-- The builder's decisions of 2026-09-28 were applied in one commit before any parallel work (2e0d5cb; PRD "Decisions after review" D-2 to D-7): PRD section 7 follows the SDK as built, the CI seed scan uses lookarounds, the E2-S6 deviations are accepted, every pause is injected and at least 200 ms, sponsor and budget refusals exit 3, and the history rewrite is postponed.
-- E2-S5: story record and its two missing AC-3 tests (16c9e56); done.
-- E2-S3 and E2-S4: review round 3 over the second-round fixes found 37 findings, one major (a merge refused on the ledger still ended `closed` when another party removed the account); all fixed with failing-first tests (1e0cba9); both done.
+- The builder's decisions of 2026-09-28 were applied in one commit before any parallel work (58c8f05; PRD "Decisions after review" D-2 to D-7): PRD section 7 follows the SDK as built, the CI seed scan uses lookarounds, the E2-S6 deviations are accepted, every pause is injected and at least 200 ms, sponsor and budget refusals exit 3, and the history rewrite is postponed.
+- E2-S5: story record and its two missing AC-3 tests (778e73b); done.
+- E2-S3 and E2-S4: review round 3 over the second-round fixes found 37 findings, one major (a merge refused on the ledger still ended `closed` when another party removed the account); all fixed with failing-first tests (67d5b3c); both done.
 - Epic 3 was built by parallel agents in their own worktrees, on disjoint files, and merged in order with every gate green after each merge:
-  - E3-S1 and E3-S2 (df54ea7): the ladder live, with the sale through a market maker's bid, the burn, the transfer to the destination (`--prefer-destination`) and unclosable items with every rung ruled out and a remedy; BH-7 and AA-14 closed.
-  - E3-S5 and E3-S6 (a59f7e9): the detection-only blockers with their remedies; the `edge` fixture profile (ten variants from one Friendbot call), its recorded vectors, the live edge tests and `docs/test-matrix.md`.
-  - E3-S3 and E3-S4 (fe900e7): the report records each reserve sponsor's `num_sponsoring`, minimum balance and XLM balance before and after; the executor waits for the sequence guard within `maxWaitLedgers` (120 by default) and stops with `unblocksAtLedger` beyond it (review R8 closed).
-  - E3-S7 (562d542): the metric close of fresh messy fixtures through the SDK and the CLI, with `evidence/README.md` checking SOW Appendix B row by row.
-  - Documentation in three rounds (3556788, b6303b2, 7299895): the first write-up, the integration notes, the README to the documentation plan, and the PRD, architecture, UX and story records brought to the code.
-- The closing review of the whole session (`c7be815..562d542`, five layers) found 64 findings, none major. Every code finding was fixed with a failing-first test (c53d437 planner and fixture, d0d711c executor, CLI and receipt, fdcd050 evidence tooling). Findings, dispositions, deferred items and the decisions left to the builder are in `docs/reviews/2026-09-28-e3-review.md`.
-- Three more CLI runs on the final code (fa2755b): the sequence-guard wait (the merge applied in the unblocking ledger itself), the unclosable exit of the `edge` fixture's frozen trustline (exit 3, then 4 with `--partial`), and the partial-close receipt of a memo-required issuer.
-- Tests: the offline tier has 89 files and 864 tests (5.7 s). The live tier, 10 files and 51 tests, passed locally at 562d542 (285 s) and in the manual testnet CI job at d0d711c (run 36424696971, 321 s), which closes E2-S6. CI passed on Node 22 and 24 for every push.
+  - E3-S1 and E3-S2 (53ee3d2): the ladder live, with the sale through a market maker's bid, the burn, the transfer to the destination (`--prefer-destination`) and unclosable items with every rung ruled out and a remedy; BH-7 and AA-14 closed.
+  - E3-S5 and E3-S6 (0622aa0): the detection-only blockers with their remedies; the `edge` fixture profile (ten variants from one Friendbot call), its recorded vectors, the live edge tests and `docs/test-matrix.md`.
+  - E3-S3 and E3-S4 (5c2efb9): the report records each reserve sponsor's `num_sponsoring`, minimum balance and XLM balance before and after; the executor waits for the sequence guard within `maxWaitLedgers` (120 by default) and stops with `unblocksAtLedger` beyond it (review R8 closed).
+  - E3-S7 (88fd05d): the metric close of fresh messy fixtures through the SDK and the CLI, with `evidence/README.md` checking SOW Appendix B row by row.
+  - Documentation in three rounds (fbd9588, ce08023, 85c0c4f): the first write-up, the integration notes, the README to the documentation plan, and the PRD, architecture, UX and story records brought to the code.
+- The closing review of the whole session (`9d1b422..88fd05d`, five layers) found 64 findings, none major. Every code finding was fixed with a failing-first test (32a7f84 planner and fixture, 60af60d executor, CLI and receipt, 9465a30 evidence tooling). Findings, dispositions, deferred items and the decisions left to the builder are in `docs/reviews/2026-09-28-e3-review.md`.
+- Three more CLI runs on the final code (bcc9310): the sequence-guard wait (the merge applied in the unblocking ledger itself), the unclosable exit of the `edge` fixture's frozen trustline (exit 3, then 4 with `--partial`), and the partial-close receipt of a memo-required issuer.
+- Tests: the offline tier has 89 files and 864 tests (5.7 s). The live tier, 10 files and 51 tests, passed locally at 88fd05d (285 s) and in the manual testnet CI job at 60af60d (run 36424696971, 321 s), which closes E2-S6. CI passed on Node 22 and 24 for every push.
 - Test matrix: 32 rows; 27 have an offline test and 16 a live test; 21 green, 1 planned (B-03), 8 not covered, 2 human action (B-01, B-02).
 - Tracker: Epic 2 done; Epic 3 done except E3-S6, which waits for the builder's acceptance of its AC-3 deviation.
 
@@ -161,22 +161,22 @@ Epic 4 was done a week early, with the builder's structured brief and Claude as 
 
 Done:
 
-- The builder's decisions were applied in one commit before any parallel work (20d4c03; PRD "Decisions after review" D-8 to D-13):
+- The builder's decisions were applied in one commit before any parallel work (bf309e3; PRD "Decisions after review" D-8 to D-13):
   - E3-S6 AC-3 accepted and rewritten; E3-S6 and Epic 3 done;
   - `slippageBps` keeps its 1% default;
   - CA-11 and CA-18 fixed in E4-S2 (the guard's timing out of the plan hash; a hidden prompt);
   - third-party work cited by project name and URL (canonical decision 15);
   - PRD section 6 and architecture 4.9 list only what is built.
-  D-14 (64789be) records two more points of the brief: the write-up's R1 to R9 and the place of the rehearsal script.
+  D-14 (634d514) records two more points of the brief: the write-up's R1 to R9 and the place of the rehearsal script.
 - Wave 1, three agents in their own worktrees on disjoint files, merged in the order A, B, C with every gate green after each merge:
-  - E4-S1 and E4-S2 (e8cdf16): `--json` machine mode (one document on standard output, NDJSON on standard error, never a question); SIGINT and SIGTERM with `ExecuteOptions.signal` and the stop code INTERRUPTED; the 404 recorded on a re-run; CA-11 per D-10; the hidden prompt per D-11; the whole exit-code table tested; `docs/plan-schema.json`, `docs/receipt-schema.json`, `docs/errors.md`, `--verbose`.
-  - E4-S3 (ad3ed2f, ed0ab62): matrix rows X-03 (claimable balances naming the account), X-07 (buy, passive and XLM-selling offers), X-08 (an offer filled between plan and execution), X-11 live, X-15 (testnet reset detection) and X-16 (a fully sponsored 0 XLM account) covered; `evidence/tests/`; `npm run evidence:check`.
-  - D4 documents (3598ed4): the final write-up, README, integration notes, CONTRIBUTING, the evidence package, the SOW appendices, the completion report draft and the demo rehearsal script.
-- Release preparation (e865bec, f687930): CHANGELOG 0.1.0 and the version fields at 0.1.0. Nothing was published or tagged.
+  - E4-S1 and E4-S2 (af62f8e): `--json` machine mode (one document on standard output, NDJSON on standard error, never a question); SIGINT and SIGTERM with `ExecuteOptions.signal` and the stop code INTERRUPTED; the 404 recorded on a re-run; CA-11 per D-10; the hidden prompt per D-11; the whole exit-code table tested; `docs/plan-schema.json`, `docs/receipt-schema.json`, `docs/errors.md`, `--verbose`.
+  - E4-S3 (f73f5b1, 2f213f7): matrix rows X-03 (claimable balances naming the account), X-07 (buy, passive and XLM-selling offers), X-08 (an offer filled between plan and execution), X-11 live, X-15 (testnet reset detection) and X-16 (a fully sponsored 0 XLM account) covered; `evidence/tests/`; `npm run evidence:check`.
+  - D4 documents (465129a): the final write-up, README, integration notes, CONTRIBUTING, the evidence package, the SOW appendices, the completion report draft and the demo rehearsal script.
+- Release preparation (7c53a1b, 692fc9a): CHANGELOG 0.1.0 and the version fields at 0.1.0. Nothing was published or tagged.
 - Wave 2:
   - an independent pre-release review from a fresh public clone, following only the README: 20 findings, none blocking; the six setup and test commands took 96 s and the README's test section about 6.7 minutes;
   - the four-layer closing code review of the session (`code-review` with `review-edge-case-hunter`): 72 findings, one major (EX-1/BH-1: an envelope, even the merge, could be posted after Ctrl-C).
-  Every code finding was fixed with a failing-first test by two fix agents (906257d, 86806dc); the documents were fixed by the documentation agent (9184fa6) and the integrator. CI checkouts no longer keep credentials, the offline tier also runs on Node 22.12.0, and `commander` is pinned exactly (11331df). Everything is in `docs/reviews/2026-09-29-e4-review.md`.
+  Every code finding was fixed with a failing-first test by two fix agents (f4702c1, 0544063); the documents were fixed by the documentation agent (3fd5fe5) and the integrator. CI checkouts no longer keep credentials, the offline tier also runs on Node 22.12.0, and `commander` is pinned exactly (8ba8fee). Everything is in `docs/reviews/2026-09-29-e4-review.md`.
 - Evidence on the 0.1.0 code:
   - a CLI metric close, `evidence/runs/20260929T111408Z-e4-cli/`: a fresh messy fixture closed in three sponsor-paid fee bumps, Horizon 404 afterwards;
   - the offline tier captured again: 122 files, 1212 tests;
@@ -214,11 +214,11 @@ The sprint is technically complete; what remains is the builder's. This session 
 
 Done:
 
-- The builder's decisions, in one commit before anything else (38a98af; PRD "Decisions after review"):
+- The builder's decisions, in one commit before anything else (db9f8fd; PRD "Decisions after review"):
   - D-15: E4-S1's output stays as built (120 columns, the terminal wraps a narrower window and nothing is truncated; `CODE (issuer GABC...WXYZ)`; `--json` carries every issuer in full). E4-S1 done.
   - D-16: E4-S3's rendered images stay; the builder adds a screenshot of the CI run page as `evidence/tests/ci-run-<run id>.png` (slot in `evidence/tests/README.md`). E4-S3 stays in review until then.
   - `.vscode/` ignored.
-  - `docs/runbooks/history-rewrite.md` and `scripts/remap-commit-hashes.mjs` (a dry run by default, with offline tests). Not run. A scan of every object of the history found the personal data of R4 and R5 in two objects only: the version of `SUCCESSFUL_SOW.md` committed by `ca7bf53` (lines 12, 13 and 15) and the author e-mail of `bedc4a6`. A dry run of the remap on a synthetic commit-map found 617 citations in 43 files, none ambiguous.
+  - `docs/runbooks/history-rewrite.md` and `scripts/remap-commit-hashes.mjs` (a dry run by default, with offline tests). Not run. A scan of every object of the history found the personal data of R4 and R5 in two objects only: the version of `SUCCESSFUL_SOW.md` committed by `c6d8ee7` (lines 12, 13 and 15) and the author e-mail of `77d36b9`. A dry run of the remap on a synthetic commit-map found 617 citations in 43 files, none ambiguous.
 - E4-S6: the 60-second video, produced by `scripts/demo/make-demo.mjs` from `docs/demo-video-script.md` on a fresh fixture (take `evidence/demo/take-20260929T184550Z/`): the build of the fixture and its refused unsponsored transaction, `dustin plan`, `dustin close --execute` with the typed confirmation, three sponsor-paid fee bumps (ledgers 4,936,816 to 4,936,818), the receipt, Horizon's 404 and the account's `account_merge`. 59.8 s, 1920 x 1080, captions burned in and as `.srt`, SHA-256 `7de0640d94ccc669efa14fdcc3d46af177874a79eaa76152c2f5ca16cdbc2f1b`; a GIF of the close in the README; the terminal recordings (asciicast), seven key frames and Horizon's records committed; the MP4 ignored by git. E4-S6 in review: the builder watches, approves and hosts it (proposed: the `v0.1.0` release asset).
 - B-03 in one command: `scripts/evidence-cli.mjs` cases `baseline-zero` and `baseline-plus1`, and `scripts/baseline-b03.mjs`, which refuses to start before the B-01 recording and writes `evidence/baseline/b03-comparison.md`. Rehearsed with `--before-recordings`: both rebuilt fixtures (recipe hash `a00bfd18...`, the baseline fixture's) closed, every check passed (`evidence/runs/20260929T185240Z-b03-rehearsal-base1/`, `evidence/runs/20260929T185359Z-b03-rehearsal-base2/`; with 1 XLM added, 5.0000007 XLM reached the destination). `--prepare-b02` built the account for the B-02 recording (`GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM`, 1 XLM spendable).
 - Runbooks for the builder: `docs/runbooks/chapter-lead-message.md` (English and Turkish), `docs/runbooks/release.md` (after the npm publish: the registry check, the tag, the release notes from the CHANGELOG, the video as a draft release asset, every link), and `docs/HANDOFF.md` rewritten to the remaining actions.

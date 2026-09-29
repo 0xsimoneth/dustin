@@ -194,11 +194,11 @@ Recorded on the final Epic 3 code by `node scripts/evidence-cli.mjs memo-partial
 
 Findings of the closing review (`docs/reviews/2026-09-28-e3-review.md`) that concern this story, each fixed with a test that failed first:
 
-- CP-6 (`872839f`): a sale ruled out by the account's own offer names the offer and how to reopen the rung.
-- CP-7 (`8e23734`): the remedy of a trustline that is not authorized offers a clawback only when the trustline is clawback-enabled.
-- CP-15 (`b806327`): the destination fix names the base G account of a muxed destination and the asset as `CODE:ISSUER`.
-- CC-8 (`5044ab5`): after a fall down the ladder, Disposals names every rung that failed, each with its own operation code ("the sale by path payment failed with op_too_few_offers, then the return to its issuer failed with ..."), instead of the first plan's rung next to the last failure's code.
-- CA-4 (`0b18867`, `fa2755b`): the partial-close receipt of AC-3 is committed as a CLI run (above).
+- CP-6 (`deda0b8`): a sale ruled out by the account's own offer names the offer and how to reopen the rung.
+- CP-7 (`84b387d`): the remedy of a trustline that is not authorized offers a clawback only when the trustline is clawback-enabled.
+- CP-15 (`2f9080c`): the destination fix names the base G account of a muxed destination and the asset as `CODE:ISSUER`.
+- CC-8 (`e1dee44`): after a fall down the ladder, Disposals names every rung that failed, each with its own operation code ("the sale by path payment failed with op_too_few_offers, then the return to its issuer failed with ..."), instead of the first plan's rung next to the last failure's code.
+- CA-4 (`d473913`, `bcc9310`): the partial-close receipt of AC-3 is committed as a CLI run (above).
 
 ## Dev Notes
 

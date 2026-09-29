@@ -31,7 +31,7 @@ How each is met, and the deviations:
 - [x] Task 3: live SDK close with evidence (`evidence/runs/20260926T125350Z/`)
 - [x] Task 4: live CLI close with transcript (`evidence/runs/20260927T200015Z-cli/`)
 - [x] Task 5: README Status and Evidence sections link the evidence
-- [x] Task 6: dispatch the manual testnet CI job once and link its run: [run 36424696971](https://github.com/0xsimoneth/dustin/actions/runs/36424696971) on `d0d711c`, 2026-09-28, passed (10 files, 51 tests)
+- [x] Task 6: dispatch the manual testnet CI job once and link its run: [run 36424696971](https://github.com/0xsimoneth/dustin/actions/runs/36424696971) on `60af60d`, 2026-09-28, passed (10 files, 51 tests)
 
 ## Dev Notes
 
@@ -61,4 +61,4 @@ How each is met, and the deviations:
 - 2026-09-26: evidence writer (R16) and the first live close with evidence.
 - 2026-09-27: live CLI close with transcript; story record. Status: review (the deviations in AC-1 to AC-3 need the builder's acceptance).
 - 2026-09-28: the builder accepted the deviations in AC-1 to AC-3 (PRD decision D-4; `docs/epics-and-stories.md` Story 2.6 carries the note). Only task 6, one run of the manual testnet CI job, remains before done.
-- 2026-09-28: task 6 done: the manual testnet CI job passed on `d0d711c` ([run 36424696971](https://github.com/0xsimoneth/dustin/actions/runs/36424696971): 10 files, 51 tests, 321 s). Status: done.
+- 2026-09-28: task 6 done: the manual testnet CI job passed on `60af60d` ([run 36424696971](https://github.com/0xsimoneth/dustin/actions/runs/36424696971): 10 files, 51 tests, 321 s). Status: done.

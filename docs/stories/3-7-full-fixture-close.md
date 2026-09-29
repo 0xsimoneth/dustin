@@ -17,10 +17,10 @@ As written in `docs/epics-and-stories.md` (Story 3.7):
 3. AC-E3-S7-3: Then the drain account received 4.0 XLM plus the LIQ proceeds, the fixture sponsor's `num_sponsoring` is 0, and the receipt, the CLI transcript and explorer links are stored in `evidence/closes/fixture-<date>/`.
 4. AC-E3-S7-4: Then Appendix B rows 5 to 7 (all fees sponsored, account gone, chain linkable) are checked in `evidence/README.md` with links.
 
-Two closes were recorded on 2026-09-28 with the complete Epic 3 code (commit d6cd66e: the ladder, the sponsored unwind with the observed release, the sequence-guard wait and the review round 3 fixes), both with the default ladder order (the SOW order, canonical decision 8), each on a fresh `messy` fixture built from Friendbot with throwaway keys:
+Two closes were recorded on 2026-09-28 with the complete Epic 3 code (commit 8cdf5b8: the ladder, the sponsored unwind with the observed release, the sequence-guard wait and the review round 3 fixes), both with the default ladder order (the SOW order, canonical decision 8), each on a fresh `messy` fixture built from Friendbot with throwaway keys:
 
 - `evidence/runs/20260928T112239Z-e3/`: through the SDK, by `test/testnet/execute-close.test.ts` with `DUSTIN_EVIDENCE=1 DUSTIN_EVIDENCE_LABEL=e3`.
-- `evidence/runs/20260928T112252Z-e3-cli/`: through the CLI, by `scripts/evidence-cli-close.mjs` (`dustin fixture create`, `dustin fixture verify`, the dry-run `dustin plan`, then `dustin close --execute --yes --report`). That script was replaced afterwards by `scripts/evidence-cli.mjs` (commit `0b18867`), whose case `metric` (label `e3-cli`) runs the same close; the run above was recorded with the earlier script.
+- `evidence/runs/20260928T112252Z-e3-cli/`: through the CLI, by `scripts/evidence-cli-close.mjs` (`dustin fixture create`, `dustin fixture verify`, the dry-run `dustin plan`, then `dustin close --execute --yes --report`). That script was replaced afterwards by `scripts/evidence-cli.mjs` (commit `d473913`), whose case `metric` (label `e3-cli`) runs the same close; the run above was recorded with the earlier script.
 
 The builder's baseline fixture `messy-20260926T035942Z` was not touched: it is kept for the Demolisher recording (E1-S2), and closing that same account with Dustin follows the recording (matrix row B-03).
 
@@ -48,10 +48,10 @@ How each AC is met:
 
 ### Closing review (2026-09-28)
 
-The closing review of Epic 3 (edge-case review of the CLI CC, acceptance audit CA). The evidence tooling was fixed by agent G and merged in `fdcd050`; the findings that concern this story:
+The closing review of Epic 3 (edge-case review of the CLI CC, acceptance audit CA). The evidence tooling was fixed by agent G and merged in `9465a30`; the findings that concern this story:
 
-- [x] [Review][Patch] CC-3 to CC-7, CC-4 = CA-19 `scripts/evidence-cli.mjs <case> [label]` replaces `scripts/evidence-cli-close.mjs`: it checks the case and the label before anything runs, stages the run in a temporary directory, checks every exit code against the case, scans every staged file for secret seeds and for each fixture secret before the run is moved into `evidence/runs/`, keeps what was gathered with `FAILED.md` when a step fails after a submission, and reads an envelope Horizon does not know as "not on the ledger" in `summary.md`. Its case `metric` is this story's CLI close; the cases `edge-frozen`, `memo-partial` and `seq-wait` record the artifacts of CA-5, CA-4 and CA-3 (`0b18867`)
-- [x] [Review][Patch] CC-11 The live close checks its evidence label before it builds a fixture, so a label the writer would refuse fails in milliseconds instead of after the close has spent the fixture (`assertEvidenceLabel` in `test/helpers/evidence.ts`, called first by `test/testnet/execute-close.test.ts`) (`2a7a1a3`)
+- [x] [Review][Patch] CC-3 to CC-7, CC-4 = CA-19 `scripts/evidence-cli.mjs <case> [label]` replaces `scripts/evidence-cli-close.mjs`: it checks the case and the label before anything runs, stages the run in a temporary directory, checks every exit code against the case, scans every staged file for secret seeds and for each fixture secret before the run is moved into `evidence/runs/`, keeps what was gathered with `FAILED.md` when a step fails after a submission, and reads an envelope Horizon does not know as "not on the ledger" in `summary.md`. Its case `metric` is this story's CLI close; the cases `edge-frozen`, `memo-partial` and `seq-wait` record the artifacts of CA-5, CA-4 and CA-3 (`d473913`)
+- [x] [Review][Patch] CC-11 The live close checks its evidence label before it builds a fixture, so a label the writer would refuse fails in milliseconds instead of after the close has spent the fixture (`assertEvidenceLabel` in `test/helpers/evidence.ts`, called first by `test/testnet/execute-close.test.ts`) (`611bffd`)
 - [x] [Review][Patch] CA-9 Task 6 moved to the builder (story E1-S2, matrix row B-03), recorded above by the integrator
 
 ## Dev Notes
@@ -79,7 +79,7 @@ The closing review of Epic 3 (edge-case review of the CLI CC, acceptance audit C
 ### File List
 
 - evidence/runs/20260928T112239Z-e3/ (new), evidence/runs/20260928T112252Z-e3-cli/ (new), evidence/README.md (new), evidence/runs/README.md
-- scripts/evidence-cli-close.mjs (new; replaced by scripts/evidence-cli.mjs in commit `0b18867`, closing review)
+- scripts/evidence-cli-close.mjs (new; replaced by scripts/evidence-cli.mjs in commit `d473913`, closing review)
 - test/helpers/evidence.ts, test/unit/helpers/evidence.test.ts, test/testnet/execute-close.test.ts
 
 ## Change Log

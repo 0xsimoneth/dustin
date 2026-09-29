@@ -1,5 +1,5 @@
 $ dustin plan GAZF3X7YYCI7PHZYZDQOGPLVN2RVD37YIQG7YEY6QJW6IK224Y4R3MBK --to GBQGFM635UIV2BTCTYSMKKJBESY47VXZLCIPGKW3GZJSSY6B45U2DH2C --sponsor GBISNFQ4KAM62Z22MGKULQ7PI6H3RVMMWJZTWU6NP2DAIYAVN7XYQN4K
-# captured 2026-09-26T05:01:01.913Z on Stellar testnet, fixture messy-20260926T035942Z, code at commit 94759958f0610593185d9b48c36aa0eb9790c403
+# captured 2026-09-26T05:01:01.913Z on Stellar testnet, fixture messy-20260926T035942Z, code at commit 47218a688bd3fea5c06bbfd0068fd2994f8afe32
 
 Dustin plan  (dry run: nothing is signed, nothing is submitted)
 Network      testnet   ledger 4,875,055   observed 2026-09-26T05:01:02Z

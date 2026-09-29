@@ -23,7 +23,7 @@ This record was written after the fact. Route resolution was built before this s
 - E1-S3 put the quotes and the facts about issuers and the destination into the snapshot.
 - E1-S4 added the step that picks a rung for each balance.
 
-No code was written for E2-S5. Each AC is checked below against the code, the tests and the committed evidence at commit c7be815.
+No code was written for E2-S5. Each AC is checked below against the code, the tests and the committed evidence at commit 9d1b422.
 
 The ACs name the assets of the epics' fixture recipe (LIQ, RET, ILQ). The messy fixture follows the recipe in `docs/edge-cases-and-test-matrix.md` section 5.2 instead:
 
@@ -179,18 +179,18 @@ How each AC is met, and the tests that prove it. The tests run offline, on the H
     - Choosing the rungs and ordering the steps uses only the snapshot, with no network access (`planFromSnapshot()`, `src/plan/plan.ts`).
     - The ESLint rule from E1-S6 forbids `src/plan`, `src/inspect` and `src/reader` to import any code that signs, builds or submits transactions.
   - Tests:
-    - `dry-run.test.ts` "planClose makes GET requests only and never touches a submission endpoint". This is the E1-S6 test, and it passes at c7be815. Every request `planClose()` makes on the recorded fixture is a GET, including the four strict-send path requests, and none goes to `/transactions`.
+    - `dry-run.test.ts` "planClose makes GET requests only and never touches a submission endpoint". This is the E1-S6 test, and it passes at 9d1b422. Every request `planClose()` makes on the recorded fixture is a GET, including the four strict-send path requests, and none goes to `/transactions`.
     - `inspect.test.ts` "makes GET requests only, and exactly these" checks the exact list of requests, which includes four `/paths/strict-send`.
     - `plan-command.test.ts` "never reads a secret from the environment and only sends GET requests".
     - Testnet tier: `test/testnet/plan-readonly.test.ts` "plans a closable close and leaves the account untouched" checks that the sequence number and the subentry count do not change. It last ran live for E1-S6.
   - Snapshot and evidence:
     - The committed snapshot (`test/unit/plan/__snapshots__/dry-run.test.ts.snap`) and the committed plan (`evidence/plan/fixture-plan.json` and `.txt`) show resolved routes for all four balances: DUSTA `path_payment` with its quote, and DUSTB, DUSTC and SPTA `return_to_issuer`.
-    - Nothing needed updating. Route resolution moved into E1-S3 and E1-S4, so no plan ever showed `route: "pending-resolution"`; AC-E1-S4-7 was superseded the same way. The first committed plan (c8ea0b1) already had the routes.
-    - The committed plan's hash covers every rung and its target: `plan hash 25be835c88e84af36e96e17fa00fcbf465f6f39a7c6075deab940106eff38c85` (`fixture-plan.txt` line 73). The snapshot has the same hash, and the planner at c7be815 produces it again from the recorded fixture.
+    - Nothing needed updating. Route resolution moved into E1-S3 and E1-S4, so no plan ever showed `route: "pending-resolution"`; AC-E1-S4-7 was superseded the same way. The first committed plan (b8fbb19) already had the routes.
+    - The committed plan's hash covers every rung and its target: `plan hash 25be835c88e84af36e96e17fa00fcbf465f6f39a7c6075deab940106eff38c85` (`fixture-plan.txt` line 73). The snapshot has the same hash, and the planner at 9d1b422 produces it again from the recorded fixture.
   - Evidence lines in `fixture-plan.txt`:
     - line 4: `Dustin plan  (dry run: nothing is signed, nothing is submitted)`
     - lines 22, 28, 34 and 44: the four routes.
-  - Note: the evidence was captured on 2026-09-26 at commit 9475995. Two things were added to the output later, and neither changes a route:
+  - Note: the evidence was captured on 2026-09-26 at commit 47218a6. Two things were added to the output later, and neither changes a route:
     - the `options` block in the plan JSON (E2-S3);
     - the `Budget` line in the text plan (review finding R2).
 
@@ -201,7 +201,7 @@ The two AC-3 tests (Tasks 5 and 6) were added on 2026-09-28 in `test/unit/plan/r
 ## Tasks / Subtasks
 
 - [x] Task 1: map every AC to the code that implements it; the code was written in E1-S3 and E1-S4 (AC: 1-5)
-- [x] Task 2: find the tests that prove each AC, and run the offline tests at commit c7be815 (AC: 1-5)
+- [x] Task 2: find the tests that prove each AC, and run the offline tests at commit 9d1b422 (AC: 1-5)
 - [x] Task 3: check the committed plan evidence for resolved routes (AC: 5)
 - [x] Task 4: evaluate the deviations: the names, the reason wording, `plan.closable`, and AC-3's assumption about a merged issuer (AC: 1-4)
 - [x] Task 5: test that a `NO_DISPOSAL_ROUTE` item names all three failed rungs, in `reason` and in `rungsRuledOut` (AC: 3)
@@ -282,7 +282,7 @@ Verification by an AI developer agent; no code was written.
   - AC-4: met, as a documented deviation (unclosable item instead of a route, wording).
   - AC-5: met.
 - Tasks 5 and 6 were added on 2026-09-28 (`test/unit/plan/route-resolution.test.ts`, 5 tests); no code changed. Status: done.
-- Offline tests at commit c7be815: 58 files and 508 tests pass (`npm test`). The planner, inspector and reader tests alone: 16 files, 102 tests.
+- Offline tests at commit 9d1b422: 58 files and 508 tests pass (`npm test`). The planner, inspector and reader tests alone: 16 files, 102 tests.
 - Not run: the testnet tests (this check used no network).
 
 ### File List

@@ -238,7 +238,7 @@ To make it again (after a testnet reset, or to replace the take): install asciin
 
 ## Assumptions
 
-1. Command names, options, the confirmation question and the output lines quoted here are those of the 0.1.0 code (the build of `7bd04ae`) and of the recorded run; the builder checks them against the build the video is recorded with.
+1. Command names, options, the confirmation question and the output lines quoted here are those of the 0.1.0 code (the build of `ab1fdae`) and of the recorded run; the builder checks them against the build the video is recorded with.
 2. The reference values are those of `evidence/runs/20260929T111408Z-e4-cli/`; a fresh fixture gives new addresses, hashes, ledgers and a new fee bid, while the structure (12 steps, 3 transactions, 4.0000007 XLM when the DUSTA bid holds, 1,500 stroops at the ledger's base fee) is the recipe's.
 3. The explorer's wording for a merged account is its own; the caption says "no longer exists" and the Horizon 404 is the check.
 4. Voice-over is optional; the SOW requires a 60-second video showing the close from the CLI.

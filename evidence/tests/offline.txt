@@ -1,5 +1,5 @@
 # npm test -- --reporter=default
-# UTC 2026-09-29T11:50:37Z (start); commit 9184fa6ea9f91a82946531c4221786bf3e2d8dfc; Node v24.15.0
+# UTC 2026-09-29T11:50:37Z (start); commit 3fd5fe5a27bf098560e01976dea4673b17966de1; Node v24.15.0
 # The complete output follows, unchanged except that the local working directory on vitest's RUN line reads <repository root>.
 
 

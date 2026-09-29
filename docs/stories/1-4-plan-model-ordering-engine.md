@@ -88,8 +88,8 @@ dev-story workflow (AI developer agent)
 ## Senior Developer Review (AI)
 
 - Date: 2026-09-26
-- Scope: commits a7048e9..c8ea0b1 (Epic 1), adversarial review plus an edge-case walk by an independent review agent (read-only), 18 findings across the epic.
-- Fixes: commits 6806927 (planner and inspector), 2358130 (property test), 9475995 (fixture builder and plan output), 1c9868e (evidence).
+- Scope: commits 8ff5100..b8fbb19 (Epic 1), adversarial review plus an edge-case walk by an independent review agent (read-only), 18 findings across the epic.
+- Fixes: commits d2d9203 (planner and inspector), cc01a72 (property test), 47218a6 (fixture builder and plan output), c769364 (evidence).
 - Outcome: changes requested, all resolved.
 
 ### Action Items
