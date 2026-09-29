@@ -1,6 +1,19 @@
 # Runbook: rewriting the history for review findings R4 and R5
 
-For the builder. Nothing here has been run: the history rewrite is the builder's decision (PRD decision D-7 postponed it; review findings R4 and R5 of [`docs/reviews/2026-09-26-e0-e2-review.md`](../reviews/2026-09-26-e0-e2-review.md), D-15 of [`docs/reviews/2026-09-29-e4-review.md`](../reviews/2026-09-29-e4-review.md)). This page says what changes, how to do it in about 30 minutes, how to check it, and how to clean up GitHub afterwards. It never shows the personal data itself: every command that needs it reads it from the old commit into a file outside the repository.
+For the builder. The history rewrite was the builder's decision (PRD decision D-7 postponed it; review findings R4 and R5 of [`docs/reviews/2026-09-26-e0-e2-review.md`](../reviews/2026-09-26-e0-e2-review.md), D-15 of [`docs/reviews/2026-09-29-e4-review.md`](../reviews/2026-09-29-e4-review.md)), and it was done on 2026-09-30 (below). This page says what changes, how to do it in about 30 minutes, how to check it, and how to clean up GitHub afterwards. It never shows the personal data itself: every command that needs it reads it from the old commit into a file outside the repository.
+
+## Done on 2026-09-30
+
+The builder decided on 2026-09-30 to rewrite, and steps 1 to 7 ran as this page describes, on a fresh clone:
+
+- `git filter-repo` 2.47.0 with `--sensitive-data-removal`, `--replace-text` and `--mailmap`. First changed commit: the root, `bedc4a6`, now `77d36b9`. 364 commits before and after; the tree of `main` unchanged (`3f64462`).
+- Checks before the push: no old value left in any object of the rewritten repository, reachable or not, nor in any name, e-mail or message; the only e-mails left are `333815469+0xsimoneth@users.noreply.github.com` and `noreply@github.com`; the first version of `SUCCESSFUL_SOW.md` holds the redacted rows.
+- Step 6: commit `622d1b8` rewrote 620 citations in 43 files, each an exact old-to-new pair of the commit-map. This page and `test/unit/scripts/remap-commit-hashes.test.ts` keep their hashes: here they name the history before the rewrite, on purpose (`ca7bf53` is now `c6d8ee7`, `706cd73` is now `bca0853`, `bedc4a6` is now `77d36b9`); in the test they are test data.
+- Step 7: `main` pushed with `--force-with-lease` against the old tip `d7f557b`; `main` was the only branch on GitHub and no pull request ever existed. CI passed on the new tip on Node 22.12.0, 22 and 24 ([run 36639605562](https://github.com/0xsimoneth/dustin/actions/runs/36639605562)).
+- After the push, a repository ruleset ("main: no force push, no deletion") blocks force pushes to `main` and its deletion, with no bypass; direct pushes stay allowed. A later rewrite has to switch it off for its push and on again after.
+- Two backups of the old history, a mirror clone of GitHub and a bundle of every local ref, are kept offline, outside the repository, until step 8 is confirmed.
+
+Still the builder's: step 8 (the GitHub Support request), and the rest of step 9 (the usual working copy now tracks the new `main`; the agent worktrees of past sessions and their branches still point at the old history and are to be removed there). The run pages of GitHub Actions keep naming the old hashes; [`evidence/tests/README.md`](../../evidence/tests/README.md#ci-runs-and-the-rewritten-history) maps them.
 
 ## What is in the history
 

@@ -29,6 +29,19 @@ Reproduce: `npm ci`, then `npm test` (11 to 15 s by the figures above) and `DUST
 
 CI runs of the 0.1.0 code, commit `ab1fdae` (its source is the source of `3fd5fe5`; the commits after it change documents and evidence only): the manual testnet tier job [Testnet tier, run 36560464977](https://github.com/0xsimoneth/dustin/actions/runs/36560464977), 2026-09-29 11:14 to 11:20 UTC, passed 11 files and 58 tests in 341.93 s (Node 24, on GitHub's runner); the offline tier [CI, run 36560430762](https://github.com/0xsimoneth/dustin/actions/runs/36560430762) passed on Node 22.12.0, 22 and 24. CI passes the offline tier on every push to main.
 
+## CI runs and the rewritten history
+
+On 2026-09-30 the history of the repository was rewritten to remove personal data from two old objects (review findings R4 and R5; [`docs/runbooks/history-rewrite.md`](../../docs/runbooks/history-rewrite.md)). Every commit hash changed and no file did: each rewritten commit from the SOW's redaction onwards holds exactly the tree it held before. The documents cite the new hashes, while a GitHub Actions run page keeps the hash of the commit it ran on, which is no longer in the repository. The runs this package cites, with both hashes:
+
+| Run | Workflow | Commit on the run page (before the rewrite) | The same commit after the rewrite |
+|---|---|---|---|
+| [36424696971](https://github.com/0xsimoneth/dustin/actions/runs/36424696971) | Testnet tier | `d0d711c25f7c723251d23eff67796c31b7e538ef` | `60af60d48061e4aee57c28024a708bef3b1db6ba` |
+| [36539346346](https://github.com/0xsimoneth/dustin/actions/runs/36539346346) | CI | `e865bec9e052842cb6791d24e0d8215c680be5e5` | `7c53a1b7eb6cd551aa3104aa4af1db6cf672d683` |
+| [36560430762](https://github.com/0xsimoneth/dustin/actions/runs/36560430762) | CI | `7bd04aeecdf1dfc244181f492b5a73a54291214a` | `ab1fdae1ce4ac36e89a228e87485bf6e8a7ae1c0` |
+| [36560464977](https://github.com/0xsimoneth/dustin/actions/runs/36560464977) | Testnet tier | `7bd04aeecdf1dfc244181f492b5a73a54291214a` | `ab1fdae1ce4ac36e89a228e87485bf6e8a7ae1c0` |
+
+Each run tested the tree that its new commit holds, so its record stays valid. The header lines of `offline.txt` and `testnet.txt` name the new hashes. The first CI run on the rewritten history is [CI, run 36639605562](https://github.com/0xsimoneth/dustin/actions/runs/36639605562), green on Node 22.12.0, 22 and 24.
+
 ## The CI screenshot
 
 A screenshot of a GitHub Actions run page, taken by the builder in a browser, completes story E4-S3 (PRD decision D-16). Its place is this directory, and its name is `ci-run-<run id>.png`, after the number at the end of the run's URL.
