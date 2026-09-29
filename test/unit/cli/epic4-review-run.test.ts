@@ -106,3 +106,66 @@ describe("BH-19: run() returns the exit code even when the standard error writer
     expect(code).toBe(2);
   });
 });
+
+/** run() with both streams collected. */
+async function runCli(args: string[], world?: World, env: Record<string, string> = {}) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = await run(
+    [...node, ...args],
+    { stdout: (t) => void out.push(t), stderr: (t) => void err.push(t) },
+    "0.0.0",
+    { env, ...(world ? { fetch: world.ledger.fetch } : {}), horizon: { retries: 0 } },
+  );
+  return { code, out: out.join(""), err: err.join("") };
+}
+
+describe("D-6: a usage error prints its code for people too", () => {
+  it("D-6: dustin: USAGE_ERROR: ..., after Commander's help text, exit 2", async () => {
+    const r = await runCli(["plan", Keypair.random().publicKey(), "--frobnicate"]);
+    expect(r.code).toBe(2);
+    // Before the fix: only Commander's "error: unknown option '--frobnicate'" and the help.
+    expect(r.err).toContain("dustin: USAGE_ERROR: unknown option '--frobnicate'");
+    expect(r.err).toContain("Run dustin --help, or dustin <command> --help, for the usage.");
+    expect(r.err).toContain("Usage: dustin plan");
+    expect(r.err).not.toMatch(/^error: /m);
+    // The error comes last, after the help.
+    expect(r.err.indexOf("Usage: dustin plan")).toBeLessThan(r.err.indexOf("USAGE_ERROR"));
+  });
+
+  it("D-6: a missing argument and conflicting options say so the same way", async () => {
+    const missing = await runCli(["plan"]);
+    expect(missing.code).toBe(2);
+    expect(missing.err).toContain("dustin: USAGE_ERROR: missing required argument 'account'");
+    const g = Keypair.random().publicKey();
+    const both = await runCli(["plan", g, "--to", g, "--destination", g]);
+    expect(both.code).toBe(2);
+    expect(both.err).toContain("dustin: USAGE_ERROR: option '--destination <destination>'");
+  });
+
+  it("D-6: with --json it stays one error line, the message without Commander's prefix", async () => {
+    const r = await runCli(["plan", Keypair.random().publicKey(), "--frobnicate", "--json"]);
+    expect(r.code).toBe(2);
+    const lines = r.err
+      .split("\n")
+      .filter(Boolean)
+      .map((l) => JSON.parse(l) as Record<string, unknown>);
+    expect(lines).toEqual([
+      expect.objectContaining({
+        type: "error",
+        code: "USAGE_ERROR",
+        message: "unknown option '--frobnicate'",
+        exitCode: 2,
+      }),
+    ]);
+  });
+
+  it("D-6: --help and --version stay as they were, exit 0", async () => {
+    const help = await runCli(["plan", "--help"]);
+    expect(help.code).toBe(0);
+    expect(help.err).toBe("");
+    const version = await runCli(["--version"]);
+    expect(version.code).toBe(0);
+    expect(version.out).toBe("0.0.0\n");
+  });
+});

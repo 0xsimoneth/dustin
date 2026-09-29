@@ -111,6 +111,10 @@ export function buildProgram(
           // usage error is reported by run(), through the last-resort writer if need be.
         }
       },
+      // Epic 4 review D-6: Commander's own error line ("error: unknown option ...") is left out;
+      // run() prints the usage error with its code, `dustin: USAGE_ERROR: ...`, after the help
+      // text that Commander still prints (showHelpAfterError).
+      outputError: () => undefined,
     })
     .showHelpAfterError()
     .option("--network <name>", "network to use; only testnet is supported", "testnet")

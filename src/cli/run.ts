@@ -101,17 +101,20 @@ async function runCommand(
     return state.exitCode;
   } catch (error) {
     if (error instanceof CommanderError) {
-      // Commander has already printed help, the version or the usage error for people; in machine
-      // mode its text was held back and the error is one `error` line (review finding AA-10).
+      // Commander has already printed the help or the version, and for a usage error its help
+      // text for people; in machine mode its text was held back and the error is one `error`
+      // line (review finding AA-10).
       if (error.exitCode === 0) return ExitCode.OK;
+      // Epic 4 review D-6: a usage error prints its code like every other error, for people too:
+      // `dustin: USAGE_ERROR: unknown option '--frobnicate'`, after Commander's help text, whose
+      // own error line (`error: ...`) is left out (program.ts, outputError).
       const failure: Failure = {
         code: USAGE_ERROR,
-        message: error.message,
+        message: error.message.replace(/^error: /, ""),
         remedy: "Run dustin --help, or dustin <command> --help, for the usage.",
         exitCode: ExitCode.USAGE,
       };
-      if (mode.json) return report(() => out.fail(failure), failure);
-      return ExitCode.USAGE;
+      return report(() => out.fail(failure), failure);
     }
     const code = error instanceof DustinError ? exitCodeFor(error) : ExitCode.UNEXPECTED;
     return report(() => out.error(error, code), failureOf(error, code));

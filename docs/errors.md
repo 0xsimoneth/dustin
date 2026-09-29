@@ -94,6 +94,6 @@ These appear only in the CLI's output (the `code` of an `error` line with `--jso
 
 | Code | Meaning | Exit | Remedy |
 |---|---|---|---|
-| `USAGE_ERROR` | The command line could not be parsed: an unknown option, a missing argument, conflicting options | 2 | Run `dustin --help`, or `dustin <command> --help`, for the usage. |
+| `USAGE_ERROR` | The command line could not be parsed: an unknown option, a missing argument, conflicting options. People see the command's help, then `dustin: USAGE_ERROR: unknown option '--frobnicate'` and the remedy | 2 | Run `dustin --help`, or `dustin <command> --help`, for the usage. |
 | `UNEXPECTED_ERROR` | Something that is not a `DustinError` was thrown: a bug. People see `dustin: unexpected error: ...` | 1, or 5 after a submission | Run the same command with `--verbose` and report the output. The remedy says where the hashes of what was submitted are: printed above it; in the receipt printed below it, when a run that submitted something stops on it; with `--json`, in the `tx:submitted` lines on standard error and in the close report on standard output. |
 | `PLAN_NOT_CLOSABLE`, `NOTHING_TO_EXECUTE` | The stop codes of the same name, used for the CLI's own refusal before anything is signed | 3 | As above. |
