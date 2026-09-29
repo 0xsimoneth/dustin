@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { timerSleep } from "../../../src/config/pauses.js";
+import { interruptibleSleep } from "../../../src/execute/abort.js";
 import { executeClose, type CloseEvent } from "../../../src/execute/executor.js";
 import { waitForLedger } from "../../../src/execute/preflight.js";
 import type { CloseReport } from "../../../src/execute/report.js";
@@ -130,6 +132,67 @@ describe("EX-1 / BH-1: no envelope is posted after the abort, the first one incl
     expect(run.ledger.submissions).toHaveLength(0);
     expect(run.report.status).toBe("aborted");
     expect(run.report.transactions).toEqual([]);
+  });
+});
+
+/** Timers that keep the event loop alive (https://nodejs.org/api/process.html#processgetactiveresourcesinfo). */
+const armedTimers = () => process.getActiveResourcesInfo().filter((r) => r === "Timeout").length;
+
+describe("EX-6 / BH-9: the default pause is cancelled with the signal", () => {
+  it("EX-6: an aborted pause of the default timer leaves no timer armed", async () => {
+    const before = armedTimers();
+    const controller = new AbortController();
+    const pause = interruptibleSleep(timerSleep, controller.signal)(16_000);
+    setTimeout(() => controller.abort("SIGINT"), 5);
+    const started = Date.now();
+    await pause;
+    expect(Date.now() - started).toBeLessThan(1000);
+    // Before the fix the 16 s timer stayed armed and kept the process alive after the run.
+    expect(armedTimers()).toBeLessThanOrEqual(before);
+  });
+
+  it("EX-6: a pause of the default timer on an aborted signal arms no timer at all", async () => {
+    const before = armedTimers();
+    const controller = new AbortController();
+    controller.abort("SIGTERM");
+    await interruptibleSleep(timerSleep, controller.signal)(60_000);
+    expect(armedTimers()).toBeLessThanOrEqual(before);
+  });
+
+  it("EX-6: the executor's own pauses, without an injected sleep, end with the signal and leave no timer", async () => {
+    const controller = new AbortController();
+    let posts = 0;
+    // The first envelope is lost behind a 504, so the run waits for it with real pauses of 5 s.
+    const h = harness((_ledger, fetch) => (url, init) => {
+      if ((init?.method ?? "GET") === "POST" && ++posts === 1) {
+        setTimeout(() => controller.abort("SIGINT"), 20);
+      }
+      return fetch(url, init);
+    });
+    h.ledger.faults.push("504-not-applied");
+    const approved = await h.plan();
+    const { sleep: _injected, ...deps } = h.deps;
+    const before = armedTimers();
+    const started = Date.now();
+    const report = await executeClose(approved, signers(), {
+      confirm: true,
+      ...deps,
+      signal: controller.signal,
+    });
+    expect(Date.now() - started).toBeLessThan(2000);
+    expect(report.stop).toMatchObject({ code: "INTERRUPTED" });
+    expect(armedTimers()).toBeLessThanOrEqual(before);
+  });
+
+  it("EX-6: an injected pause keeps its contract: it is called with the milliseconds only", async () => {
+    const calls: unknown[][] = [];
+    const injected = (...args: unknown[]) => {
+      calls.push(args);
+      return Promise.resolve();
+    };
+    const controller = new AbortController();
+    await interruptibleSleep(injected, controller.signal)(1234);
+    expect(calls).toEqual([[1234]]);
   });
 });
 

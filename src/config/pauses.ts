@@ -27,6 +27,31 @@ export const timerSleep: Sleep = (ms) =>
   new Promise<void>((resolve) => setTimeout(resolve, Math.min(ms, MAX_PAUSE_MS)));
 
 /**
+ * The production pause of a run that can be interrupted: the same timer, cleared when `signal` is
+ * aborted, so the pause ends at once and no timer is left armed to keep the process alive after
+ * the run returned (Epic 4 review EX-6, BH-9: the CLI lingered up to a whole pause after the
+ * receipt, with its signal handlers already removed). An injected `sleep` keeps its contract, a
+ * function of the milliseconds only; the executor ends its promise early instead
+ * (src/execute/abort.ts). clearTimeout: https://nodejs.org/api/timers.html#cleartimeouttimeout
+ */
+export function timerSleepUntil(signal: AbortSignal): Sleep {
+  return (ms) =>
+    new Promise<void>((resolve) => {
+      if (signal.aborted) {
+        resolve();
+        return;
+      }
+      const done = () => {
+        clearTimeout(timer);
+        signal.removeEventListener("abort", done);
+        resolve();
+      };
+      const timer = setTimeout(done, Math.min(ms, MAX_PAUSE_MS));
+      signal.addEventListener("abort", done, { once: true });
+    });
+}
+
+/**
  * A pause of a bounded wait: `pauseMs`, but never longer than the time left in the wait
  * (`leftMs`), so one long pause cannot outlast the wait's bound, and never below `MIN_PAUSE_MS`,
  * so the clip can never make a tight loop. A time left that is not a finite number leaves the
