@@ -6,7 +6,7 @@ Both runs are of commit `0df4d09` (`0df4d0957448bf8eaf41437e5a9f403e286443df`): 
 
 | File | What it is |
 |---|---|
-| [`offline.txt`](offline.txt) | The complete output of `npm test -- --reporter=default`, started 22:30:37 UTC: 113 files, 1057 tests passed in 15.18 s (the live tier ran at the same time; alone the tier takes about 7 s), with the network blocked for the whole tier (`test/setup/no-network.ts`). The default reporter is named because vitest picks its `minimal` reporter in a shell it takes for an AI agent, and that one prints no per-file lines. |
+| [`offline.txt`](offline.txt) | The complete output of `npm test -- --reporter=default`, started 22:30:37 UTC: 113 files, 1057 tests passed in 15.18 s (the live tier ran at the same time; the independent review of 2026-09-29 measured 14.8 s and 10.9 s, vitest's own figures, on two fresh clones of `e865bec` ([review](../../docs/reviews/2026-09-29-e4-review.md), step 1)), with the network blocked for the whole tier (`test/setup/no-network.ts`). The default reporter is named because vitest picks its `minimal` reporter in a shell it takes for an AI agent, and that one prints no per-file lines. |
 | [`offline.png`](offline.png) | The 113 per-file lines and the summary of `offline.txt`, rendered from the captured terminal output. |
 | [`testnet.txt`](testnet.txt) | The complete output of `DUSTIN_TESTNET=1 npm run test:testnet -- --reporter=verbose`, 22:30:31 to 22:35:33 UTC: 11 files, 58 tests passed in 301.09 s against the public testnet. Every test built its own accounts from Friendbot with fresh keys; the output holds every transaction hash the tests printed, with its purpose. |
 | [`testnet.png`](testnet.png) | The 58 per-test lines (cut at 150 characters) and the summary of `testnet.txt`, rendered from the captured terminal output. |
@@ -25,6 +25,6 @@ magick -background white -fill '#1a1a1a' -font Menlo.ttc -pointsize 13 -interlin
 
 The live tier ran three times on this branch. Before the merge of main, on `0da27eb`: a first run (21:21:46 to 21:36:53 UTC) passed 57 of 58, `S-07b` timing out at 300 s while this machine's network was down (no test file logged anything from 21:22:55 to 21:33:52 UTC; its fee-bumped close applied once the network was back), and a second run passed 58 of 58 (21:37:48 to 21:42:52 UTC, 304 s). `testnet.txt` is the third, after the merge, green in full.
 
-Reproduce: `npm ci`, then `npm test` (about 10 s) and `DUSTIN_TESTNET=1 npm run test:testnet` (about 5 minutes; it needs Friendbot and testnet Horizon, and no key or `.env`: every live test makes its own throwaway accounts).
+Reproduce: `npm ci`, then `npm test` (11 to 15 s by the figures above) and `DUSTIN_TESTNET=1 npm run test:testnet` (about 5 minutes; it needs Friendbot and testnet Horizon, and no key or `.env`: every live test makes its own throwaway accounts).
 
 CI runs of the same code: to be added by the integrator after the merges (the offline CI run and the manual testnet tier job).
