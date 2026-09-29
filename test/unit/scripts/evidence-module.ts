@@ -12,6 +12,7 @@ export type Classified =
   | { kind: "invalid"; reason: string }
   | { kind: "tx"; hash: string; via: "horizon" | "stellar.expert" }
   | { kind: "hash"; hash: string }
+  | { kind: "stored"; hash: string }
   | { kind: "account"; account: string; via: "horizon" | "stellar.expert" }
   | { kind: "https"; url: string }
   | { kind: "refused"; reason: string };
@@ -22,7 +23,17 @@ export interface Checked {
   target: string;
   verdict: Verdict;
   detail: string;
-  source?: "link" | "hash";
+  source?: "link" | "hash" | "stored" | "cited";
+}
+/** The fields of Horizon's transaction record that the stored-record checks read. */
+export interface HorizonRecord {
+  hash: string;
+  ledger: number;
+  created_at: string;
+  successful: boolean;
+  envelope_xdr: string;
+  result_xdr?: string;
+  [field: string]: unknown;
 }
 export interface Answer {
   status: number | null;
@@ -47,6 +58,23 @@ export interface MainDeps {
 }
 export interface EvidenceCheck {
   TESTNET_HORIZON: string;
+  STORED_TX_DIR: string;
+  STORED_TX_SOURCES: string[];
+  horizonRecordOf(json: unknown): HorizonRecord | null;
+  judgeStoredFile(
+    name: string,
+    text: string,
+  ): { verdict: Verdict; detail: string; hash?: string; record?: HorizonRecord };
+  judgeStoredAnswer(
+    c: Classified,
+    answer: Answer,
+    record: HorizonRecord,
+  ): { verdict: Verdict | "history"; detail: string };
+  uncoveredCitations(markdown: string, stored: Set<string>): Array<{ hash: string; line: number }>;
+  filesUnder(
+    dir: string,
+    context: { git: { root: string; files: Set<string> } | null; root: string },
+  ): string[];
   EXIT: { OK: 0; FAILED: 1; USAGE: 2; UNCHECKED: 3 };
   USAGE: string;
   RETRY_AFTER_MAX_MS: number;

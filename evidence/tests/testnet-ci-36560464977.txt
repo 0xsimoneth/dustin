@@ -1,0 +1,1132 @@
+# gh run view 36560464977 --repo 0xsimoneth/dustin --log   (Testnet tier, run 36560464977: https://github.com/0xsimoneth/dustin/actions/runs/36560464977)
+# UTC 2026-09-29T11:14:06Z to 2026-09-29T11:20:02Z; job "Testnet tier (Node 24)" on GitHub's ubuntu-latest runner, dispatched by hand (workflow_dispatch) on main; commit 7bd04aeecdf1dfc244181f492b5a73a54291214a of the history before the rewrite of 2026-09-30, the same tree as ab1fdae1ce4ac36e89a228e87485bf6e8a7ae1c0 now (evidence/tests/README.md); conclusion success
+# Downloaded 2026-09-30. Each line is <step><TAB><log line>. Changed only: the job name and the timestamp at the start of each line removed, the terminal colour codes (875) removed, and the runner's checkout directory reads <repository root> (18 lines); nothing else.
+
+Set up job	Current runner version: '2.337.0'
+Set up job	##[group]Runner Image Provisioner
+Set up job	Hosted Compute Agent
+Set up job	Version: 20260828.587
+Set up job	Commit: abac92662cab4cc7352de4f9f9d2e2419aad9c29
+Set up job	Build Date: 2026-08-28T16:44:25Z
+Set up job	Worker ID: {14937ca9-1920-4c20-b78c-506c83f6468a}
+Set up job	Azure Region: westus3
+Set up job	##[endgroup]
+Set up job	##[group]Operating System
+Set up job	Ubuntu
+Set up job	24.04.5
+Set up job	LTS
+Set up job	##[endgroup]
+Set up job	##[group]Runner Image
+Set up job	Image: ubuntu-24.04
+Set up job	Version: 20260920.314.1
+Set up job	Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20260920.314/images/ubuntu/Ubuntu2404-Readme.md
+Set up job	Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20260920.314
+Set up job	##[endgroup]
+Set up job	##[group]GITHUB_TOKEN Permissions
+Set up job	Contents: read
+Set up job	Metadata: read
+Set up job	##[endgroup]
+Set up job	Secret source: Actions
+Set up job	Cache mode: write
+Set up job	Prepare workflow directory
+Set up job	Prepare all required actions
+Set up job	Getting action download info
+Set up job	Download action repository 'actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1' (SHA:3d3c42e5aac5ba805825da76410c181273ba90b1)
+Set up job	Download action repository 'actions/setup-node@820762786026740c76f36085b0efc47a31fe5020' (SHA:820762786026740c76f36085b0efc47a31fe5020)
+Set up job	Complete job name: Testnet tier (Node 24)
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[group]Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	with:
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  persist-credentials: false
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  repository: 0xsimoneth/dustin
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  token: ***
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  ssh-strict: true
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  ssh-user: git
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  clean: true
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  sparse-checkout-cone-mode: true
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  fetch-depth: 1
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  fetch-tags: false
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  show-progress: true
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  lfs: false
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  submodules: false
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  set-safe-directory: true
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  allow-unsafe-pr-checkout: false
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[endgroup]
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Syncing repository: 0xsimoneth/dustin
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[group]Getting Git version info
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Working directory is '<repository root>'
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git version
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	git version 2.55.0
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[endgroup]
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Temporarily overriding HOME='/home/runner/work/_temp/3f2eb442-25b4-4ce7-8b45-7d75801f7e1e' before making global git config changes
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Adding repository directory to the temporary git global config as a safe directory
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --global --add safe.directory <repository root>
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Deleting the contents of '<repository root>'
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[group]Determining repository object format
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[endgroup]
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[group]Initializing the repository
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git init <repository root>
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint: Using 'master' as the name for the initial branch. This default branch name
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint: will change to "main" in Git 3.0. To configure the initial branch name
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint: to use in all of your new repositories, which will suppress this warning,
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint: call:
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint:
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint: 	git config --global init.defaultBranch <name>
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint:
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint: 'development'. The just-created branch can be renamed via this command:
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint:
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint: 	git branch -m <name>
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint:
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	hint: Disable this message with "git config set advice.defaultBranchName false"
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Initialized empty Git repository in <repository root>/.git/
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git remote add origin https://github.com/0xsimoneth/dustin
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[endgroup]
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[group]Disabling automatic garbage collection
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local gc.auto 0
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[endgroup]
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[group]Setting up auth
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Removing SSH command configuration
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Removing HTTP extra header
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Removing includeIf entries pointing to credentials config files
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --file /home/runner/work/_temp/git-credentials-2a944693-6fed-4e9c-b187-38cf43262fb3.config http.https://github.com/.extraheader AUTHORIZATION: basic ***
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local includeIf.gitdir:<repository root>/.git.path /home/runner/work/_temp/git-credentials-2a944693-6fed-4e9c-b187-38cf43262fb3.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local includeIf.gitdir:<repository root>/.git/worktrees/*.path /home/runner/work/_temp/git-credentials-2a944693-6fed-4e9c-b187-38cf43262fb3.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git.path /github/runner_temp/git-credentials-2a944693-6fed-4e9c-b187-38cf43262fb3.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local includeIf.gitdir:/github/workspace/.git/worktrees/*.path /github/runner_temp/git-credentials-2a944693-6fed-4e9c-b187-38cf43262fb3.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[endgroup]
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[group]Fetching the repository
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +7bd04aeecdf1dfc244181f492b5a73a54291214a:refs/remotes/origin/main
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	From https://github.com/0xsimoneth/dustin
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	 * [new ref]         7bd04aeecdf1dfc244181f492b5a73a54291214a -> origin/main
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git branch --list --remote origin/main
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	  origin/main
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git rev-parse refs/remotes/origin/main
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	7bd04aeecdf1dfc244181f492b5a73a54291214a
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[endgroup]
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[group]Determining the checkout info
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[endgroup]
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git sparse-checkout disable
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[group]Checking out the ref
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Switched to a new branch 'main'
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	branch 'main' set up to track 'origin/main'.
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[endgroup]
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git log -1 --format=%H
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	7bd04aeecdf1dfc244181f492b5a73a54291214a
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[group]Removing auth
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Removing SSH command configuration
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Removing HTTP extra header
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Removing includeIf entries pointing to credentials config files
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	includeif.gitdir:<repository root>/.git.path
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	includeif.gitdir:<repository root>/.git/worktrees/*.path
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	includeif.gitdir:/github/workspace/.git.path
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --get-all includeif.gitdir:<repository root>/.git.path
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	/home/runner/work/_temp/git-credentials-2a944693-6fed-4e9c-b187-38cf43262fb3.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --unset includeif.gitdir:<repository root>/.git.path \/home\/runner\/work\/_temp\/git\-credentials\-2a944693\-6fed\-4e9c\-b187\-38cf43262fb3\.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --get-all includeif.gitdir:<repository root>/.git/worktrees/*.path
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	/home/runner/work/_temp/git-credentials-2a944693-6fed-4e9c-b187-38cf43262fb3.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --unset includeif.gitdir:<repository root>/.git/worktrees/*.path \/home\/runner\/work\/_temp\/git\-credentials\-2a944693\-6fed\-4e9c\-b187\-38cf43262fb3\.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git.path
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	/github/runner_temp/git-credentials-2a944693-6fed-4e9c-b187-38cf43262fb3.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git.path \/github\/runner_temp\/git\-credentials\-2a944693\-6fed\-4e9c\-b187\-38cf43262fb3\.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --get-all includeif.gitdir:/github/workspace/.git/worktrees/*.path
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	/github/runner_temp/git-credentials-2a944693-6fed-4e9c-b187-38cf43262fb3.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --unset includeif.gitdir:/github/workspace/.git/worktrees/*.path \/github\/runner_temp\/git\-credentials\-2a944693\-6fed\-4e9c\-b187\-38cf43262fb3\.config
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Removing credentials config '/home/runner/work/_temp/git-credentials-2a944693-6fed-4e9c-b187-38cf43262fb3.config'
+Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	##[endgroup]
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	##[group]Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	with:
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	  node-version: 24
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	  cache: npm
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	  check-latest: false
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	  token: ***
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	  package-manager-cache: true
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	##[endgroup]
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	Found in cache @ /opt/hostedtoolcache/node/24.21.0/x64
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	##[group]Environment details
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	node: v24.21.0
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	npm: 11.19.0
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	yarn: 1.22.22
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	##[endgroup]
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	[command]/opt/hostedtoolcache/node/24.21.0/x64/bin/npm config get cache
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	/home/runner/.npm
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	Cache hit for: node-cache-Linux-x64-npm-1dbbf1966a1c10e920c22b895ac70cefc0ca7769d4333e6755abaa8b8099882d
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	Received 39607713 of 43802017 (90.4%), 37.8 MBs/sec
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	Received 43802017 of 43802017 (100.0%), 37.9 MBs/sec
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	Cache Size: ~42 MB (43802017 B)
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	[command]/usr/bin/tar -xf /home/runner/work/_temp/239533de-265d-4d23-a4c8-c19c918efe1f/cache.tzst -P -C <repository root> --use-compress-program unzstd
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	Cache restored successfully
+Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	Cache restored from key: node-cache-Linux-x64-npm-1dbbf1966a1c10e920c22b895ac70cefc0ca7769d4333e6755abaa8b8099882d
+Run npm ci	##[group]Run npm ci
+Run npm ci	npm ci
+Run npm ci	shell: /usr/bin/bash -e {0}
+Run npm ci	##[endgroup]
+Run npm ci	
+Run npm ci	added 218 packages, and audited 219 packages in 3s
+Run npm ci	
+Run npm ci	57 packages are looking for funding
+Run npm ci	  run `npm fund` for details
+Run npm ci	
+Run npm ci	1 low severity vulnerability
+Run npm ci	
+Run npm ci	To address all issues, run:
+Run npm ci	  npm audit fix
+Run npm ci	
+Run npm ci	Run `npm audit` for details.
+Run npm ci	npm warn install-scripts 1 package has install scripts not yet covered by allowScripts:
+Run npm ci	npm warn install-scripts   esbuild@0.27.7 (postinstall: node install.js)
+Run npm ci	npm warn install-scripts
+Run npm ci	npm warn install-scripts Run `npm install-scripts ls` to review, or `npm install-scripts approve <pkg>` to allow.
+Run npm run build	##[group]Run npm run build
+Run npm run build	npm run build
+Run npm run build	shell: /usr/bin/bash -e {0}
+Run npm run build	##[endgroup]
+Run npm run build	
+Run npm run build	> stellar-dustin@0.1.0 build
+Run npm run build	> node -e "require('node:fs').rmSync('dist',{recursive:true,force:true})" && tsup
+Run npm run build	
+Run npm run build	CLI Building entry: {"index":"src/index.ts"}
+Run npm run build	CLI Using tsconfig: tsconfig.json
+Run npm run build	CLI Building entry: {"cli/main":"src/cli/main.ts"}
+Run npm run build	CLI Using tsconfig: tsconfig.json
+Run npm run build	CLI tsup v8.5.1
+Run npm run build	CLI Using tsup config: <repository root>/tsup.config.ts
+Run npm run build	CLI tsup v8.5.1
+Run npm run build	CLI Using tsup config: <repository root>/tsup.config.ts
+Run npm run build	CLI Target: node22
+Run npm run build	ESM Build start
+Run npm run build	CJS Build start
+Run npm run build	CLI Target: node22
+Run npm run build	ESM Build start
+Run npm run build	CJS dist/index.cjs     232.03 KB
+Run npm run build	CJS dist/index.cjs.map 538.05 KB
+Run npm run build	CJS ⚡️ Build success in 147ms
+Run npm run build	ESM dist/index.js     229.77 KB
+Run npm run build	ESM dist/index.js.map 535.88 KB
+Run npm run build	ESM ⚡️ Build success in 157ms
+Run npm run build	ESM dist/cli/main.js     383.36 KB
+Run npm run build	ESM dist/cli/main.js.map 898.00 KB
+Run npm run build	ESM ⚡️ Build success in 179ms
+Run npm run build	DTS Build start
+Run npm run build	DTS ⚡️ Build success in 1593ms
+Run npm run build	DTS dist/index.d.ts  57.25 KB
+Run npm run build	DTS dist/index.d.cts 57.25 KB
+Run npm run test:testnet	##[group]Run npm run test:testnet
+Run npm run test:testnet	npm run test:testnet
+Run npm run test:testnet	shell: /usr/bin/bash -e {0}
+Run npm run test:testnet	env:
+Run npm run test:testnet	  DUSTIN_TESTNET: 1
+Run npm run test:testnet	##[endgroup]
+Run npm run test:testnet	
+Run npm run test:testnet	> stellar-dustin@0.1.0 test:testnet
+Run npm run test:testnet	> vitest run --project testnet
+Run npm run test:testnet	
+Run npm run test:testnet	
+Run npm run test:testnet	 RUN  v5.0.2 <repository root>
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Run npm run test:testnet	Funding the fee sponsor GCJC5JT6AY5KUMERF6G2Z524ECJRKCCLT5JLAYU5VT2LAYWE2L6XMZHH from Friendbot
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Run npm run test:testnet	Fee bid 41763 stroops per operation; base reserve 0.5000000 XLM
+Run npm run test:testnet	Building the edge variants
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Run npm run test:testnet	  create-accounts  ok  ledger 4931376  6a75e10c702336fe74b73ebe1e94a784968112202cbb44f8d0cbe1a845359263
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Run npm run test:testnet	  issuer-flags     ok  ledger 4931377  c8a986b9d86ea75aafe1471169c4fde3c561de02365a7737b313a7229399d600
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Run npm run test:testnet	  trustlines       ok  ledger 4931378  189e8f67ae287323361fa44f55051d869723d21fbed17336d26c7fc07cd699f4
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Run npm run test:testnet	  authorize        ok  ledger 4931379  08f92b5c403c71da817c712d2d043282e8eadf462ffc7661dea2ed490353d822
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Run npm run test:testnet	  dust-payments    ok  ledger 4931380  dc163083d2d66e002d615ef4a7cf770bf66bdad979e71e344d7f705ee3da6ba1
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Run npm run test:testnet	  holder-state     ok  ledger 4931381  4dcc8608f840e3430d6504a4e39310e9a03f21c43b56b2e1fb76f8703e21064c
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Run npm run test:testnet	  restrict         ok  ledger 4931382  49ba8a923da1803e312490c1929f3357d6c88b901e88ef33486a6658013baf7a
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:14:59.524Z","case":"S-04 near","fixture":"messy-20260929T111418Z-6ea86e","accounts":{"sponsor":"GD63FHVMNHAKAO2GTJ3Y3VDNENFYXYNVRDJW2DC7WOZ57IKMQFK7NC3S","reserveSponsor":"GDSZ4PR6LYP3MG5E356SQTK63QQQXBOGBHQQTATJAIWSALZMFNH2FZV3","issuer":"GAB2KITTQQNUONLHZKOM5R2UPYMY2AQZL2UDNGOVWOOUBZOHAJAOU3A4","marketMaker":"GBIL7JS4L3OHF7GX6SLJRYRRXYI6YLKUYF6OBSRZE4DORJHHIWNVJHSQ","destination":"GCDL46XM52D5VQTFFYUZCPQ7POO7NTF3I5W5AWHYERJHDW6HAQ5E2TTB","fixture":"GB3VUA7XGHPJI7I76ERDT7ITXKKN7Q77VKCRBMDCILW36TFLAXOGEYGN"}}
+Run npm run test:testnet	{"at":"2026-09-29T11:14:59.524Z","case":"S-04 near","purpose":"fixture: create-accounts","hash":"7bea1a9597f7ae3d71c5456e01292947e865f03bd549a8f3960e03d269dfca02","ledger":4931376}
+Run npm run test:testnet	{"at":"2026-09-29T11:14:59.524Z","case":"S-04 near","purpose":"fixture: trustlines","hash":"6c0ae644e5e5b87fc1058de2d29cf8417d3e465a401f1037c268f45c9f6a3256","ledger":4931377}
+Run npm run test:testnet	{"at":"2026-09-29T11:14:59.524Z","case":"S-04 near","purpose":"fixture: sponsored-trustline","hash":"6bcbb71c4f82f1ee6d7d0f160082a622985e1f6f34321a853022977f0fc62770","ledger":4931378}
+Run npm run test:testnet	{"at":"2026-09-29T11:14:59.524Z","case":"S-04 near","purpose":"fixture: dust-payments","hash":"a719f17029db2f5e12de20a2c0ba2fcdf6cf206abd138993a78d30c37cb62de6","ledger":4931379}
+Run npm run test:testnet	{"at":"2026-09-29T11:14:59.524Z","case":"S-04 near","purpose":"fixture: market-maker-bid","hash":"729ded4df2cdb78cfc867d13b84ef1a19a0854d8eab9e934b95155cf674c7bfe","ledger":4931380}
+Run npm run test:testnet	{"at":"2026-09-29T11:14:59.524Z","case":"S-04 near","purpose":"fixture: offers-and-data","hash":"fe0776f53a7bc56858cd80e65768d2284ce04b9b01b886cb5e239b1edbbb9dd1","ledger":4931381}
+Run npm run test:testnet	{"at":"2026-09-29T11:14:59.524Z","case":"S-04 near","purpose":"fixture: drain-to-minimum","hash":"fbf447b9271c07225c46f6b0c52a826feceeb5e59e2ff77cecedd730a7927a1f","ledger":4931382}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:15:02.923Z","case":"S-04 near","purpose":"BumpSequence to (4931382 + 16) << 32","hash":"c159a2492dcf3933a71ff19c15092f98774593c12b3314f4666ca774cb3c639c","innerHash":"1bb81d478fd5908787c718b80c5a7dfd86b1a60276da103f5078707b62475448","sequence":"21180098644279301","result":"applied","ledger":4931383}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:15:03.493Z","case":"S-04 near","plan":"closable","transactions":["cleanup","convert","merge"],"sequenceGuard":{"sequenceAtMerge":"21180193133559811","earliestLedger":4931384,"ok":false,"unblocksAtLedger":4931399,"etaSeconds":80}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:15:12.617Z","case":"S-04 near","event":{"type":"wait","reason":"sequence","state":"start","index":2,"untilLedger":4931399,"currentLedger":4931385}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/ladder.test.ts > E3-S1 live: the market vanishes between the fresh plan and the sale
+Run npm run test:testnet	Dustin close receipt   CLOSED: the account was merged and no longer exists
+Run npm run test:testnet	Network      testnet, Horizon https://horizon-testnet.stellar.org
+Run npm run test:testnet	Account      GAOXY4GYDUAEQQLVHTTZD575EYPIPBRTNK7S7J4Q3KQXGDJESJRKZROO
+Run npm run test:testnet	Destination  GAA77JE4YELMMZDC4VIM2LVB6NDM3HXPVHRAWQQGMIU73MVCLIMN5C4V
+Run npm run test:testnet	Sponsor      GD4QRF2TU4EVL7BYZIBZF7FMAPAM2BSEEBUXRKZXOHD3S3FEZUW6FY2L   paid every fee
+Run npm run test:testnet	Run          started 2026-09-29T11:14:59.873Z, finished 2026-09-29T11:15:18.355Z
+Run npm run test:testnet	Plan hash    ad1a519159541e0e05c519236355bafb603941a5ed7af741dd2b5d8399b54bd9
+Run npm run test:testnet	
+Run npm run test:testnet	Transactions (3 submitted; every fee was paid by the sponsor, the account paid nothing)
+Run npm run test:testnet	  tx 1  cleanup  applied  ledger 4,931,383  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  5b965eeb16307baa65afc6587e1e5ac0cb38296255b34fd4a9e07ddadaeefa21
+Run npm run test:testnet	        inner hash  2e2eba57fa0201dd23ad61b61f4a8271a211d129547380d198876736e164a211
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/5b965eeb16307baa65afc6587e1e5ac0cb38296255b34fd4a9e07ddadaeefa21
+Run npm run test:testnet	        operations  cancel offer 838447: sells 0.0000002 DUSTA for XLM
+Run npm run test:testnet	                    cancel offer 838448: sells 0.0000002 DUSTC for DUSTB
+Run npm run test:testnet	                    return 0.0000003 DUSTB to issuer GCWJ...5AGH (burn)
+Run npm run test:testnet	                    remove trustline DUSTB
+Run npm run test:testnet	                    return 0.0000005 DUSTC to issuer GCWJ...5AGH (burn)
+Run npm run test:testnet	                    remove trustline DUSTC
+Run npm run test:testnet	                    return 0.0000001 SPTA to issuer GCWJ...5AGH (burn)
+Run npm run test:testnet	                    remove trustline SPTA (reserve sponsored by GCO7...3RZL)
+Run npm run test:testnet	                    delete data entry "dustin.fixture"
+Run npm run test:testnet	  tx 2 convert failed on the ledger (the sponsor paid the fee) ledger 4,931,385 fee 0.0000300 XLM (300 stroops) charged
+Run npm run test:testnet	        to the sponsor
+Run npm run test:testnet	        outer hash  4e81170867331cacc293a101f0b6129f22cac890fe12cb79ecfbf19a850cbd73
+Run npm run test:testnet	        inner hash  8368aad7c9cb166202c86e99dff5e5b8bece49782ff4e259b7a5f440b886f1d4
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/4e81170867331cacc293a101f0b6129f22cac890fe12cb79ecfbf19a850cbd73
+Run npm run test:testnet	        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+Run npm run test:testnet	                    remove trustline DUSTA
+Run npm run test:testnet	        result      tx_fee_bump_inner_failed, tx_failed, op_too_few_offers, op_invalid_limit
+Run npm run test:testnet	        meaning     tx_fee_bump_inner_failed / tx_failed / op_too_few_offers, op_invalid_limit: No path of offers
+Run npm run test:testnet	                    converts the asset to XLM any more, so the sale falls to the next rung of the ladder.
+Run npm run test:testnet	  tx 1  cleanup  round 1  applied  ledger 4,931,386  fee 0.0000400 XLM (400 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  7eb0f1bd3ea17f344b14163df398d582a0505781c1e4f927681dc0e74d195a11
+Run npm run test:testnet	        inner hash  06a7299c7a1124459ef87f5b18d19ed88363b896e51c54da83a789f41c149e02
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/7eb0f1bd3ea17f344b14163df398d582a0505781c1e4f927681dc0e74d195a11
+Run npm run test:testnet	        operations  return 0.0000007 DUSTA to issuer GCWJ...5AGH (burn)
+Run npm run test:testnet	                    remove trustline DUSTA
+Run npm run test:testnet	                    merge into GAA7...5C4V (cannot be undone)
+Run npm run test:testnet	
+Run npm run test:testnet	Re-plans (1; the ledger was read again after a failure)
+Run npm run test:testnet	  round 1 after tx 2 of round 0 failed (tx_fee_bump_inner_failed, tx_failed, op_too_few_offers, op_invalid_limit): No
+Run npm run test:testnet	    path of offers converts the asset to XLM any more, so the sale falls to the next rung of the ladder. No more path
+Run npm run test:testnet	    payments for DUSTA. 1 transaction left.
+Run npm run test:testnet	
+Run npm run test:testnet	Result
+Run npm run test:testnet	  4.0000000 XLM merged into the destination GAA7...5C4V (read from the merge result)
+Run npm run test:testnet	  Reserves released to sponsors: 0.5000000 XLM, never this account's
+Run npm run test:testnet	    0.5000000 XLM reserve returned to sponsor GCO7...3RZL, never this account's (trustline SPTA)
+Run npm run test:testnet	      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+Run npm run test:testnet	      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+Run npm run test:testnet	  0.0000000 XLM in fees paid by the account
+Run npm run test:testnet	  0.0001700 XLM (1,700 stroops) in fees paid by the sponsor
+Run npm run test:testnet	
+Run npm run test:testnet	Disposals (what became of each leftover balance)
+Run npm run test:testnet	  DUSTB 0.0000003  burned: returned to its issuer GCWJ...5AGH in tx 1
+Run npm run test:testnet	  DUSTC 0.0000005  burned: returned to its issuer GCWJ...5AGH in tx 1
+Run npm run test:testnet	  SPTA 0.0000001  burned: returned to its issuer GCWJ...5AGH in tx 1
+Run npm run test:testnet	  DUSTA 0.0000007  burned: returned to its issuer GCWJ...5AGH in tx 1 of round 1, after the sale by path payment failed
+Run npm run test:testnet	    with op_too_few_offers
+Run npm run test:testnet	
+Run npm run test:testnet	Verify it yourself
+Run npm run test:testnet	  account      https://stellar.expert/explorer/testnet/account/GAOXY4GYDUAEQQLVHTTZD575EYPIPBRTNK7S7J4Q3KQXGDJESJRKZROO
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GAOXY4GYDUAEQQLVHTTZD575EYPIPBRTNK7S7J4Q3KQXGDJESJRKZROO
+Run npm run test:testnet	  destination  https://stellar.expert/explorer/testnet/account/GAA77JE4YELMMZDC4VIM2LVB6NDM3HXPVHRAWQQGMIU73MVCLIMN5C4V
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GAA77JE4YELMMZDC4VIM2LVB6NDM3HXPVHRAWQQGMIU73MVCLIMN5C4V
+Run npm run test:testnet	  verified     account GAOXY4GYDUAEQQLVHTTZD575EYPIPBRTNK7S7J4Q3KQXGDJESJRKZROO no longer exists on Horizon (404)
+Run npm run test:testnet	               checked 2026-09-29T11:15:18.041Z at ledger 4,931,386
+Run npm run test:testnet	
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/ladder.test.ts > E3-S2 live: --prefer-destination (canonical decision 8)
+Run npm run test:testnet	Dustin close receipt   CLOSED: the account was merged and no longer exists
+Run npm run test:testnet	Network      testnet, Horizon https://horizon-testnet.stellar.org
+Run npm run test:testnet	Account      GC272KWFTPGIAZGZK5VROWZNWUIHTLF3ZXXTKI2UK5VTJXDWECUJP2MT
+Run npm run test:testnet	Destination  GDFOD3CQLHOZZKRNRUEFY3LLVLFMTSZWJ6E3OHKHF3IGITOFENCD2GOX
+Run npm run test:testnet	Sponsor      GBY43BK3GDEK5TVFVN2G5ZARAH3PQ7IRVBMVWKCJTVNHHOPLSKXNRH6S   paid every fee
+Run npm run test:testnet	Run          started 2026-09-29T11:15:59.809Z, finished 2026-09-29T11:16:13.294Z
+Run npm run test:testnet	Plan hash    2d7a7defa2e8114b7627f07f74274ac2bcd0ffe138c1757fc0a0ba331e5f8b53
+Run npm run test:testnet	
+Run npm run test:testnet	Transactions (3 submitted; every fee was paid by the sponsor, the account paid nothing)
+Run npm run test:testnet	  tx 1  cleanup  applied  ledger 4,931,395  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  85f5c3706947576f2e23ef725abd8c6ca62d6f4f04fa02cf08cae39f934d3301
+Run npm run test:testnet	        inner hash  d2f17cec31f69e19b4e69c3314383627980f0f58407dabdd975be18b4d957e0d
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/85f5c3706947576f2e23ef725abd8c6ca62d6f4f04fa02cf08cae39f934d3301
+Run npm run test:testnet	        operations  cancel offer 838455: sells 0.0000002 DUSTA for XLM
+Run npm run test:testnet	                    cancel offer 838456: sells 0.0000002 DUSTC for DUSTB
+Run npm run test:testnet	                    return 0.0000003 DUSTB to issuer GD6H...TB2J (burn)
+Run npm run test:testnet	                    remove trustline DUSTB
+Run npm run test:testnet	                    send 0.0000005 DUSTC to destination GDFO...2GOX
+Run npm run test:testnet	                    remove trustline DUSTC
+Run npm run test:testnet	                    return 0.0000001 SPTA to issuer GD6H...TB2J (burn)
+Run npm run test:testnet	                    remove trustline SPTA (reserve sponsored by GB6T...76SI)
+Run npm run test:testnet	                    delete data entry "dustin.fixture"
+Run npm run test:testnet	  tx 2  convert  applied  ledger 4,931,396  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  c789a1a3abd1138108d030ac05e8e874bcb619416f85f80e91d9f6cbb224ca33
+Run npm run test:testnet	        inner hash  a1cf5879c69d74fe65a28a4d09d785beb1f517eeab9ba509cb8a877885c33f73
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/c789a1a3abd1138108d030ac05e8e874bcb619416f85f80e91d9f6cbb224ca33
+Run npm run test:testnet	        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+Run npm run test:testnet	                    remove trustline DUSTA
+Run npm run test:testnet	  tx 3  merge  applied  ledger 4,931,397  fee 0.0000200 XLM (200 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  20ff16de481fc00207edf7415821e1fea1b32952dca2de9009d230db55a76102
+Run npm run test:testnet	        inner hash  8818dd87bc3498619036d7b008986501cb05a2af8f96875d79e14be1c2fd789d
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/20ff16de481fc00207edf7415821e1fea1b32952dca2de9009d230db55a76102
+Run npm run test:testnet	        operations  merge into GDFO...2GOX (cannot be undone)
+Run npm run test:testnet	
+Run npm run test:testnet	Result
+Run npm run test:testnet	  4.0000007 XLM merged into the destination GDFO...2GOX (read from the merge result)
+Run npm run test:testnet	  Reserves released to sponsors: 0.5000000 XLM, never this account's
+Run npm run test:testnet	    0.5000000 XLM reserve returned to sponsor GB6T...76SI, never this account's (trustline SPTA)
+Run npm run test:testnet	      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+Run npm run test:testnet	      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+Run npm run test:testnet	  0.0000000 XLM in fees paid by the account
+Run npm run test:testnet	  0.0001500 XLM (1,500 stroops) in fees paid by the sponsor
+Run npm run test:testnet	
+Run npm run test:testnet	Disposals (what became of each leftover balance)
+Run npm run test:testnet	  DUSTB 0.0000003  burned: returned to its issuer GD6H...TB2J in tx 1
+Run npm run test:testnet	  DUSTC 0.0000005  sent to the destination GDFO...2GOX in tx 1
+Run npm run test:testnet	  SPTA 0.0000001  burned: returned to its issuer GD6H...TB2J in tx 1
+Run npm run test:testnet	  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM left with the merge
+Run npm run test:testnet	
+Run npm run test:testnet	Verify it yourself
+Run npm run test:testnet	  account      https://stellar.expert/explorer/testnet/account/GC272KWFTPGIAZGZK5VROWZNWUIHTLF3ZXXTKI2UK5VTJXDWECUJP2MT
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GC272KWFTPGIAZGZK5VROWZNWUIHTLF3ZXXTKI2UK5VTJXDWECUJP2MT
+Run npm run test:testnet	  destination  https://stellar.expert/explorer/testnet/account/GDFOD3CQLHOZZKRNRUEFY3LLVLFMTSZWJ6E3OHKHF3IGITOFENCD2GOX
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GDFOD3CQLHOZZKRNRUEFY3LLVLFMTSZWJ6E3OHKHF3IGITOFENCD2GOX
+Run npm run test:testnet	  verified     account GC272KWFTPGIAZGZK5VROWZNWUIHTLF3ZXXTKI2UK5VTJXDWECUJP2MT no longer exists on Horizon (404)
+Run npm run test:testnet	               checked 2026-09-29T11:16:13.047Z at ledger 4,931,397
+Run npm run test:testnet	
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:16:18.559Z","case":"S-04 near","event":{"type":"wait","reason":"sequence","state":"end","index":2,"untilLedger":4931399,"currentLedger":4931398}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:16:18.894Z","case":"S-04 near","event":{"type":"preflight","index":2,"ok":true,"detail":"no subentries left, nothing sponsored, destination exists, sequence guard ok"}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:16:23.335Z","case":"S-04 near","purpose":"close tx 1 (cleanup), round 0, attempt 1: applied","hash":"5a13ff27feed72e905cb6a8b30b51f14bcfae8bc165baa1a30c57bb9b90f0917","innerHash":"8c643b5cef0161a8ccbbabb0683385b2b2908fb4ff67b205aaa837e59a27a9a6","sequence":"21180193133559809","ledger":4931384}
+Run npm run test:testnet	{"at":"2026-09-29T11:16:23.335Z","case":"S-04 near","purpose":"close tx 2 (convert), round 0, attempt 1: applied","hash":"dee24d171be0e3715ec81198f7617451fe8a379bda12eb090a6dbebabf3c63ef","innerHash":"d27f9be909cdb0ac81bae75d5e9c9f1f100074cb51503fa5826eb3148b575216","sequence":"21180193133559810","ledger":4931385}
+Run npm run test:testnet	{"at":"2026-09-29T11:16:23.335Z","case":"S-04 near","purpose":"close tx 3 (merge), round 0, attempt 1: applied","hash":"7eddfa74eba2469f0b7b3d59b1460df0b4acdd4c42efa1d7bdce9c14aa2f0b82","innerHash":"0b5c60d99ed25023f8429207fa07553fa8bdd03a10f2adb514f7e6f6b9391b6c","sequence":"21180193133559811","ledger":4931399}
+Run npm run test:testnet	{"at":"2026-09-29T11:16:23.335Z","case":"S-04 near","status":"closed","stop":null,"message":null}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2)
+Run npm run test:testnet	Dustin close receipt   CLOSED: the account was merged and no longer exists
+Run npm run test:testnet	Network      testnet, Horizon https://horizon-testnet.stellar.org
+Run npm run test:testnet	Account      GB3VUA7XGHPJI7I76ERDT7ITXKKN7Q77VKCRBMDCILW36TFLAXOGEYGN
+Run npm run test:testnet	Destination  GCDL46XM52D5VQTFFYUZCPQ7POO7NTF3I5W5AWHYERJHDW6HAQ5E2TTB
+Run npm run test:testnet	Sponsor      GD63FHVMNHAKAO2GTJ3Y3VDNENFYXYNVRDJW2DC7WOZ57IKMQFK7NC3S   paid every fee
+Run npm run test:testnet	Run          started 2026-09-29T11:15:03.819Z, finished 2026-09-29T11:16:23.335Z
+Run npm run test:testnet	Plan hash    dd237dc239da0f189013e84fcfc8adba117f7d1a2ecf755cd1b878a15dd18a15
+Run npm run test:testnet	
+Run npm run test:testnet	Transactions (3 submitted; every fee was paid by the sponsor, the account paid nothing)
+Run npm run test:testnet	  tx 1  cleanup  applied  ledger 4,931,384  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  5a13ff27feed72e905cb6a8b30b51f14bcfae8bc165baa1a30c57bb9b90f0917
+Run npm run test:testnet	        inner hash  8c643b5cef0161a8ccbbabb0683385b2b2908fb4ff67b205aaa837e59a27a9a6
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/5a13ff27feed72e905cb6a8b30b51f14bcfae8bc165baa1a30c57bb9b90f0917
+Run npm run test:testnet	        operations  cancel offer 838445: sells 0.0000002 DUSTA for XLM
+Run npm run test:testnet	                    cancel offer 838446: sells 0.0000002 DUSTC for DUSTB
+Run npm run test:testnet	                    return 0.0000003 DUSTB to issuer GAB2...U3A4 (burn)
+Run npm run test:testnet	                    remove trustline DUSTB
+Run npm run test:testnet	                    return 0.0000005 DUSTC to issuer GAB2...U3A4 (burn)
+Run npm run test:testnet	                    remove trustline DUSTC
+Run npm run test:testnet	                    return 0.0000001 SPTA to issuer GAB2...U3A4 (burn)
+Run npm run test:testnet	                    remove trustline SPTA (reserve sponsored by GDSZ...FZV3)
+Run npm run test:testnet	                    delete data entry "dustin.fixture"
+Run npm run test:testnet	  tx 2  convert  applied  ledger 4,931,385  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  dee24d171be0e3715ec81198f7617451fe8a379bda12eb090a6dbebabf3c63ef
+Run npm run test:testnet	        inner hash  d27f9be909cdb0ac81bae75d5e9c9f1f100074cb51503fa5826eb3148b575216
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/dee24d171be0e3715ec81198f7617451fe8a379bda12eb090a6dbebabf3c63ef
+Run npm run test:testnet	        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+Run npm run test:testnet	                    remove trustline DUSTA
+Run npm run test:testnet	  tx 3  merge  applied  ledger 4,931,399  fee 0.0000200 XLM (200 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  7eddfa74eba2469f0b7b3d59b1460df0b4acdd4c42efa1d7bdce9c14aa2f0b82
+Run npm run test:testnet	        inner hash  0b5c60d99ed25023f8429207fa07553fa8bdd03a10f2adb514f7e6f6b9391b6c
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/7eddfa74eba2469f0b7b3d59b1460df0b4acdd4c42efa1d7bdce9c14aa2f0b82
+Run npm run test:testnet	        operations  merge into GCDL...2TTB (cannot be undone)
+Run npm run test:testnet	
+Run npm run test:testnet	Result
+Run npm run test:testnet	  4.0000007 XLM merged into the destination GCDL...2TTB (read from the merge result)
+Run npm run test:testnet	  Reserves released to sponsors: 0.5000000 XLM, never this account's
+Run npm run test:testnet	    0.5000000 XLM reserve returned to sponsor GDSZ...FZV3, never this account's (trustline SPTA)
+Run npm run test:testnet	      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+Run npm run test:testnet	      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+Run npm run test:testnet	  0.0000000 XLM in fees paid by the account
+Run npm run test:testnet	  0.0001500 XLM (1,500 stroops) in fees paid by the sponsor
+Run npm run test:testnet	
+Run npm run test:testnet	Disposals (what became of each leftover balance)
+Run npm run test:testnet	  DUSTB 0.0000003  burned: returned to its issuer GAB2...U3A4 in tx 1
+Run npm run test:testnet	  DUSTC 0.0000005  burned: returned to its issuer GAB2...U3A4 in tx 1
+Run npm run test:testnet	  SPTA 0.0000001  burned: returned to its issuer GAB2...U3A4 in tx 1
+Run npm run test:testnet	  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM left with the merge
+Run npm run test:testnet	
+Run npm run test:testnet	Warnings
+Run npm run test:testnet	  - The account's sequence number is ahead of the ledger: the merge must wait until ledger 4931399 (about 80 s). The
+Run npm run test:testnet	    cleanup and the sale run first; the executor waits before submitting the merge.
+Run npm run test:testnet	
+Run npm run test:testnet	Verify it yourself
+Run npm run test:testnet	  account      https://stellar.expert/explorer/testnet/account/GB3VUA7XGHPJI7I76ERDT7ITXKKN7Q77VKCRBMDCILW36TFLAXOGEYGN
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GB3VUA7XGHPJI7I76ERDT7ITXKKN7Q77VKCRBMDCILW36TFLAXOGEYGN
+Run npm run test:testnet	  destination  https://stellar.expert/explorer/testnet/account/GCDL46XM52D5VQTFFYUZCPQ7POO7NTF3I5W5AWHYERJHDW6HAQ5E2TTB
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GCDL46XM52D5VQTFFYUZCPQ7POO7NTF3I5W5AWHYERJHDW6HAQ5E2TTB
+Run npm run test:testnet	  verified     account GB3VUA7XGHPJI7I76ERDT7ITXKKN7Q77VKCRBMDCILW36TFLAXOGEYGN no longer exists on Horizon (404)
+Run npm run test:testnet	               checked 2026-09-29T11:16:23.042Z at ledger 4,931,399
+Run npm run test:testnet	
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a near bump, the executor waits and merges (AC-E3-S4-2) > S-04, AC-E3-S4-2: the merge applies in or after the unblocking ledger, and the account is gone
+Run npm run test:testnet	{"at":"2026-09-29T11:16:23.487Z","case":"S-04 near","unblocksAtLedger":4931399,"mergeLedger":4931399,"firstValidLedgerIsolated":true}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/edge.test.ts > edge fixture and the D3 edge rows (live testnet)
+Run npm run test:testnet	{
+Run npm run test:testnet	  "fixture": "edge-20260929T111418Z-81b379",
+Run npm run test:testnet	  "variants": {
+Run npm run test:testnet	    "auth-frozen": "GDNGKZCVZY76N2JPIWWR2H747V2H7PFSF2O6FCFIRMPXUJIHK7L6X7VX",
+Run npm run test:testnet	    "auth-maintain": "GAQE4KMBJJ6VOB6CIT6KZV76NBVRZIOEZBUFR7U23A63RAKDQ4BWAA6G",
+Run npm run test:testnet	    "auth-authorized": "GD2TB2UCHLUF3UZWLH62SAD6ZK3RNQVUUAMHETIPYLNX7VCIWXIKEIQ2",
+Run npm run test:testnet	    "auth-revoke": "GA4CCFKKTU6TCVEC3JD6LJ4LQAFKBQF2RFSXYSY2EGNTUTXV56TDTCJ4",
+Run npm run test:testnet	    "clawback": "GCU7JQR5AZEOSC7GRZONFVU5FHIK4ADIACALVFCFKQIC5PCR6DIGZPTN",
+Run npm run test:testnet	    "clawback-drift": "GCXVJQ45OK6JX5HVCAEZUMWGEL37Y5GRXMBLMVWBPUMPDVCLPDXNBP7C",
+Run npm run test:testnet	    "pool-share": "GCF674DHUZGZWRWFDTY7FPANRKTEAFDEV724226TIH4REO2PYZBAGDJ2",
+Run npm run test:testnet	    "multisig": "GAT5DAUKRCJ6PWBBVNHY4YIOX3M3NLVS2P2AP2SCF4QLEQDBEAU34YRP",
+Run npm run test:testnet	    "claimable": "GAIJ2IELXT34CBAFZBB53Y2RRWHLRCADDX5XS7QVC57AK3QGVVCXFN25",
+Run npm run test:testnet	    "immutable": "GC74FZMLNBOSPQ72YYPRTV6UYBLIYOSBM4MDUFPHCA6EB6R7YSCGBE5C",
+Run npm run test:testnet	    "offer-types": "GASHH5RHLAVSYU4SGKKTOHJ7UFIN4X7ILVGGACVVTAX4POOQXDSZRUJY",
+Run npm run test:testnet	    "offer-stale": "GABITCND5VVI7HQ6WOXHBEW5RZWVK3IPRDN33WET24SUKAIIBSEXNYOL",
+Run npm run test:testnet	    "claimant": "GAA4NOUITCREM63EMJ5W2MB2RMJ6NNGXA3KLVBPQNYEMULH7JCLJOSMJ"
+Run npm run test:testnet	  },
+Run npm run test:testnet	  "helpers": {
+Run npm run test:testnet	    "sponsor": "GCJC5JT6AY5KUMERF6G2Z524ECJRKCCLT5JLAYU5VT2LAYWE2L6XMZHH",
+Run npm run test:testnet	    "destination": "GC3SQ6P6VSI6F2TLHDW6WM6CHTA74OTJEFOWO2WOQO6ARB5GRQPBJ664",
+Run npm run test:testnet	    "authIssuer": "GCKWI5Y33GRHLE5G7BK3OP4KMBP6CSAHQGGDEDU6OMIDBUFW3ALO6EYP",
+Run npm run test:testnet	    "clawbackIssuer": "GAZXXC7PAUBOUUO46RZUPINSXWAUWIKMD2OTXA7YBYJH5RVCP7WFVK6D",
+Run npm run test:testnet	    "plainIssuer": "GCDBSFF6S4ZJN7TYWDF2P73IQZW7M72LK3MV6K6P3LFSKV7VUOGAN46D",
+Run npm run test:testnet	    "multisigSigner": "GC4MQ6YC7SDBSMHG6XN7EBL3VJA645TCYVJCOCJB5R2TEO54GOMYQIBD"
+Run npm run test:testnet	  },
+Run npm run test:testnet	  "pool": "4981d6993fb2cc446b472a8c9813265c1fdf21dc8f400ac3d9d36bf079ebe8b2",
+Run npm run test:testnet	  "hashes": [
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "build",
+Run npm run test:testnet	      "purpose": "edge build: create-accounts",
+Run npm run test:testnet	      "hash": "6a75e10c702336fe74b73ebe1e94a784968112202cbb44f8d0cbe1a845359263",
+Run npm run test:testnet	      "ledger": 4931376
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "build",
+Run npm run test:testnet	      "purpose": "edge build: issuer-flags",
+Run npm run test:testnet	      "hash": "c8a986b9d86ea75aafe1471169c4fde3c561de02365a7737b313a7229399d600",
+Run npm run test:testnet	      "ledger": 4931377
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "build",
+Run npm run test:testnet	      "purpose": "edge build: trustlines",
+Run npm run test:testnet	      "hash": "189e8f67ae287323361fa44f55051d869723d21fbed17336d26c7fc07cd699f4",
+Run npm run test:testnet	      "ledger": 4931378
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "build",
+Run npm run test:testnet	      "purpose": "edge build: authorize",
+Run npm run test:testnet	      "hash": "08f92b5c403c71da817c712d2d043282e8eadf462ffc7661dea2ed490353d822",
+Run npm run test:testnet	      "ledger": 4931379
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "build",
+Run npm run test:testnet	      "purpose": "edge build: dust-payments",
+Run npm run test:testnet	      "hash": "dc163083d2d66e002d615ef4a7cf770bf66bdad979e71e344d7f705ee3da6ba1",
+Run npm run test:testnet	      "ledger": 4931380
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "build",
+Run npm run test:testnet	      "purpose": "edge build: holder-state",
+Run npm run test:testnet	      "hash": "4dcc8608f840e3430d6504a4e39310e9a03f21c43b56b2e1fb76f8703e21064c",
+Run npm run test:testnet	      "ledger": 4931381
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "build",
+Run npm run test:testnet	      "purpose": "edge build: restrict",
+Run npm run test:testnet	      "hash": "49ba8a923da1803e312490c1929f3357d6c88b901e88ef33486a6658013baf7a",
+Run npm run test:testnet	      "ledger": 4931382
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-02",
+Run npm run test:testnet	      "purpose": "auth-frozen partial close (cleanup, applied)",
+Run npm run test:testnet	      "hash": "65069d130bb1d0e8f8bf1e5f33d174609b9cbd2d5da3f12f430667f2b147c16a",
+Run npm run test:testnet	      "ledger": 4931384
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-02",
+Run npm run test:testnet	      "purpose": "negative probe: pay frozen FRZ to its issuer",
+Run npm run test:testnet	      "hash": "27744a0ef2d8427e4e63ef3e88828dbf3dde020347513190060afba9261260eb",
+Run npm run test:testnet	      "ledger": 4931385
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-02",
+Run npm run test:testnet	      "purpose": "negative probe: remove FRZ with its balance",
+Run npm run test:testnet	      "hash": "ed8877e3ebde1d22b045811fa0539f536ebbd367c4514517293e525b503b03c1",
+Run npm run test:testnet	      "ledger": 4931386
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-02",
+Run npm run test:testnet	      "purpose": "issuer revokes RVK after the plan (C-04)",
+Run npm run test:testnet	      "hash": "c5be1337e1b572380ed678b0d5ada8bff04eb602b99bd26207336b1d140f5b46",
+Run npm run test:testnet	      "ledger": 4931387
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-02",
+Run npm run test:testnet	      "purpose": "auth-revoke close forced with allowPartial (cleanup, failed)",
+Run npm run test:testnet	      "hash": "97b7fe711a4f7480b8a2ecc5af675e4bd98c177c6f41b2d9221ef96b600d3f1e",
+Run npm run test:testnet	      "ledger": 4931388
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-02",
+Run npm run test:testnet	      "purpose": "auth-revoke close forced with allowPartial (cleanup, applied)",
+Run npm run test:testnet	      "hash": "cdf45463fe8b36f1c554402118ad157d874e9aeceebc96e995d684592bd51b19",
+Run npm run test:testnet	      "ledger": 4931389
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-05",
+Run npm run test:testnet	      "purpose": "auth-authorized full close (cleanup, applied)",
+Run npm run test:testnet	      "hash": "6f9886cdedaee3450fc548809701c233d2ea35c0346eef6245759e5572ca4334",
+Run npm run test:testnet	      "ledger": 4931390
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-06",
+Run npm run test:testnet	      "purpose": "auth-maintain partial close (cancel the offer) (cleanup, applied)",
+Run npm run test:testnet	      "hash": "ce71f58e0e77597d5f5e23aa0d98689b1f7ca2fe2de16266d686e5d56baa0505",
+Run npm run test:testnet	      "ledger": 4931391
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-07",
+Run npm run test:testnet	      "purpose": "clawback full close (cleanup, applied)",
+Run npm run test:testnet	      "hash": "de4aa7033a0d42f519141758b8f7fce456cc538ff4a70e9e822bf53489642809",
+Run npm run test:testnet	      "ledger": 4931392
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-07",
+Run npm run test:testnet	      "purpose": "issuer claws back CLAW after the plan (S-07b)",
+Run npm run test:testnet	      "hash": "abbfee19af513675f51e7467f5d3b0d04b0aebac561e6ce78e421909752cce76",
+Run npm run test:testnet	      "ledger": 4931393
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-07",
+Run npm run test:testnet	      "purpose": "clawback-drift close (S-07b) (cleanup, failed)",
+Run npm run test:testnet	      "hash": "08e6feee03aa313227eedabcbe0e7a88a354381feab873224a024b5033499416",
+Run npm run test:testnet	      "ledger": 4931394
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-07",
+Run npm run test:testnet	      "purpose": "clawback-drift close (S-07b) (cleanup, applied)",
+Run npm run test:testnet	      "hash": "f37cc8260f4f476cf4a196a24322c07f7565db1d1012a54c0a05cc101f0754b6",
+Run npm run test:testnet	      "ledger": 4931395
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-08",
+Run npm run test:testnet	      "purpose": "negative probe: remove LPA while the pool share exists",
+Run npm run test:testnet	      "hash": "9a8bd5c44e0b3b47c5f0123e4809a70db49b553aa4e3d1352d0db43d50da6bf5",
+Run npm run test:testnet	      "ledger": 4931396
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-08",
+Run npm run test:testnet	      "purpose": "pool-share partial close (data entry only) (cleanup, applied)",
+Run npm run test:testnet	      "hash": "84982bc440b3ad86d7edbb43c7ac8b6a83e6c3d0a447844f877e02121ea5897a",
+Run npm run test:testnet	      "ledger": 4931397
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "S-09",
+Run npm run test:testnet	      "purpose": "multisig partial close (data entry only) (cleanup, applied)",
+Run npm run test:testnet	      "hash": "1de77fb14be92a0b8c230571318f13c03ad550d0bc0e3af6956789125a8b611c",
+Run npm run test:testnet	      "ledger": 4931398
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "X-01",
+Run npm run test:testnet	      "purpose": "negative probe: merge while sponsoring a claimable balance",
+Run npm run test:testnet	      "hash": "67e168e10975eefbb483c6ad58be11868caef645f2945252f6c4ba3ea09340be",
+Run npm run test:testnet	      "ledger": 4931399
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "X-04",
+Run npm run test:testnet	      "purpose": "negative probe: merge an AUTH_IMMUTABLE account",
+Run npm run test:testnet	      "hash": "8d3599db726359807203588df311f078b2c15091f894f089f17430f8a4947634",
+Run npm run test:testnet	      "ledger": 4931400
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "X-11",
+Run npm run test:testnet	      "purpose": "negative probe: sell OFA through the account's own offer",
+Run npm run test:testnet	      "hash": "5b5bc1ee5e923543ffbe95675e88876fa4fd707bbc9214efd2e6acb2ab69a8cc",
+Run npm run test:testnet	      "ledger": 4931401
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "X-07",
+Run npm run test:testnet	      "purpose": "offer-types full close (3 offer types cancelled) (cleanup, applied)",
+Run npm run test:testnet	      "hash": "3c4aa6044207a99017d4e417084999494e85cd49ef3b9dc860b4d1240e181875",
+Run npm run test:testnet	      "ledger": 4931402
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "X-08",
+Run npm run test:testnet	      "purpose": "counterparty takes the OFC offer after the plan (C-04)",
+Run npm run test:testnet	      "hash": "9934b9bd9b9b0e758e28a82d9b2ea9789a6b26dbb6c91e5336ad63a28de650f6",
+Run npm run test:testnet	      "ledger": 4931403
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "X-08",
+Run npm run test:testnet	      "purpose": "offer-stale close (the offer was taken after the plan) (cleanup, failed)",
+Run npm run test:testnet	      "hash": "6469bdddb2d3214d2381355841b2ae009b6e76c77da12d24cd9f6ab63868ee90",
+Run npm run test:testnet	      "ledger": 4931404
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "X-08",
+Run npm run test:testnet	      "purpose": "offer-stale close (the offer was taken after the plan) (cleanup, applied)",
+Run npm run test:testnet	      "hash": "208462d054f4b89aaa105416b6cb67de3f3c04620932314e89858562eceb23d8",
+Run npm run test:testnet	      "ledger": 4931405
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "X-03",
+Run npm run test:testnet	      "purpose": "claimant full close (its claimable balances stay) (merge, applied)",
+Run npm run test:testnet	      "hash": "324f854f14cf49ea7072b26780d129cb03fd025e95e284badbe5fd0435e8707b",
+Run npm run test:testnet	      "ledger": 4931406
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "row": "X-03",
+Run npm run test:testnet	      "purpose": "the issuer claims the CBA balance after the merge",
+Run npm run test:testnet	      "hash": "7cc4ab195e9ac1d347885c18427e88b83d809c0474311e193d07fc59132ed4b2",
+Run npm run test:testnet	      "ledger": 4931407
+Run npm run test:testnet	    }
+Run npm run test:testnet	  ]
+Run npm run test:testnet	}
+Run npm run test:testnet	
+Run npm run test:testnet	 ✓  testnet  test/testnet/edge.test.ts (17 tests) 164389ms
+Run npm run test:testnet	   ✓ edge fixture and the D3 edge rows (live testnet) (17)
+Run npm run test:testnet	     ✓ builds every variant as its recipe says, and the planner makes of each what the manifest expects 2578ms
+Run npm run test:testnet	     ✓ S-02 (with S-01 applied): the frozen FRZ is unclosable before any submission; the partial close burns ILQX, removes it and the data entry, and stops before the merge 3820ms
+Run npm run test:testnet	     ✓ S-02 negative probe (AC-E3-S6-3): a payment of the frozen FRZ to its issuer fails with op_src_not_authorized 10072ms
+Run npm run test:testnet	     ✓ S-02 forced with allowPartial (AC-E3-S6-3): the trustline is revoked after planning, the planned return fails with op_src_not_authorized and is reported, and the rest runs 14888ms
+Run npm run test:testnet	     ✓ S-05: an authorized trustline of an AUTH_REQUIRED issuer is returned to the issuer and the account closes 5669ms
+Run npm run test:testnet	     ✓ S-06: the maintain-liabilities MNT stays unclosable while its open offer is cancelled; the account keeps only the MNT trustline 4862ms
+Run npm run test:testnet	     ✓ S-07 (AC-E3-S6-4): the inspector surfaces is_clawback_enabled, the planner warns, and the return to the issuer closes the account 4867ms
+Run npm run test:testnet	     ✓ S-07b: the issuer claws the dust back after planning; the return fails with op_underfunded, the executor re-plans and closes 14515ms
+Run npm run test:testnet	     ✓ S-08: pool shares block the merge with the pool id in the remedy; ChangeTrust(0) on LPA fails with op_cannot_delete; the partial close removes only the data entry 10554ms
+Run npm run test:testnet	     ✓ S-09 (AC-E3-S5-5): THRESHOLD_UNMET names both weights; without allowPartial nothing is signed; with it the data entry goes and the merge is left out 5008ms
+Run npm run test:testnet	     ✓ X-01: a claimable balance the account created blocks the merge (IS_SPONSOR); a merge attempt fails with op_is_sponsor 5057ms
+Run npm run test:testnet	     ✓ X-04: AUTH_IMMUTABLE_SET is reported first and nothing is submitted; a merge attempt fails with op_immutable_set 5040ms
+Run npm run test:testnet	     ✓ X-11: Horizon quotes OFA to XLM only through the account's own offer; the plan burns OFA instead, and a sale forced through the offer fails with op_cross_self 4883ms
+Run npm run test:testnet	     ✓ X-07: the buy offer, the passive offer and the offer selling XLM are cancelled with manageSellOffer amount 0 and their own assets and price; the account closes, every transaction a fee bump paid by the sponsor 5265ms
+Run npm run test:testnet	     ✓ X-08: a counterparty takes the open offer after the plan; the cancellation fails with op_offer_not_found, the executor re-plans and closes, and the report records both 14505ms
+Run npm run test:testnet	     ✓ X-03: the plan warns about the two claimable balances that name the account; the account closes; both stay on the ledger and another claimant can still claim one 9824ms
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:04.052Z","case":"S-04 far","fixture":"messy-20260929T111623Z-186141","accounts":{"sponsor":"GCVN4O6IPY2CDUNOXVK73S2QZ44HR4GD6IOGKJDLKQ7NXEFRYUFXGH2M","reserveSponsor":"GCC6XSVKI2JBNW5AXSYUE44XT75UOOGZAPJK7EYN7FOZN2CMVKBRYZVH","issuer":"GBAORP2SQLKZRQR22MSP7F3K24N737SNKSQRGJHFOQSXELMHQA4LFCHK","marketMaker":"GAKZGG7APDDGJYOLRZ4O72LZUYSJR3XVO5UKDU747UGPVG7F2W5WKYOY","destination":"GALKR744N66RXNRDAGKQZNQXNKERGZONKH4JP23CZ4INVGA4UV5AG633","fixture":"GDNMWXGJJCJ27SVGYEDJJTBTCR4NAI4X2UL7YTF3PSM3VISRWIIZDVGJ"}}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:04.052Z","case":"S-04 far","purpose":"fixture: create-accounts","hash":"e0ee4ca5e7510df250fc2a6a197a2fbe5e6288a203e7dd98c9f853afd8238036","ledger":4931401}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:04.052Z","case":"S-04 far","purpose":"fixture: trustlines","hash":"aab9c7e44c0b03ec48cb351583ca502de63f5e41d45ffa9e440c0917307dd109","ledger":4931402}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:04.052Z","case":"S-04 far","purpose":"fixture: sponsored-trustline","hash":"dcf5e66ba79250b69c879bf9c6e3acbd9f06fd15ffb6c4984ea9eb517c85e656","ledger":4931403}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:04.052Z","case":"S-04 far","purpose":"fixture: dust-payments","hash":"f93a2aed0eea1dab62d1051deca01a76498f9032fae4fb601b6487cdbd06a78e","ledger":4931404}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:04.052Z","case":"S-04 far","purpose":"fixture: market-maker-bid","hash":"cd6a98c2ae127b7192ceefe7790eaa40728d2081b83500b50b86b5929957ab30","ledger":4931405}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:04.052Z","case":"S-04 far","purpose":"fixture: offers-and-data","hash":"db3f43a42ff9e41a9b62a2bb6c4ca231209530fd709e3594117929868072d0ff","ledger":4931406}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:04.052Z","case":"S-04 far","purpose":"fixture: drain-to-minimum","hash":"540595ba7b821b4d236d5ccb0ffb789a6d01ba865e5eabca3657ced41b37c14b","ledger":4931407}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:07.437Z","case":"S-04 far","purpose":"BumpSequence to (4931407 + 720) << 32","hash":"e568521e93d9a6ed1a2a7c026fb9763546782fbbd557a0e73c24909d8c0a20ad","innerHash":"60f0ed48e3073b9b909e1864899a46491a21723c1e5746999a0dbf5f5195c613","sequence":"21180206018461701","result":"applied","ledger":4931408}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:08.047Z","case":"S-04 far","plan":"blocked","blockers":[{"code":"SEQNUM_TOO_FAR","reason":"The account's sequence number is ahead of the ledger, so a merge is refused (ACCOUNT_MERGE_SEQNUM_TOO_FAR) until ledger 4932128, about 60 minutes from now.","remedy":"Wait until that ledger and run the plan again; a sequence number can only go up, so nothing else helps. The cleanup and the sale can run now with --partial.","permanent":false}]}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/ladder.test.ts > E3-S2 live: an issuer that requires a memo, and no memo (AC-E3-S2-3)
+Run npm run test:testnet	Dustin close receipt   PARTIAL: everything possible was done; the account still exists
+Run npm run test:testnet	Why          Everything that could run has run; the account still exists because 2 item(s) block the merge (see
+Run npm run test:testnet	             unclosable and blockers).
+Run npm run test:testnet	Network      testnet, Horizon https://horizon-testnet.stellar.org
+Run npm run test:testnet	Account      GAPQBIUF2I5OJKE6QLF4FKGTCDSYD2UEGDUZQFS3SLAD6G7PD5IHZNQH
+Run npm run test:testnet	Destination  GD4A75FLFLRKF7Q7LAE4AFWBPFK6C6MGYNUCA7QFZIJ6AVI6Q5LSLZTU
+Run npm run test:testnet	Sponsor      GBDMJKZYL5O3YDGLH5NOUU3FL4BWFQ3HS26QXLJD6NTGKP34ECUGDNS2   paid every fee
+Run npm run test:testnet	Run          started 2026-09-29T11:16:59.200Z, finished 2026-09-29T11:17:08.045Z
+Run npm run test:testnet	Plan hash    69fa95c9c758af322b404975c159927c9c748cfc16ae8a54b578663e362dfa1c
+Run npm run test:testnet	
+Run npm run test:testnet	Transactions (2 submitted; every fee was paid by the sponsor, the account paid nothing)
+Run npm run test:testnet	  tx 1  cleanup  applied  ledger 4,931,407  fee 0.0000600 XLM (600 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  606826a71de79a9553c6dad8eb040bebab83e87bb9fa010eadeacc5af9418b68
+Run npm run test:testnet	        inner hash  c2889574138ef1bf3b375ee5853547086c5b5dc5bf6b239bfba1e973c79153ca
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/606826a71de79a9553c6dad8eb040bebab83e87bb9fa010eadeacc5af9418b68
+Run npm run test:testnet	        operations  cancel offer 838458: sells 0.0000002 DUSTA for XLM
+Run npm run test:testnet	                    cancel offer 838459: sells 0.0000002 DUSTC for DUSTB
+Run npm run test:testnet	                    send 0.0000005 DUSTC to destination GD4A...LZTU
+Run npm run test:testnet	                    remove trustline DUSTC
+Run npm run test:testnet	                    delete data entry "dustin.fixture"
+Run npm run test:testnet	  tx 2  convert  applied  ledger 4,931,408  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  8aa295dc7957868d1df9370fce356f461fe3a067ea2b43591a424463d6c92dba
+Run npm run test:testnet	        inner hash  2d5dd48709461d1b2e67e0132e11610efdc6b3fcbafb0af48f557c5f4adb9f41
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/8aa295dc7957868d1df9370fce356f461fe3a067ea2b43591a424463d6c92dba
+Run npm run test:testnet	        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+Run npm run test:testnet	                    remove trustline DUSTA
+Run npm run test:testnet	
+Run npm run test:testnet	Result
+Run npm run test:testnet	  No merge: the account was not merged, so no XLM moved through a merge.
+Run npm run test:testnet	  Reserves released to sponsors: none
+Run npm run test:testnet	  0.0000000 XLM in fees paid by the account
+Run npm run test:testnet	  0.0000900 XLM (900 stroops) in fees paid by the sponsor
+Run npm run test:testnet	
+Run npm run test:testnet	Disposals (what became of each leftover balance)
+Run npm run test:testnet	  DUSTC 0.0000005  sent to the destination GD4A...LZTU in tx 1
+Run npm run test:testnet	  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM stays on the account
+Run npm run test:testnet	
+Run npm run test:testnet	Not closed (the account is not merged while these remain)
+Run npm run test:testnet	  NO_DISPOSAL_ROUTE  0.0000003 DUSTB (issuer GD53...2ARG)
+Run npm run test:testnet	    No route disposes of 0.0000003 DUSTB; every rung of the ladder is ruled out:
+Run npm run test:testnet	      - path payment: Horizon found no strict-send path to XLM for the full balance
+Run npm run test:testnet	      - return to issuer: issuer GD53JEW4LD24YRUUY6CSCL6WMVUKPEWIAFALZENBXWGZ47AEJCHB2ARG requires a memo (SEP-29) and
+Run npm run test:testnet	        none was given
+Run npm run test:testnet	      - send to destination: the destination holds no DUSTB trustline
+Run npm run test:testnet	    remedy: Make one route possible, then run the plan again: wait for a market that buys DUSTB for XLM; or pass the
+Run npm run test:testnet	    memo that issuer GD53JEW4LD24YRUUY6CSCL6WMVUKPEWIAFALZENBXWGZ47AEJCHB2ARG requires (--memo; SEP-29); or open a
+Run npm run test:testnet	    DUSTB:GD53JEW4LD24YRUUY6CSCL6WMVUKPEWIAFALZENBXWGZ47AEJCHB2ARG trustline on the destination account
+Run npm run test:testnet	    GD4A75FLFLRKF7Q7LAE4AFWBPFK6C6MGYNUCA7QFZIJ6AVI6Q5LSLZTU, or close into a destination that holds one.
+Run npm run test:testnet	  NO_DISPOSAL_ROUTE  0.0000001 SPTA (issuer GD53...2ARG)
+Run npm run test:testnet	    No route disposes of 0.0000001 SPTA; every rung of the ladder is ruled out:
+Run npm run test:testnet	      - path payment: Horizon found no strict-send path to XLM for the full balance
+Run npm run test:testnet	      - return to issuer: issuer GD53JEW4LD24YRUUY6CSCL6WMVUKPEWIAFALZENBXWGZ47AEJCHB2ARG requires a memo (SEP-29) and
+Run npm run test:testnet	        none was given
+Run npm run test:testnet	      - send to destination: the destination holds no SPTA trustline
+Run npm run test:testnet	    remedy: Make one route possible, then run the plan again: wait for a market that buys SPTA for XLM; or pass the memo
+Run npm run test:testnet	    that issuer GD53JEW4LD24YRUUY6CSCL6WMVUKPEWIAFALZENBXWGZ47AEJCHB2ARG requires (--memo; SEP-29); or open a
+Run npm run test:testnet	    SPTA:GD53JEW4LD24YRUUY6CSCL6WMVUKPEWIAFALZENBXWGZ47AEJCHB2ARG trustline on the destination account
+Run npm run test:testnet	    GD4A75FLFLRKF7Q7LAE4AFWBPFK6C6MGYNUCA7QFZIJ6AVI6Q5LSLZTU, or close into a destination that holds one.
+Run npm run test:testnet	
+Run npm run test:testnet	Verify it yourself
+Run npm run test:testnet	  account      https://stellar.expert/explorer/testnet/account/GAPQBIUF2I5OJKE6QLF4FKGTCDSYD2UEGDUZQFS3SLAD6G7PD5IHZNQH
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GAPQBIUF2I5OJKE6QLF4FKGTCDSYD2UEGDUZQFS3SLAD6G7PD5IHZNQH
+Run npm run test:testnet	  destination  https://stellar.expert/explorer/testnet/account/GD4A75FLFLRKF7Q7LAE4AFWBPFK6C6MGYNUCA7QFZIJ6AVI6Q5LSLZTU
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GD4A75FLFLRKF7Q7LAE4AFWBPFK6C6MGYNUCA7QFZIJ6AVI6Q5LSLZTU
+Run npm run test:testnet	  verified     account GAPQBIUF2I5OJKE6QLF4FKGTCDSYD2UEGDUZQFS3SLAD6G7PD5IHZNQH still exists on Horizon (200)
+Run npm run test:testnet	               checked 2026-09-29T11:17:08.045Z at ledger 4,931,408
+Run npm run test:testnet	
+Run npm run test:testnet	Next         The account still exists. Resolve the items above, then run the same command again: Dustin re-reads the
+Run npm run test:testnet	             account and plans only what is left.
+Run npm run test:testnet	
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:08.298Z","case":"S-04 far","refused":"aborted","stop":{"code":"PLAN_NOT_CLOSABLE","stage":"plan","verdict":"stop","detail":"The plan cannot end in a merge (status blocked); nothing was submitted. Allow a partial close (--partial) to run everything else."}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:18.166Z","case":"S-04 far","purpose":"close tx 1 (cleanup), round 0, attempt 1: applied","hash":"99cdd1b6b56cbd5cd14853a6b76f2aaa185fd34b05cf46c7b23aa6ea06949fe7","innerHash":"fd9c1ea29da632f781633f08eba641fcc724301a95ad7690eeff9e8963a11956","sequence":"21183324164718593","ledger":4931409}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:18.167Z","case":"S-04 far","purpose":"close tx 2 (convert), round 0, attempt 1: applied","hash":"2e2b86d7008799d13cba4afe495cc19dd06661b895b83ecebc660cd1b5939186","innerHash":"50358aa30a7e4ee90a74fc4dcf3ed08c504c25e43dc407ad383a91ddec985d99","sequence":"21183324164718594","ledger":4931410}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:18.167Z","case":"S-04 far","status":"partial","stop":null,"message":"Everything that could run has run; the account still exists because 1 item(s) block the merge (see unclosable and blockers)."}
+Run npm run test:testnet	Dustin close receipt   PARTIAL: everything possible was done; the account still exists
+Run npm run test:testnet	Why          Everything that could run has run; the account still exists because 1 item(s) block the merge (see
+Run npm run test:testnet	             unclosable and blockers).
+Run npm run test:testnet	Network      testnet, Horizon https://horizon-testnet.stellar.org
+Run npm run test:testnet	Account      GDNMWXGJJCJ27SVGYEDJJTBTCR4NAI4X2UL7YTF3PSM3VISRWIIZDVGJ
+Run npm run test:testnet	Destination  GALKR744N66RXNRDAGKQZNQXNKERGZONKH4JP23CZ4INVGA4UV5AG633
+Run npm run test:testnet	Sponsor      GCVN4O6IPY2CDUNOXVK73S2QZ44HR4GD6IOGKJDLKQ7NXEFRYUFXGH2M   paid every fee
+Run npm run test:testnet	Run          started 2026-09-29T11:17:08.550Z, finished 2026-09-29T11:17:18.166Z
+Run npm run test:testnet	Plan hash    473dd719892313b79f82412de1f0782cb82c99e24b8836f8690f74b4e7666d1b
+Run npm run test:testnet	
+Run npm run test:testnet	Transactions (2 submitted; every fee was paid by the sponsor, the account paid nothing)
+Run npm run test:testnet	  tx 1  cleanup  applied  ledger 4,931,409  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  99cdd1b6b56cbd5cd14853a6b76f2aaa185fd34b05cf46c7b23aa6ea06949fe7
+Run npm run test:testnet	        inner hash  fd9c1ea29da632f781633f08eba641fcc724301a95ad7690eeff9e8963a11956
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/99cdd1b6b56cbd5cd14853a6b76f2aaa185fd34b05cf46c7b23aa6ea06949fe7
+Run npm run test:testnet	        operations  cancel offer 838461: sells 0.0000002 DUSTA for XLM
+Run npm run test:testnet	                    cancel offer 838462: sells 0.0000002 DUSTC for DUSTB
+Run npm run test:testnet	                    return 0.0000003 DUSTB to issuer GBAO...FCHK (burn)
+Run npm run test:testnet	                    remove trustline DUSTB
+Run npm run test:testnet	                    return 0.0000005 DUSTC to issuer GBAO...FCHK (burn)
+Run npm run test:testnet	                    remove trustline DUSTC
+Run npm run test:testnet	                    return 0.0000001 SPTA to issuer GBAO...FCHK (burn)
+Run npm run test:testnet	                    remove trustline SPTA (reserve sponsored by GCC6...YZVH)
+Run npm run test:testnet	                    delete data entry "dustin.fixture"
+Run npm run test:testnet	  tx 2  convert  applied  ledger 4,931,410  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  2e2b86d7008799d13cba4afe495cc19dd06661b895b83ecebc660cd1b5939186
+Run npm run test:testnet	        inner hash  50358aa30a7e4ee90a74fc4dcf3ed08c504c25e43dc407ad383a91ddec985d99
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/2e2b86d7008799d13cba4afe495cc19dd06661b895b83ecebc660cd1b5939186
+Run npm run test:testnet	        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+Run npm run test:testnet	                    remove trustline DUSTA
+Run npm run test:testnet	
+Run npm run test:testnet	Result
+Run npm run test:testnet	  No merge: the account was not merged, so no XLM moved through a merge.
+Run npm run test:testnet	  Reserves released to sponsors: 0.5000000 XLM, never this account's
+Run npm run test:testnet	    0.5000000 XLM reserve returned to sponsor GCC6...YZVH, never this account's (trustline SPTA)
+Run npm run test:testnet	      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+Run npm run test:testnet	      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+Run npm run test:testnet	  0.0000000 XLM in fees paid by the account
+Run npm run test:testnet	  0.0001300 XLM (1,300 stroops) in fees paid by the sponsor
+Run npm run test:testnet	
+Run npm run test:testnet	Disposals (what became of each leftover balance)
+Run npm run test:testnet	  DUSTB 0.0000003  burned: returned to its issuer GBAO...FCHK in tx 1
+Run npm run test:testnet	  DUSTC 0.0000005  burned: returned to its issuer GBAO...FCHK in tx 1
+Run npm run test:testnet	  SPTA 0.0000001  burned: returned to its issuer GBAO...FCHK in tx 1
+Run npm run test:testnet	  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM stays on the account
+Run npm run test:testnet	
+Run npm run test:testnet	Not closed (the account is not merged while these remain)
+Run npm run test:testnet	  SEQNUM_TOO_FAR
+Run npm run test:testnet	    The account's sequence number is ahead of the ledger, so a merge is refused (ACCOUNT_MERGE_SEQNUM_TOO_FAR) until
+Run npm run test:testnet	    ledger 4932128, about 60 minutes from now.
+Run npm run test:testnet	    remedy: Wait until that ledger and run the plan again; a sequence number can only go up, so nothing else helps. The
+Run npm run test:testnet	    cleanup and the sale can run now with --partial.
+Run npm run test:testnet	
+Run npm run test:testnet	Verify it yourself
+Run npm run test:testnet	  account      https://stellar.expert/explorer/testnet/account/GDNMWXGJJCJ27SVGYEDJJTBTCR4NAI4X2UL7YTF3PSM3VISRWIIZDVGJ
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GDNMWXGJJCJ27SVGYEDJJTBTCR4NAI4X2UL7YTF3PSM3VISRWIIZDVGJ
+Run npm run test:testnet	  destination  https://stellar.expert/explorer/testnet/account/GALKR744N66RXNRDAGKQZNQXNKERGZONKH4JP23CZ4INVGA4UV5AG633
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GALKR744N66RXNRDAGKQZNQXNKERGZONKH4JP23CZ4INVGA4UV5AG633
+Run npm run test:testnet	  verified     account GDNMWXGJJCJ27SVGYEDJJTBTCR4NAI4X2UL7YTF3PSM3VISRWIIZDVGJ still exists on Horizon (200)
+Run npm run test:testnet	               checked 2026-09-29T11:17:18.045Z at ledger 4,931,410
+Run npm run test:testnet	
+Run npm run test:testnet	Next         The account still exists: the sequence guard holds the merge (SEQNUM_TOO_FAR above). Run the same command
+Run npm run test:testnet	             again once that ledger has closed: Dustin re-reads the account and merges it.
+Run npm run test:testnet	
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: a far bump, refused, partial, and a forced merge (AC-E3-S4-1, AC-E3-S4-3)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:23.196Z","case":"S-04 far","purpose":"probe: a merge submitted anyway","hash":"10daa770ac8bfd0e55f0ef0059bec85fc04aa1aef8e902f6ae2203a73f16e870","innerHash":"5da09f9e022e7c11cc28742fa74da55c663cca3b0ae7c4a8743477796f21a0d4","sequence":"21183324164718595","result":"failed","ledger":4931411,"codes":{"transaction":"tx_fee_bump_inner_failed","innerTransaction":"tx_failed","operations":["op_seq_num_too_far"]}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:44.021Z","case":"S-03","fixture":"messy-20260929T111703Z-18d944","accounts":{"sponsor":"GCP3DBF6SK4IE2GGNUNN7Z6HXP3CKIS7SI57LFP6THFCDGYC55SSKCMZ","reserveSponsor":"GB77JGVOX3EVBA5HC5JZVVIIYQ7LK52J57POYJHF44IQNVOVGUUGUVIP","issuer":"GAADCYUZE73HRB35LP7EJX3BF242APYFHDYD7A2VFYPSFM2VWLZ4J7C2","marketMaker":"GDG2FJBQLNIDMZUBU7ALGRGHRRIVXEO4FFM5LACSBFPNPFFMRZVUOJJE","destination":"GBO2GCY5AI2NXHTTKRLBAHVN5FKJAP6LRAD2W52XXOLQRXSPX46Q25R7","fixture":"GA7NGQMDRYYQSN5KQ6TLSRLPBT7OOWAI425P6OXAQHXSEH4SWE7CVTIC"}}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:44.021Z","case":"S-03","purpose":"fixture: create-accounts","hash":"82913f123e2f2eed92f67d91cf3693d45022ea333aea79e6b927070cad8c8bbb","ledger":4931409}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:44.021Z","case":"S-03","purpose":"fixture: trustlines","hash":"071018f3ce1531deb70a6eb3b317a7ceb7319b85b8c90556c2b67bf8f5a11df1","ledger":4931410}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:44.021Z","case":"S-03","purpose":"fixture: sponsored-trustline","hash":"a0dafcb89903f85d28efc61340832a998fe5c76b57b1fcc9f05759668b031c22","ledger":4931411}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:44.021Z","case":"S-03","purpose":"fixture: dust-payments","hash":"292cb2ce8e16195bcee4cda9a00749fd8920dcc9a6b12ac04976a33d2ae2370c","ledger":4931412}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:44.021Z","case":"S-03","purpose":"fixture: market-maker-bid","hash":"3b4c941ed83e5ff7689893d6ca789f12df53dbd4dfaa716329a3ede164430c3d","ledger":4931413}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:44.021Z","case":"S-03","purpose":"fixture: offers-and-data","hash":"9d15ea89ebd0e905b36eab185b508717d4c49139b847b1a08a30881f3ee93ba3","ledger":4931414}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:44.021Z","case":"S-03","purpose":"fixture: drain-to-minimum","hash":"0baf9cec94115967e794848e5b18efdbdb8c0c3eec84ed98e401222b8d7bc29b","ledger":4931415}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:44.143Z","case":"S-03","reserveSponsorBefore":{"numSponsoring":1,"balance":"10.0000000","minimumBalance":"1.5000000","ledger":4931415}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:44.461Z","case":"S-03","purpose":"negative control: SPTA burned and removed, the inner transaction also signed by the reserve sponsor","hash":"811ee31a1e5e356b2f436802df798ca5a1c2e969b2df579b1188c5f4404130b7","innerHash":"aedce6ec3765e21e2d4542b7fdc8900f4d915d5c94ec3f8bddb35ee814ed4af6","result":"rejected","codes":{"transaction":"tx_fee_bump_inner_failed","innerTransaction":"tx_bad_auth_extra"}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:58.343Z","case":"S-03","purpose":"close tx 1 (cleanup), round 0, attempt 1: applied","hash":"952a564e03acce26859f9e11654a3a11ab509e845331bc22c2d88b4a26350f94","innerHash":"220004e98231f3856a712d25f35808d1e58c02735c249740cd6f2402e69d3a05","ledger":4931416}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:58.344Z","case":"S-03","purpose":"close tx 2 (convert), round 0, attempt 1: applied","hash":"c4333140e156d1bc90b8b885816d01b1dabec34611f53d10bc95952b2bd111fc","innerHash":"4b83b2faaa6583ef01a7a1f04a6335a4067907c55560ddd0a926907859c17085","ledger":4931417}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:58.344Z","case":"S-03","purpose":"close tx 3 (merge), round 0, attempt 1: applied","hash":"bc5e09e0f9474fd21cdeb4b8ea7fc6456074289576bedd830b5f3e62058888bc","innerHash":"f02602f8e750b83296e7e2fb360b4be3e0cb589d4b235b09999be5fb23e010fa","ledger":4931418}
+Run npm run test:testnet	{"at":"2026-09-29T11:17:58.344Z","case":"S-03","status":"closed","recovery":{"mergedXlm":"4.0000007","reservesReturnedToSponsors":[{"sponsor":"GB77JGVOX3EVBA5HC5JZVVIIYQ7LK52J57POYJHF44IQNVOVGUUGUVIP","xlm":"0.5000000","entries":["trustline SPTA:GAADCYUZE73HRB35LP7EJX3BF242APYFHDYD7A2VFYPSFM2VWLZ4J7C2"]}],"feesPaidByAccount":"0","feesPaidBySponsorStroops":1500,"sponsorsObserved":[{"sponsor":"GB77JGVOX3EVBA5HC5JZVVIIYQ7LK52J57POYJHF44IQNVOVGUUGUVIP","before":{"numSponsoring":1,"balance":"10.0000000","minimumBalance":"1.5000000","ledger":4931415},"after":{"numSponsoring":0,"balance":"10.0000000","minimumBalance":"1.0000000","ledger":4931418}}]}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2)
+Run npm run test:testnet	{"at":"2026-09-29T11:17:58.474Z","case":"S-03","reserveSponsorAfter":{"numSponsoring":0,"balance":"10.0000000","minimumBalance":"1.0000000","ledger":4931418}}
+Run npm run test:testnet	Dustin close receipt   CLOSED: the account was merged and no longer exists
+Run npm run test:testnet	Network      testnet, Horizon https://horizon-testnet.stellar.org
+Run npm run test:testnet	Account      GA7NGQMDRYYQSN5KQ6TLSRLPBT7OOWAI425P6OXAQHXSEH4SWE7CVTIC
+Run npm run test:testnet	Destination  GBO2GCY5AI2NXHTTKRLBAHVN5FKJAP6LRAD2W52XXOLQRXSPX46Q25R7
+Run npm run test:testnet	Sponsor      GCP3DBF6SK4IE2GGNUNN7Z6HXP3CKIS7SI57LFP6THFCDGYC55SSKCMZ   paid every fee
+Run npm run test:testnet	Run          started 2026-09-29T11:17:45.175Z, finished 2026-09-29T11:17:58.343Z
+Run npm run test:testnet	Plan hash    5a9d10531e514b229b6558473f00e355da99d1abdeb084c1eca3280c412ef5e2
+Run npm run test:testnet	
+Run npm run test:testnet	Transactions (3 submitted; every fee was paid by the sponsor, the account paid nothing)
+Run npm run test:testnet	  tx 1  cleanup  applied  ledger 4,931,416  fee 0.0001000 XLM (1,000 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  952a564e03acce26859f9e11654a3a11ab509e845331bc22c2d88b4a26350f94
+Run npm run test:testnet	        inner hash  220004e98231f3856a712d25f35808d1e58c02735c249740cd6f2402e69d3a05
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/952a564e03acce26859f9e11654a3a11ab509e845331bc22c2d88b4a26350f94
+Run npm run test:testnet	        operations  cancel offer 838464: sells 0.0000002 DUSTA for XLM
+Run npm run test:testnet	                    cancel offer 838465: sells 0.0000002 DUSTC for DUSTB
+Run npm run test:testnet	                    return 0.0000003 DUSTB to issuer GAAD...J7C2 (burn)
+Run npm run test:testnet	                    remove trustline DUSTB
+Run npm run test:testnet	                    return 0.0000005 DUSTC to issuer GAAD...J7C2 (burn)
+Run npm run test:testnet	                    remove trustline DUSTC
+Run npm run test:testnet	                    return 0.0000001 SPTA to issuer GAAD...J7C2 (burn)
+Run npm run test:testnet	                    remove trustline SPTA (reserve sponsored by GB77...UVIP)
+Run npm run test:testnet	                    delete data entry "dustin.fixture"
+Run npm run test:testnet	  tx 2  convert  applied  ledger 4,931,417  fee 0.0000300 XLM (300 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  c4333140e156d1bc90b8b885816d01b1dabec34611f53d10bc95952b2bd111fc
+Run npm run test:testnet	        inner hash  4b83b2faaa6583ef01a7a1f04a6335a4067907c55560ddd0a926907859c17085
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/c4333140e156d1bc90b8b885816d01b1dabec34611f53d10bc95952b2bd111fc
+Run npm run test:testnet	        operations  sell 0.0000007 DUSTA for XLM: path payment, quote 0.0000007, at least 0.0000006
+Run npm run test:testnet	                    remove trustline DUSTA
+Run npm run test:testnet	  tx 3  merge  applied  ledger 4,931,418  fee 0.0000200 XLM (200 stroops) charged to the sponsor
+Run npm run test:testnet	        outer hash  bc5e09e0f9474fd21cdeb4b8ea7fc6456074289576bedd830b5f3e62058888bc
+Run npm run test:testnet	        inner hash  f02602f8e750b83296e7e2fb360b4be3e0cb589d4b235b09999be5fb23e010fa
+Run npm run test:testnet	        https://stellar.expert/explorer/testnet/tx/bc5e09e0f9474fd21cdeb4b8ea7fc6456074289576bedd830b5f3e62058888bc
+Run npm run test:testnet	        operations  merge into GBO2...25R7 (cannot be undone)
+Run npm run test:testnet	
+Run npm run test:testnet	Result
+Run npm run test:testnet	  4.0000007 XLM merged into the destination GBO2...25R7 (read from the merge result)
+Run npm run test:testnet	  Reserves released to sponsors: 0.5000000 XLM, never this account's
+Run npm run test:testnet	    0.5000000 XLM reserve returned to sponsor GB77...UVIP, never this account's (trustline SPTA)
+Run npm run test:testnet	      observed on Horizon: num_sponsoring 1 -> 0, minimum balance 1.5000000 -> 1.0000000 XLM (0.5000000 XLM released),
+Run npm run test:testnet	      XLM balance 10.0000000 -> 10.0000000 (unchanged)
+Run npm run test:testnet	  0.0000000 XLM in fees paid by the account
+Run npm run test:testnet	  0.0001500 XLM (1,500 stroops) in fees paid by the sponsor
+Run npm run test:testnet	
+Run npm run test:testnet	Disposals (what became of each leftover balance)
+Run npm run test:testnet	  DUSTB 0.0000003  burned: returned to its issuer GAAD...J7C2 in tx 1
+Run npm run test:testnet	  DUSTC 0.0000005  burned: returned to its issuer GAAD...J7C2 in tx 1
+Run npm run test:testnet	  SPTA 0.0000001  burned: returned to its issuer GAAD...J7C2 in tx 1
+Run npm run test:testnet	  DUSTA 0.0000007  sold for XLM by path payment to the account itself in tx 2; the XLM left with the merge
+Run npm run test:testnet	
+Run npm run test:testnet	Verify it yourself
+Run npm run test:testnet	  account      https://stellar.expert/explorer/testnet/account/GA7NGQMDRYYQSN5KQ6TLSRLPBT7OOWAI425P6OXAQHXSEH4SWE7CVTIC
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GA7NGQMDRYYQSN5KQ6TLSRLPBT7OOWAI425P6OXAQHXSEH4SWE7CVTIC
+Run npm run test:testnet	  destination  https://stellar.expert/explorer/testnet/account/GBO2GCY5AI2NXHTTKRLBAHVN5FKJAP6LRAD2W52XXOLQRXSPX46Q25R7
+Run npm run test:testnet	               https://horizon-testnet.stellar.org/accounts/GBO2GCY5AI2NXHTTKRLBAHVN5FKJAP6LRAD2W52XXOLQRXSPX46Q25R7
+Run npm run test:testnet	  verified     account GA7NGQMDRYYQSN5KQ6TLSRLPBT7OOWAI425P6OXAQHXSEH4SWE7CVTIC no longer exists on Horizon (404)
+Run npm run test:testnet	               checked 2026-09-29T11:17:58.045Z at ledger 4,931,418
+Run npm run test:testnet	
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > S-03 live: the sponsored trustline is removed by the account alone (AC-E3-S3-1, AC-E3-S3-2) > S-03: the transaction that removed SPTA carries the account's signature only, and Horizon shows trustline_sponsorship_removed
+Run npm run test:testnet	{"at":"2026-09-29T11:17:58.666Z","case":"S-03","removalTx":"952a564e03acce26859f9e11654a3a11ab509e845331bc22c2d88b4a26350f94","sponsorshipEffects":[{"_links":{"operation":{"href":"https://horizon-testnet.stellar.org/operations/21180270442975240"},"succeeds":{"href":"https://horizon-testnet.stellar.org/effects?order=desc&cursor=21180270442975240-2"},"precedes":{"href":"https://horizon-testnet.stellar.org/effects?order=asc&cursor=21180270442975240-2"}},"id":"0021180270442975240-0000000002","paging_token":"21180270442975240-2","account":"GA7NGQMDRYYQSN5KQ6TLSRLPBT7OOWAI425P6OXAQHXSEH4SWE7CVTIC","type":"trustline_sponsorship_removed","type_i":65,"created_at":"2026-09-29T11:17:47Z","asset_type":"credit_alphanum4","asset":"SPTA:GAADCYUZE73HRB35LP7EJX3BF242APYFHDYD7A2VFYPSFM2VWLZ4J7C2","former_sponsor":"GB77JGVOX3EVBA5HC5JZVVIIYQ7LK52J57POYJHF44IQNVOVGUUGUVIP"}]}
+Run npm run test:testnet	
+Run npm run test:testnet	 ✓  testnet  test/testnet/ladder.test.ts (14 tests) 224378ms
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+Run npm run test:testnet	{"at":"2026-09-29T11:18:04.499Z","case":"S-04 boundary","fixture":"messy-20260929T111723Z-511634","accounts":{"sponsor":"GA5AXSKSTX3MGNLIO5UP5GGM7DWLARRK5ZFUVT7E5XNOID7SE6KLRWYP","reserveSponsor":"GABFCOLP2NHIQTZP3P4DUFEHNV5N3DUWWPVJO2OHXNJYH7TGE4OW6TQU","issuer":"GCUH6T3CA5HSI6GK5Q6KOYZD5RL23SE45BZ554HEUPNGQZ6U7ZWGLGWJ","marketMaker":"GCDAO2PVMONNEXDH3QEO2GHM3W3LJN543RIL3FALUS62OWYMPRWWEMGL","destination":"GAAJ2AJW3YZGPIVWGMUZWDPJDH3IPVPZSJXJA6G3TYPBBGZPVCWKZT7J","fixture":"GALY6OKNKXHFH275IKSTS475OLBSV2P7WXVX6KPIYFCYM7KDEYW35NXI"}}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:04.499Z","case":"S-04 boundary","purpose":"fixture: create-accounts","hash":"122d5f7fc85c15220fae439bf721be4032bc503d088ece1c314d49d62dfbcc4b","ledger":4931413}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:04.499Z","case":"S-04 boundary","purpose":"fixture: trustlines","hash":"5b28693ee2a4ef93857fbb87e93f5124103e21c22602f4535015ad3e9b385357","ledger":4931414}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:04.499Z","case":"S-04 boundary","purpose":"fixture: sponsored-trustline","hash":"f57c1403ed55c4f38946a8af80e96d744b3bef265dd01453653c0eb1b3e88799","ledger":4931415}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:04.499Z","case":"S-04 boundary","purpose":"fixture: dust-payments","hash":"191be89ff334680963fc99a4f4744627419989754e893b2d4aa0d30b623de98b","ledger":4931416}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:04.499Z","case":"S-04 boundary","purpose":"fixture: market-maker-bid","hash":"e350f250dd5b4bdb39da93a2d218dd7dcc23e0fe4023dbd098b2121b12d44cb9","ledger":4931417}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:04.499Z","case":"S-04 boundary","purpose":"fixture: offers-and-data","hash":"d20cf80218ee511d0a2dcb20a553da1e8163a5cc5c8af805fbbbbdfc18327c72","ledger":4931418}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:04.499Z","case":"S-04 boundary","purpose":"fixture: drain-to-minimum","hash":"8b204213c92b0121492b9dbb0203b7a0ccff9bbc0d86301fca1cf542de789915","ledger":4931419}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+Run npm run test:testnet	{"at":"2026-09-29T11:18:07.438Z","case":"S-04 boundary","purpose":"BumpSequence to (4931419 + 10) << 32","hash":"4dc5ab915c28cf0ddf3daa0522bdba71fbad936e24f81091dda21fd0820fea2b","innerHash":"e710e6f500591230ad0c40c27bee6d7900ef178a003fa1a30402190945641157","sequence":"21180257558069253","result":"applied","ledger":4931420}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+Run npm run test:testnet	{"at":"2026-09-29T11:18:17.701Z","case":"S-04 boundary cleanup","purpose":"close tx 1 (cleanup), round 0, attempt 1: applied","hash":"ff277b62123466b14066575f760d164cdf817649856e124f0062b3f950d57223","innerHash":"4f8ea06953023b7791ac4e83359b1b3e231e7dc19dad87557437c875b2daf57d","sequence":"21180326277545985","ledger":4931421}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:17.702Z","case":"S-04 boundary cleanup","purpose":"close tx 2 (convert), round 0, attempt 1: applied","hash":"1278591d437e22ecbc96562e0219908447e70566f93939af12c1fcf14d0b675b","innerHash":"652cc34e49ef07d4af885a69226edc24d482af56467eb86fc9b09d6077b9fbdc","sequence":"21180326277545986","ledger":4931422}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:17.702Z","case":"S-04 boundary cleanup","status":"partial","stop":null,"message":"Everything that could run has run; the account still exists because 1 item(s) block the merge (see unclosable and blockers)."}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+Run npm run test:testnet	{"at":"2026-09-29T11:18:17.775Z","case":"S-04 boundary","nextSequence":"21180326277545987","unblocksAtLedger":4931430}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/pool-share-removal.test.ts > pool-share trustline removal (live testnet) > removes an empty pool-share trustline before its asset trustlines and merges, every fee paid by the sponsor
+Run npm run test:testnet	{
+Run npm run test:testnet	  "holder": "GBMO42M4IDF5QZYVZGKJNTKWKRX3ZRHCV5QPC5R746Y2MJGNSUW5WP73",
+Run npm run test:testnet	  "destination": "GB2YX2ZQUAV7XTYYM6I2WFI2E22VCOJT32PNRKC2J6BBRBEBC5OI2YVG",
+Run npm run test:testnet	  "sponsor": "GDK2Z75XIKJSZN7NVJXG74B5HFPCL2WQPJX2M7YEY3VWIVJ24OYWGOX5",
+Run npm run test:testnet	  "issuer": "GBQDBMCVEMLILUDEKI4MGRR3L7WGMQ45P4HTVUV53JZPWPBGEXZE6D2W",
+Run npm run test:testnet	  "poolId": "f3546dc3c1911c763fa4c2974b6006b1d6bfa8020ff7f9dde1fce397e80feaba",
+Run npm run test:testnet	  "setup": "1d9ce05c534901520127a7c45682286cabb6a7732abdc2a2176344967880d5a5",
+Run npm run test:testnet	  "cannotDeleteProbe": "e670290ebb940a04e6fb443e235563714cd378e97f3a6f29e9ee387e2d5d200b",
+Run npm run test:testnet	  "close": [
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "hash": "ae386eb90cdab38f775a1efabe367550ff79abbe23f692696a74d3fa56113949",
+Run npm run test:testnet	      "ledger": 4931423
+Run npm run test:testnet	    }
+Run npm run test:testnet	  ]
+Run npm run test:testnet	}
+Run npm run test:testnet	
+Run npm run test:testnet	 ✓  testnet  test/testnet/pool-share-removal.test.ts (1 test) 20573ms
+Run npm run test:testnet	   ✓ pool-share trustline removal (live testnet) (1)
+Run npm run test:testnet	     ✓ removes an empty pool-share trustline before its asset trustlines and merges, every fee paid by the sponsor 20572ms
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+Run npm run test:testnet	{"at":"2026-09-29T11:18:39.014Z","case":"X-18","fixture":"messy-20260929T111758Z-4fa1a7","accounts":{"sponsor":"GC6GJDCUS6RABGZDIVCQTABFE32KJIEESJHAVU3GC2RVKFQTQB7YXO7C","reserveSponsor":"GB2PINE65HXREEBRCH4BVMBENSICPL4OQN37EYTMI5ZJVRSPFCVHT7TU","issuer":"GCEC2FJS273ZTTK3HVX3YADBO3TNUYOCUKS2L5JTK6AOVJWRU3MV6OEG","marketMaker":"GCQ5BPFDXSJP4F4A6F6BEPO3K3NG3CLXAABDPJ6GP33S7HUJDTWKLLBB","destination":"GA2SERQTU2IERMKKE7BMHRFAV4DR4426CIEOGOPFY5RIAYMB5K7QTKOL","fixture":"GCFK6SFSMZGXWNPBANRGWDCFUKDH4JWG5LVAIEP3KTUQUSNDVOF3NOUD"}}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:39.014Z","case":"X-18","purpose":"fixture: create-accounts","hash":"a654bd56702e82c104a1e78a6323b16db5b40d3ca70a85edae28868cf9a338fd","ledger":4931420}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:39.014Z","case":"X-18","purpose":"fixture: trustlines","hash":"585fb14dccdef2ea50bd3355a6aa4bae4346d1977430fec61b45d42ba341b486","ledger":4931421}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:39.014Z","case":"X-18","purpose":"fixture: sponsored-trustline","hash":"abefb1076a15967003ae2e72293761a81c119eee20a451305f652758c2a3b14d","ledger":4931422}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:39.014Z","case":"X-18","purpose":"fixture: dust-payments","hash":"6b049e041e60608bb54d5eaedc3faa7ee5ff61dec54e7b81e4ca7c0bc7dd4d5c","ledger":4931423}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:39.014Z","case":"X-18","purpose":"fixture: market-maker-bid","hash":"58e1886b3ad4da00e91a35111829d5eccb5179dee69ae906d37cb515f46c0f1f","ledger":4931424}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:39.014Z","case":"X-18","purpose":"fixture: offers-and-data","hash":"5585e178105ef03425e15cdd3ae81c1abc76cd5f734c80b3b481f7fd3737d810","ledger":4931425}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:39.014Z","case":"X-18","purpose":"fixture: drain-to-minimum","hash":"22938832becced2c5f32ecbdf0aa84a4b5f98e7215c798a44b3313a0fbaa5d1c","ledger":4931426}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+Run npm run test:testnet	{"at":"2026-09-29T11:18:42.924Z","case":"X-18","purpose":"fixture: the reserve sponsor sponsors signer K3 on the fixture","hash":"6e58c1fbba109105e423b507adf8319b2a50c8424757c8f6a564f51fc78a4a9e","innerHash":"e034f816640969b5f9deaf4fe863fa6c07ff60f81c7fe4c45a4599de64bd557e","result":"applied","ledger":4931427}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+Run npm run test:testnet	{"at":"2026-09-29T11:18:42.924Z","case":"X-18","sponsoredSigner":"GBR54CJDORTT6Y2KPENJ5KC5PFAE3DLY4NLNXSDGJ5K6QNSPFBIEOLG7"}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+Run npm run test:testnet	{"at":"2026-09-29T11:18:43.055Z","case":"X-18","reserveSponsorBefore":{"numSponsoring":2,"balance":"10.0000000","minimumBalance":"2.0000000","ledger":4931427}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/literal-zero.test.ts > X-16: a fully sponsored account with 0.0000000 XLM (live testnet)
+Run npm run test:testnet	{
+Run npm run test:testnet	  "accounts": {
+Run npm run test:testnet	    "zero": "GDCPKDSP7ZEVPAMHABFALY53ZIAU3BDLJYVNT5A4ORL2X2QCKZR4MAV4",
+Run npm run test:testnet	    "feeSponsor": "GCSIDXOEZ7DGJXDTSJGME2GW22AKSERAHVJOBFULM3VJC4GFMRJ5JUWG",
+Run npm run test:testnet	    "reserveSponsor": "GD5XLNJNLZ3NGEBZS6I2FUQPAXXZBPIMSOZGHV3VVUFBN2AMCHBHAZTG",
+Run npm run test:testnet	    "issuer": "GB4N2UUAVCDUU67OTI5IHSRB73HQAQNRFIIC7L6RLNVRRUGMU5GIILAH",
+Run npm run test:testnet	    "destination": "GDHVHV7QA47ICWNHEKE3XOJ7TNHBH5BKD2ASEJU257K6V6ZPI2ELNGR3"
+Run npm run test:testnet	  },
+Run npm run test:testnet	  "hashes": [
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "purpose": "create the reserve sponsor, the issuer and the destination",
+Run npm run test:testnet	      "hash": "061eab12e70e17b63f51a744a6757fd36a92bd133295a9c3dd26669b7ef0c2c8",
+Run npm run test:testnet	      "ledger": 4931425
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "purpose": "sponsorship sandwich: create the account with startingBalance 0 and a sponsored ZTL trustline",
+Run npm run test:testnet	      "hash": "e248d41968cfcba0e3126e6e6cf2a65b444f1dd94c4c8f952897823a8e83ab5b",
+Run npm run test:testnet	      "ledger": 4931426
+Run npm run test:testnet	    },
+Run npm run test:testnet	    {
+Run npm run test:testnet	      "purpose": "close (cleanup, applied)",
+Run npm run test:testnet	      "hash": "1c9e10c3c26a00442efdd0cccdef4b194291c25044f1c31658341ef5b8ded6a6",
+Run npm run test:testnet	      "ledger": 4931427
+Run npm run test:testnet	    }
+Run npm run test:testnet	  ]
+Run npm run test:testnet	}
+Run npm run test:testnet	
+Run npm run test:testnet	 ✓  testnet  test/testnet/literal-zero.test.ts (3 tests) 19857ms
+Run npm run test:testnet	   ✓ X-16: a fully sponsored account with 0.0000000 XLM (live testnet) (3)
+Run npm run test:testnet	     ✓ X-16: the plan is closable: it removes the trustline and merges 0 XLM, and returns 1.5 XLM of reserves to the reserve sponsor 378ms
+Run npm run test:testnet	     ✓ X-16: the close merges 0 XLM in one fee bump paid by the fee sponsor; the reserve sponsor's num_sponsoring falls by 3 (the account entry's 2 and the trustline's 1), its XLM unchanged 5156ms
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+Run npm run test:testnet	{"at":"2026-09-29T11:18:52.683Z","case":"S-04 boundary","purpose":"probe: a merge aimed at ledger 4931429","hash":"9229b1ecc1c0fe0dfc7f60e68800fc4fd5fa30343c53925b33bb3f139001d68a","innerHash":"ebb806b69648751e34c29272eee7d85c62572b8ed0ac91d82b869211c8bffa78","sequence":"21180326277545987","result":"failed","ledger":4931429,"codes":{"transaction":"tx_fee_bump_inner_failed","innerTransaction":"tx_failed","operations":["op_seq_num_too_far"]}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4)
+Run npm run test:testnet	{"at":"2026-09-29T11:18:57.557Z","case":"S-04 boundary close","purpose":"close tx 1 (merge), round 0, attempt 1: applied","hash":"59f14aabc9cf3d2c6060e621f4661b2f76ba1b77547423bf417ddee462f76fc0","innerHash":"acb8d1f3e0ecbf9b72f3a29f0363a7afbedc81f44f5902c41175b2ebb84181ef","sequence":"21180326277545988","ledger":4931430}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:57.557Z","case":"S-04 boundary close","status":"closed","stop":null,"message":null}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sequence-guard.test.ts > S-04 live: the boundary on the ledger (AC-E3-S4-4) > S-04, AC-E3-S4-4 live: a merge applies only from the ledger (s >> 32) + 1, where s is its sequence number
+Run npm run test:testnet	{"at":"2026-09-29T11:18:57.557Z","case":"S-04 boundary","probeLedger":4931429,"mergeLedger":4931430,"unblocksAtLedger":4931430,"firstValidLedgerIsolated":true}
+Run npm run test:testnet	
+Run npm run test:testnet	 ✓  testnet  test/testnet/sequence-guard.test.ts (9 tests) 279253ms
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+Run npm run test:testnet	{"at":"2026-09-29T11:18:57.866Z","case":"X-18","purpose":"close tx 1 (cleanup), round 0, attempt 1: applied","hash":"22b7d806e54e989130f7f6995f5822376853ae9f7b3aeef688f0983d1dbfa2c0","innerHash":"7684018f919a7df9f4de0a8b9c18a73f7524b6c0edc344b23bd14ebe7743f01e","ledger":4931428}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:57.866Z","case":"X-18","purpose":"close tx 2 (convert), round 0, attempt 1: applied","hash":"f78f5376e4fb923c0bfeb59610446f8f50edda1024d2291a6de2e42463c1107b","innerHash":"a74126c3a2a867de03f3e1ad8c8f0468bdafe601ff7d004eceb5b4d64c0ee7d3","ledger":4931429}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:57.866Z","case":"X-18","purpose":"close tx 3 (merge), round 0, attempt 1: applied","hash":"110a662a605720b4fb0cdf44506e2a7f83e7bd46744889886e3dd8f048e623c3","innerHash":"5d923f97133de5d18ff76e592c223fe8f8b104203bd7259b8b91cf5e7361078c","ledger":4931430}
+Run npm run test:testnet	{"at":"2026-09-29T11:18:57.866Z","case":"X-18","status":"closed","recovery":{"mergedXlm":"4.0000007","reservesReturnedToSponsors":[{"sponsor":"GB2PINE65HXREEBRCH4BVMBENSICPL4OQN37EYTMI5ZJVRSPFCVHT7TU","xlm":"1.0000000","entries":["trustline SPTA:GCEC2FJS273ZTTK3HVX3YADBO3TNUYOCUKS2L5JTK6AOVJWRU3MV6OEG","signer GBR54CJDORTT6Y2KPENJ5KC5PFAE3DLY4NLNXSDGJ5K6QNSPFBIEOLG7"]}],"feesPaidByAccount":"0","feesPaidBySponsorStroops":1500,"sponsorsObserved":[{"sponsor":"GB2PINE65HXREEBRCH4BVMBENSICPL4OQN37EYTMI5ZJVRSPFCVHT7TU","before":{"numSponsoring":2,"balance":"10.0000000","minimumBalance":"2.0000000","ledger":4931427},"after":{"numSponsoring":0,"balance":"10.0000000","minimumBalance":"1.0000000","ledger":4931430}}]}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge
+Run npm run test:testnet	{"at":"2026-09-29T11:18:57.997Z","case":"X-18","reserveSponsorAfter":{"numSponsoring":0,"balance":"10.0000000","minimumBalance":"1.0000000","ledger":4931430}}
+Run npm run test:testnet	
+Run npm run test:testnet	stdout | test/testnet/sponsored-unwind.test.ts > X-18 live: a signer sponsored by the reserve sponsor is removed by the merge > X-18: the merge transaction shows signer_sponsorship_removed
+Run npm run test:testnet	{"at":"2026-09-29T11:18:58.061Z","case":"X-18","mergeTx":"110a662a605720b4fb0cdf44506e2a7f83e7bd46744889886e3dd8f048e623c3","sponsorshipEffects":[{"_links":{"operation":{"href":"https://horizon-testnet.stellar.org/operations/21180330572533761"},"succeeds":{"href":"https://horizon-testnet.stellar.org/effects?order=desc&cursor=21180330572533761-4"},"precedes":{"href":"https://horizon-testnet.stellar.org/effects?order=asc&cursor=21180330572533761-4"}},"id":"0021180330572533761-0000000004","paging_token":"21180330572533761-4","account":"GCFK6SFSMZGXWNPBANRGWDCFUKDH4JWG5LVAIEP3KTUQUSNDVOF3NOUD","type":"signer_sponsorship_removed","type_i":74,"created_at":"2026-09-29T11:18:57Z","signer":"GBR54CJDORTT6Y2KPENJ5KC5PFAE3DLY4NLNXSDGJ5K6QNSPFBIEOLG7","former_sponsor":"GB2PINE65HXREEBRCH4BVMBENSICPL4OQN37EYTMI5ZJVRSPFCVHT7TU"}]}
+Run npm run test:testnet	
+Run npm run test:testnet	 ✓  testnet  test/testnet/sponsored-unwind.test.ts (9 tests) 115031ms
+Run npm run test:testnet	 ✓  testnet  test/testnet/fee-bump-engine.test.ts (1 test) 20210ms
+Run npm run test:testnet	   ✓ fee-bump engine (live testnet) (1)
+Run npm run test:testnet	     ✓ submits sponsor-paid transactions from a zero-spendable account without charging it 20209ms
+Run npm run test:testnet	 ✓  testnet  test/testnet/execute-close.test.ts (1 test) 54242ms
+Run npm run test:testnet	   ✓ executeClose (live testnet) (1)
+Run npm run test:testnet	     ✓ closes a fresh zero-spendable messy fixture with every fee paid by the sponsor 54241ms
+Run npm run test:testnet	 ✓  testnet  test/testnet/horizon.test.ts (1 test) 295ms
+Run npm run test:testnet	 ✓  testnet  test/testnet/fixture-messy.test.ts (1 test) 40756ms
+Run npm run test:testnet	   ✓ messy fixture (live testnet) (1)
+Run npm run test:testnet	     ✓ builds a fresh fixture that meets SOW Appendix B and holds zero spendable XLM 40755ms
+Run npm run test:testnet	 ✓  testnet  test/testnet/plan-readonly.test.ts (1 test) 41213ms
+Run npm run test:testnet	   ✓ planClose on a live fixture (testnet) (1)
+Run npm run test:testnet	     ✓ plans a closable close and leaves the account untouched 41212ms
+Run npm run test:testnet	
+Run npm run test:testnet	 Test Files  11 passed (11)
+Run npm run test:testnet	      Tests  58 passed (58)
+Run npm run test:testnet	   Start at  11:14:17
+Run npm run test:testnet	   Duration  341.93s (tests 100%)
+Run npm run test:testnet	
+Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	Post job cleanup.
+Post Run actions/setup-node@820762786026740c76f36085b0efc47a31fe5020	Cache hit occurred on the primary key node-cache-Linux-x64-npm-1dbbf1966a1c10e920c22b895ac70cefc0ca7769d4333e6755abaa8b8099882d, not saving cache.
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Post job cleanup.
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git version
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	git version 2.55.0
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Temporarily overriding HOME='/home/runner/work/_temp/5c50abda-b222-4513-a7f4-b5bef58db3b1' before making global git config changes
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Adding repository directory to the temporary git global config as a safe directory
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --global --add safe.directory <repository root>
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Removing SSH command configuration
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Removing HTTP extra header
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	Removing includeIf entries pointing to credentials config files
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+Post Run actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1	[command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+Complete job	Cleaning up orphan processes

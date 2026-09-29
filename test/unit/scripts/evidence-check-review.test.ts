@@ -410,7 +410,11 @@ describe("EP-9, AC-11: every file of the evidence package, and every listed hash
     expect(r.out).toContain(
       `FAIL       docs/write-up.md:1  ${"f".repeat(64)}  transaction ${"f".repeat(64)} not found on testnet Horizon (HTTP 404)`,
     );
-    expect(r.out).toContain("1 links and 2 listed transaction hashes: 2 ok");
+    // docs/write-up.md is one of STORED_TX_SOURCES, so its uncovered hash also fails the rule of the
+    // stored records (final audit of 2026-09-30; evidence-check-stored.test.ts).
+    expect(r.out).toContain(
+      "1 links, 2 listed transaction hashes and 1 cited transactions without a stored record: 2 ok",
+    );
   });
 });
 

@@ -19,6 +19,12 @@
 //   providers are refused, not probed), StellarExpert networks other than testnet, the mainnet
 //   explorers stellarchain.io, steexp.com, lumenscan.io and blockchair.com/stellar, and Stellar
 //   Lab links that name the mainnet.
+// - With the default files, the stored transaction records too (the final audit of 2026-09-30):
+//   every committed evidence/tests/transactions/<hash>.json must be Horizon's record of that
+//   transaction, and while the testnet keeps it, equal to Horizon's answer in its ledger, time,
+//   result and envelopes; every transaction the documents of STORED_TX_SOURCES cite (listed or
+//   linked) must have a stored record there or in a run directory, unless its line says the
+//   envelope was never on the ledger. These records outlive the testnet reset.
 //
 // Outcomes: OK, GONE (a merged account), SKIP (mailto), FAIL (the link or hash is wrong) and
 // UNCHECKED (no answer could be had: a network error, a timeout, HTTP 429 or 5xx after the
@@ -50,13 +56,30 @@ const MAX_REDIRECTS = 5;
 /** Horizon's largest page: the operations searched for an account's merge. */
 const LATEST_OPERATIONS = 200;
 
+/** The stored Horizon records of the transactions that the documents cite as text only. */
+export const STORED_TX_DIR = "evidence/tests/transactions";
+/** The documents whose cited transactions must each have a stored record. */
+export const STORED_TX_SOURCES = [
+  "docs/test-matrix.md",
+  "docs/write-up.md",
+  "evidence/baseline/README.md",
+  "docs/stories/3-1-ladder-path-payment.md",
+  "docs/stories/3-2-ladder-issuer-destination-unclosable.md",
+  "docs/stories/3-3-sponsored-trustline-unwind.md",
+  "docs/stories/3-4-seqnum-too-far-guard.md",
+];
+/** The fields of a stored record that Horizon's answer must repeat while the testnet keeps it. */
+const STORED_FIELDS = ["ledger", "created_at", "successful", "envelope_xdr", "result_xdr"];
+
 export const EXIT = { OK: 0, FAILED: 1, USAGE: 2, UNCHECKED: 3 };
 
 export const USAGE = `Usage: npm run evidence:check [-- <file.md> ...]
 
 Checks every link and every listed transaction hash of the given Markdown files; by default every
-Markdown file under evidence/, README.md and docs/write-up.md. Only the testnet Horizon is asked
-(DUSTIN_HORIZON_URL may name it, nothing else).
+Markdown file under evidence/, README.md and docs/write-up.md, and then the stored transaction
+records of ${STORED_TX_DIR}/ as well: each must be Horizon's record of its transaction and equal to
+Horizon's answer, and every transaction the documents cite as text must have one. Only the testnet
+Horizon is asked (DUSTIN_HORIZON_URL may name it, nothing else).
 
 Exit codes: 0 every link checked and fine (a merged account counts as fine), 1 a link or hash
 failed, 3 none failed but some could not be checked (network error, timeout, HTTP 429 or 5xx after
@@ -527,8 +550,10 @@ export function parseRetryAfter(value, now = Date.now()) {
   return Number.isNaN(at) ? null : Math.max(0, at - now);
 }
 
+const isTransaction = (c) => c.kind === "tx" || c.kind === "hash" || c.kind === "stored";
+
 const describe = (c) =>
-  c.kind === "tx" || c.kind === "hash"
+  isTransaction(c)
     ? `transaction ${c.hash}`
     : c.kind === "account"
       ? `account ${c.account}`
@@ -583,7 +608,7 @@ export function judgeResponse(c, answer) {
       detail: `${what} still redirects (HTTP ${status}) after ${MAX_REDIRECTS} redirects`,
     };
   }
-  if (c.kind === "tx" || c.kind === "hash") {
+  if (isTransaction(c)) {
     return status === 200
       ? { verdict: "ok", detail: "transaction on testnet Horizon (HTTP 200)" }
       : status === 404
@@ -637,6 +662,114 @@ export function judgeAccountHistory(account, answer) {
       };
 }
 
+// ---------------------------------------------------------------------------------------------
+// Stored transaction records
+
+const TX_HASH = /^[0-9a-f]{64}$/;
+
+/**
+ * The Horizon transaction record a stored JSON holds: Horizon's answer itself, or the
+ * `{ hash, horizon }` wrapper of the run directories' tx-<n>.json files; null when it holds none
+ * (a hash, an integer ledger, a close time, a boolean result and an envelope are required). Pure.
+ */
+export function horizonRecordOf(json) {
+  const record = json && typeof json === "object" && json.horizon ? json.horizon : json;
+  if (!record || typeof record !== "object") return null;
+  const ok =
+    typeof record.hash === "string" &&
+    TX_HASH.test(record.hash) &&
+    Number.isInteger(record.ledger) &&
+    typeof record.created_at === "string" &&
+    typeof record.successful === "boolean" &&
+    typeof record.envelope_xdr === "string" &&
+    record.envelope_xdr !== "";
+  return ok ? record : null;
+}
+
+/**
+ * The verdict on one file of STORED_TX_DIR from its name and text: named <hash>.json, JSON, and
+ * Horizon's record of that very transaction. Offline, so it holds after a testnet reset. Pure.
+ */
+export function judgeStoredFile(name, text) {
+  const named = /^([0-9a-f]{64})\.json$/.exec(name);
+  if (!named) {
+    return {
+      verdict: "failed",
+      detail: `${name} is not named <transaction hash>.json (64 lowercase hex digits)`,
+    };
+  }
+  let json;
+  try {
+    json = JSON.parse(text);
+  } catch (error) {
+    return { verdict: "failed", detail: `${name} is not JSON (${error.message})` };
+  }
+  const record = horizonRecordOf(json);
+  if (!record) {
+    return {
+      verdict: "failed",
+      detail: `${name} holds no Horizon transaction record (hash, ledger, created_at, successful, envelope_xdr)`,
+    };
+  }
+  if (record.hash !== named[1]) {
+    return { verdict: "failed", detail: `${name} holds the record of transaction ${record.hash}` };
+  }
+  return { verdict: "ok", detail: "stored Horizon record", hash: named[1], record };
+}
+
+/**
+ * The verdict on Horizon's answer for a transaction that has a stored record: the answer must be
+ * a 200 whose ledger, close time, result and envelopes equal the stored record's. Pure.
+ */
+export function judgeStoredAnswer(c, answer, record) {
+  const judged = judgeResponse(c, answer);
+  if (judged.verdict !== "ok") return judged;
+  const body = answer.body;
+  if (!body || typeof body !== "object") {
+    return {
+      verdict: "unchecked",
+      detail: `could not compare transaction ${c.hash} with its stored record: Horizon's answer was not JSON`,
+    };
+  }
+  const differ = STORED_FIELDS.filter((f) => JSON.stringify(body[f]) !== JSON.stringify(record[f]));
+  return differ.length === 0
+    ? {
+        verdict: "ok",
+        detail: "transaction on testnet Horizon (HTTP 200), equal to its stored record",
+      }
+    : {
+        verdict: "failed",
+        detail: `transaction ${c.hash} on testnet Horizon differs from its stored record in ${differ.join(", ")}`,
+      };
+}
+
+/**
+ * The transactions a document cites, listed in a code span or a table cell or linked on Horizon
+ * or StellarExpert, that `stored` (a Set of hashes) holds no record of; each once, at its first
+ * line. A line that says its envelope was never on the ledger is left out: Horizon keeps nothing
+ * of such an envelope. Pure.
+ */
+export function uncoveredCitations(markdown, stored) {
+  const { links, hashes } = scan(markdown);
+  const lines = markdown.split("\n");
+  const cited = [
+    ...hashes,
+    ...links
+      .map((l) => ({ c: classifyLink(l.target), line: l.line }))
+      .filter(({ c }) => c.kind === "tx")
+      .map(({ c, line }) => ({ hash: c.hash, line })),
+  ].sort((a, b) => a.line - b.line);
+  const reported = new Set();
+  const uncovered = [];
+  for (const { hash, line } of cited) {
+    if (stored.has(hash) || reported.has(hash)) continue;
+    if (/never on the ledger/i.test(lines[line - 1] ?? "")) continue;
+    reported.add(hash);
+    uncovered.push({ hash, line });
+  }
+  return uncovered;
+}
+
 const LABEL = { ok: "OK", gone: "GONE", skipped: "SKIP", failed: "FAIL", unchecked: "UNCHECKED" };
 
 /** The report: every failure, unchecked link and gone account, then the counts. */
@@ -648,10 +781,17 @@ export function render(results, notes = []) {
       .map((r) => `${LABEL[r.verdict].padEnd(9)}  ${r.file}:${r.line}  ${r.target}  ${r.detail}`),
   ];
   const count = (v) => results.filter((r) => r.verdict === v).length;
-  const links = results.filter((r) => r.source !== "hash").length;
-  const hashes = results.length - links;
+  const of = (source) => results.filter((r) => r.source === source).length;
+  const [hashes, stored, cited] = [of("hash"), of("stored"), of("cited")];
+  const parts = [
+    `${results.length - hashes - stored - cited} links`,
+    `${hashes} listed transaction hashes`,
+    ...(stored > 0 ? [`${stored} stored transaction records`] : []),
+    ...(cited > 0 ? [`${cited} cited transactions without a stored record`] : []),
+  ];
+  const what = `${parts.slice(0, -1).join(", ")} and ${parts.at(-1)}`;
   lines.push(
-    `${links} links and ${hashes} listed transaction hashes: ${count("ok")} ok, ${count("gone")} account gone, ${count("skipped")} skipped, ${count("failed")} failed, ${count("unchecked")} unchecked.`,
+    `${what}: ${count("ok")} ok, ${count("gone")} account gone, ${count("skipped")} skipped, ${count("failed")} failed, ${count("unchecked")} unchecked.`,
   );
   return `${lines.join("\n")}\n`;
 }
@@ -708,6 +848,23 @@ export function gitCheckout(cwd) {
 }
 
 const toPosix = (path) => path.split(sep).join("/");
+
+/** The committed files under `dir` (paths from the root, `/` separated), or outside git those on the disk. */
+export function filesUnder(dir, { git, root }) {
+  if (git) return [...git.files].filter((f) => f.startsWith(`${dir}/`)).sort();
+  const found = [];
+  const walk = (at) => {
+    const full = join(root, at);
+    if (!existsSync(full)) return;
+    for (const entry of readdirSync(full, { withFileTypes: true })) {
+      const path = `${at}/${entry.name}`;
+      if (entry.isDirectory()) walk(path);
+      else if (entry.isFile()) found.push(path);
+    }
+  };
+  walk(dir);
+  return found.sort();
+}
 
 /**
  * Whether a relative link's target is committed (exact case, a file or a directory holding one),
@@ -922,6 +1079,63 @@ async function check(argv, { out, err, env, cwd, net, git: gitOverride }) {
     if (!pending.has(url)) pending.set(url, { c, rows: [] });
     pending.get(url).rows.push(entry);
   };
+
+  // The stored transaction records, with the default files only: each file of STORED_TX_DIR is
+  // judged offline and asked on Horizon to be compared; every transaction a document of
+  // STORED_TX_SOURCES cites must have a record there or in a run directory.
+  const stored = new Map();
+  if (argv.length === 0) {
+    const kept = new Set();
+    for (const path of filesUnder("evidence", { git, root })) {
+      if (!path.endsWith(".json") || path.startsWith(`${STORED_TX_DIR}/`)) continue;
+      try {
+        const record = horizonRecordOf(JSON.parse(readFileSync(join(root, path), "utf8")));
+        if (record) kept.add(record.hash);
+      } catch {
+        // Not a record: other evidence JSON is not this check's business.
+      }
+    }
+    for (const path of filesUnder(STORED_TX_DIR, { git, root })) {
+      const name = path.slice(STORED_TX_DIR.length + 1);
+      if (name === "README.md") continue;
+      const row = { file: path, line: 1, target: name, source: "stored" };
+      let judged;
+      try {
+        judged = judgeStoredFile(name, readFileSync(join(root, path), "utf8"));
+      } catch (error) {
+        judged = { verdict: "failed", detail: `cannot read ${path}: ${error.message}` };
+      }
+      if (judged.verdict !== "ok") {
+        results.push({ ...row, verdict: judged.verdict, detail: judged.detail });
+        continue;
+      }
+      stored.set(judged.hash, judged.record);
+      kept.add(judged.hash);
+      ask(
+        `${TESTNET_HORIZON}/transactions/${judged.hash}`,
+        { kind: "stored", hash: judged.hash },
+        { ...row, target: judged.hash },
+      );
+    }
+    for (const source of STORED_TX_SOURCES) {
+      const committed = git ? git.files.has(source) : existsSync(join(root, source));
+      if (!committed) continue;
+      for (const { hash, line } of uncoveredCitations(
+        readFileSync(join(root, source), "utf8"),
+        kept,
+      )) {
+        results.push({
+          file: source,
+          line,
+          target: hash,
+          source: "cited",
+          verdict: "failed",
+          detail: `transaction cited with no stored Horizon record: save ${TESTNET_HORIZON}/transactions/${hash} as ${STORED_TX_DIR}/${hash}.json`,
+        });
+      }
+    }
+  }
+
   const linkedHashes = new Set();
   const scanned = [...texts].map(([path, text]) => ({ path, ...scan(text) }));
   for (const { links } of scanned) {
@@ -987,8 +1201,9 @@ async function check(argv, { out, err, env, cwd, net, git: gitOverride }) {
   const worker = async () => {
     for (let next = queue.shift(); next; next = queue.shift()) {
       const [url, { c, rows }] = next;
-      const answer = await get(url, net);
-      let judged = judgeResponse(c, answer);
+      const record = isTransaction(c) ? stored.get(c.hash) : undefined;
+      const answer = await get(url, net, record !== undefined);
+      let judged = record ? judgeStoredAnswer(c, answer, record) : judgeResponse(c, answer);
       if (judged.verdict === "history") {
         const opsUrl = `${TESTNET_HORIZON}/accounts/${c.account}/operations?order=desc&limit=${LATEST_OPERATIONS}`;
         judged = judgeAccountHistory(c.account, await get(opsUrl, net, true));
