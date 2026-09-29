@@ -101,7 +101,7 @@ describe("EP-3, BH-17: both validators check the ledgers the reset check compare
       );
       expect(out.join(""), dir).toContain("MANIFEST_INVALID");
       expect(out.join(""), dir).not.toMatch(/TypeError|unexpected error/);
-      expect(exit).toBe(1);
+      expect(exit).toBe(2); // a malformed manifest is a validation error (Epic 4 review D-4)
       expect(requests).toEqual([]);
     }
   });
