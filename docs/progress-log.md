@@ -205,3 +205,41 @@ Blocked (human actions, in order):
 Also for the builder: the decisions in part 2 of the review (E4-S1's output width and asset form; E4-S3's rendered images; switching on private vulnerability reporting for SECURITY.md).
 
 Next: the builder's actions above. Then E4-S1 and E4-S3 close on the builder's word, the video and baseline links are filled in, and Epic 4 is finished in the week-4 window or the buffer (deadline 2026-10-22).
+
+## 2026-09-29 (sprint day 8, week 2), evening
+
+### Session summary (2026-09-29 evening)
+
+The sprint is technically complete; what remains is the builder's. This session applied the builder's two decisions, produced the video, prepared every builder action and wrote the handoff.
+
+Done:
+
+- The builder's decisions, in one commit before anything else (38a98af; PRD "Decisions after review"):
+  - D-15: E4-S1's output stays as built (120 columns, the terminal wraps a narrower window and nothing is truncated; `CODE (issuer GABC...WXYZ)`; `--json` carries every issuer in full). E4-S1 done.
+  - D-16: E4-S3's rendered images stay; the builder adds a screenshot of the CI run page as `evidence/tests/ci-run-<run id>.png` (slot in `evidence/tests/README.md`). E4-S3 stays in review until then.
+  - `.vscode/` ignored.
+  - `docs/runbooks/history-rewrite.md` and `scripts/remap-commit-hashes.mjs` (a dry run by default, with offline tests). Not run. A scan of every object of the history found the personal data of R4 and R5 in two objects only: the version of `SUCCESSFUL_SOW.md` committed by `ca7bf53` (lines 12, 13 and 15) and the author e-mail of `bedc4a6`. A dry run of the remap on a synthetic commit-map found 617 citations in 43 files, none ambiguous.
+- E4-S6: the 60-second video, produced by `scripts/demo/make-demo.mjs` from `docs/demo-video-script.md` on a fresh fixture (take `evidence/demo/take-20260929T184550Z/`): the build of the fixture and its refused unsponsored transaction, `dustin plan`, `dustin close --execute` with the typed confirmation, three sponsor-paid fee bumps (ledgers 4,936,816 to 4,936,818), the receipt, Horizon's 404 and the account's `account_merge`. 59.8 s, 1920 x 1080, captions burned in and as `.srt`, SHA-256 `7de0640d94ccc669efa14fdcc3d46af177874a79eaa76152c2f5ca16cdbc2f1b`; a GIF of the close in the README; the terminal recordings (asciicast), seven key frames and Horizon's records committed; the MP4 ignored by git. E4-S6 in review: the builder watches, approves and hosts it (proposed: the `v0.1.0` release asset).
+- B-03 in one command: `scripts/evidence-cli.mjs` cases `baseline-zero` and `baseline-plus1`, and `scripts/baseline-b03.mjs`, which refuses to start before the B-01 recording and writes `evidence/baseline/b03-comparison.md`. Rehearsed with `--before-recordings`: both rebuilt fixtures (recipe hash `a00bfd18...`, the baseline fixture's) closed, every check passed (`evidence/runs/20260929T185240Z-b03-rehearsal-base1/`, `evidence/runs/20260929T185359Z-b03-rehearsal-base2/`; with 1 XLM added, 5.0000007 XLM reached the destination). `--prepare-b02` built the account for the B-02 recording (`GCT4MKGXIAT246OV246CVYXIZYT3FLXVOBIQ5BQ4Q5CQPKZGD7JBX4MM`, 1 XLM spendable).
+- Runbooks for the builder: `docs/runbooks/chapter-lead-message.md` (English and Turkish), `docs/runbooks/release.md` (after the npm publish: the registry check, the tag, the release notes from the CHANGELOG, the video as a draft release asset, every link), and `docs/HANDOFF.md` rewritten to the remaining actions.
+- Read on GitHub (as 0xsimoneth): private vulnerability reporting is off (`{"enabled":false}`); 0 forks, 0 stars, no pull request, no branch protection on `main`; CI green on the last push.
+- The baseline fixture `messy-20260926T035942Z` was not touched.
+
+Traps recorded this session:
+
+- **StellarExpert's testnet ingestion had stopped.** Its API's last ledger stayed at 4,935,523 while Horizon was 784 ledgers ahead, so no account built that day existed on it. Stellar Explorer (https://testnet.steexp.com) reads Horizon live and showed the balances and offers; its Data tab said "No Data" for an account with a data entry, and a merged account's page stayed blank, so the data entry and the "after" shots come from Horizon.
+- **The confirmation question ends with a cursor move.** The CLI's readline question is followed by `ESC[116G`, so an expect pattern anchored at the end of the output never matches it.
+- **expect records typing only if it reads each echo.** Without an `expect` after each `send`, asciinema records the whole typed line at once.
+- **A Homebrew formula can pull an untrusted tap.** `brew install vhs` stopped on the ffmpeg of an untrusted tap; the tap's trust was not changed, and the take uses asciinema and agg instead.
+
+Blocked (the builder's actions, in order):
+
+1. The history decision (R4, R5; `docs/runbooks/history-rewrite.md`), before the tag.
+2. The Demolisher recordings B-01 (baseline fixture) and B-02 (the prepared account), then `node scripts/baseline-b03.mjs` (B-03).
+3. The screenshot of the CI run page, `evidence/tests/ci-run-<run id>.png` (E4-S3).
+4. Watching, approving and hosting the video (E4-S6; `docs/runbooks/release.md`, step 4).
+5. The message to the chapter lead and the written acknowledgement (`docs/runbooks/chapter-lead-message.md`).
+6. Private vulnerability reporting on; `npm login` with 2FA and `npm publish`; then the tag and the release (`docs/runbooks/release.md`).
+7. The completion report's hours, dates and next step, checked in a fresh browser and sent.
+
+Next: the builder's actions in the order above; after each, the agent records it (`docs/HANDOFF.md` says what the agent does for each), then E4-S3, E4-S4, E4-S6, E4-S7 and E1-S2 close and Epic 4 is finished before 2026-10-22.

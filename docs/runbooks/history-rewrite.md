@@ -26,6 +26,7 @@ No commit message holds any of it, and the current files hold none of it.
 - Everything is committed and pushed; no pull request is open (`gh pr list --state all`); nobody else is pushing.
 - Check the repository's counters: `gh auth switch --user 0xsimoneth && gh auth status`, then `gh api repos/0xsimoneth/dustin --jq '{forks: .forks_count, stars: .stargazers_count}'`. A fork keeps the old history whatever happens here.
 - If a branch protection rule on `main` refuses force pushes, allow them for the duration of step 7 and restore the rule after it.
+- As read on 2026-09-29: 0 forks, 0 stars, no pull request ever opened, and no branch protection on `main`, so nothing on GitHub stands in the way of step 7.
 
 ## Step 1: install git filter-repo
 

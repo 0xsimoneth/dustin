@@ -61,7 +61,7 @@ development_status:
   4-3-test-evidence-reproducibility: review
   4-4-npm-publish-readme-integration-notes: in-progress
   4-5-write-up: done
-  4-6-demo-video: in-progress
+  4-6-demo-video: review
   4-7-evidence-package: in-progress
   epic-4-retrospective: optional
 
@@ -330,7 +330,7 @@ stories:
     title: 60-second demo video
     epic: E4
     week: 4
-    status: in-progress
+    status: review
     estimate_hours: 5
     deliverable: D4
   - key: 4-7-evidence-package
@@ -398,3 +398,26 @@ sessions:
       acknowledgement, the history decision, the 0.1.0 publish, the completion report); then close E4-S1
       and E4-S3 on the builder's word, fill the video and baseline links in README, evidence/README.md and
       the completion report, and finish Epic 4 in the week-4 window or the buffer.
+  - date: "2026-09-29"
+    sprint_day: 8
+    summary: >-
+      Evening session; the sprint is technically complete. Builder decisions D-15 (E4-S1 output kept;
+      E4-S1 done) and D-16 (E4-S3 rendered images kept, a CI screenshot to add) applied in one commit
+      with .vscode/ ignored, the history-rewrite runbook and scripts/remap-commit-hashes.mjs (not run).
+      E4-S6: the 60-second video produced by scripts/demo/make-demo.mjs from the rehearsal script on a
+      fresh fixture (asciinema and expect for the terminal, Playwright for the pages, agg and ffmpeg for
+      the cut; 59.8 s, 1080p, captions, GIF; take evidence/demo/take-20260929T184550Z/), in review for the
+      builder's approval and hosting. B-03 in one command (scripts/baseline-b03.mjs with the evidence-cli
+      cases baseline-zero and baseline-plus1), rehearsed green; the B-02 account prepared. Runbooks for
+      the chapter lead message and the release; HANDOFF rewritten to the remaining actions.
+    blocked_on_builder:
+      - the history decision, R4 and R5 (docs/runbooks/history-rewrite.md), before the tag
+      - the Demolisher recordings B-01 and B-02, then node scripts/baseline-b03.mjs (B-03)
+      - the CI run page screenshot, evidence/tests/ci-run-<run id>.png (E4-S3)
+      - watching, approving and hosting the video (E4-S6)
+      - the chapter lead's written acknowledgement (docs/runbooks/chapter-lead-message.md)
+      - private vulnerability reporting on, npm publish of 0.1.0, then the tag and the release
+      - the completion report's hours, dates and next step, then sending it
+    next: >-
+      The builder's actions in the order of docs/HANDOFF.md; after each, the agent records it, then
+      E4-S3, E4-S4, E4-S6, E4-S7 and E1-S2 close and Epic 4 is finished before 2026-10-22.
