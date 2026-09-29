@@ -169,3 +169,41 @@ describe("D-6: a usage error prints its code for people too", () => {
     expect(version.out).toBe("0.0.0\n");
   });
 });
+
+describe("AC-2: --no-color and NO_COLOR are accepted and change nothing", () => {
+  // An ANSI escape sequence starts with ESC and "[".
+  const ansi = new RegExp(`${String.fromCharCode(27)}\\[`);
+
+  it("AC-2: plan with --no-color, NO_COLOR, both or neither prints the same, without colour", async () => {
+    const world = zeroSpendableWorld();
+    const args = ["plan", world.id, "--to", world.destination];
+    const plain = await runCli(args, world);
+    // Before the fix --no-color was refused as an unknown option (exit 2).
+    const flag = await runCli([...args, "--no-color"], world);
+    const env = await runCli(args, world, { NO_COLOR: "1" });
+    const both = await runCli(["--no-color", ...args], world, { NO_COLOR: "1" });
+    for (const r of [plain, flag, env, both]) {
+      expect(r.code).toBe(0);
+      // The same text, but for the moment each plan was observed.
+      const untimed = (text: string) => text.replace(/observed \S+/g, "observed <time>");
+      expect(untimed(r.out)).toBe(untimed(plain.out));
+      expect(r.out + r.err).not.toMatch(ansi);
+    }
+  });
+
+  it("AC-2: close accepts it too, and --json stays machine mode", async () => {
+    const world = zeroSpendableWorld();
+    const r = await runCli(
+      ["close", world.id, "--to", world.destination, "--json", "--no-color"],
+      world,
+    );
+    expect(r.code).toBe(0);
+    expect(JSON.parse(r.out)).toMatchObject({ kind: "dustin-close-plan" });
+  });
+
+  it("AC-2: the help text documents it", async () => {
+    const help = await runCli(["--help"]);
+    expect(help.out).toContain("--no-color");
+    expect(help.out.replace(/\s+/g, " ")).toContain("Dustin never prints colour");
+  });
+});

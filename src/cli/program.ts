@@ -121,6 +121,12 @@ export function buildProgram(
     .option(
       "--verbose",
       "on an error, print its full detail: cause chain, Horizon result codes, details (secrets redacted)",
+    )
+    // Epic 4 review AC-2 (AC-E4-S1-1): colours honour --no-color and NO_COLOR. Dustin never prints
+    // colour (docs/ux-design.md principle P6), so both are accepted and change nothing.
+    .option(
+      "--no-color",
+      "print no colour; accepted for scripts, and changes nothing: Dustin never prints colour, with or without NO_COLOR",
     );
 
   program.hook("preAction", (command, action) => {
