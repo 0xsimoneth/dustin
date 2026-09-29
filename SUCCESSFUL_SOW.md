@@ -173,10 +173,10 @@ Once finalized, this Statement of Work will be submitted by the Ambassador Chapt
 
 | # | Deliverable | Status | Evidence link |
 |---|---|---|---|
-| D1 | `planClose()` read-only planner + CLI dry run | ☑ Done (2026-09-26) | [evidence/plan/fixture-plan.txt](evidence/plan/fixture-plan.txt), [evidence/README.md](evidence/README.md#sow-61-row-by-row) |
-| D2 | `executeClose()` fee-sponsored close on testnet | ☑ Done (2026-09-28); the 60-second video is tracked under D4 | [evidence/runs/20260928T112252Z-e3-cli/summary.md](evidence/runs/20260928T112252Z-e3-cli/summary.md), [evidence/README.md](evidence/README.md#the-transaction-chain-of-the-metric-close) |
+| D1 | `planClose()` read-only planner + CLI dry run | ☑ Done (2026-09-26; the final code's output recorded on 2026-09-29) | [evidence/plan/fixture-plan.txt](evidence/plan/fixture-plan.txt) (the baseline fixture, 2026-09-26), [evidence/runs/20260929T111408Z-e4-cli/plan.txt](evidence/runs/20260929T111408Z-e4-cli/plan.txt) (the 0.1.0 code), [evidence/README.md](evidence/README.md#sow-61-row-by-row) |
+| D2 | `executeClose()` fee-sponsored close on testnet | ◐ In progress: the live close is done and linked (2026-09-28, and again on the 0.1.0 code on 2026-09-29); the 60-second video that SOW 6.1 lists for D2 is pending (the builder's) | [evidence/runs/20260929T111408Z-e4-cli/summary.md](evidence/runs/20260929T111408Z-e4-cli/summary.md), [evidence/runs/20260928T112252Z-e3-cli/summary.md](evidence/runs/20260928T112252Z-e3-cli/summary.md), [evidence/README.md](evidence/README.md#the-transaction-chain-of-the-metric-close) |
 | D3 | Edge cases, fixture account, baseline recording, test matrix | ◐ In progress: fixture, edge cases and test matrix done; baseline recording pending (the builder's) | [docs/test-matrix.md](docs/test-matrix.md), [evidence/baseline/README.md](evidence/baseline/README.md) |
-| D4 | README, integration notes, write-up, 60s demo, evidence package | ◐ In progress: README, integration notes, write-up and evidence package done; 60-second video and npm publish pending (the builder's) | [README.md](README.md), [docs/integration-notes.md](docs/integration-notes.md), [docs/write-up.md](docs/write-up.md), [evidence/README.md](evidence/README.md) |
+| D4 | README, integration notes, write-up, 60s demo, evidence package | ◐ In progress: README, integration notes, write-up and evidence package written, their stories open; pending (the builder's): the 60-second video, the npm publish, and the baseline recording the evidence package links | [README.md](README.md), [docs/integration-notes.md](docs/integration-notes.md), [docs/write-up.md](docs/write-up.md), [evidence/README.md](evidence/README.md) |
 
 ## Appendix B — Success Metric Checklist (binary, no partial credit)
 
