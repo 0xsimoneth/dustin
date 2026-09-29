@@ -80,26 +80,47 @@ async function runCommand(
 }
 
 /**
+ * The options of `dustin` that take a value (program.ts): the word after one is its value, even
+ * when it starts with a dash, as Commander reads it (`--memo --json` is a memo of "--json").
+ * test/unit/cli/epic4-review-cli.test.ts checks this list against the program's options.
+ */
+export const VALUE_OPTIONS: ReadonlySet<string> = new Set([
+  "--network",
+  "--to",
+  "--destination",
+  "--sponsor",
+  "--memo",
+  "--base-fee",
+  "--report",
+  "--profile",
+  "--dir",
+  "--out",
+  "--snapshot",
+]);
+
+/**
  * The output mode from argv, before it is parsed, for what is printed before a command runs: a
  * secret on argv, a usage error, a refused network. `--json` counts for `plan` and `close` only
  * (the fixture commands keep their own output); the parsed options confirm both flags once the
- * command runs (program.ts, the preAction hook).
+ * command runs (program.ts, the preAction hook). Only a real flag counts (Epic 4 review BH-20): a
+ * `--json` or `--verbose` that is the value of another option, or comes after `--`, is an
+ * argument, as Commander reads it.
  */
-function scanMode(argv: string[]): OutputMode {
+export function scanMode(argv: readonly string[]): OutputMode {
   const words = argv.slice(2);
   let command: string | undefined;
+  let json = false;
+  let verbose = false;
   for (let i = 0; i < words.length; i++) {
     const word = words[i]!;
-    if (word === "--network") {
+    if (word === "--") break;
+    if (VALUE_OPTIONS.has(word)) {
       i += 1;
       continue;
     }
-    if (word.startsWith("-")) continue;
-    command = word;
-    break;
+    if (word === "--json") json = true;
+    else if (word === "--verbose") verbose = true;
+    else if (!word.startsWith("-")) command ??= word;
   }
-  return {
-    json: (command === "plan" || command === "close") && words.includes("--json"),
-    verbose: words.includes("--verbose"),
-  };
+  return { json: (command === "plan" || command === "close") && json, verbose };
 }

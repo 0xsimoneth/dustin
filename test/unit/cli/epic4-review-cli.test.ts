@@ -8,7 +8,17 @@ import { DustinError } from "../../../src/errors/dustin-error.js";
 import type { executeClose } from "../../../src/execute/executor.js";
 import type { CloseReport, SubmittedTransaction } from "../../../src/execute/report.js";
 import type { ClosePlan } from "../../../src/plan/model.js";
-import { closeCli, emptyDir, executeArgs, zeroSpendableWorld, type Fetch } from "./close-world.js";
+import type { Command } from "commander";
+import { buildProgram } from "../../../src/cli/program.js";
+import { VALUE_OPTIONS, run, scanMode } from "../../../src/cli/run.js";
+import {
+  closeCli,
+  emptyDir,
+  executeArgs,
+  zeroSpendableWorld,
+  type Fetch,
+  type World,
+} from "./close-world.js";
 
 // Epic 4 closing review, CLI findings. Each test is named after its finding ID and fails on the
 // code before the fix. Signals are sent through an injected source (CliDeps.signals).
@@ -300,5 +310,63 @@ describe("BH-14: an unexpected error's remedy says where the hashes are", () => 
     expect(failureOf(new Error("x"), 1).remedy).toContain(
       "if a transaction was submitted, its hash is printed above.",
     );
+  });
+});
+
+/** `run()` with the world's fake Horizon, collecting both streams. */
+async function runCli(world: World, args: string[]) {
+  const out: string[] = [];
+  const err: string[] = [];
+  const code = await run(
+    ["node", "dustin", ...args],
+    { stdout: (t) => void out.push(t), stderr: (t) => void err.push(t) },
+    "0.0.0",
+    { env: {}, fetch: world.ledger.fetch, horizon: { retries: 0 } },
+  );
+  return { code, out: out.join(""), err: err.join("") };
+}
+
+describe("BH-20: only a real --json flag makes machine mode", () => {
+  it("BH-20: --json as the value of --memo, or after --, is not machine mode", () => {
+    const argv = (...words: string[]) => ["node", "dustin", ...words];
+    expect(scanMode(argv("plan", "G", "--memo", "--json"))).toEqual({
+      json: false,
+      verbose: false,
+    });
+    expect(scanMode(argv("plan", "G", "--", "--json", "--verbose")).json).toBe(false);
+    expect(scanMode(argv("close", "G", "--report", "--verbose")).verbose).toBe(false);
+    expect(scanMode(argv("--network", "testnet", "plan", "G", "--json")).json).toBe(true);
+    expect(scanMode(argv("plan", "G", "--memo=--json")).json).toBe(false);
+    expect(scanMode(argv("fixture", "create", "--json")).json).toBe(false);
+  });
+
+  it("BH-20: a usage error after --memo --json is printed for people, as Commander parsed it", async () => {
+    const world = zeroSpendableWorld();
+    const r = await runCli(world, [
+      "plan",
+      world.id,
+      "--to",
+      world.destination,
+      "--memo",
+      "--json",
+      "--bogus",
+    ]);
+    expect(r.code).toBe(2);
+    // Before the fix the scan took --json for the flag: one NDJSON line and no usage text.
+    expect(r.err).toContain("unknown option '--bogus'");
+    expect(() => JSON.parse(r.err.split("\n")[0]!) as unknown).toThrow();
+  });
+
+  it("BH-20: every option that takes a value is in VALUE_OPTIONS, and nothing else", () => {
+    const program = buildProgram("0.0.0", { stdout: () => undefined, stderr: () => undefined });
+    const valued = new Set<string>();
+    const walk = (command: Command) => {
+      for (const option of command.options) {
+        if ((option.required || option.optional) && option.long) valued.add(option.long);
+      }
+      command.commands.forEach(walk);
+    };
+    walk(program);
+    expect([...valued].sort()).toEqual([...VALUE_OPTIONS].sort());
   });
 });
