@@ -173,17 +173,17 @@ Once finalized, this Statement of Work will be submitted by the Ambassador Chapt
 
 | # | Deliverable | Status | Evidence link |
 |---|---|---|---|
-| D1 | `planClose()` read-only planner + CLI dry run | ☐ Not started | |
-| D2 | `executeClose()` fee-sponsored close on testnet | ☐ Not started | |
-| D3 | Edge cases, fixture account, baseline recording, test matrix | ☐ Not started | |
-| D4 | README, integration notes, write-up, 60s demo, evidence package | ☐ Not started | |
+| D1 | `planClose()` read-only planner + CLI dry run | ☑ Done (2026-09-26) | [evidence/plan/fixture-plan.txt](evidence/plan/fixture-plan.txt), [evidence/README.md](evidence/README.md#sow-61-row-by-row) |
+| D2 | `executeClose()` fee-sponsored close on testnet | ☑ Done (2026-09-28); the 60-second video is tracked under D4 | [evidence/runs/20260928T112252Z-e3-cli/summary.md](evidence/runs/20260928T112252Z-e3-cli/summary.md), [evidence/README.md](evidence/README.md#the-transaction-chain-of-the-metric-close) |
+| D3 | Edge cases, fixture account, baseline recording, test matrix | ◐ In progress: fixture, edge cases and test matrix done; baseline recording pending (the builder's) | [docs/test-matrix.md](docs/test-matrix.md), [evidence/baseline/README.md](evidence/baseline/README.md) |
+| D4 | README, integration notes, write-up, 60s demo, evidence package | ◐ In progress: README, integration notes, write-up and evidence package done; 60-second video and npm publish pending (the builder's) | [README.md](README.md), [docs/integration-notes.md](docs/integration-notes.md), [docs/write-up.md](docs/write-up.md), [evidence/README.md](evidence/README.md) |
 
 ## Appendix B — Success Metric Checklist (binary, no partial credit)
 
-- [ ] Fixture account on testnet holds **zero spendable XLM**
-- [ ] Fixture holds **at least 3 trustlines with non-zero balances**
-- [ ] Fixture holds **at least 1 open offer**
-- [ ] Fixture holds **at least 1 data entry**
-- [ ] Every transaction in the close is **fee-bumped by the sponsor** (closed account pays no fee)
-- [ ] The account **no longer exists** on a public testnet explorer
-- [ ] The full transaction chain is linkable from the evidence package
+- [x] Fixture account on testnet holds **zero spendable XLM** ([fixture-verification.json](evidence/runs/20260928T112252Z-e3-cli/fixture-verification.json))
+- [x] Fixture holds **at least 3 trustlines with non-zero balances** ([fixture-verification.json](evidence/runs/20260928T112252Z-e3-cli/fixture-verification.json))
+- [x] Fixture holds **at least 1 open offer** ([fixture-verification.json](evidence/runs/20260928T112252Z-e3-cli/fixture-verification.json))
+- [x] Fixture holds **at least 1 data entry** ([fixture-verification.json](evidence/runs/20260928T112252Z-e3-cli/fixture-verification.json))
+- [x] Every transaction in the close is **fee-bumped by the sponsor** (closed account pays no fee) ([tx-1.json](evidence/runs/20260928T112252Z-e3-cli/tx-1.json), [tx-2.json](evidence/runs/20260928T112252Z-e3-cli/tx-2.json), [tx-3.json](evidence/runs/20260928T112252Z-e3-cli/tx-3.json))
+- [x] The account **no longer exists** on a public testnet explorer ([account-after.json](evidence/runs/20260928T112252Z-e3-cli/account-after.json), [explorer](https://stellar.expert/explorer/testnet/account/GCPPFHGLKA7GCBWJXBH4EXFXS3OXAMXFLOBAZLU2K3KKMO6JKZORNFW7))
+- [x] The full transaction chain is linkable from the evidence package ([evidence/README.md](evidence/README.md#the-transaction-chain-of-the-metric-close))
