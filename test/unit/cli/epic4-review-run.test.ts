@@ -1,6 +1,11 @@
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { Keypair } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
+import { exitCodeFor } from "../../../src/cli/exit-codes.js";
 import { run } from "../../../src/cli/run.js";
+import { DustinError } from "../../../src/errors/dustin-error.js";
 import { zeroSpendableWorld, type World } from "./close-world.js";
 
 // Epic 4 closing review, run() and the command line. Each test is named after its finding ID and
@@ -205,5 +210,37 @@ describe("AC-2: --no-color and NO_COLOR are accepted and change nothing", () => 
     const help = await runCli(["--help"]);
     expect(help.out).toContain("--no-color");
     expect(help.out.replace(/\s+/g, " ")).toContain("Dustin never prints colour");
+  });
+});
+
+describe("D-4: a file that is not a fixture manifest is a validation error", () => {
+  it("D-4: fixture verify on such a file exits 2, with MANIFEST_INVALID and no request", async () => {
+    const bad = join(mkdtempSync(join(tmpdir(), "dustin-")), "manifest.json");
+    writeFileSync(bad, JSON.stringify({ kind: "not a manifest" }));
+    const requests: string[] = [];
+    const out: string[] = [];
+    const code = await run(
+      [...node, "fixture", "verify", bad],
+      { stdout: (t) => void out.push(t), stderr: (t) => void out.push(t) },
+      "0.0.0",
+      {
+        env: {},
+        fetch: (url) => {
+          requests.push(url);
+          return Promise.reject(new Error("no request expected"));
+        },
+      },
+    );
+    // Before the fix: 1, the exit code of an unexpected error.
+    expect(code).toBe(2);
+    expect(out.join("")).toContain("MANIFEST_INVALID");
+    expect(requests).toEqual([]);
+  });
+
+  it("D-4: exitCodeFor maps MANIFEST_INVALID to 2, and FRIENDBOT_FAILED stays 1", () => {
+    const error = (code: "MANIFEST_INVALID" | "FRIENDBOT_FAILED") =>
+      new DustinError(code, "x", { stage: "config" });
+    expect(exitCodeFor(error("MANIFEST_INVALID"))).toBe(2);
+    expect(exitCodeFor(error("FRIENDBOT_FAILED"))).toBe(1);
   });
 });

@@ -7,7 +7,10 @@ export const ExitCode = {
   OK: 0,
   /** Unexpected error. */
   UNEXPECTED: 1,
-  /** Usage or validation error: bad address, secret on argv, wrong key, mainnet, missing secrets. */
+  /**
+   * Usage or validation error: bad address, secret on argv, wrong key, mainnet, missing secrets, a
+   * file that is not a fixture manifest.
+   */
   USAGE: 2,
   /**
    * Nothing executed: confirmation missing or declined, blockers without --partial, or a sponsor or
@@ -34,7 +37,10 @@ export function exitCodeFor(error: DustinError): ExitCode {
   const submitted = error.details?.transactionsSubmitted;
   if (typeof submitted === "number" && submitted > 0) return ExitCode.STOPPED;
   switch (error.code) {
+    // Validation errors; a file that is not a fixture manifest is one too, not an unexpected
+    // error (Epic 4 review D-4).
     case "CONFIG_INVALID":
+    case "MANIFEST_INVALID":
     case "MAINNET_REFUSED":
     case "SECRET_IN_ARGV":
     case "MISSING_ACCOUNT_SECRET":

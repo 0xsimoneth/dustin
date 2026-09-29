@@ -25,7 +25,7 @@ Exit codes (`docs/README.md` canonical decision 5):
 |---|---|
 | 0 | plan printed, or account closed and verified gone |
 | 1 | unexpected error |
-| 2 | usage or validation error: bad address, secret on argv, wrong key, mainnet requested, missing secrets |
+| 2 | usage or validation error: bad address, secret on argv, wrong key, mainnet requested, missing secrets, a file that is not a fixture manifest |
 | 3 | nothing executed: no confirmation (missing or declined), blockers without `--partial`, a sponsor or budget precondition failed, or any other refusal before anything is signed (nothing to execute, a changed plan, less XLM for the destination, an interruption before the first submission) |
 | 4 | partial: everything else ran, the account still exists |
 | 5 | stopped or failed during execution; run the same command again to continue |
@@ -50,7 +50,7 @@ An error or a stop after something was submitted is always 5, whatever its code.
 | `FRIENDBOT_FAILED` | Friendbot could not fund a fixture account, or Horizon did not show it funded (fixture commands) | build | 1, or 5 after a build submission | Friendbot may be rate-limited or down: wait a minute, then run the fixture command again. |
 | `FIXTURE_STEP_FAILED` | A fixture build transaction failed on the ledger | submit | 1, or 5 after a build submission | Look the step's transaction up on the explorer, then build a fresh fixture with `dustin fixture create`. |
 | `FIXTURE_INVALID` | A built fixture does not pass its own verification | build | 1, or 5 after a build submission | Build a fresh fixture with `dustin fixture create`. |
-| `MANIFEST_INVALID` | `fixture verify` got a file that is not a Dustin fixture manifest | config | 1 | Pass the `manifest.json` that `dustin fixture create` wrote, unchanged. |
+| `MANIFEST_INVALID` | `fixture verify` got a file that is not a Dustin fixture manifest: a validation error, like a bad address (Epic 4 review D-4) | config | 2 | Pass the `manifest.json` that `dustin fixture create` wrote, unchanged. |
 | `INVALID_ADDRESS` | An address is not a valid G (or, for the destination, M) address, a destination is missing, or the account, destination and fee sponsor are not distinct where they must be | inspect, plan, config | 2 | Check the address: a classic account is 56 characters starting with G; a destination may also be a muxed M... address. |
 | `CONTRACT_ACCOUNT` | A contract (C...) address was given; out of scope | inspect | 2 | Pass a classic G... account. |
 | `TOO_MANY_OPERATIONS` | A transaction would hold more than 100 operations (defence in depth; the planner never does it) | build | 1 | This is a bug; report it with the plan. |
