@@ -787,6 +787,8 @@ Implementation binds to `@stellar/stellar-sdk`: `Horizon.Server` for reads and s
 
 ## 8. Ordering rules and grouping (normative)
 
+Note (2026-09-29): the write-up, the code comments and the story records number the ordering rules as architecture section 5.1 does, R1 to R9 (decision D-14); the rules below say the same things in a different order. Two of them are overridden by canonical decisions in `docs/README.md`: R7, by decision 6 (each market-dependent sale runs in a transaction of its own, and the merge joins the cleanup only when there is no sale), and R10, by decision 7 (the inner fee is 0 and the fee bump pays everything).
+
 - **R1. Offers first.** Cancel every open offer (sell and buy) before any disposal or trustline removal: offers lock balances as liabilities, `ChangeTrust` limit 0 fails while buying liabilities exist, and a path payment must not cross the Account's own offers.
 - **R2. Dispose before removing.** Every Dust balance is disposed of before its trustline is removed; `ChangeTrust` limit 0 requires a zero balance.
 - **R3. Ladder order.** Per balance: `path_payment`, then `return_to_issuer`, then `send_to_destination`, then `unclosable`. Preconditions are in FR-03; execution-time fallback follows the same order.
@@ -998,6 +1000,7 @@ Candidates only; none is committed, scheduled, or budgeted.
 - D-11 (2026-09-28, builder, review finding CA-18): `close --execute` asks for a missing secret with a hidden prompt when standard input is a terminal (E4-S2); canonical decision 4 no longer lists a file as a secret source.
 - D-12 (2026-09-28, builder, review decision 4): third-party work is cited by project name and URL; prose names no third-party user or organisation handle (canonical decision 15 in `docs/README.md`).
 - D-13 (2026-09-28, builder): section 6 of this document and section 4.9 of the architecture list only the commands and options that are built; the rest was removed rather than marked "not built".
+- D-14 (2026-09-28, builder, the Epic 4 session brief): the write-up states the ordering rules as R1 to R9, numbered as architecture section 5.1 numbers them (story E4-S5 asked for "six ordering rules"; section 8 below keeps its own numbering, mapped in its note); and the demo rehearsal script lives in `docs/demo-video-script.md`, linked from `evidence/demo/README.md` (AC-E4-S6-3 named `evidence/demo/script.md`).
 
 ## Assumptions
 
