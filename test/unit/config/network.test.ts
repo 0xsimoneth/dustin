@@ -60,6 +60,36 @@ describe("resolveConfig", () => {
   });
 });
 
+describe("D-7: an explorer base that names another network is refused", () => {
+  it("D-7: stellar.expert's public and futurenet explorers are MAINNET_REFUSED", () => {
+    for (const explorerBaseUrl of [
+      "https://stellar.expert/explorer/public",
+      "https://stellar.expert/explorer/PUBLIC/",
+      "https://stellar.expert/explorer/futurenet",
+      "https://mainnet.example.org/explorer",
+      "https://example.org/pubnet",
+    ]) {
+      // Before the fix it was accepted, so receipts linked to mainnet pages.
+      expect(() => resolveConfig({ explorerBaseUrl }), explorerBaseUrl).toThrow(
+        expect.objectContaining({ code: "MAINNET_REFUSED", stage: "config" }),
+      );
+    }
+  });
+
+  it("D-7: the default, a testnet explorer and a local one are accepted", () => {
+    for (const explorerBaseUrl of [
+      DEFAULT_EXPLORER_BASE,
+      "https://testnet.lumenscan.io",
+      "https://example.org/testnet",
+      "http://localhost:8000/explorer",
+    ]) {
+      expect(resolveConfig({ explorerBaseUrl }).explorerBaseUrl, explorerBaseUrl).toBe(
+        explorerBaseUrl,
+      );
+    }
+  });
+});
+
 describe("configFromEnv", () => {
   it("reads only the documented variables and never the secrets", () => {
     const env = {

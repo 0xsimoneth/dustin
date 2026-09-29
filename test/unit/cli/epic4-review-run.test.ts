@@ -244,3 +244,29 @@ describe("D-4: a file that is not a fixture manifest is a validation error", () 
     expect(exitCodeFor(error("FRIENDBOT_FAILED"))).toBe(1);
   });
 });
+
+describe("D-7: DUSTIN_EXPLORER_BASE naming another network is refused by the CLI", () => {
+  it("D-7: plan exits 2 with MAINNET_REFUSED before any request", async () => {
+    const world = zeroSpendableWorld();
+    const requests: string[] = [];
+    const err: string[] = [];
+    const code = await run(
+      [...node, "plan", world.id, "--to", world.destination],
+      { stdout: () => undefined, stderr: (t) => void err.push(t) },
+      "0.0.0",
+      {
+        env: { DUSTIN_EXPLORER_BASE: "https://stellar.expert/explorer/public" },
+        fetch: (url, init) => {
+          requests.push(url);
+          return world.ledger.fetch(url, init);
+        },
+        horizon: { retries: 0 },
+      },
+    );
+    // Before the fix: exit 0, with every link of the plan on the public network's explorer.
+    expect(code).toBe(2);
+    expect(err.join("")).toContain("MAINNET_REFUSED");
+    expect(err.join("").replace(/\s+/g, " ")).toContain("names the public network");
+    expect(requests).toEqual([]);
+  });
+});

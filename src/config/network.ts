@@ -75,14 +75,47 @@ function normaliseHttpUrl(value: string, field: string): string {
 export function resolveConfig(config: DustinConfig = {}): ResolvedConfig {
   const networkPassphrase = config.networkPassphrase ?? TESTNET_PASSPHRASE;
   assertTestnetPassphrase(networkPassphrase);
+  const explorerBaseUrl = normaliseHttpUrl(
+    config.explorerBaseUrl ?? DEFAULT_EXPLORER_BASE,
+    "The explorer base URL",
+  );
+  assertTestnetExplorer(explorerBaseUrl);
   return {
     horizonUrl: normaliseHttpUrl(config.horizonUrl ?? DEFAULT_HORIZON_URL, "The Horizon URL"),
     networkPassphrase,
-    explorerBaseUrl: normaliseHttpUrl(
-      config.explorerBaseUrl ?? DEFAULT_EXPLORER_BASE,
-      "The explorer base URL",
-    ),
+    explorerBaseUrl,
   };
+}
+
+/**
+ * The names of the other Stellar networks as an explorer URL spells them: stellar.expert's
+ * `/explorer/public` and `/explorer/futurenet` (https://stellar.expert/explorer/public), or a host
+ * such as `mainnet.` or `futurenet.`.
+ */
+const OTHER_NETWORKS = new Set(["public", "pubnet", "mainnet", "futurenet"]);
+
+/**
+ * Refuses an explorer base URL that names a network other than the testnet (Epic 4 review D-7):
+ * with `DUSTIN_EXPLORER_BASE=https://stellar.expert/explorer/public` every receipt and report
+ * linked to mainnet pages, where the testnet hashes and accounts do not exist or are someone
+ * else's. A host label or a path segment that is one of those names is refused, MAINNET_REFUSED;
+ * any other explorer, the default and a local one included, is taken as it is.
+ */
+function assertTestnetExplorer(explorerBaseUrl: string): void {
+  const url = new URL(explorerBaseUrl);
+  const words = [...url.hostname.split("."), ...url.pathname.split("/")].map((w) =>
+    w.toLowerCase(),
+  );
+  const named = words.find((w) => OTHER_NETWORKS.has(w));
+  if (named === undefined) return;
+  throw new DustinError(
+    "MAINNET_REFUSED",
+    `The explorer base URL ${explorerBaseUrl} names the ${named} network; Dustin is testnet-only in this release, so its links must point at testnet pages.`,
+    {
+      stage: "config",
+      remedy: `Leave DUSTIN_EXPLORER_BASE (config.explorerBaseUrl with the SDK) out to use ${DEFAULT_EXPLORER_BASE}, or point it at a testnet explorer.`,
+    },
+  );
 }
 
 /** Reads the documented non-secret variables. Secrets are never read here. */
