@@ -29,8 +29,8 @@ import {
 } from "./json-schema.js";
 import { closeCli, emptyDir, executeArgs, zeroSpendableWorld, type Fetch } from "./close-world.js";
 
-// AC-E4-S1-2 (story E4-S1): the `--json` output validates against docs/plan-schema.json and
-// docs/receipt-schema.json (JSON Schema draft 2020-12). Every plan and report of the offline
+// AC-E4-S1-2 (story E4-S1): the `--json` output validates against schemas/plan-schema.json and
+// schemas/receipt-schema.json (JSON Schema draft 2020-12). Every plan and report of the offline
 // fixtures below is validated in strict mode, where a property the schema does not list is an
 // error, so the schemas stay complete as the code grows.
 
@@ -62,14 +62,28 @@ describe("the validator itself", () => {
   });
 
   it("declares draft 2020-12 in both schemas", () => {
-    for (const file of ["docs/plan-schema.json", "docs/receipt-schema.json"]) {
+    for (const file of ["schemas/plan-schema.json", "schemas/receipt-schema.json"]) {
       const schema = JSON.parse(readFileSync(file, "utf8")) as { $schema: string };
       expect(schema.$schema, file).toBe("https://json-schema.org/draft/2020-12/schema");
     }
   });
+
+  it("ships both schemas in the npm package, exported as stellar-dustin/schemas/* (PRD D-17, FR-10, FR-30)", () => {
+    const pkg = JSON.parse(readFileSync("package.json", "utf8")) as {
+      files: string[];
+      exports: Record<string, unknown>;
+    };
+    expect(pkg.files).toContain("schemas");
+    expect(pkg.exports["./schemas/*"]).toBe("./schemas/*");
+    for (const file of ["schemas/plan-schema.json", "schemas/receipt-schema.json"]) {
+      const schema = JSON.parse(readFileSync(file, "utf8")) as { $id: string };
+      // The $id names the file where it lives, so its relative $refs resolve next to it.
+      expect(schema.$id, file).toBe(`https://github.com/0xsimoneth/dustin/blob/main/${file}`);
+    }
+  });
 });
 
-describe("docs/plan-schema.json and the plans of the offline fixtures", () => {
+describe("schemas/plan-schema.json and the plans of the offline fixtures", () => {
   it("validates the recorded messy fixture's plan, and its variants", () => {
     expectPlan(planFromSnapshot(base, { ...opts(), baseFeeStroops: 100 }), "messy");
     expectPlan(
@@ -146,7 +160,7 @@ function harnessWithout() {
   return h.deps;
 }
 
-describe("docs/receipt-schema.json and the reports of the offline fixture runs", () => {
+describe("schemas/receipt-schema.json and the reports of the offline fixture runs", () => {
   it("validates a close, every copy published while it ran, and the plans it emitted", async () => {
     const { deps, plan } = harness();
     const copies: CloseReport[] = [];

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/0xsimoneth/dustin/blob/main/docs/receipt-schema.json",
+  "$id": "https://github.com/0xsimoneth/dustin/blob/main/schemas/receipt-schema.json",
   "title": "Dustin close report",
   "description": "The CloseReport that executeClose() returns, that `dustin close --execute --json` prints and that `--report` keeps (schemaVersion 1; PRD section 7, src/execute/report.ts). Copies published while a run is in progress carry the status \"running\". Amounts are decimal strings with 7 decimals; fees are whole stroops. A later minor version may add fields, so this schema allows unknown properties; the repository's tests validate the reports of the offline fixture runs against it in a strict mode that refuses them, so the schema lists every field the code writes (story E4-S1, AC-E4-S1-2). Plan types come from plan-schema.json.",
   "type": "object",

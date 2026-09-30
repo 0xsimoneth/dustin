@@ -1,6 +1,6 @@
 // Verifies the built package the way a consumer sees it: ESM import, CommonJS require,
-// the `dustin` binary, and the exact file list `npm pack` would publish.
-// Run after `npm run build`.
+// the `dustin` binary, the JSON schemas it publishes (PRD decision D-17), and the exact file
+// list `npm pack` would publish. Run after `npm run build`.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -21,6 +21,20 @@ async function checkEntryPoints() {
   }
 }
 
+/** The two schemas resolve through the package's exports and are the published documents. */
+function checkSchemas() {
+  for (const name of ["plan-schema.json", "receipt-schema.json"]) {
+    const path = require.resolve(`stellar-dustin/schemas/${name}`);
+    const schema = JSON.parse(readFileSync(path, "utf8"));
+    assert.equal(schema.$schema, "https://json-schema.org/draft/2020-12/schema", name);
+    assert.equal(
+      schema.$id,
+      `https://github.com/0xsimoneth/dustin/blob/main/schemas/${name}`,
+      name,
+    );
+  }
+}
+
 function checkBinary() {
   const bin = fileURLToPath(new URL(`../${pkg.bin.dustin}`, import.meta.url));
   const help = spawnSync(process.execPath, [bin, "--help"], { encoding: "utf8" });
@@ -37,7 +51,8 @@ function checkTarball() {
     execFileSync("npm", ["pack", "--dry-run", "--json", "--ignore-scripts"], { encoding: "utf8" }),
   );
   const files = report.files.map((f) => f.path).sort();
-  const allowed = /^(package\.json|README\.md|LICENSE|CHANGELOG\.md|dist\/.+)$/;
+  const allowed =
+    /^(package\.json|README\.md|LICENSE|CHANGELOG\.md|dist\/.+|schemas\/(plan|receipt)-schema\.json)$/;
   const unexpected = files.filter((f) => !allowed.test(f));
   assert.deepEqual(unexpected, [], `unexpected files in the tarball: ${unexpected.join(", ")}`);
   for (const required of [
@@ -49,6 +64,9 @@ function checkTarball() {
     "dist/index.d.ts",
     "dist/index.d.cts",
     "dist/cli/main.js",
+    "CHANGELOG.md",
+    "schemas/plan-schema.json",
+    "schemas/receipt-schema.json",
   ]) {
     assert.ok(files.includes(required), `missing from the tarball: ${required}`);
   }
@@ -64,6 +82,7 @@ function checkTarball() {
 }
 
 await checkEntryPoints();
+checkSchemas();
 checkBinary();
 const files = checkTarball();
 console.log(`package check passed (${files.length} files): ${files.join(", ")}`);

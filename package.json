@@ -35,13 +35,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./schemas/*": "./schemas/*",
     "./package.json": "./package.json"
   },
   "bin": {
     "dustin": "dist/cli/main.js"
   },
   "files": [
-    "dist"
+    "dist",
+    "schemas",
+    "CHANGELOG.md"
   ],
   "engines": {
     "node": ">=22.12.0"

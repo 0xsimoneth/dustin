@@ -20,7 +20,7 @@ cd ../your-wallet
 npm install ../dustin/stellar-dustin-<version>.tgz
 ```
 
-The JSON documents the SDK and the CLI produce are described by [plan-schema.json](plan-schema.json) (the `ClosePlan`) and [receipt-schema.json](receipt-schema.json) (the `CloseReport`), both JSON Schema draft 2020-12. They allow properties they do not list, so a later minor version may add fields; the offline tests validate every plan and report of the fixtures against them in a strict mode (story E4-S1).
+The JSON documents the SDK and the CLI produce are described by [plan-schema.json](../schemas/plan-schema.json) (the `ClosePlan`) and [receipt-schema.json](../schemas/receipt-schema.json) (the `CloseReport`), both JSON Schema draft 2020-12. Both ship in the npm package (PRD decision D-17) and resolve through it: `require.resolve("stellar-dustin/schemas/plan-schema.json")`, or `import planSchema from "stellar-dustin/schemas/plan-schema.json" with { type: "json" }` in an ES module. They allow properties they do not list, so a later minor version may add fields; the offline tests validate every plan and report of the fixtures against them in a strict mode (story E4-S1).
 
 ## 2. The flow in one diagram
 
@@ -231,7 +231,7 @@ Every numeric option is checked before anything is read or signed; a value out o
 
 ### 6.4 The report
 
-`executeClose` returns a `CloseReport` ([receipt-schema.json](receipt-schema.json)):
+`executeClose` returns a `CloseReport` ([receipt-schema.json](../schemas/receipt-schema.json)):
 
 | Field | Meaning |
 |---|---|
@@ -450,7 +450,7 @@ Details of the options:
 ## Sources
 
 - Exported API: `src/index.ts`; types in `src/plan/model.ts`, `src/execute/executor.ts`, `src/execute/report.ts`, `src/execute/events.ts`, `src/execute/verify.ts`, `src/sponsor/signer.ts`, `src/errors/dustin-error.ts`; the normative names: [PRD section 7](prd.md)
-- Every error and stop code: [errors.md](errors.md); the JSON schemas: [plan-schema.json](plan-schema.json), [receipt-schema.json](receipt-schema.json); the CLI's machine mode: [PRD section 6](prd.md)
+- Every error and stop code: [errors.md](errors.md); the JSON schemas: [plan-schema.json](../schemas/plan-schema.json), [receipt-schema.json](../schemas/receipt-schema.json); the CLI's machine mode: [PRD section 6](prd.md)
 - Decisions: [canonical decisions](README.md); PRD decisions D-1 to D-13 in [prd.md](prd.md)
 - Error taxonomy: [ADR-0006](adr/ADR-0006-error-taxonomy.md); fee bumps: [ADR-0003](adr/ADR-0003-fee-bump-every-transaction.md)
 - Fee-bump transactions (fee account, validity, sequence number from the inner source): https://developers.stellar.org/docs/build/guides/transactions/fee-bump-transactions

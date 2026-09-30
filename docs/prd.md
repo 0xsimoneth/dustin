@@ -124,6 +124,8 @@ Acceptance:
 - A synthetic inventory with 150 offers and 3 trustlines produces 2 transactions, the first with exactly 100 operations, the merge last in the second.
 - No Planned Transaction exceeds 100 operations; every step has a `txIndex`.
 
+As built (canonical decision 6 in `docs/README.md`, which overrides this requirement's single transaction; PRD decision D-17): the deterministic cleanup (the offer cancellations, the returns to issuers and transfers to the destination, the removals of the emptied trustlines, the data deletion) fills fee-bumped transactions of up to 100 operations without splitting a step and its pair; each market-dependent path payment runs with its trustline removal in a transaction of its own; the merge joins the last cleanup transaction when the plan sells nothing and there is room, and otherwise runs alone, last, after a fresh preflight (and alone whenever it waits for the sequence guard, FR-14). Fixture A therefore plans three transactions, the cleanup (9 operations), the sale of DUSTA (2) and the merge (1), as the metric close on the 0.1.0 code shows (`evidence/runs/20260929T111408Z-e4-cli/plan.txt`); the first acceptance line reads so as built, and the other two hold as written (`src/plan/grouping.ts`; `test/unit/plan/plan.test.ts`, "grouping at the 100-operation limit").
+
 #### FR-05: Per-step reason and fee estimate
 
 Every Close Step carries a human-readable `reason` (what it does, why it is needed, why this Rung) and `feeEstimateStroops = operations in step x base fee`. Every Planned Transaction carries `innerFeeStroops = ops x base fee` and `feeBumpFeeStroops = (ops + 1) x base fee`, with `feeSource = fee_sponsor`. The base fee is `max(100 stroops, value derived from Horizon GET /fee_stats)` capped by `maxBaseFeeStroops`, or an explicit override.
@@ -133,6 +135,8 @@ Acceptance:
 - Sum of step estimates plus one base fee per transaction equals `fees.totalStroops`.
 - With base fee 100 stroops, Fixture A shows inner fee 1,100 stroops and fee-bump fee 1,200 stroops (0.00012 XLM), payer = Fee Sponsor, Account pays 0.
 - The base fee never falls below 100 stroops and never exceeds the cap.
+
+As built (canonical decisions 6 and 7 in `docs/README.md`; PRD decision D-17): every reason is non-empty, but the fee figures follow the fee bump as built. The inner fee of every transaction is 0; the sponsor bids a base fee per operation, so a transaction of n operations bids base x (n + 1) as its fee-bump fee; the base fee is the larger of the last ledger's base fee and Horizon's `fee_charged` p80, at least 100 stroops and at most `maxBaseFeeStroops` (default 1,000,000), or an explicit `--base-fee` clamped the same way; and the bids of a close must fit a per-close budget (default 5 XLM) that the sponsor can cover. With canonical decision 6's three transactions, Fixture A bids base x 15 in all (10, 3 and 2 counted operations), not 1,100 and 1,200 stroops at a 100-stroop base; the account still pays 0 (`docs/write-up.md`, section 5, has the arithmetic of the metric close).
 
 #### FR-06: XLM recovery accounting
 
@@ -172,6 +176,8 @@ Acceptance:
 - Running against an arbitrary funded testnet account created during the test exits 0 with a plan whose only step is the merge.
 - `--json` output validates against the published `ClosePlan` JSON schema.
 
+As built (canonical decision 5 in `docs/README.md`, which overrides the exit codes above; PRD decision D-17): `dustin plan` exits 0 whenever it prints a plan, whatever the plan's status (`closable`, `partial` or `blocked`, which the plan and its `--json` document state); 2 for a usage or validation error (a bad address, a network other than the testnet); 6 when Horizon cannot be reached; 1 for an unexpected error. The messy fixture's plan has 12 steps in the three transactions of FR-04's note, and `--json` validates against the plan schema that ships in the package, `schemas/plan-schema.json` (D-17; `test/unit/cli/schemas.test.ts`).
+
 #### FR-10: Machine-readable plan, schema and hash
 
 The Close Plan serializes to JSON with `schemaVersion`, a published JSON schema in the package, `snapshotHash` (canonical snapshot) and `planHash` (canonical structural plan: steps, order, grouping, rungs; fee numbers excluded).
@@ -180,6 +186,8 @@ Acceptance:
 - Two `planClose()` calls on the same recorded snapshot yield byte-identical JSON except `createdAt`, and identical `planHash`.
 - A change of base fee changes `fees` but not `planHash`.
 - The schema file ships in the npm package and the JSON output validates against it.
+
+As built (PRD decision D-17, 2026-09-30): the plan's schema is `schemas/plan-schema.json` (the report's, `schemas/receipt-schema.json`); both ship in the npm package and resolve as `stellar-dustin/schemas/plan-schema.json` and `stellar-dustin/schemas/receipt-schema.json`, and `scripts/check-package.mjs` requires them in the tarball. Every plan and report of the offline fixtures validates against them in a strict mode (`test/unit/cli/schemas.test.ts`); the third acceptance line is met.
 
 ### 4.2 D2 — `executeClose()`, live on testnet
 
@@ -380,6 +388,8 @@ Acceptance:
 - `npm pack` contents include `dist/`, `schemas/`, `README.md`, `LICENSE`, and no secrets, fixtures secrets, or evidence binaries.
 - The repository is public with the `LICENSE` file at its root.
 
+As built (PRD decision D-17, 2026-09-30): `npm pack` publishes 14 files, `dist/` (ESM, CommonJS, declarations, source maps and the `dustin` binary), `schemas/plan-schema.json`, `schemas/receipt-schema.json`, `CHANGELOG.md`, `README.md`, `LICENSE` and `package.json`, and `npm run check:package` refuses any other file and any secret seed. The publish of 0.1.0 is the builder's.
+
 ## 5. Non-functional requirements
 
 - **NFR-01 Safety and dry-run guarantee.** `planClose()` never mutates state (FR-07). `executeClose()` requires `confirm: true`, refuses Plan Status other than `closable` unless `allowPartial`, refuses when Account, Destination and Fee Sponsor are not three distinct accounts, and refuses any network passphrase other than testnet in v1. Acceptance: tests T-01, T-21; a public-network passphrase yields `DustinError` before any request.
@@ -410,7 +420,7 @@ The commands and options below are the ones that are built (decision D-13); noth
 
 Secrets of `close --execute` (canonical decision 4; decision D-11): `DUSTIN_ACCOUNT_SECRET` and `DUSTIN_SPONSOR_SECRET` from the environment, else from `.env` in the working directory, else typed at a hidden prompt, which is asked only when standard input and standard error are both terminals and `--json` is not given; nothing typed is echoed or kept in a history, and Ctrl-C or the end of input counts as a missing secret (exit 2). The account's secret is asked and checked first.
 
-`--json` is machine mode (review finding AA-10; `docs/ux-design.md` section 2.8): standard output carries exactly one JSON document once the plan was shown, the report once the executor has one and otherwise the plan (closing review CC-2), matching `docs/plan-schema.json` and `docs/receipt-schema.json`. Nothing is ever asked: `close --execute --json` without `--yes` is refused with `CONFIRMATION_REQUIRED` (exit 3, the plan on standard output), and a missing secret is not prompted for. Standard error carries NDJSON only, one JSON object per line, each with a `type`:
+`--json` is machine mode (review finding AA-10; `docs/ux-design.md` section 2.8): standard output carries exactly one JSON document once the plan was shown, the report once the executor has one and otherwise the plan (closing review CC-2), matching `schemas/plan-schema.json` and `schemas/receipt-schema.json` (D-17). Nothing is ever asked: `close --execute --json` without `--yes` is refused with `CONFIRMATION_REQUIRED` (exit 3, the plan on standard output), and a missing secret is not prompted for. Standard error carries NDJSON only, one JSON object per line, each with a `type`:
 
 - the executor's events (`CloseEvent`, section 7) with their names and fields: `drift`, `preflight`, `wait`, `tx:building`, `tx:submitted`, `tx:confirmed`, `tx:failed`, `verified`, `done`; and `plan` in a compact form, `{"type":"plan","round":0,"planHash":...,"status":...,"counts":{"steps":...,"transactions":...,"unclosable":...,"blockers":...}}`;
 - `{"type":"notice","message":...}` for a note, among them the skipped confirmation, the `--report` file written or not, and a signal received;
@@ -813,6 +823,7 @@ Note (2026-09-29): the write-up, the code comments and the story records number 
 
 ## 9. Fixture specification and test matrix
 
+
 ### 9.1 Fixture A (canonical, success-metric account)
 
 | Element | Specification |
@@ -1014,6 +1025,7 @@ Candidates only; none is committed, scheduled, or budgeted.
 - D-14 (2026-09-28, builder, the Epic 4 session brief): the write-up states the ordering rules as R1 to R9, numbered as architecture section 5.1 numbers them (story E4-S5 asked for "six ordering rules"; section 8 below keeps its own numbering, mapped in its note); and the demo rehearsal script lives in `docs/demo-video-script.md`, linked from `evidence/demo/README.md` (AC-E4-S6-3 named `evidence/demo/script.md`).
 - D-15 (2026-09-29, builder, decision 1 of `docs/reviews/2026-09-29-e4-review.md` part 2): the output of story E4-S1 stays as built. Human text wraps at 120 columns (the demo terminal's width, `docs/ux-design.md` section 4), not 80; in a narrower terminal the terminal wraps the longer lines and nothing is truncated, and hashes, URLs and paths are never split. Items name an asset as `CODE (issuer GABC...WXYZ)`, the form of the ux-design mockups; `--json` carries every asset as `CODE:ISSUER` with the issuer in full. E4-S1 is done.
 - D-16 (2026-09-29, builder, decision 2 of the same review): the test images of story E4-S3 (`evidence/tests/offline.png`, `evidence/tests/testnet.png`), rendered from the captured output, stay. The builder adds a real screenshot of the GitHub Actions run page as `evidence/tests/ci-run-<run id>.png` (`evidence/tests/README.md`, "The CI screenshot"); E4-S3 is done once that image is committed.
+- D-17 (2026-09-30, builder, decision K3 of the final audit brief): the JSON schemas ship in the npm package, so FR-10 and FR-30 are met as written. They moved from `docs/` to `schemas/` (`schemas/plan-schema.json`, `schemas/receipt-schema.json`, with their `$id` following), `package.json` publishes `schemas/` and `CHANGELOG.md` beside `dist/` and exports them as `stellar-dustin/schemas/*`, and `scripts/check-package.mjs` requires both schemas in the tarball and resolves them through the package. FR-04, FR-05 and FR-09 carry "As built" notes that point to canonical decisions 5 and 6 (and 7 for the fee), which override their first acceptance lines.
 
 ## Assumptions
 

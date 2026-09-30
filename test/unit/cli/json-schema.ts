@@ -1,8 +1,8 @@
 import { readFileSync } from "node:fs";
 
 /**
- * A small JSON Schema validator for the two published schemas (docs/plan-schema.json and
- * docs/receipt-schema.json; story E4-S1, AC-E4-S1-2), so the test needs no new dependency. It
+ * A small JSON Schema validator for the two published schemas (schemas/plan-schema.json and
+ * schemas/receipt-schema.json; story E4-S1, AC-E4-S1-2), so the test needs no new dependency. It
  * implements the part of draft 2020-12 (https://json-schema.org/draft/2020-12/json-schema-core,
  * https://json-schema.org/draft/2020-12/json-schema-validation) that the schemas use: `type`,
  * `const`, `enum`, `properties`, `required`, `additionalProperties`, `items`, `minItems`,
@@ -242,15 +242,15 @@ function deepEqual(a: unknown, b: unknown): boolean {
 }
 
 export const PLAN_SCHEMA_ID =
-  "https://github.com/0xsimoneth/dustin/blob/main/docs/plan-schema.json";
+  "https://github.com/0xsimoneth/dustin/blob/main/schemas/plan-schema.json";
 export const REPORT_SCHEMA_ID =
-  "https://github.com/0xsimoneth/dustin/blob/main/docs/receipt-schema.json";
+  "https://github.com/0xsimoneth/dustin/blob/main/schemas/receipt-schema.json";
 
 /** The two published schemas, loaded and checked for unsupported keywords. */
 export function publishedSchemas(): SchemaRegistry {
   const registry = new SchemaRegistry();
-  registry.load("docs/plan-schema.json");
-  registry.load("docs/receipt-schema.json");
+  registry.load("schemas/plan-schema.json");
+  registry.load("schemas/receipt-schema.json");
   registry.assertSupported();
   return registry;
 }

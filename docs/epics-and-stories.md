@@ -632,7 +632,7 @@ So that the demo and the committed evidence are clear.
 **Acceptance Criteria:**
 
 - AC-E4-S1-1: **Then** tables wrap at 80 columns, colours honour `--no-color` and `NO_COLOR`, amounts print with 7 decimals and assets as `CODE:G...xxxx`.
-- AC-E4-S1-2: **Then** `--json` output validates against `docs/plan-schema.json` and `docs/receipt-schema.json`.
+- AC-E4-S1-2: **Then** `--json` output validates against `docs/plan-schema.json` and `docs/receipt-schema.json` (since PRD decision D-17 of 2026-09-30, `schemas/plan-schema.json` and `schemas/receipt-schema.json`, shipped in the package).
 - AC-E4-S1-3: **Then** exit codes follow UX-DR4 and `dustin --version` prints the package version.
 - AC-E4-S1-4: **Then** CLI output is snapshot-tested for the fixture plan and a receipt.
 
