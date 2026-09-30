@@ -90,5 +90,19 @@ Latest ledger before the close 4931384, after it 4931388.
 - `tx-1.json`: Horizon's record of transaction 1, 835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b.
 - `tx-2.json`: Horizon's record of transaction 2, c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61.
 - `tx-3.json`: Horizon's record of transaction 3, dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2.
+- `explorer-account.png`, `explorer-tx-1.png` to `explorer-tx-3.png`, `horizon-account-404.png`, `screenshots.json`: the public pages of this close, captured on 2026-09-30 by `node scripts/demo/explorer-shots.mjs` (below).
 
-Explorer and Horizon links resolve only until the next testnet reset (scheduled for 2026-12-16), which deletes every account and transaction; the JSON, the XDR and the transcripts in this directory are the durable record.
+Explorer and Horizon links resolve only until the next testnet reset (scheduled for 2026-12-16), which deletes every account and transaction; the JSON, the XDR, the transcripts and the screenshots in this directory are the durable record.
+
+## Screenshots
+
+Captured on 2026-09-30 between 15:37 and 15:38 UTC with `node scripts/demo/explorer-shots.mjs --playwright <directory where playwright is installed> evidence/runs/20260929T111408Z-e4-cli` (Chromium through Playwright, the whole page at 1920 pixels wide; a strip above each page names its URL and the time it was captured; [`screenshots.json`](screenshots.json) lists them):
+
+| File | Page | What it shows |
+|---|---|---|
+| [`explorer-account.png`](explorer-account.png) | StellarExpert, the closed account | "Account (deleted)", "Balances unavailable", and the account's history, newest first: the merge into the destination, the sale of DUSTA, the cleanup, then the fixture's build |
+| [`explorer-tx-1.png`](explorer-tx-1.png) | StellarExpert, transaction 1 | Successful in ledger 4931386; source account the closed account; fee source account the fee sponsor; fee charged 0.0001 XLM; its nine operations, all shown |
+| [`explorer-tx-2.png`](explorer-tx-2.png) | StellarExpert, transaction 2 | Successful in ledger 4931387; the strict-send sale of 0.0000007 DUSTA and the trustline's removal; fee source the fee sponsor |
+| [`explorer-tx-3.png`](explorer-tx-3.png) | StellarExpert, transaction 3 | Successful in ledger 4931388; the merge into the destination; fee source the fee sponsor |
+| [`horizon-account-404.png`](horizon-account-404.png) | Horizon, the closed account | HTTP 404, "Resource Missing" |
+

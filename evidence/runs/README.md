@@ -37,6 +37,7 @@ Older labels: `-cli` is the week-2 close through the command line; `-b03-rehears
 | `tx-<n>.json` | Horizon `GET /transactions/{hash}` for the n-th submitted transaction of the close: `fee_account` is the fee sponsor and `source_account` the account. `null` for an envelope that never reached the ledger. |
 | `account-after.json` | Horizon `GET /accounts/{account}` after the close: HTTP 404 and Horizon's error body for a closed account, or HTTP 200 and the account for a partial close. |
 | `balances.json` | XLM balance, `num_sponsoring` and trustlines of each role (the destination, the reserve sponsor, the fee sponsor, and for a partial close the account) before and after the close, and the latest ledger before and after it. |
+| `explorer-account.png`, `explorer-tx-<n>.png`, `horizon-account-404.png`, `screenshots.json` | So far the metric close on the 0.1.0 code (`20260929T111408Z-e4-cli`): its public pages, captured by `node scripts/demo/explorer-shots.mjs --playwright <directory where playwright is installed> <run directory>` before the testnet reset: StellarExpert's page of the account and of each transaction (every operation shown), and Horizon's answer for the account, each whole page under a strip with its URL and the time it was captured. |
 
 ## Reproduce a run
 

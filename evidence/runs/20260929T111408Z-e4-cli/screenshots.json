@@ -1,0 +1,32 @@
+[
+  {
+    "file": "explorer-account.png",
+    "url": "https://stellar.expert/explorer/testnet/account/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT",
+    "capturedAt": "2026-09-30T15:37:28Z",
+    "shows": "the closed account on StellarExpert: Account (deleted), no balances, and its history, the merge first"
+  },
+  {
+    "file": "explorer-tx-1.png",
+    "url": "https://stellar.expert/explorer/testnet/tx/835457ceff4b0443ec52ebbb408edc8988627e5de8442d28dda85b3331b52a5b",
+    "capturedAt": "2026-09-30T15:37:35Z",
+    "shows": "transaction 1 on StellarExpert: successful, the closed account as its source, the fee sponsor as its fee source, every operation"
+  },
+  {
+    "file": "explorer-tx-2.png",
+    "url": "https://stellar.expert/explorer/testnet/tx/c6c99beddca7685293bdb0e156e320cbb4189e4247e4451578b60e82ba76de61",
+    "capturedAt": "2026-09-30T15:37:41Z",
+    "shows": "transaction 2 on StellarExpert: successful, the closed account as its source, the fee sponsor as its fee source, every operation"
+  },
+  {
+    "file": "explorer-tx-3.png",
+    "url": "https://stellar.expert/explorer/testnet/tx/dd56e18f152dc7f15ee370dce9b8ddae556e90f04dd1cd52fe3281df4bf118e2",
+    "capturedAt": "2026-09-30T15:37:46Z",
+    "shows": "transaction 3 on StellarExpert: successful, the closed account as its source, the fee sponsor as its fee source, every operation"
+  },
+  {
+    "file": "horizon-account-404.png",
+    "url": "https://horizon-testnet.stellar.org/accounts/GCIVEA6YVJCSYE2Y7V2IUEYATOO36X7GQOAYNOI2MDNOW7HI4LPJVKZT",
+    "capturedAt": "2026-09-30T15:37:49Z",
+    "shows": "Horizon's answer for the closed account: HTTP 404, Resource Missing"
+  }
+]
