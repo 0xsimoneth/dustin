@@ -7,8 +7,8 @@ Thank you for helping. Dustin closes accounts, which cannot be undone, so the ru
 - **Testnet only.** Never add mainnet configuration, a mainnet passphrase or a mainnet Horizon URL. The SDK refuses any network but `Test SDF Network ; September 2015`, and a change that weakens that check is not accepted.
 - **The safety model is fixed** ([README](README.md#safety-model)): dry run by default; the merge is last and only after every pre-merge check; the account signs the inner transactions and the sponsor signs only the fee-bump envelopes; secrets never reach output, reports or `--json`; testnet only.
 - **Never commit a secret.** `.env` and `.fixture/` are gitignored; `.env.example` is the template. `.env` holds secret keys, so make it readable only by you (`chmod 600 .env` after copying the template). Never pass a secret on the command line, and never paste an `S...` key into an issue, a test or a document. CI scans every file for seed-shaped strings.
-- **English only**, in code, comments, commit messages and documents.
-- **Evidence is history.** Files under `evidence/runs/` are records of live runs: add a new run directory, never edit an existing one.
+- **English only**, in code, comments, commit messages and documents. One exception: [`docs/runbooks/chapter-lead-message.md`](docs/runbooks/chapter-lead-message.md) also carries a Turkish copy of the message to the Stellar Türkiye chapter lead, for the builder to send in the language they share; its English copy is the reference.
+- **Evidence is history.** Files under `evidence/runs/` are records of live runs: a new run gets a new directory, and what a run recorded is never changed. A later capture of the same run, such as the screenshots of its public pages taken on 2026-09-30 before the testnet reset, is added beside it and says when it was taken.
 
 ## Set up and test
 

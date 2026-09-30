@@ -1,6 +1,8 @@
 # Dustin planning documents
 
-Planning package for Dustin, the Stellar Instaward project defined in the accepted Statement of Work (`../SUCCESSFUL_SOW.md`). Everything here was produced on 2026-09-25 with the stellar-build methodology skills and personas, with protocol facts grounded through the Raven MCP against developers.stellar.org, the stellar-protocol CAPs, stellar-core and js-stellar-sdk sources, and live testnet probes. Nothing has been built yet; the sprint has not started.
+Planning package for Dustin, the Stellar Instaward project defined in the accepted Statement of Work (`../SUCCESSFUL_SOW.md`). Everything here was produced on 2026-09-25 with the stellar-build methodology skills and personas, with protocol facts grounded through the Raven MCP against developers.stellar.org, the stellar-protocol CAPs, stellar-core and js-stellar-sdk sources, and live testnet probes. It is the plan of record: the canonical decisions below override any sentence that disagrees with them, and the code follows them.
+
+**State on 2026-09-30 (sprint day 9 of 30; final deadline 2026-10-22).** The code is built and prepared as `stellar-dustin` 0.1.0 (SDK, CLI `dustin`, and `stellar-dustin/testing`), the SOW's success metric is met and recorded on testnet, the test matrix, the write-up, the integration notes and the evidence package are written, and the 60-second video is produced. What is left is the builder's: the baseline recording, the CI screenshot, approving the video, the chapter lead's acknowledgement and the npm publish with the release ([`HANDOFF.md`](HANDOFF.md)). The current status is in the [README](../README.md) and the [evidence package](../evidence/README.md); the account of each session is in [`progress-log.md`](progress-log.md).
 
 The SOW is the contract. Where a document below proposes something the SOW does not require, it is labelled "stretch (outside SOW)".
 
@@ -66,11 +68,11 @@ The documents were written in parallel and disagree in a few places. The followi
 
 ## Open questions for the builder and the chapter lead
 
-1. Resolved: funds were received on 2026-09-22 and the final deadline is 2026-10-22. Week dates are in the calendar below; today (2026-09-25) is day 4 with no code written yet, so Epic 0 and the fixture must start immediately.
+1. Resolved: funds were received on 2026-09-22 and the final deadline is 2026-10-22. Week dates are in the calendar below.
 2. Written acknowledgement of the two-fixture reading of week 3 (decision 3).
 3. Resolved on 2026-09-26 by the day-1 experiment (`progress-log.md`, row 4): a payment to an issuer that has been merged away succeeds and burns the balance, and trustlines to it can still be deleted. Return to issuer therefore needs only an authorized holder trustline; the `op_no_destination` expectation in `technical-spike.md` was wrong.
 4. Resolved: ladder policy is decision 8 (SOW order by default, `--prefer-destination` as an option), approved 2026-09-25.
-5. Publishing identity: the npm organisation or prefix, matching the repository's pseudonymous identity, plus 2FA.
+5. Resolved by decision 2: the package is `stellar-dustin` (binary `dustin`), published by the builder under the repository's pseudonymous identity, with 2FA (`runbooks/release.md`).
 6. Video hosting for the 60-second demo, and whether the raw take is archived in the repository. Proposed on 2026-09-29: the MP4 as an asset of the `v0.1.0` GitHub release, linked from the README and the evidence package (`runbooks/release.md`, step 4), and the raw take archived in the repository as its terminal recordings, captions, key frames and record (`evidence/demo/take-*/`); the builder approves the video and uploads it.
 7. After the sprint: follow-on Instaward versus SCF Build Award, and whether Instaward funding counts toward the SCF lifetime cap (`next-steps/scf-path.md`; SCF #46 Build submission deadline is 2026-11-08).
 

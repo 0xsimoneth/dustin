@@ -56,7 +56,8 @@ filter-repo refuses to run outside a fresh clone, and a fresh clone keeps the wo
 
 ```bash
 W="$(mktemp -d)"                       # scratch workspace; the input files stay here, outside any repository
-git clone git@github-work:0xsimoneth/dustin.git "$W/dustin"
+ORIGIN="$(git remote get-url origin)"  # in the usual working copy: the origin remote as configured locally
+git clone "$ORIGIN" "$W/dustin"
 cd "$W/dustin"
 git config user.name 0xsimoneth
 git config user.email 333815469+0xsimoneth@users.noreply.github.com
@@ -144,12 +145,12 @@ git add -u && git commit -m "Docs: the commit hashes cited in the documents rema
 
 ## Step 7: push over GitHub
 
-filter-repo may have removed the `origin` remote, as a guard against pushing by accident. Put it back exactly as the repository rules require, then push every ref:
+filter-repo may have removed the `origin` remote, as a guard against pushing by accident. Put it back as the origin remote configured locally in the usual working copy (`$ORIGIN` of step 2), then push every ref:
 
 ```bash
 git remote -v
-git remote get-url origin >/dev/null 2>&1 || git remote add origin git@github-work:0xsimoneth/dustin.git
-git remote get-url origin        # git@github-work:0xsimoneth/dustin.git, never git@github.com:...
+git remote get-url origin >/dev/null 2>&1 || git remote add origin "$ORIGIN"
+git remote get-url origin        # the same URL as the usual working copy's origin, never another host or account
 git push --force --mirror origin
 ```
 
