@@ -1,0 +1,46 @@
+{
+  "_links": {
+    "self": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GC6ZX4GCHOHZBSNKMPNSPO2FXNBVRVSPUOMCN5KP7JIJZDRMF2XUAACV/operations?cursor=&limit=1&order=desc"
+    },
+    "next": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GC6ZX4GCHOHZBSNKMPNSPO2FXNBVRVSPUOMCN5KP7JIJZDRMF2XUAACV/operations?cursor=21272406081417217&limit=1&order=desc"
+    },
+    "prev": {
+      "href": "https://horizon-testnet.stellar.org/accounts/GC6ZX4GCHOHZBSNKMPNSPO2FXNBVRVSPUOMCN5KP7JIJZDRMF2XUAACV/operations?cursor=21272406081417217&limit=1&order=asc"
+    }
+  },
+  "_embedded": {
+    "records": [
+      {
+        "_links": {
+          "self": {
+            "href": "https://horizon-testnet.stellar.org/operations/21272406081417217"
+          },
+          "transaction": {
+            "href": "https://horizon-testnet.stellar.org/transactions/3b6bd13146034ea60e6b74a496fff40071af68dd7ef39a30ee474af823ca2e50"
+          },
+          "effects": {
+            "href": "https://horizon-testnet.stellar.org/operations/21272406081417217/effects"
+          },
+          "succeeds": {
+            "href": "https://horizon-testnet.stellar.org/effects?order=desc&cursor=21272406081417217"
+          },
+          "precedes": {
+            "href": "https://horizon-testnet.stellar.org/effects?order=asc&cursor=21272406081417217"
+          }
+        },
+        "id": "21272406081417217",
+        "paging_token": "21272406081417217",
+        "transaction_successful": true,
+        "source_account": "GC6ZX4GCHOHZBSNKMPNSPO2FXNBVRVSPUOMCN5KP7JIJZDRMF2XUAACV",
+        "type": "account_merge",
+        "type_i": 8,
+        "created_at": "2026-09-30T17:05:27Z",
+        "transaction_hash": "3b6bd13146034ea60e6b74a496fff40071af68dd7ef39a30ee474af823ca2e50",
+        "account": "GC6ZX4GCHOHZBSNKMPNSPO2FXNBVRVSPUOMCN5KP7JIJZDRMF2XUAACV",
+        "into": "GCBM3FL3BHBJ25SMZZ2M3IA6EY3UVP24XLLJD2CR6P4KPCCS4FRCKYUA"
+      }
+    ]
+  }
+}

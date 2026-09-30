@@ -36,11 +36,11 @@ Checked by the script before it wrote anything: each transaction succeeded with 
 
 | Field | Value |
 |---|---|
-| File | `evidence/demo/dustin-demo-60s.mp4` (not in git; hosted as a release asset once the builder uploads it) |
+| File | `evidence/demo/dustin-demo-60s-take-20260929T184550Z.mp4` on the machine that made it, not in git: this first take is kept as a backup since the second take of 2026-09-30 replaced it as the video (`evidence/demo/README.md`); it was `evidence/demo/dustin-demo-60s.mp4` until then |
 | Duration | 59.80 s |
 | Size | 1920 x 1080, H.264, 30 frames per second, no sound |
 | SHA-256 | `7de0640d94ccc669efa14fdcc3d46af177874a79eaa76152c2f5ca16cdbc2f1b` |
-| Captions | burned in on a band at the top, and [`dustin-demo.srt`](../dustin-demo.srt) |
+| Captions | burned in on a band at the top, and [`dustin-demo.srt`](dustin-demo.srt) (with the GIF of this take, [`dustin-demo.gif`](dustin-demo.gif), moved into this directory on 2026-09-30) |
 
 ## The cut
 

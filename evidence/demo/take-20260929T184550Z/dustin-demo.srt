@@ -1,0 +1,35 @@
+1
+00:00:00,000 --> 00:00:05,000
+This Stellar account holds 4 XLM but cannot spend any of it, so it cannot even pay the fee to close itself.
+
+2
+00:00:05,000 --> 00:00:13,000
+Before: 4 trustlines with balances, 2 open offers, 1 data entry. All 4 XLM are locked as reserve.
+
+3
+00:00:13,000 --> 00:00:16,000
+Without a sponsor, the account cannot pay a fee: the fixture builder's own unsponsored attempt is rejected.
+
+4
+00:00:16,000 --> 00:00:26,000
+The plan is read-only. Every step has a reason. Nothing is signed yet.
+
+5
+00:00:26,000 --> 00:00:31,000
+To run it, you confirm the destination.
+
+6
+00:00:31,000 --> 00:00:44,000
+Three transactions. Every fee is paid by the sponsor. The account pays nothing.
+
+7
+00:00:44,000 --> 00:00:49,000
+Result: 4 XLM arrived at the destination. Fees paid by the account: zero.
+
+8
+00:00:49,000 --> 00:00:56,000
+After: the account no longer exists. Anyone can check this link.
+
+9
+00:00:56,000 --> 00:00:59,800
+Dustin. Read the plan, then close the account. Testnet only.

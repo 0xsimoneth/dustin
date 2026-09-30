@@ -4,7 +4,11 @@
 //   1. the terminal takes, recorded with asciinema while scripts/demo/take.exp types the commands:
 //      `dustin fixture create --profile messy`, `dustin plan ...`, `dustin close ... --execute`
 //      with the typed confirmation of the destination's last four characters;
-//   2. the browser pages before and after the close, captured with Playwright;
+//   2. the browser pages before and after the close, captured with Playwright: the account on
+//      StellarExpert's testnet explorer before the close (its balances, data entry and sponsored
+//      reserve, then its history with the two offers and the data entry being created) and after
+//      it (the page reloaded: "Account (deleted)", the merge first in its history), then
+//      Horizon's 404 for the account;
 //   3. the cut: each terminal shot rendered from its recording with agg, the pages, a title card
 //      and an end card, joined with ffmpeg into a 1920x1080 MP4 of at most 60 seconds with
 //      burned-in captions, plus the captions as an .srt sidecar and a short GIF of the close.
@@ -61,7 +65,7 @@ const ROOT = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
 const TAKE_EXP = join(ROOT, "scripts", "demo", "take.exp");
 const OUT = join(ROOT, "evidence", "demo");
 const HORIZON = "https://horizon-testnet.stellar.org";
-const STEEXP = "https://testnet.steexp.com";
+const EXPLORER = "https://stellar.expert/explorer/testnet";
 const REPOSITORY = "https://github.com/0xsimoneth/dustin";
 
 for (const tool of ["asciinema", "agg", "expect", "ffmpeg", "ffprobe"]) {
@@ -288,56 +292,77 @@ async function horizonGet(path, tries = 5) {
 
 /**
  * Captures a page as the picture of a shot: the page at 1920 x 910 (a 1536 x 728 viewport at
- * 1.25x), under a 50-pixel strip that names its URL. Each candidate is tried in order until one
- * shows `waitFor`; `zoom` enlarges a JSON page and `scrollTo` scrolls to a piece of its text.
+ * 1.25x), under a 50-pixel strip that names its URL. Each candidate is loaded until it shows
+ * every text of `waitFor` (a string or a list), up to `attempts` times (4 by default: the
+ * explorer's index can trail the ledger by a few seconds, and this machine's network can pause);
+ * then the next candidate is tried. `zoom` scales the page (above 1 to enlarge a JSON page, below
+ * 1 to fit more of it), and `scrollTo` scrolls to a piece of its text (with `scrollExact`, a text
+ * node that holds that text alone) until it stands `scrollOffset` pixels below the top.
  */
 async function capturePage(browser, name, candidates) {
   for (const c of candidates) {
-    const page = await browser.newPage({
-      viewport: { width: 1536, height: 728 },
-      deviceScaleFactor: 1.25,
-    });
-    try {
-      await page.goto(c.url, { waitUntil: "domcontentloaded", timeout: 60_000 });
-      await page.getByText(c.waitFor, { exact: false }).first().waitFor({ timeout: 60_000 });
-      await page.waitForTimeout(c.settleMs ?? 1500);
-      if (c.zoom) await page.evaluate((z) => (document.body.style.zoom = String(z)), c.zoom);
-      if (c.scrollTo) {
-        await page.evaluate((text) => {
-          const pre = document.querySelector("pre") ?? document.body;
-          const walker = document.createTreeWalker(pre, NodeFilter.SHOW_TEXT);
-          for (let node = walker.nextNode(); node; node = walker.nextNode()) {
-            const at = node.textContent.indexOf(text);
-            if (at === -1) continue;
-            const range = document.createRange();
-            range.setStart(node, at);
-            range.setEnd(node, at + text.length);
-            window.scrollBy(0, range.getBoundingClientRect().top - 24);
-            return;
-          }
-        }, c.scrollTo);
+    const texts = [c.waitFor].flat();
+    for (let attempt = 1; attempt <= (c.attempts ?? 4); attempt += 1) {
+      const page = await browser.newPage({
+        viewport: { width: 1536, height: 728 },
+        deviceScaleFactor: 1.25,
+      });
+      try {
+        await page.goto(c.url, { waitUntil: "domcontentloaded", timeout: 90_000 });
+        for (const text of texts) {
+          await page.getByText(text, { exact: false }).first().waitFor({ timeout: 60_000 });
+        }
+        await page.waitForTimeout(c.settleMs ?? 1500);
+        if (c.zoom) await page.evaluate((z) => (document.body.style.zoom = String(z)), c.zoom);
+        if (c.scrollTo) {
+          const found = await page.evaluate(
+            ({ text, exact, offset }) => {
+              const root = document.querySelector("pre") ?? document.body;
+              const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+              for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+                const at = exact
+                  ? node.textContent.trim() === text
+                    ? node.textContent.indexOf(text)
+                    : -1
+                  : node.textContent.indexOf(text);
+                if (at === -1) continue;
+                const range = document.createRange();
+                range.setStart(node, at);
+                range.setEnd(node, at + text.length);
+                window.scrollBy(0, range.getBoundingClientRect().top - offset);
+                return true;
+              }
+              return false;
+            },
+            { text: c.scrollTo, exact: Boolean(c.scrollExact), offset: c.scrollOffset ?? 24 },
+          );
+          if (!found) throw new Error(`no text "${c.scrollTo}" to scroll to`);
+          await page.waitForTimeout(800);
+        }
+        const shot = join(WORK, "cut", `${name}-page.png`);
+        await page.screenshot({ path: shot });
+        const still = join(WORK, "cut", `${name}.png`);
+        const label = join(WORK, "cut", `${name}-url.txt`);
+        writeFileSync(label, c.url);
+        run("ffmpeg", [
+          "-v",
+          "error",
+          "-y",
+          "-i",
+          shot,
+          "-vf",
+          `scale=${W}:910,pad=${W}:${PIC_H}:0:50:color=0x2B2F36,` +
+            `drawtext=font=Menlo:textfile=${label}:fontcolor=0xE6E6E6:fontsize=24:x=24:y=14`,
+          still,
+        ]);
+        return { still, url: c.url };
+      } catch (error) {
+        log(
+          `${name}: ${c.url}, attempt ${attempt}: not captured (${String(error).split("\n")[0].slice(0, 120)})`,
+        );
+      } finally {
+        await page.close();
       }
-      const shot = join(WORK, "cut", `${name}-page.png`);
-      await page.screenshot({ path: shot });
-      await page.close();
-      const still = join(WORK, "cut", `${name}.png`);
-      const label = join(WORK, "cut", `${name}-url.txt`);
-      writeFileSync(label, c.url);
-      run("ffmpeg", [
-        "-v",
-        "error",
-        "-y",
-        "-i",
-        shot,
-        "-vf",
-        `scale=${W}:910,pad=${W}:${PIC_H}:0:50:color=0x2B2F36,` +
-          `drawtext=font=Menlo:textfile=${label}:fontcolor=0xE6E6E6:fontsize=24:x=24:y=14`,
-        still,
-      ]);
-      return { still, url: c.url };
-    } catch (error) {
-      await page.close();
-      log(`${name}: ${c.url} did not show "${c.waitFor}" (${String(error).slice(0, 120)})`);
     }
   }
   throw new Error(`no page could be captured for ${name}`);
@@ -505,29 +530,28 @@ async function main() {
     await sleep(2000);
   }
 
-  // The pages before the close.
+  // The pages before the close, on StellarExpert's testnet explorer: the top of the account's page
+  // (its balances, its data entry and the sponsored reserve), then its history with the two offers
+  // and the data entry being created. The explorer's "Active Offers" tab is not used: on
+  // 2026-09-30 it kept showing its loading mark on testnet accounts that hold open offers.
   const browser = await chromium.launch();
   const before = [
     await capturePage(browser, "before-balances", [
-      { url: `${STEEXP}/account/${account}`, waitFor: "SPTA" },
       {
-        url: `${HORIZON}/accounts/${account}`,
-        waitFor: "balances",
-        zoom: 1.4,
-        scrollTo: '"balances"',
+        url: `${EXPLORER}/account/${account}`,
+        waitFor: ["dustin.fixture", "sponsored by", dusta.dust],
+        settleMs: 3000,
       },
     ]),
-    await capturePage(browser, "before-offers", [
-      { url: `${STEEXP}/account/${account}/offers`, waitFor: "Seller", settleMs: 4000 },
+    await capturePage(browser, "before-history", [
       {
-        url: `${HORIZON}/accounts/${account}/offers`,
-        waitFor: "records",
-        zoom: 1.4,
-        scrollTo: '"records"',
+        url: `${EXPLORER}/account/${account}`,
+        waitFor: ["created sell offer", "set data entry"],
+        settleMs: 2500,
+        scrollTo: "History",
+        scrollExact: true,
+        scrollOffset: 30,
       },
-    ]),
-    await capturePage(browser, "before-data", [
-      { url: `${HORIZON}/accounts/${account}/data/dustin.fixture`, waitFor: "value", zoom: 2.2 },
     ]),
   ];
 
@@ -600,18 +624,19 @@ async function main() {
   record_.ledgers = txs.map((t) => t.ledger);
   record_.fees = txs.map((t) => Number(t.fee_charged));
 
-  // The pages after the close.
+  // The pages after the close: the account's explorer page loaded again ("Account (deleted)", the
+  // merge first in its history; zoomed out so both are in the picture), then Horizon's 404.
   const afterPages = [
+    await capturePage(browser, "after-explorer", [
+      {
+        url: `${EXPLORER}/account/${account}`,
+        waitFor: ["Account (deleted)", "merged into account"],
+        settleMs: 2500,
+        zoom: 0.68,
+      },
+    ]),
     await capturePage(browser, "after-horizon-404", [
       { url: `${HORIZON}/accounts/${account}`, waitFor: "Resource Missing", zoom: 2 },
-    ]),
-    await capturePage(browser, "after-merge", [
-      {
-        url: `${HORIZON}/accounts/${account}/operations?order=desc&limit=1`,
-        waitFor: "account_merge",
-        zoom: 1.5,
-        scrollTo: '"transaction_successful"',
-      },
     ]),
   ];
   await browser.close();
@@ -630,11 +655,10 @@ async function main() {
   stillShot(
     "before-balances",
     before[0].still,
-    3,
+    4,
     "Before: 4 trustlines with balances, 2 open offers, 1 data entry. All 4 XLM are locked as reserve.",
   );
-  stillShot("before-offers", before[1].still, 2.5, null);
-  stillShot("before-data", before[2].still, 2.5, null);
+  stillShot("before-history", before[1].still, 4, null);
 
   const tUnbumped = timeOf(create, "tx_insufficient_balance");
   const unbumpedRow = rowOf(create, tUnbumped, /Unbumped transaction/);
@@ -718,12 +742,12 @@ async function main() {
     "Result: 4 XLM arrived at the destination. Fees paid by the account: zero.",
   );
   stillShot(
-    "after-horizon-404",
+    "after-explorer",
     afterPages[0].still,
     3.5,
     "After: the account no longer exists. Anyone can check this link.",
   );
-  stillShot("after-merge", afterPages[1].still, 3.5, null);
+  stillShot("after-horizon-404", afterPages[1].still, 3.5, null);
   cardShot(
     "end",
     [
@@ -830,12 +854,13 @@ async function main() {
   // Key frames, from the finished video.
   const frames = [
     ["01-before-balances", "before-balances"],
-    ["02-plan", "plan"],
-    ["03-confirmation", "confirmation"],
-    ["04-transactions", "execution"],
-    ["05-receipt", "receipt"],
-    ["06-horizon-404", "after-horizon-404"],
-    ["07-merge-operation", "after-merge"],
+    ["02-before-history", "before-history"],
+    ["03-plan", "plan"],
+    ["04-confirmation", "confirmation"],
+    ["05-transactions", "execution"],
+    ["06-receipt", "receipt"],
+    ["07-explorer-after", "after-explorer"],
+    ["08-horizon-404", "after-horizon-404"],
   ];
   for (const [name, label] of frames) {
     const s = shots.find((x) => x.label === label);
