@@ -18,12 +18,7 @@ import {
   type FixtureKeys,
 } from "../../fixture/manifest.js";
 import { assertNoReset, recordedLedger } from "../../fixture/reset.js";
-import {
-  expectationFromManifest,
-  loadVerifyInput,
-  renderVerify,
-  verifyFixture,
-} from "../../fixture/verify.js";
+import { loadMessyVerifyInput, renderVerify, verifyFixture } from "../../fixture/verify.js";
 import { horizonJson, type FetchLike } from "../../reader/horizon-json.js";
 import { ExitCode } from "../exit-codes.js";
 import type { CliIo } from "../program.js";
@@ -203,31 +198,7 @@ export async function fixtureVerify(
     ...(ctx.fetch ? { fetch: ctx.fetch } : {}),
     ...ctx.horizon,
   });
-  const loaded = await loadVerifyInput(
-    client,
-    expectationFromManifest(manifest),
-    manifest.accounts.fixture,
-  );
-  const { missing } = await assertNoReset(client, {
-    manifestId: manifest.id,
-    profile: "messy",
-    recordedLedger: recordedLedger(manifest),
-    // Not read is not ledger 0 (EP-1).
-    latestLedger: loaded.latestLedger ?? null,
-    accounts: [
-      { role: "fixture", account: manifest.accounts.fixture, found: loaded.account !== null },
-      {
-        role: "destination",
-        account: manifest.accounts.destination,
-        found: loaded.destinationExists,
-      },
-    ],
-  });
-  const input = {
-    ...loaded,
-    ...(missing.fixture ? { missing: missing.fixture } : {}),
-    ...(missing.destination ? { destinationMissing: missing.destination } : {}),
-  };
+  const input = await loadMessyVerifyInput(client, manifest);
   const result = verifyFixture(input);
   const snapshot = {
     checkedAt: new Date().toISOString(),

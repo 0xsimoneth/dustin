@@ -57,6 +57,8 @@ jobs:
       - run: npm run format:check
       - run: npm run typecheck
       - run: npm run build
+      - name: Type-check the examples against the built package's types
+        run: npm run typecheck:examples
       - run: npm test
       - run: npm run check:package
       - name: Audit runtime dependencies

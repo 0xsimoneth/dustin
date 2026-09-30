@@ -150,6 +150,8 @@ Both snippets type-check with `tsc --strict --module nodenext` (with `@types/nod
 - Pass `signal` (an `AbortSignal`) to stop a run at the next safe point; the report then ends with the stop `INTERRUPTED`.
 - The SDK never reads environment variables or `.env`; the CLI does, for `dustin close --execute` only.
 
+Two programs show the SDK end to end, and CI type-checks both against the package's published types: [examples/close-with-sponsor.ts](examples/close-with-sponsor.ts), the whole close with the typed confirmation, the events, `allowPartial`, `preferDestination` and the error codes; and [examples/plan-a-fixture.ts](examples/plan-a-fixture.ts), which uses the second entry point, `stellar-dustin/testing`: it builds a messy fixture on the testnet (every key new from `Keypair.random()`, every account funded by Friendbot), checks it against SOW Appendix B with `checkMessyFixture()`, and plans its close offline from the Horizon responses the build recorded (`recordedReader()`).
+
 The [integration notes](docs/integration-notes.md) cover the whole wallet flow: rendering the plan, approval, signers, events, drift, partial closes, continuing a stopped run, errors, and how to fund and protect a sponsor.
 
 ## Safety model

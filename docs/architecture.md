@@ -207,7 +207,9 @@ Per transaction `i`:
 
 Idempotency argument: an inner transaction is pinned to one sequence number, so the same signed envelope can be submitted any number of times and applies at most once [F1], [S5]; a rebuilt envelope for the same sequence can only apply if the earlier one expired unapplied (time bounds). Concurrency is not supported: two executors on one account race on sequence numbers; the CLI takes a lock file per account (**stretch**: none needed for the SOW).
 
-### 4.8 Reporter (`src/report`)
+### 4.8 Reporter (`src/execute/report.ts`, `src/render/`)
+
+As built (PRD decision D-18 synced this document with the code): there is no `src/report` module; the `CloseReport` is built by the executor (`src/execute/report.ts`, `src/execute/summary.ts`) and rendered for people by `src/render/report-text.ts`, the plan by `src/render/plan-text.ts`; the links come from the configured explorer base.
 
 `CloseReport` (JSON, safe to publish): plan hash, network, account, destination, per-transaction `{outerHash, innerHash, ledger, opCount, feePaidStroops, explorerUrl}`, sponsor total, recovered XLM (from the merge result), reserves released to each sponsor, unclosable items with reasons, blockers, and the final account state (`GET /accounts/{id}` -> 404 proves the merge). Explorer links use `https://stellar.expert/explorer/testnet/tx/{outerHash}` and `/account/{id}` (both resolve on 2026-09-25; the explorer is a single-page app, so link resolution was observed rather than documented). Because a testnet reset erases everything [F18], the evidence package also stores the Horizon JSON of every transaction, the envelope and result XDR, and screenshots.
 
@@ -234,6 +236,8 @@ Builds deterministic testnet accounts from a friendbot-funded sponsor. Profile `
 - Profile `edge` adds the deliberately illiquid and unreturnable asset `ILLQ`: throwaway issuer with `AUTH_REQUIRED | AUTH_REVOCABLE`, trustline funded then deauthorised with `setTrustLineFlags`; no market; destination holds no trustline. This asset must exit through rung 4. It also adds a `bumpSequence` variant for the sequence guard, a clawback-enabled asset, a pool-share trustline with a non-zero balance, and a raised-threshold variant (`setOptions` high threshold above master weight).
 
 Every fixture transaction is itself fee-bumped by the sponsor, so the same layer is exercised before the first close. The builder writes `fixture.json` (public keys, asset codes, issuers, offer ids); secrets stay in memory or in a `.env` file that is git-ignored.
+
+As built (PRD decision D-18): the recipe differs from the design above. The `messy` fixture (`src/fixture/messy.ts`, `src/fixture/builder.ts`) is built by a fee sponsor from Friendbot with one issuer of four assets, DUSTA (sold to a market maker's standing bid: rung 1), DUSTB and DUSTC (returned to the issuer: rung 2) and SPTA (held through a trustline whose reserve a separate reserve sponsor pays), two open offers, one data entry `dustin.fixture`, and a drain to exactly the minimum balance; the `edge` fixture (`src/fixture/edge.ts`, `src/fixture/edge-builder.ts`) is one throwaway account per edge case, thirteen variants from one Friendbot call. Every key is new, from `Keypair.random()`; `dustin fixture create` writes the public `manifest.json`, the recorded Horizon JSON and `keys.json` (mode 600) under `.fixture/<id>/`, which git ignores. Integrators reach the same builders, their checks and a reader over the recorded responses through `stellar-dustin/testing` (`src/testing.ts`).
 
 ### 4.11 Baseline recording
 
@@ -499,7 +503,7 @@ Nothing can lower a sequence number, so waiting is the only remedy. The live tes
 | Decision | Choice | Rationale | ADR |
 |---|---|---|---|
 | Classic reads | Horizon, public testnet instance | The close needs enumeration of trustlines, offers and data, path finding, fee stats and a submit endpoint with SEP-29 checking; RPC reads only exact keys [F17] and has no path finding. RPC is optional for entry-level sponsorship (stretch). | ADR-0004 |
-| Package shape | Single package `stellar-dustin` (the bare npm name `dustin` is taken by an unrelated 2022 package), bin `dustin`, subpath exports `stellar-dustin` (SDK) and `stellar-dustin/testing` (fixture helpers) | One consumer, one release cadence, one test runner; a monorepo would add tooling with no second package to justify it (rule of three). | this doc |
+| Package shape | Single package `stellar-dustin` (the bare npm name `dustin` is taken by an unrelated 2022 package), bin `dustin`, subpath exports `stellar-dustin` (SDK) and `stellar-dustin/testing` (fixture helpers); as built also `stellar-dustin/schemas/*` (the JSON schemas, PRD decision D-17), with the two code entries sharing their modules in both ESM and CommonJS (D-18) | One consumer, one release cadence, one test runner; a monorepo would add tooling with no second package to justify it (rule of three). | this doc |
 | Language and toolchain | TypeScript 5.9.x (`strict`), `tsup` 8.x building ESM + CJS + `.d.ts`, `vitest` 5.x, `commander` 15.x, ESLint | `@stellar/stellar-sdk` 17.1.0 is ESM-first with a CJS build and needs Node >= 22.12 [F19]; wallets still consume CJS, so ship both. TypeScript 7.0.2 (native compiler) is `latest` on npm as of 2026-09-25; it is not adopted until the `tsup` declaration pipeline is verified against it. | this doc |
 | Node | `engines.node >= 22.12.0`; CI matrix 22 and 24 | Minimum imposed by the SDK, `vitest` and `commander` [F19]. | this doc |
 | Fee payer | Fee-bump every transaction; sponsor is the fee-bump source only | SOW mandate and a strictly smaller blast radius than sponsor-as-transaction-source. | ADR-0003 |
@@ -514,36 +518,50 @@ Nothing can lower a sequence number, so waiting is the only remedy. The live tes
 
 ```
 stellar-dustin/
-  package.json            # name: stellar-dustin, bin: { dustin }, exports: ".", "./testing", type: module, engines.node >= 22.12.0
-  tsconfig.json           # strict, NodeNext, target ES2022
-  tsup.config.ts          # entries: src/index.ts, src/testing.ts, src/cli/main.ts; formats esm+cjs; dts
-  vitest.config.ts        # projects: unit (default), testnet (env DUSTIN_TESTNET=1)
-  .env.example            # DUSTIN_SPONSOR_SECRET=, DUSTIN_ACCOUNT_SECRET= (never committed with values)
+  package.json            # name stellar-dustin, bin dustin; exports ".", "./testing", "./schemas/*", "./package.json";
+                          # files dist, schemas, CHANGELOG.md; type module; engines.node >= 22.12.0
+  tsconfig.json           # strict, NodeNext, target ES2022 (src, test, scripts)
+  tsup.config.ts          # SDK entries src/index.ts and src/testing.ts (ESM + CJS + .d.ts, shared chunks); CLI src/cli/main.ts (ESM)
+  vitest.config.ts        # projects: unit (default), testnet (DUSTIN_TESTNET=1)
+  eslint.config.js        # typed rules; the read-only zone (plan, inspect, reader) cannot import signing or submission
+  .env.example            # DUSTIN_ACCOUNT_SECRET=, DUSTIN_SPONSOR_SECRET= (never committed with values)
+  schemas/                # plan-schema.json (ClosePlan), receipt-schema.json (CloseReport); shipped in the package
   src/
-    index.ts              # planClose, executeClose, types, errors
-    testing.ts            # fixture builder + recorded-response helpers for integrators' tests
-    config/               # network.ts (testnet only, assertTestnet), fees.ts (policy)
-    reader/               # ledger-reader.ts (interface), horizon-reader.ts, recording-reader.ts (tests)
-    inspect/              # snapshot.ts (AccountSnapshot), issuer.ts, destination.ts
-    plan/                 # plan.ts (entry), rules.ts (R1-R9), ladder.ts, grouping.ts, guard.ts, fees.ts, model.ts (ClosePlan + JSON schema), hash.ts
-    tx/                   # build-inner.ts (steps -> operations), memo.ts
-    sponsor/              # fee-bump-signer.ts (interface), env-sponsor.ts, budget.ts
-    execute/              # executor.ts (state machine), submit.ts (Horizon submit + polling), classify.ts (result codes -> verdict), journal.ts
-    report/               # report.ts (CloseReport), explorer.ts (links), evidence.ts (JSON/XDR capture)
-    errors/               # taxonomy.ts (DustinError + codes), horizon-codes.ts (mapping tables)
-    fixture/              # builder.ts (profiles messy | edge | literal-zero), assets.ts (LIQ, RET, SPN, ILLQ issuers)
-    baseline/             # recorder.ts
-    cli/                  # main.ts, commands/{plan,close,fixture,baseline,doctor}.ts, render.ts (tables), secrets.ts (env/stdin only, redaction)
+    index.ts              # the SDK: planClose, executeClose, verifyClosed, the renderers, config, errors, types
+    testing.ts            # stellar-dustin/testing: fixture builders, checks, manifests, recorded readers
+    amounts.ts            # BigInt stroop arithmetic
+    canonical-json.ts     # the canonical JSON the plan and snapshot hashes are taken over
+    config/               # network.ts (testnet only, the Horizon check), fees.ts, pauses.ts
+    reader/               # horizon-json.ts (GET client with retries), ledger-reader.ts (LedgerReader over Horizon)
+    inspect/              # inspect.ts, snapshot.ts, reserve.ts, address.ts, horizon-types.ts
+    plan/                 # plan-close.ts (entry), plan.ts, order.ts (R1-R9), ladder.ts, grouping.ts, guard.ts,
+                          # fees.ts, blockers.ts, claimable.ts, recovery.ts, model.ts (ClosePlan)
+    tx/                   # build-inner.ts (steps -> operations), operations.ts
+    sponsor/              # signer.ts (Signer, keypairSigner), fee-bump.ts, sponsor.ts (budget and balance)
+    execute/              # executor.ts, attempt.ts, submit.ts, classify.ts, result-codes.ts, preflight.ts, replan.ts,
+                          # abort.ts, events.ts, options.ts, report.ts (CloseReport), summary.ts, verify.ts
+    render/               # plan-text.ts, report-text.ts
+    errors/               # dustin-error.ts (DustinError and its codes), redact.ts, remedies.ts
+    fixture/              # builder.ts and messy.ts (messy), edge.ts and edge-builder.ts (edge), verify.ts,
+                          # edge-verify.ts, manifest.ts, reset.ts
+    cli/                  # main.ts, program.ts, run.ts, commands/{plan,close,fixture}.ts, exit-codes.ts, secrets.ts,
+                          # env.ts, prompt.ts, output.ts, channel.ts, version.ts
   test/
-    unit/                 # planner, ladder, grouping (property tests), guard, classify, builder mapping, redaction
-    fixtures/horizon/     # recorded JSON: account-messy.json, offers-messy.json, paths-*.json, fee_stats.json, account-edge-*.json
-    testnet/              # end-to-end: fresh fixture per run, closes messy, asserts 404, exercises the edge matrix
-  docs/
-    architecture.md, adr/, ordering-rules.md (D4 write-up), integration.md (D4 notes)
-  evidence/               # tx hashes, explorer links, Horizon JSON, XDR, screenshots, baseline recording notes
+    unit/                 # the offline tier: every module, the CLI on a fake ledger, the scripts, the testing entry
+    testnet/              # the live tier: fresh fixtures from Friendbot in every file
+    fixtures/horizon/     # recorded Horizon JSON: messy, edge, edge-e4, pool-share, reset
+    helpers/, setup/      # the fake ledger and recorded Horizon; the network block of the offline tier, the testnet gate
+  examples/               # close-with-sponsor.ts, plan-a-fixture.ts: type-checked against dist in CI
+  scripts/                # check-package.mjs, evidence-check.mjs, evidence-cli.mjs, evidence-plan.mjs,
+                          # baseline-b03.mjs, remap-commit-hashes.mjs, demo/ (make-demo.mjs, explorer-shots.mjs, take.exp)
+  docs/                   # this planning package, adr/, write-up.md, integration-notes.md, errors.md, test-matrix.md,
+                          # runbooks/, reviews/, stories/
+  evidence/               # the evidence package: runs/, tests/, baseline/, demo/, plan/
 ```
 
-Mapping to deliverables: D1 = `config`, `reader`, `inspect`, `plan`, `cli/plan`; D2 = `tx`, `sponsor`, `execute`, `report`, `cli/close`; D3 = `fixture`, `baseline`, `test/**`; D4 = `docs/`, `evidence/`, README.
+As built (PRD decision D-18, 2026-09-30): the tree above is the repository's; the design's `src/report`, `src/baseline`, `cli/commands/{baseline,doctor}`, `docs/ordering-rules.md` and `docs/integration.md` were not built (the write-up is `docs/write-up.md`, the integration notes `docs/integration-notes.md`; PRD decision D-13 for the commands).
+
+Mapping to deliverables, as built: D1 = `config`, `reader`, `inspect`, `plan`, `render/plan-text.ts`, `cli/commands/plan.ts`; D2 = `tx`, `sponsor`, `execute`, `render/report-text.ts`, `cli/commands/close.ts`; D3 = `fixture`, `testing.ts`, `test/**`, `evidence/baseline/` and `scripts/baseline-b03.mjs`; D4 = `docs/`, `evidence/`, `examples/`, `schemas/`, the README.
 
 ## 11. Security and safety
 

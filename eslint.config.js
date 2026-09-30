@@ -59,6 +59,12 @@ export default defineConfig([
     },
   },
   {
+    // The examples import the built package (stellar-dustin), which does not exist before the
+    // build; `npm run typecheck:examples` checks their types against it after the build.
+    files: ["examples/**/*.ts"],
+    extends: [tseslint.configs.disableTypeChecked],
+  },
+  {
     // Plain JavaScript files (this config, scripts) are not part of the TypeScript project.
     files: ["**/*.js", "**/*.mjs"],
     extends: [tseslint.configs.disableTypeChecked],

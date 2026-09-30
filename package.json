@@ -35,6 +35,16 @@
         "default": "./dist/index.cjs"
       }
     },
+    "./testing": {
+      "import": {
+        "types": "./dist/testing.d.ts",
+        "default": "./dist/testing.js"
+      },
+      "require": {
+        "types": "./dist/testing.d.cts",
+        "default": "./dist/testing.cjs"
+      }
+    },
     "./schemas/*": "./schemas/*",
     "./package.json": "./package.json"
   },
@@ -52,6 +62,7 @@
   "scripts": {
     "build": "node -e \"require('node:fs').rmSync('dist',{recursive:true,force:true})\" && tsup",
     "typecheck": "tsc --noEmit",
+    "typecheck:examples": "tsc -p examples/tsconfig.json",
     "check:package": "node scripts/check-package.mjs",
     "prepack": "npm run build",
     "prepublishOnly": "npm run lint && npm run typecheck && npm test",

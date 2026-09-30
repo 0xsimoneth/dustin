@@ -19,6 +19,8 @@ Prepared on 2026-09-29 for the first npm publish, which is the builder's action.
 - The `messy` fixture (the SOW's metric account) and the `edge` fixture with one account per edge case, both built on testnet from Friendbot and checked against SOW Appendix B; `fixture verify` detects a testnet reset (`RESET_SUSPECTED`).
 - The D3 test matrix (`docs/test-matrix.md`): an offline tier on recorded Horizon JSON and a fake ledger with the network blocked, and a live testnet tier that funds its own throwaway accounts; `npm run evidence:check` checks every link and hash of the evidence package.
 - JSON Schemas of the plan and the report (`schemas/plan-schema.json`, `schemas/receipt-schema.json`, shipped in the package and exported as `stellar-dustin/schemas/*`), every error and stop code with its remedy (`docs/errors.md`, `remedyOf()`), the README, the integration notes, the write-up on ordering rules and known limits, and the evidence package.
+- `stellar-dustin/testing`, a second entry point for an integrator's own tests: the `messy` and `edge` fixture builders (every key new from `Keypair.random()`, every account funded by Friendbot, no secret read from anywhere), `checkMessyFixture()` and the other checks, the manifest readers, and `recordedReader()` for planning offline from a fixture's recorded Horizon responses.
+- `examples/close-with-sponsor.ts` (the whole close with the typed confirmation, the events, `allowPartial`, `preferDestination` and the error codes) and `examples/plan-a-fixture.ts` (a fixture built, checked and planned offline), type-checked in CI against the package's published types.
 
 ### Security
 

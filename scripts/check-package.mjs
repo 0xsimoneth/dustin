@@ -1,10 +1,13 @@
-// Verifies the built package the way a consumer sees it: ESM import, CommonJS require,
-// the `dustin` binary, the JSON schemas it publishes (PRD decision D-17), and the exact file
-// list `npm pack` would publish. Run after `npm run build`.
+// Verifies the built package the way a consumer sees it: ESM import, CommonJS require, the
+// stellar-dustin/testing entry (PRD decision D-18), the `dustin` binary, the JSON schemas it
+// publishes (PRD decision D-17), and the exact file list `npm pack` would publish. Run after
+// `npm run build`.
 import assert from "node:assert/strict";
 import { execFileSync, spawnSync } from "node:child_process";
-import { readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { StrKey } from "@stellar/stellar-sdk";
 
@@ -18,6 +21,41 @@ async function checkEntryPoints() {
     assert.equal(typeof mod.planClose, "function");
     assert.equal(typeof mod.executeClose, "function");
     assert.equal(typeof mod.DustinError, "function");
+  }
+}
+
+/**
+ * stellar-dustin/testing loads in both formats, and an error its helpers throw is an instance of
+ * the DustinError that stellar-dustin exports: the two entries share one copy of each module.
+ */
+async function checkTesting() {
+  const pairs = [
+    [await import("stellar-dustin/testing"), await import("stellar-dustin")],
+    [require("stellar-dustin/testing"), require("stellar-dustin")],
+  ];
+  const dir = mkdtempSync(join(tmpdir(), "dustin-package-"));
+  try {
+    const notAManifest = join(dir, "manifest.json");
+    writeFileSync(notAManifest, "{}");
+    for (const [testing, main] of pairs) {
+      for (const name of [
+        "buildMessyFixture",
+        "buildEdgeFixture",
+        "verifyFixture",
+        "loadVerifyInput",
+        "readManifest",
+        "checkMessyFixture",
+        "recordedReader",
+      ]) {
+        assert.equal(typeof testing[name], "function", `stellar-dustin/testing ${name}`);
+      }
+      assert.throws(
+        () => testing.readManifest(notAManifest),
+        (error) => error instanceof main.DustinError && error.code === "MANIFEST_INVALID",
+      );
+    }
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
   }
 }
 
@@ -64,6 +102,10 @@ function checkTarball() {
     "dist/index.d.ts",
     "dist/index.d.cts",
     "dist/cli/main.js",
+    "dist/testing.js",
+    "dist/testing.cjs",
+    "dist/testing.d.ts",
+    "dist/testing.d.cts",
     "CHANGELOG.md",
     "schemas/plan-schema.json",
     "schemas/receipt-schema.json",
@@ -82,6 +124,7 @@ function checkTarball() {
 }
 
 await checkEntryPoints();
+await checkTesting();
 checkSchemas();
 checkBinary();
 const files = checkTarball();

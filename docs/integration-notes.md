@@ -6,7 +6,7 @@ These notes are for a wallet developer who wants to offer "close this account" t
 
 ## 1. Install and runtime
 
-- Node.js 22.12 or newer (the minimum of the Stellar JavaScript SDK 17.1.0 that Dustin builds on). ESM and CommonJS entry points and TypeScript declarations are included. The two runtime dependencies are the Stellar JavaScript SDK and `commander` (for the CLI).
+- Node.js 22.12 or newer (the minimum of the Stellar JavaScript SDK 17.1.0 that Dustin builds on). ESM and CommonJS entry points and TypeScript declarations are included: `stellar-dustin` (the SDK), `stellar-dustin/testing` (fixtures for your own tests, section 17) and `stellar-dustin/schemas/*` (the JSON schemas). The two runtime dependencies are the Stellar JavaScript SDK and `commander` (for the CLI).
 - Testnet only (section 14).
 - Once 0.1.0 is on npm (pending, the builder's action): `npm install stellar-dustin`.
 - Until then, build a tarball from a clone and install it in your project:
@@ -415,6 +415,19 @@ A run can add one more blocker, `STEP_FAILED_TWICE` (`RunBlocker` in the report)
 - [ ] Drift stops the run (`onDrift: "abort"`) and the new plan is shown again.
 - [ ] A partial close is a separate, explicit choice.
 - [ ] A stopped or cancelled run is continued by planning again, honouring `stop.maxTime` and `stop.unblocksAtLedger`.
+
+## 16. A complete program
+
+[`examples/close-with-sponsor.ts`](../examples/close-with-sponsor.ts) is sections 3 to 11 in one program: `planClose` with `preferDestination`, `renderPlan`, the approval as `dustin close --execute` asks for it (the destination's last four characters), `executeClose` with `allowPartial`, an `AbortSignal` on Ctrl-C and the events, `renderReport`, and `DustinError` handled by its `code` with `remedyOf`, mapped to the CLI's exit codes. CI type-checks it against the package's published types after the build (`npm run typecheck:examples`), so it follows the API as released; it is not run in CI, because it needs two testnet secrets, which it reads from its own environment (the SDK never does).
+
+## 17. Testing your integration: `stellar-dustin/testing`
+
+The package's second entry point builds the fixture accounts of this repository on the testnet and plans offline from their recorded Horizon responses (PRD decision D-18). [`examples/plan-a-fixture.ts`](../examples/plan-a-fixture.ts) uses it, and CI type-checks it the same way:
+
+- `buildMessyFixture()` builds the SOW's metric account (4 trustlines with dust, one of them sponsored by a separate reserve sponsor, 2 offers, 1 data entry, zero spendable XLM) with its sponsor, issuer, market maker and destination; `buildEdgeFixture()` builds one throwaway account per edge case of the test matrix. Every account gets a new key from `Keypair.random()` and is funded by Friendbot; no builder reads a secret from the environment or asks for one, and the new keys reach you through `onKeys` before any account is funded, so a build that stops halfway loses none. Keep them: they are needed to close the fixture later. Testnet only.
+- `checkMessyFixture(manifest)` checks a messy fixture against Horizon as `dustin fixture verify` does, SOW Appendix B among its checks, and refuses a testnet reset with `RESET_SUSPECTED`; `verifyFixture` with `loadVerifyInput` or `loadMessyVerifyInput`, and `verifyEdgeFixture` with `loadEdgeVerifyInput`, are its parts; `readManifest` and `readAnyManifest` read the manifests that `dustin fixture create` writes.
+- `recordedReader(built.recorded)` is a `LedgerReader` over the Horizon responses a build recorded, for `planClose(input, { reader })` with no network, in unit tests of your own planning code; `recordedFetch` is the same answers as a `fetch`.
+- An error these helpers throw is the `DustinError` of `stellar-dustin` itself: the two entry points share one copy of each module, in ES modules and in CommonJS (`npm run check:package` checks it).
 
 ## Appendix: the CLI as a reference integration
 

@@ -2,9 +2,12 @@ import { defineConfig } from "tsup";
 
 export default defineConfig([
   {
-    // SDK: ESM and CommonJS with declarations for both.
-    entry: { index: "src/index.ts" },
+    // SDK and stellar-dustin/testing: ESM and CommonJS with declarations for both. Splitting keeps
+    // the modules the two entries share in shared chunks, in both formats, so an error the testing
+    // helpers throw is an instance of the DustinError that stellar-dustin exports (PRD D-18).
+    entry: { index: "src/index.ts", testing: "src/testing.ts" },
     format: ["esm", "cjs"],
+    splitting: true,
     dts: true,
     sourcemap: true,
     clean: false,

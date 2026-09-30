@@ -3,7 +3,7 @@ import type { HorizonAccount, HorizonOffer } from "../inspect/horizon-types.js";
 import { reserveFromHorizon } from "../inspect/reserve.js";
 import { accountOffers, latestLedger, type HorizonJsonClient } from "../reader/horizon-json.js";
 import type { FixtureManifest } from "./manifest.js";
-import { describeMissing, type MissingAccount } from "./reset.js";
+import { assertNoReset, describeMissing, recordedLedger, type MissingAccount } from "./reset.js";
 
 export interface VerifyExpectation {
   reserveSponsor: string;
@@ -239,5 +239,41 @@ export async function loadVerifyInput(
     destinationExists: destination !== null,
     expected,
     latestLedger: ledger.sequence,
+  };
+}
+
+/**
+ * The input of `verifyFixture` for a messy fixture, read from Horizon with the reset detection of
+ * `dustin fixture verify`: a testnet reset is refused with `RESET_SUSPECTED`, and an account that
+ * answers 404 is named closed, gone or never seen (src/fixture/reset.ts; Epic 4 review EP-1).
+ */
+export async function loadMessyVerifyInput(
+  client: HorizonJsonClient,
+  manifest: FixtureManifest,
+): Promise<VerifyInput> {
+  const loaded = await loadVerifyInput(
+    client,
+    expectationFromManifest(manifest),
+    manifest.accounts.fixture,
+  );
+  const { missing } = await assertNoReset(client, {
+    manifestId: manifest.id,
+    profile: "messy",
+    recordedLedger: recordedLedger(manifest),
+    // Not read is not ledger 0 (EP-1).
+    latestLedger: loaded.latestLedger ?? null,
+    accounts: [
+      { role: "fixture", account: manifest.accounts.fixture, found: loaded.account !== null },
+      {
+        role: "destination",
+        account: manifest.accounts.destination,
+        found: loaded.destinationExists,
+      },
+    ],
+  });
+  return {
+    ...loaded,
+    ...(missing.fixture ? { missing: missing.fixture } : {}),
+    ...(missing.destination ? { destinationMissing: missing.destination } : {}),
   };
 }
