@@ -388,7 +388,7 @@ Acceptance:
 - `npm pack` contents include `dist/`, `schemas/`, `README.md`, `LICENSE`, and no secrets, fixtures secrets, or evidence binaries.
 - The repository is public with the `LICENSE` file at its root.
 
-As built (PRD decision D-17, 2026-09-30): `npm pack` publishes 14 files, `dist/` (ESM, CommonJS, declarations, source maps and the `dustin` binary), `schemas/plan-schema.json`, `schemas/receipt-schema.json`, `CHANGELOG.md`, `README.md`, `LICENSE` and `package.json`, and `npm run check:package` refuses any other file and any secret seed. The publish of 0.1.0 is the builder's.
+As built (PRD decisions D-17 and D-18, 2026-09-30): `npm pack` publishes 26 files, `dist/` (the SDK and `stellar-dustin/testing` in ESM and CommonJS with their shared chunks, declarations and source maps, and the `dustin` binary), `schemas/plan-schema.json`, `schemas/receipt-schema.json`, `CHANGELOG.md`, `README.md`, `LICENSE` and `package.json`, and `npm run check:package` refuses any other file and any secret seed. The publish of 0.1.0 is the builder's.
 
 ## 5. Non-functional requirements
 

@@ -243,3 +243,40 @@ Blocked (the builder's actions, in order):
 7. The completion report's hours, dates and next step, checked in a fresh browser and sent.
 
 Next: the builder's actions in the order above; after each, the agent records it (`docs/HANDOFF.md` says what the agent does for each), then E4-S3, E4-S4, E4-S6, E4-S7 and E1-S2 close and Epic 4 is finished before 2026-10-22.
+
+## 2026-09-30 (sprint day 9, week 2)
+
+### Session summary (2026-09-30): the final audit
+
+The builder handed over nine items with six decisions made in advance (K1 to K6) and asked for them to be closed in order without waiting for the builder's own actions. Every item, its commits and its evidence are in `docs/reviews/2026-09-30-final-audit.md`.
+
+Done:
+
+- The history rewrite (K1; `622d1b8`, `bb42753`): backups first (a mirror clone and a bundle, outside the repository); `git filter-repo --sensitive-data-removal` on a fresh clone, the root `bedc4a6` now `77d36b9`; no personal data in any object afterwards and the tree of `main` unchanged; 620 cited hashes remapped in 43 files; `main` pushed with `--force-with-lease`; a ruleset now refuses force pushes to `main` and its deletion; `evidence/tests/README.md` maps each cited CI run's commit to its new hash.
+- Repository settings (K2; `c6a2059`): private vulnerability reporting on; the description, the README as homepage, seven topics; wiki and projects off.
+- Evidence that outlives the testnet reset of 2026-12-16 (`97454bf`, `1b87096`, `cd9605f`): the complete logs of the two CI runs of the live tier; Horizon's records of the 208 transactions the documents cite only as text, checked by `npm run evidence:check`; the metric close's pages on StellarExpert and its Horizon 404 as screenshots.
+- The test counts (`1d9e420`, `cd9605f`): the offline tier captured on `main` at `e563470`, 125 files and 1236 tests; the live tier passed in CI on the same commit (run 36757533611, 11 files, 58 tests, 345 s) and on the 0.1.0 code (run 36560464977); every current count swept.
+- The video (K6; `194cab8`): produced again with StellarExpert's pages on a fresh throwaway fixture, 59.80 s, SHA-256 `6d2fe4c0…40dc`, not in git; the first take kept as a backup.
+- The package (K3, K4; `34ca321`, `6a9622f`, `e563470`): the schemas in `schemas/`, shipped and exported (D-17); `stellar-dustin/testing` with the fixture builders, their checks, the manifest readers and a recorded-response reader, sharing the SDK's modules in ESM and CommonJS (D-18); `examples/close-with-sponsor.ts` and `examples/plan-a-fixture.ts`, type-checked in CI against the built declarations; `npm pack` 26 files; the architecture synced with the code.
+- The public index (`5db8c6f`): a dated state in `docs/README.md`, the handoff's rules written out, no SSH host alias, a true sentence on the commits after 0.1.0, the language exception in `CONTRIBUTING.md`.
+- CI passed on every push but one: `34ca321` reached `main` with only the move of the schemas (its `git add` named a path that no longer existed and staged nothing) and failed; `6a9622f` completed it a minute later.
+
+Traps recorded this session:
+
+- **A failed `git add` stages nothing.** One path that no longer exists makes `git add` stage none of the others, and a `set -e` in the tool's shell did not stop the commit that followed. Check `git diff --name-only` (nothing intended left unstaged) before every commit.
+- **GitHub's log download writes colour codes as `^[`.** `gh run view --log` renders the escape character in caret notation, so a filter for the ESC byte finds nothing.
+- **StellarExpert's "Active Offers" tab does not render on testnet**, and its account history can trail the ledger by a minute after a transaction; page captures reload until the page shows what it must.
+- **Two entry points built separately duplicate classes.** tsup's shared chunks (`splitting: true`, for CommonJS as well) keep one `DustinError` for `stellar-dustin` and `stellar-dustin/testing`.
+- **The build machine's network paused for about fifteen minutes at a time**, several times; long captures and CI waits run in the background.
+
+Blocked (the builder's actions, in order):
+
+1. The Demolisher recordings B-01 and B-02, then `node scripts/baseline-b03.mjs` (B-03).
+2. A real screenshot of a CI run page, `evidence/tests/ci-run-<run id>.png` (E4-S3).
+3. Watching and approving the new video (E4-S6).
+4. The message to the chapter lead and the written acknowledgement.
+5. `npm login` with 2FA and the publish of `stellar-dustin` 0.1.0.
+6. "Apply the release runbook": the tag, the release with the video as its asset, the links, the completion report.
+7. Optional: the GitHub Support request that drops the old commits, and the old agent worktrees and branches of the local copy (runbook steps 8 and 9).
+
+Next: the builder's actions in the order of `docs/HANDOFF.md`; the release session closes E4-S3, E4-S4, E4-S6, E4-S7, E1-S2 and Epic 4 before 2026-10-22.

@@ -2,7 +2,7 @@
 
 This page is for the chapter lead, and it is the page to read first. It maps the accepted Statement of Work ([`SUCCESSFUL_SOW.md`](../SUCCESSFUL_SOW.md)) to the evidence, row by row: section 6.1 (the planned evidence), section 6.2 (the verification checklist), Appendix A (the deliverable tracker) and Appendix B (the binary success metric). Nothing here needs any tool: every item is a file in this repository or a page that opens in a browser.
 
-State on 2026-09-29 (sprint day 8 of 30). Five items are the builder's to do and are marked **pending** wherever they appear, never ticked: the recording of the existing tool on the baseline fixture, hosting the 60-second video (produced again on 2026-09-30 with StellarExpert's pages, [`demo/`](demo/README.md)), the npm publish, a screenshot of the CI run page, and the chapter lead's written acknowledgement of the two-fixture reading ([what is pending](#pending-the-builders-actions)).
+State on 2026-09-30 (sprint day 9 of 30). Five items are the builder's to do and are marked **pending** wherever they appear, never ticked: the recording of the existing tool on the baseline fixture, hosting the 60-second video (produced again on 2026-09-30 with StellarExpert's pages, [`demo/`](demo/README.md)), the npm publish, a screenshot of the CI run page, and the chapter lead's written acknowledgement of the two-fixture reading ([what is pending](#pending-the-builders-actions)).
 
 Explorer and Horizon links stop resolving at the next testnet reset, scheduled for 2026-12-16 17:00 UTC; the JSON, XDR and transcripts committed in each run directory are the durable record ([what survives a reset](#what-survives-a-testnet-reset)). Everything here is public data: public keys, hashes, envelopes and Horizon JSON, never a secret.
 
@@ -57,7 +57,7 @@ The destination received exactly 4.0000007 XLM: the fixture's 4.0000000 XLM plus
 
 ### Sprint calendar (actual)
 
-| Sprint week | Dates | SOW expected output | State on 2026-09-29 |
+| Sprint week | Dates | SOW expected output | State on 2026-09-30 |
 |---|---|---|---|
 | Day 1 | 2026-09-22 | Funds received; sprint clock starts | Done |
 | Week 1 | 2026-09-22 to 2026-09-28 | Fixture built, Demolisher baseline recorded, planClose() dry run printed | Fixture built (2026-09-26) and dry run committed ([`plan/`](plan/fixture-plan.txt)); the Demolisher baseline recording is pending (the builder's) |
@@ -171,7 +171,7 @@ The tests: on `main` at `e563470` (2026-09-30) the offline tier passed 125 files
 - every other https link must answer below 400;
 - the stored transaction records of [`tests/transactions/`](tests/transactions/README.md): each file must be Horizon's record of the transaction it is named after, and while the testnet keeps it, equal to Horizon's answer in its ledger, close time, result and envelopes; and every transaction that the test matrix, the write-up, the baseline protocol or stories 3-1 to 3-4 cite must have a stored record there or in a run directory.
 
-It sends GET requests only, refuses any network but the testnet without a request, and needs the internet; after the testnet reset of 2026-12-16 it fails by design. It exits 0 when every link is fine, 1 when one failed, 2 for a usage error, and 3 when none failed but one could not be checked (a network error, a timeout, HTTP 429 or 5xx after its retries, or a bot protection's 403). Its run of 2026-09-29 at 22:50 UTC (2026-09-30 at UTC+3), on the 21 files it reads by default (the Markdown files under `evidence/`, `README.md` and `docs/write-up.md`): 1,168 links, 12 listed transaction hashes and 208 stored transaction records; 1,354 ok (every stored record equal to Horizon's answer), 32 "gone (merged)" (the closed accounts of the evidence, each with its own `account_merge`), 0 failed, and 2 unchecked: the SCF #44 round recap on medium.com, cited twice in the write-up, whose bot protection answered HTTP 403 to the automated check (open it in a browser). Exit code 3, "unchecked only".
+It sends GET requests only, refuses any network but the testnet without a request, and needs the internet; after the testnet reset of 2026-12-16 it fails by design. It exits 0 when every link is fine, 1 when one failed, 2 for a usage error, and 3 when none failed but one could not be checked (a network error, a timeout, HTTP 429 or 5xx after its retries, or a bot protection's 403). Its run of 2026-09-30 at 18:30 UTC, on the 22 files it reads by default (the Markdown files under `evidence/`, `README.md` and `docs/write-up.md`): 1,247 links, 12 listed transaction hashes and 208 stored transaction records; 1,431 ok (every stored record equal to Horizon's answer), 34 "gone (merged)" (the closed accounts of the evidence, each with its own `account_merge`), 0 failed, and 2 unchecked: the SCF #44 round recap on medium.com, cited twice in the write-up, whose bot protection answered HTTP 403 to the automated check (open it in a browser). Exit code 3, "unchecked only".
 
 ## What survives a testnet reset
 

@@ -14,7 +14,7 @@
 # Budget by SOW deliverable: D1 60 h, D2 80 h, D3 40 h, D4 20 h (total 200 h).
 
 generated: "2026-09-25"
-last_updated: "2026-09-29"
+last_updated: "2026-09-30"
 project: dustin
 project_key: dustin
 tracking_system: file-system
@@ -421,3 +421,30 @@ sessions:
     next: >-
       The builder's actions in the order of docs/HANDOFF.md; after each, the agent records it, then
       E4-S3, E4-S4, E4-S6, E4-S7 and E1-S2 close and Epic 4 is finished before 2026-10-22.
+  - date: "2026-09-30"
+    sprint_day: 9
+    summary: >-
+      The final audit, on the builder's decisions K1 to K6 (docs/reviews/2026-09-30-final-audit.md).
+      History rewritten with git filter-repo (root bedc4a6 now 77d36b9; personal data found in no object;
+      tree unchanged), 620 cited hashes remapped (622d1b8), main pushed with --force-with-lease and then
+      protected by a ruleset against force pushes and deletion; backups kept outside the repository.
+      Private vulnerability reporting on, the repository's description, homepage and topics set.
+      Evidence that outlives the reset: the CI logs of the live tier, Horizon's records of 208
+      transactions cited only as text, evidence:check verifying them; the metric close's explorer and
+      Horizon pages captured. The video produced again with StellarExpert's pages (first take kept).
+      The schemas ship in the package (D-17); stellar-dustin/testing and two examples type-checked
+      against the published types (D-18); the architecture synced. Both tiers on the final package code:
+      offline 125 files, 1236 tests (e563470); live 11 files, 58 tests in CI (run 36757533611). The
+      public index made current. One commit (34ca321) reached main incomplete and failed CI; the next
+      (6a9622f) completed it.
+    blocked_on_builder:
+      - the Demolisher recordings B-01 and B-02, then node scripts/baseline-b03.mjs (B-03)
+      - the CI run page screenshot, evidence/tests/ci-run-<run id>.png (E4-S3)
+      - watching and approving the new video (E4-S6)
+      - the chapter lead's message and written acknowledgement (docs/runbooks/chapter-lead-message.md)
+      - npm login with 2FA and the publish of stellar-dustin 0.1.0
+      - "apply the release runbook": the tag, the release with the video, the links, the completion report
+      - optional, the GitHub Support request and the old agent worktrees and branches of the local copy
+    next: >-
+      The builder's actions in the order of docs/HANDOFF.md; after each, the agent records it; the release
+      session closes E4-S3, E4-S4, E4-S6, E4-S7, E1-S2 and Epic 4 before 2026-10-22.

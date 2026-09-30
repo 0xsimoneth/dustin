@@ -17,7 +17,7 @@ From a clean checkout of `main` at the commit to release, with Node 22.12 or new
 ```bash
 git switch main && git pull --ff-only && git status --short   # nothing listed
 npm ci
-npm pack --dry-run && npm run check:package                    # 14 files, "package check passed"
+npm pack --dry-run && npm run check:package                    # 26 files, "package check passed"
 npm login                                                      # the publishing account, with 2FA
 npm publish --access public                                    # prepack builds dist/; prepublishOnly runs lint, typecheck and the offline tests
 npm view stellar-dustin@0.1.0 version gitHead dist.shasum
@@ -32,7 +32,7 @@ npm view stellar-dustin@0.1.0 version gitHead dist.shasum
 ```bash
 T="$(mktemp -d)"
 npm view stellar-dustin@0.1.0 version gitHead dist.tarball dist.shasum dist.integrity
-npm pack stellar-dustin@0.1.0 --pack-destination "$T" && tar -tzf "$T"/stellar-dustin-0.1.0.tgz   # the 14 files of check:package
+npm pack stellar-dustin@0.1.0 --pack-destination "$T" && tar -tzf "$T"/stellar-dustin-0.1.0.tgz   # the 26 files of check:package
 git worktree add "$T/at-gitHead" <gitHead> && (cd "$T/at-gitHead" && npm ci && npm pack --pack-destination "$T/local")
 shasum "$T"/stellar-dustin-0.1.0.tgz "$T"/local/stellar-dustin-0.1.0.tgz   # equal: the build is reproducible (review of 2026-09-29, step 3)
 (mkdir "$T/app" && cd "$T/app" && npm init -y >/dev/null && npm install stellar-dustin@0.1.0 && npx --no-install dustin --version)   # 0.1.0
