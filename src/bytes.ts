@@ -18,18 +18,43 @@ export function utf8ByteLength(text: string): number {
   return new TextEncoder().encode(text).length;
 }
 
+const BASE64_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+
 /**
- * The UTF-8 text a base64 value encodes, or null when the value is not base64. `atob` applies
- * the forgiving base64 decoding of the WHATWG Infra standard (padding optional, ASCII whitespace
- * skipped) and throws on anything else (https://infra.spec.whatwg.org/#forgiving-base64-decode),
- * where `Buffer.from(value, "base64")` dropped the invalid part without a word. Every caller
- * compares the text with a constant, so a null is as good as a mismatch.
+ * The bytes a base64 value encodes, decoded as Node's Buffer decodes it (src/base64-inl.h of Node
+ * 24): every character outside the standard and the URL-safe alphabets is skipped, whitespace
+ * included, decoding stops at the first "=", and a last group that is short of a byte is dropped.
+ * The forgiving decoding of `atob` differs in the wrong direction for the one caller that matters,
+ * the SEP-29 check of a destination's `config.memo_required` data entry: it throws on a stray
+ * character, and the flag would have read as unset where Buffer read "1" (E5-S1 review, EC-1).
  */
-export function base64ToUtf8(value: string): string | null {
-  try {
-    const binary = atob(value);
-    return new TextDecoder().decode(Uint8Array.from(binary, (c) => c.charCodeAt(0)));
-  } catch {
-    return null;
+function base64ToBytes(value: string): Uint8Array {
+  const sextets: number[] = [];
+  for (const char of value) {
+    if (char === "=") break;
+    const index = char === "-" ? 62 : char === "_" ? 63 : BASE64_ALPHABET.indexOf(char);
+    if (index >= 0) sextets.push(index);
   }
+  const bytes = new Uint8Array(Math.floor((sextets.length * 6) / 8));
+  let acc = 0;
+  let bits = 0;
+  let at = 0;
+  for (const sextet of sextets) {
+    acc = ((acc << 6) | sextet) & 0xffff;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      bytes[at++] = (acc >> bits) & 0xff;
+    }
+  }
+  return bytes;
+}
+
+/**
+ * The UTF-8 text a base64 value encodes, exactly as `Buffer.from(value, "base64").toString("utf8")`
+ * gave it (test/unit/bytes.test.ts compares the two on every shape of input); invalid UTF-8 becomes
+ * U+FFFD in both.
+ */
+export function base64ToUtf8(value: string): string {
+  return new TextDecoder().decode(base64ToBytes(value));
 }

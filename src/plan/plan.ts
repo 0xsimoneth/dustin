@@ -340,7 +340,12 @@ export function validatePlanOptions(o: PlanOptions): void {
   if (o.maxWaitLedgers !== undefined && (!isInt(o.maxWaitLedgers) || o.maxWaitLedgers < 0)) {
     throw invalid("maxWaitLedgers must be a whole number of at least 0");
   }
-  if (o.memo !== undefined && utf8ByteLength(o.memo) > MAX_MEMO_BYTES) {
-    throw invalid(`memo must be at most ${MAX_MEMO_BYTES} bytes`);
+  if (o.memo !== undefined) {
+    // A JavaScript caller's number or object: Buffer.byteLength threw a TypeError for it, and the
+    // TextEncoder that replaced it would coerce it to text (E5-S1 review, EC-2).
+    if (typeof o.memo !== "string") throw invalid("memo must be a string");
+    if (utf8ByteLength(o.memo) > MAX_MEMO_BYTES) {
+      throw invalid(`memo must be at most ${MAX_MEMO_BYTES} bytes`);
+    }
   }
 }

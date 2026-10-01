@@ -37,18 +37,57 @@ describe("utf8ByteLength", () => {
 });
 
 describe("base64ToUtf8", () => {
-  it("decodes SEP-29's value, with or without padding, as Buffer did", () => {
-    for (const value of ["MQ==", "MQ", "bWVzc3k=", "bWVzc3k", "", "w7xuw68="]) {
-      expect(base64ToUtf8(value)).toBe(Buffer.from(value, "base64").toString("utf8"));
+  // Node's decoder (src/base64-inl.h) skips every character outside the base64 alphabets, standard
+  // and URL-safe, and stops at the first "=". The SEP-29 check compares the decoded value with "1",
+  // so the helper must say "1" for exactly the values Buffer said it for (E5-S1 review, EC-1):
+  // a forgiving `atob` threw on a stray character and the flag would have read as unset.
+  const samples = [
+    "MQ==",
+    "MQ",
+    "MQ=",
+    "MQ===",
+    "MQ==x",
+    "MQ=x=",
+    "!!MQ==",
+    "M Q = =",
+    "MQ\n==",
+    "MQ==\n",
+    "MQ==MQ==",
+    "M",
+    "",
+    "A===",
+    "====",
+    "bWVzc3k=",
+    "bWVzc3k",
+    "bWVz c3k=",
+    "w7xuw68=",
+    "QUJD",
+    "QUJDRA",
+    "QUJDRA==",
+    "QUJDRA=x",
+    "AB",
+    "ABC",
+    "ABCD",
+    "-_8=",
+    "+/8=",
+    "Mé==",
+    "not base64!",
+  ];
+
+  it('decodes every value exactly as Buffer.from(value, "base64").toString("utf8") did', () => {
+    for (const value of samples) {
+      expect(base64ToUtf8(value), JSON.stringify(value)).toBe(
+        Buffer.from(value, "base64").toString("utf8"),
+      );
     }
-    expect(base64ToUtf8("MQ==")).toBe("1");
-    expect(base64ToUtf8("bWVzc3k=")).toBe("messy");
   });
 
-  it("answers null for a value that is not base64, which equals no constant", () => {
-    expect(base64ToUtf8("M")).toBeNull();
-    expect(base64ToUtf8("not base64!")).toBeNull();
-    expect(base64ToUtf8("MQ==") === "1").toBe(true);
-    expect(base64ToUtf8("M") === "1").toBe(false);
+  it("reads SEP-29's flag with or without padding, and after a stray character", () => {
+    expect(base64ToUtf8("MQ==")).toBe("1");
+    expect(base64ToUtf8("MQ")).toBe("1");
+    expect(base64ToUtf8("MQ==x")).toBe("1");
+    expect(base64ToUtf8("bWVzc3k=")).toBe("messy");
+    expect(base64ToUtf8("M")).toBe("");
+    expect(base64ToUtf8("MA==")).toBe("0");
   });
 });
