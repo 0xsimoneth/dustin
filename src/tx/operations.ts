@@ -6,6 +6,7 @@ import {
   getLiquidityPoolId,
   type xdr,
 } from "@stellar/stellar-sdk";
+import { toHex } from "../bytes.js";
 import { DustinError } from "../errors/dustin-error.js";
 import type { AssetRef } from "../inspect/snapshot.js";
 import type { OperationDescriptor, PoolShareAssetRef } from "../plan/model.js";
@@ -30,9 +31,9 @@ function poolShareAsset(ref: PoolShareAssetRef): LiquidityPoolAsset {
     Asset,
     Asset,
   ];
-  const id = Buffer.from(
+  const id = toHex(
     getLiquidityPoolId("constant_product", { assetA, assetB, fee: LiquidityPoolFeeV18 }),
-  ).toString("hex");
+  );
   if (id !== ref.poolId) {
     // Epic 4 review AC-12: a DustinError, as every error of the SDK is.
     throw new DustinError(

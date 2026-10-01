@@ -4,13 +4,15 @@ import {
   type Keypair,
   type Transaction,
 } from "@stellar/stellar-sdk";
+import { toHex } from "../bytes.js";
 
 /**
- * Hex hash of a transaction. In @stellar/stellar-sdk 17.1.0 `hash()` returns a Uint8Array, so
- * `.toString("hex")` would print comma-separated decimals.
+ * Hex hash of a transaction. In @stellar/stellar-sdk 17.1.0 `hash()` returns a Uint8Array, whose
+ * own `toString()` would print comma-separated decimals; `toHex` prints the 64 hex digits Horizon
+ * and the explorer use, without Node's Buffer (story E5-S1).
  */
 export function hashHex(tx: Transaction | FeeBumpTransaction): string {
-  return Buffer.from(tx.hash()).toString("hex");
+  return toHex(tx.hash());
 }
 
 /**

@@ -15,6 +15,9 @@ export type { PlanCloseInput, PlanCloseOptions } from "./plan/plan-close.js";
 export { planFromSnapshot } from "./plan/plan.js";
 export { renderPlan } from "./render/plan-text.js";
 export type { RenderPlanOptions } from "./render/plan-text.js";
+// The words of a step and of what it acts on, as the plan text prints them, so a UI that lays
+// the plan out itself (the web demo of story E5-S1, a wallet) keeps the CLI's wording.
+export { stepAction, subjectLabel } from "./render/plan-text.js";
 export { renderReport } from "./render/report-text.js";
 export type { RenderReportOptions } from "./render/report-text.js";
 export type * from "./plan/model.js";

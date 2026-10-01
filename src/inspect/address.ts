@@ -31,8 +31,10 @@ export function assertAccountAddress(address: string): void {
 export function destinationBaseAccount(address: string): string {
   if (StrKey.isValidEd25519PublicKey(address)) return address;
   if (StrKey.isValidMed25519PublicKey(address)) {
+    // The first 32 bytes are the ed25519 key, the last 8 the muxed id (SEP-23); the SDK takes and
+    // returns Uint8Array, so no Buffer is needed (story E5-S1).
     const raw = StrKey.decodeMed25519PublicKey(address);
-    return StrKey.encodeEd25519PublicKey(Buffer.from(raw.subarray(0, 32)));
+    return StrKey.encodeEd25519PublicKey(raw.subarray(0, 32));
   }
   if (StrKey.isValidContract(address)) {
     throw new DustinError("CONTRACT_ACCOUNT", "A contract (C...) destination is out of scope.", {

@@ -1,3 +1,4 @@
+import { base64ToUtf8 } from "../bytes.js";
 import { assertPause, clipPause, type Sleep } from "../config/pauses.js";
 import { DustinError } from "../errors/dustin-error.js";
 import { destinationBaseAccount } from "../inspect/address.js";
@@ -26,7 +27,7 @@ export interface PreflightResult {
  */
 function memoRequired(account: HorizonAccount): boolean {
   const value = account.data["config.memo_required"];
-  return value !== undefined && Buffer.from(value, "base64").toString("utf8") === "1";
+  return value !== undefined && base64ToUtf8(value) === "1";
 }
 
 /**

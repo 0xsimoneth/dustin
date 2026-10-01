@@ -1,5 +1,6 @@
 import { Asset, LiquidityPoolFeeV18, getLiquidityPoolId } from "@stellar/stellar-sdk";
 import { formatStroops, toStroops } from "../amounts.js";
+import { toHex } from "../bytes.js";
 import type {
   AssetRef,
   ExistingAccountSnapshot,
@@ -340,9 +341,9 @@ export function derivePoolAssets(
     for (let j = i + 1; j < sorted.length && found.size < wanted.size; j++) {
       const [keyA, assetA] = sorted[i]!;
       const [keyB, assetB] = sorted[j]!;
-      const id = Buffer.from(
+      const id = toHex(
         getLiquidityPoolId("constant_product", { assetA, assetB, fee: LiquidityPoolFeeV18 }),
-      ).toString("hex");
+      );
       if (wanted.has(id)) found.set(id, [keyA, keyB]);
     }
   }

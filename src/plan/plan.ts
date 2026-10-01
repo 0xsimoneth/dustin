@@ -1,3 +1,4 @@
+import { utf8ByteLength } from "../bytes.js";
 import { canonicalJson, sha256Hex } from "../canonical-json.js";
 import { MIN_BASE_FEE } from "../config/fees.js";
 import { DustinError } from "../errors/dustin-error.js";
@@ -339,7 +340,7 @@ export function validatePlanOptions(o: PlanOptions): void {
   if (o.maxWaitLedgers !== undefined && (!isInt(o.maxWaitLedgers) || o.maxWaitLedgers < 0)) {
     throw invalid("maxWaitLedgers must be a whole number of at least 0");
   }
-  if (o.memo !== undefined && Buffer.byteLength(o.memo, "utf8") > MAX_MEMO_BYTES) {
+  if (o.memo !== undefined && utf8ByteLength(o.memo) > MAX_MEMO_BYTES) {
     throw invalid(`memo must be at most ${MAX_MEMO_BYTES} bytes`);
   }
 }

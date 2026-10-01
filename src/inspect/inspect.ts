@@ -1,4 +1,5 @@
 import { formatStroops, toStroops } from "../amounts.js";
+import { base64ToUtf8 } from "../bytes.js";
 import { canonicalJson, sha256Hex } from "../canonical-json.js";
 import { assertTestnetPassphrase, resolveConfig, type DustinConfig } from "../config/network.js";
 import { horizonJson } from "../reader/horizon-json.js";
@@ -53,7 +54,7 @@ function assetRef(a: HorizonAssetRef): AssetRef {
 /** SEP-29: data entry `config.memo_required` = "1" (base64 "MQ=="). */
 function memoRequired(account: HorizonAccount | null): boolean {
   const value = account?.data["config.memo_required"];
-  return value !== undefined && Buffer.from(value, "base64").toString("utf8") === "1";
+  return value !== undefined && base64ToUtf8(value) === "1";
 }
 
 /** Code-point order, the same in every locale, so step ids and plan hashes are stable. */
