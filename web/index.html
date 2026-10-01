@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="referrer" content="no-referrer" />
+    <meta
+      name="description"
+      content="Plan the close of a Stellar testnet account in the browser with the stellar-dustin planner. Read-only: nothing is signed, no secret is asked for."
+    />
+    <title>Dustin plan-only demo (testnet)</title>
+    <script type="module" src="./src/main.ts"></script>
+  </head>
+  <body>
+    <a class="skip" href="#plan-form">Skip to the form</a>
+    <header>
+      <p class="banner" role="note">
+        <strong>Testnet only.</strong> This page plans against the Stellar testnet (Horizon at
+        horizon-testnet.stellar.org) and refuses any other network. Nothing here has real value.
+      </p>
+      <h1>Dustin: plan the close of a Stellar testnet account</h1>
+      <p class="lead">
+        This page only plans. It never asks for a secret key; closing happens in your terminal or
+        your own code.
+      </p>
+      <p>
+        Dustin (<code>stellar-dustin</code>) is a TypeScript SDK and CLI that closes messy Stellar
+        testnet accounts with fee-bumped, sponsor-paid transactions. Paste an account and this page
+        runs the SDK's read-only planner in your browser: GET requests to Horizon, nothing signed,
+        nothing submitted. It shows the ordered plan the CLI would print.
+      </p>
+    </header>
+    <main>
+      <form id="plan-form" novalidate>
+        <div class="field">
+          <label for="account">Account to close (G...)</label>
+          <input
+            id="account"
+            name="account"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            required
+            aria-describedby="account-help"
+          />
+          <p id="account-help" class="help">
+            The public address of a classic account: 56 characters starting with G. Public addresses
+            only; a secret key is never needed to plan.
+          </p>
+        </div>
+        <div class="field">
+          <label for="destination">Destination (G... or M..., optional)</label>
+          <input
+            id="destination"
+            name="destination"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            aria-describedby="destination-help"
+          />
+          <p id="destination-help" class="help">
+            Where the account's XLM goes when it is merged. Without a destination the page still
+            inspects the account and lists the cleanup it can see, but the plan is BLOCKED: a merge
+            needs a destination that exists on the ledger.
+          </p>
+        </div>
+        <div class="field">
+          <label for="sponsor">Fee sponsor (G..., optional)</label>
+          <input
+            id="sponsor"
+            name="sponsor"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            aria-describedby="sponsor-help"
+          />
+          <p id="sponsor-help" class="help">
+            The funded testnet account that would pay every fee at close time. The plan names it as
+            the payer and checks the fee bid against the sponsor's per-close budget (5 XLM). Without
+            it the fees are still estimated from Horizon's fee statistics, and the payer is shown as
+            <code>fee_sponsor</code>.
+          </p>
+        </div>
+        <fieldset>
+          <legend>Options</legend>
+          <div class="check">
+            <input id="partial" name="partial" type="checkbox" />
+            <label for="partial">
+              <code>--partial</code> (SDK <code>allowPartial</code>): at close time, run every step
+              that can run and skip the merge when an item cannot be disposed of. The plan is the
+              same; the note under its status says what the close would do.
+            </label>
+          </div>
+          <div class="check">
+            <input id="prefer-destination" name="prefer-destination" type="checkbox" />
+            <label for="prefer-destination">
+              <code>--prefer-destination</code> (SDK <code>preferDestination</code>): try sending a
+              leftover balance to the destination before returning it to its issuer.
+            </label>
+          </div>
+        </fieldset>
+        <div class="actions">
+          <button type="button" id="load-example">Load the example account</button>
+          <button type="submit" id="plan-button">Plan</button>
+        </div>
+        <p id="example-help" class="help">
+          The example is the builder's baseline fixture on the testnet: a messy account at its
+          minimum balance (four trustlines with dust, one of them sponsored, two open offers, one
+          data entry, zero spendable XLM). Planning reads it and changes nothing.
+        </p>
+      </form>
+      <div id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></div>
+      <section id="result" hidden aria-labelledby="result-heading">
+        <h2 id="result-heading" tabindex="-1">Plan</h2>
+        <div id="result-body"></div>
+      </section>
+      <section id="run-yourself" aria-labelledby="run-heading">
+        <h2 id="run-heading">Run it yourself</h2>
+        <p>
+          The same plan from the command line, then the close. The CLI reads the two secret keys
+          from the environment variables named below, from <code>.env</code> in the working
+          directory, or from a hidden prompt; never from the command line, and never from this page.
+        </p>
+        <div id="commands"></div>
+        <p>
+          The <a href="https://github.com/0xsimoneth/dustin#readme">README</a> covers the CLI and
+          the SDK; the
+          <a href="https://github.com/0xsimoneth/dustin/blob/main/docs/integration-notes.md"
+            >integration notes</a
+          >
+          cover the whole wallet flow, from the plan to the sponsor's signature.
+        </p>
+      </section>
+    </main>
+    <footer>
+      <p>
+        Post-sprint demo, outside the Instaward scope; testnet only; MIT.
+        <a href="https://github.com/0xsimoneth/dustin">Repository</a> and
+        <a href="https://github.com/0xsimoneth/dustin/blob/main/docs/web-demo.md"
+          >what this page is</a
+        >.
+      </p>
+    </footer>
+  </body>
+</html>

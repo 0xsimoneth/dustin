@@ -38,3 +38,7 @@ coverage/
 
 # The demo video: hosted as a release asset, never committed (evidence/demo/README.md)
 evidence/demo/*.mp4
+
+# The web demo's Playwright output (web/, story E5-S1); its dist/ and node_modules are covered above
+web/test-results/
+web/playwright-report/

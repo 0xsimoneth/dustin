@@ -12,6 +12,9 @@ export default defineConfig([
     ".stellar-build/",
     // Git worktrees of parallel agents hold whole copies of the repository.
     ".claude/worktrees/",
+    // The web demo is a separate Vite project with its own eslint config and tsconfig (story
+    // E5-S1); its types come from the built dist, which does not exist when the root lint runs.
+    "web/",
   ]),
   js.configs.recommended,
   tseslint.configs.recommendedTypeChecked,

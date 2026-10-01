@@ -1,0 +1,30 @@
+{
+  "name": "stellar-dustin-web-demo",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Plan-only web demo of stellar-dustin: a static page that plans the close of a Stellar testnet account in the browser. Post-sprint, outside the Instaward scope; local only, not hosted.",
+  "license": "MIT",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@playwright/test": "1.63.0",
+    "@types/node": "^24.13.6",
+    "eslint": "10.11.0",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.70.1",
+    "vite": "8.3.2",
+    "vitest": "5.0.3"
+  }
+}
