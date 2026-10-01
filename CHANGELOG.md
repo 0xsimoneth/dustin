@@ -9,11 +9,13 @@ Post-sprint changes, outside the Instaward scope (`docs/README.md`, canonical de
 ### Added
 
 - `stepAction()` and `subjectLabel()`, the words of a plan step and of what it acts on as `renderPlan()` prints them, so a user interface that lays a plan out itself keeps the CLI's wording.
-- A plan-only web demo under `web/`, not part of the package and not hosted: a static page, built with Vite, that runs `planClose()` in the browser against the testnet Horizon and renders the plan; it never asks for a secret, and closing stays in the CLI and the SDK ([docs/web-demo.md](docs/web-demo.md), ADR-0007).
+- A plan-only web demo under `web/`, not part of the package and not hosted: a static page, built with Vite, that runs `planClose()` in the browser against the testnet Horizon and renders the plan; it never asks for a secret, and closing stays in the CLI and the SDK ([docs/web-demo.md](docs/web-demo.md), ADR-0007). Reviewed on 2026-10-01 (`docs/reviews/2026-10-01-e5-web-demo-review.md`): a Content-Security-Policy, the plan marked stale when an input changes, explorer links only for addresses with a valid checksum, the notes under a blocked status aligned with the executor, a parity test against the CLI's `--json` plan, and the page's bundle scanned by the browser-safety guard in CI.
 
 ### Changed
 
-- The SDK entry (`stellar-dustin`) runs in a browser bundle: `sha256Hex` takes its digest from the Stellar SDK's `hash()` instead of `node:crypto`, and no module reachable from the entry uses `Buffer` or another Node-only API; `scripts/check-browser-safe.mjs` checks the built entry and its chunks in CI. Every plan hash and snapshot hash is unchanged (`test/unit/canonical-json.test.ts`). The CLI and `stellar-dustin/testing` keep Node's APIs.
+- `validatePlanOptions()`, and so `planFromSnapshot()`, `planClose()` and the CLI, refuse a `memo` that is not a string with `CONFIG_INVALID` (`Invalid plan option: memo must be a string`); before, `Buffer.byteLength` threw a `TypeError` for it, and the `TextEncoder` that replaced `Buffer` would have coerced it to text (E5-S1 review, EC-2).
+- The SEP-29 `config.memo_required` check decodes the data entry's base64 value exactly as `Buffer.from(value, "base64")` did, every character outside the alphabet skipped and decoding stopped at the first `=`; the first browser-safe version used `atob`, which throws on a stray character, so a malformed value would have read as "not required" (E5-S1 review, EC-1).
+- The SDK entry (`stellar-dustin`) runs in a browser bundle: `sha256Hex` takes its digest from the Stellar SDK's `hash()` instead of `node:crypto`, and no module reachable from the entry uses `Buffer` or another Node-only API; `scripts/check-browser-safe.mjs` checks the built entry and its chunks in CI, parsing each file with the TypeScript compiler so that a string or a comment is never a finding and a bare `Buffer` or `process` value never escapes (E5-S1 review, S3). Every plan hash and snapshot hash is unchanged (`test/unit/canonical-json.test.ts`). The CLI and `stellar-dustin/testing` keep Node's APIs.
 
 ## [0.1.0] - unreleased
 

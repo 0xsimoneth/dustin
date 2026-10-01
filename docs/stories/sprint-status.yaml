@@ -65,8 +65,8 @@ development_status:
   4-7-evidence-package: in-progress
   epic-4-retrospective: optional
   # Post-sprint, outside the SOW and the 200 h ledger (docs/README.md canonical decision 1, ADR-0007).
-  epic-5: in-progress
-  5-1-web-demo-plan-only: review
+  epic-5: done
+  5-1-web-demo-plan-only: done
 
 epics:
   - key: epic-0
@@ -354,7 +354,7 @@ stories:
     title: Plan-only web demo (post-sprint, outside the SOW; local, not hosted)
     epic: E5
     week: post-sprint
-    status: review
+    status: done
     estimate_hours: 0 # outside the 200 h ledger
     deliverable: none
 
@@ -483,3 +483,23 @@ sessions:
     next: >-
       The review of E5-S1 (the quality gate's record in the story file), then the demo's next iterations as
       docs/web-demo.md lists them ("Roadmap"); the builder's actions of docs/HANDOFF.md as before.
+  - date: "2026-10-01"
+    sprint_day: post-sprint
+    summary: >-
+      The quality gate of E5-S1 (docs/reviews/2026-10-01-e5-web-demo-review.md): the first pass's uncommitted
+      fixes triaged and kept, the list closed, 17 findings fixed and none deferred. The SDK: base64ToUtf8 reads a
+      value as Buffer did (SEP-29), a non-string memo is CONFIG_INVALID; the guard script parses with the
+      TypeScript compiler and CI runs it over the web bundle too. The page: the blocked-status notes aligned
+      with the executor, StrKey checks, links only for checksummed addresses with a muxed destination linking
+      its base account, the stale mark, the slow-Horizon words, a Content-Security-Policy, a parity test (the
+      page's plan equals dustin plan --json's for the recorded fixture, hash 25be835c...8c85), the CI web job
+      with one build and the failure artifact. Gates green: root 129 files, 1262 tests, the package's 26 files
+      unchanged; web 33 unit tests, 18 Playwright runs. CI: run 36888570340 green in the offline jobs and cancelled
+      in the web job by an apt mirror stall in the Playwright install (the step now bounded to ten minutes,
+      26fffc2); run 36891502802 green in every job. E5-S1 done.
+    blocked_on_builder:
+      - the builder's actions of docs/HANDOFF.md are unchanged by this session
+      - whether and where to host the page later (docs/web-demo.md, "Deployment"): not planned
+    next: >-
+      The demo's next iterations as docs/web-demo.md lists them ("Roadmap"); the builder's actions of
+      docs/HANDOFF.md as before.

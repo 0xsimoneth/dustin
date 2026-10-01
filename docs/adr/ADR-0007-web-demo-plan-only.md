@@ -37,6 +37,6 @@ The 30-day SOW delivered an SDK and a CLI and placed the wallet UI with the inte
 
 - `SUCCESSFUL_SOW.md` (Out of Scope: wallet UI, production key management); `docs/README.md` canonical decisions 1, 4, 7, 14 and 15.
 - js-stellar-sdk 17.1.0 `src/base/hashing.ts`: https://github.com/stellar/js-stellar-sdk/blob/v17.1.0/src/base/hashing.ts
-- Forgiving base64 decoding (`atob`): https://infra.spec.whatwg.org/#forgiving-base64-decode
+- Node's base64 decoder, which `src/bytes.ts` mirrors since the story's review (`docs/reviews/2026-10-01-e5-web-demo-review.md`, S1): https://github.com/nodejs/node/blob/v24.x/src/base64-inl.h
 - Horizon rate limiting: https://developers.stellar.org/docs/data/apis/horizon/api-reference/structure/rate-limiting
 - The CORS probe of the testnet Horizon on 2026-10-01: `docs/web-demo.md`, "Architecture".

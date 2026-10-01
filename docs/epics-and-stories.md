@@ -12,7 +12,7 @@ status: planning-complete
 
 ## Overview
 
-This document provides the complete epic and story breakdown for Dustin, the JS/TS SDK and CLI that closes messy Stellar classic (G) accounts on testnet with fee-bumped, sponsor-paid transactions. It decomposes the accepted 30-day, USD 5,000 Stellar Instawards Statement of Work (the SOW, 200 engineering hours) into five epics and 31 implementable stories.
+This document provides the complete epic and story breakdown for Dustin, the JS/TS SDK and CLI that closes messy Stellar classic (G) accounts on testnet with fee-bumped, sponsor-paid transactions. It decomposes the accepted 30-day, USD 5,000 Stellar Instawards Statement of Work (the SOW, 200 engineering hours) into five epics and 31 implementable stories; a sixth epic, post-sprint and outside the SOW (Epic 5, the plan-only web demo), is listed after them.
 
 No PRD, architecture document or UX specification exists in the planning folder, so the SOW is used as the PRD. Architecture-level decisions that the SOW leaves open are recorded as additional requirements below and flagged in the Assumptions section at the end.
 
@@ -108,7 +108,7 @@ Sprint calendar (funds received 2026-09-22, final deadline 2026-10-22):
 | Buffer | 2026-10-20 to 2026-10-22 | Review fixes; **final deadline 2026-10-22** |
 
 
-Five epics. Epics 1 to 4 are the four weeks of the SOW execution plan (section 5.1); each week's "Expected Output" is that epic's definition of done. Epic 0 is the repository bootstrap the SOW leaves implicit; it is sized to fit inside Week 1 and charged to D1 because the planner ships in the repository it creates. Each epic is standalone: every epic leaves the CLI in a demonstrable state, and no epic depends on a later one. A post-sprint Epic 5 (2026-10-01), outside the SOW and outside the ledger, is listed after Epic 4: the plan-only web demo.
+Six epics. Epics 1 to 4 are the four weeks of the SOW execution plan (section 5.1); each week's "Expected Output" is that epic's definition of done. Epic 0 is the repository bootstrap the SOW leaves implicit; it is sized to fit inside Week 1 and charged to D1 because the planner ships in the repository it creates. Each epic is standalone: every epic leaves the CLI in a demonstrable state, and no epic depends on a later one. A post-sprint Epic 5 (2026-10-01), outside the SOW and outside the ledger, is listed after Epic 4: the plan-only web demo.
 
 ### Epic 0: Repository Bootstrap
 

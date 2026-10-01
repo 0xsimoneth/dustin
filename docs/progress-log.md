@@ -306,3 +306,28 @@ Traps recorded this session:
 Not done, by the builder's word: no deployment, no live URL.
 
 Next: the quality gate's record in the story file, then the demo's next iterations as `docs/web-demo.md` lists them ("Roadmap"); the builder's actions of `docs/HANDOFF.md` are unchanged.
+
+## 2026-10-01 (post-sprint), the review of the web demo
+
+### Session summary (2026-10-01, later)
+
+The quality gate of story E5-S1, recorded in `docs/reviews/2026-10-01-e5-web-demo-review.md`. The first pass (the code-review layers on the story's diff) left its fixer's work uncommitted; this pass read and ran it, kept all of it, finished the two failing pieces (the root lint of a new test, a web test that built a muxed address without a checksum) and closed the whole list: 17 findings, all fixed, none deferred. Status of E5-S1: done.
+
+Done:
+
+- The SDK and the scripts (S1 to S4): `base64ToUtf8` reads a value as `Buffer.from(value, "base64")` did, so the SEP-29 `config.memo_required` check reads a malformed value as every Node client does (a forgiving `atob` threw and read it as unset); a memo that is not a string is `CONFIG_INVALID`; `scripts/check-browser-safe.mjs` parses each built file with the TypeScript compiler (prose in strings and comments never a finding, bare `Buffer`/`process` values and the `globalThis` forms found, `_` internals and bare built-ins Node-only, a missing chunk a finding, the run-as-main check by real path), its tests clean up, and CI runs it over the page's own bundle too (`npm run check:bundle`).
+- The page (W1 to W10): the note under a BLOCKED status says that the CLI needs `--to` without a destination and promises no step while a blocker holds; the sponsor of the no-destination path checked by StrKey checksum; "unknown" for a figure that is not finite; explorer links only for checksummed G/M addresses, a muxed destination linking its base account; the plan marked stale when an input changes; the "Copied." timer, the copy buttons' names and the "Recovered" row for a plan that does not merge; a clear error when the root build is missing; Playwright on a preview-only server with a single build in CI and the report kept on failure; the recorded `fetch` reads a `Request`'s method; a Content-Security-Policy, strict on the built page and relaxed for styles in `vite dev` alone; a parity test (the page's plan equals `dustin plan --json`'s for the recorded fixture, hash `25be835c...8c85` and document; every flag the page prints is in `--help`); the slow-Horizon words after three seconds.
+- The documents (D1 to D3): the story's Review section and status, "Six epics.", canonical decision 4 with `--sponsor` and `--prefer-destination`, the review record, the tracker, the CHANGELOG, `docs/web-demo.md` (the decoder, the guard, the policy, the counts, the live figures labelled as dated manual observations).
+- Gates on the final code: root lint, format, typecheck, 129 files and 1262 tests, build, the guard (4 files), `check:package` and `npm pack --dry-run` (26 files, unchanged); `web/` lint, typecheck, build (193.8 kB), `check:bundle`, 33 unit tests, 18 Playwright runs. CI: the first CI run on the code commits (d53c13f, c460737), 36888570340, was green in the three offline jobs and was cancelled in the web job by its twenty-minute limit after nineteen minutes inside `npx playwright install --with-deps chromium`, waiting on the runner's Ubuntu apt mirror; every step before it, the 33 unit tests included, had passed. The step was bounded to ten minutes (26fffc2), and run 36891502802 on that commit is green on Node 22.12.0, 22 and 24 and in the web job.
+
+Traps recorded this session:
+
+- **A synchronous child process starves a server in the same process.** The parity test's replay server lives in the Vitest worker; `spawnSync` of the CLI blocked the worker's event loop, the CLI waited for an answer that could not come, and the test hit its timeout. The CLI runs through an asynchronous `execFile`.
+- **A meta tag cannot carry every CSP directive.** `frame-ancestors` is ignored in a meta tag, so it is not in the page's policy.
+- **The dev server and the build differ under a strict `style-src`.** Vite injects CSS inline in `vite dev` and links it in the build; the relaxation lives in the config, for the dev command alone, so the built page stays strict.
+- **An apt mirror can stall a job for its whole budget.** The first CI run of the review's code waited nineteen minutes in the `apt-get update` of `npx playwright install --with-deps chromium` against the runner's Ubuntu mirror and was cancelled by the job's twenty-minute limit; the step now has a ten-minute bound of its own, so a stall fails fast and a rerun is one command.
+- **A shape check is not an address check.** A test built a muxed address of 68 "A"s; it passed a regular expression and failed the StrKey checksum. Test addresses are built with the SDK (`MuxedAccount`).
+
+Not done, by the builder's word: no deployment, no live URL.
+
+Next: the demo's next iterations as `docs/web-demo.md` lists them ("Roadmap"); the builder's actions of `docs/HANDOFF.md` are unchanged.
