@@ -1,3 +1,4 @@
+import { Account, MuxedAccount } from "@stellar/stellar-sdk";
 import { describe, expect, it } from "vitest";
 import { closeCommand, planCommand } from "../src/commands";
 import { EXAMPLE } from "../src/example";
@@ -28,11 +29,17 @@ describe("planCommand", () => {
   });
 
   it("accepts a muxed M... destination and adds --prefer-destination when asked", () => {
-    const muxed = `M${"A".repeat(68)}`;
+    // A real muxed address (StrKey checksum included) of the example destination with id 1; a
+    // string that is only shaped like one is a placeholder since the review (W2, W3).
+    const muxed = new MuxedAccount(new Account(EXAMPLE.destination, "0"), "1").accountId();
+    expect(muxed).toMatch(/^M[A-Z2-7]{68}$/);
     expect(planCommand({ ...base, destination: muxed, preferDestination: true })).toBe(
       `npx stellar-dustin plan ${EXAMPLE.account} --to ${muxed} --sponsor ${EXAMPLE.sponsor} --prefer-destination`,
     );
     expect(planCommand({ ...base, destination: `M${"A".repeat(55)}` })).toContain(
+      "--to G<DESTINATION>",
+    );
+    expect(planCommand({ ...base, destination: `M${"A".repeat(68)}` })).toContain(
       "--to G<DESTINATION>",
     );
   });

@@ -1,22 +1,19 @@
+import { isAccountAddress, isDestinationAddress } from "./address";
 import type { PlanInputs } from "./inputs";
 
 /**
- * The CLI commands for the plan on the form, as the README documents them. Only a value that is
- * shaped like a Stellar address is written into a command; anything else is shown as a placeholder,
- * so the box never echoes arbitrary text as a command. Secrets are named by their environment
- * variables and never appear.
+ * The CLI commands for the plan on the form, as the README documents them. Only a valid Stellar
+ * address (StrKey checksum included, E5-S1 review I-2) is written into a command; anything else is
+ * shown as a placeholder, so the box never echoes arbitrary text as a command. Secrets are named
+ * by their environment variables and never appear.
  */
-
-const G_ADDRESS = /^G[A-Z2-7]{55}$/;
-/** A muxed destination (SEP-23): "M" and 68 base32 characters. */
-const M_ADDRESS = /^M[A-Z2-7]{68}$/;
 
 export const ACCOUNT_SECRET_VAR = "DUSTIN_ACCOUNT_SECRET";
 export const SPONSOR_SECRET_VAR = "DUSTIN_SPONSOR_SECRET";
 
 function address(value: string, placeholder: string, muxedAllowed = false): string {
-  if (G_ADDRESS.test(value)) return value;
-  if (muxedAllowed && M_ADDRESS.test(value)) return value;
+  if (isAccountAddress(value)) return value;
+  if (muxedAllowed && isDestinationAddress(value)) return value;
   return placeholder;
 }
 

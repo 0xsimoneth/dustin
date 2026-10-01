@@ -1,3 +1,4 @@
+import { Account, MuxedAccount } from "@stellar/stellar-sdk";
 import type { ClosePlan } from "stellar-dustin";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { planInBrowser } from "../src/plan";
@@ -5,7 +6,8 @@ import { shortAddress, toView, xlm } from "../src/view";
 import { loadRecorded, messyAccounts, recordedFetch } from "./helpers/recorded";
 
 // The plan-to-view mapping on the recorded messy fixture (the SOW's metric account), with the
-// network stubbed, and on plans derived from it (a missing account, no destination, a partial).
+// network stubbed, and on plans derived from it (a missing account, no destination, a partial, a
+// blocked plan, a muxed destination, figures that are not numbers).
 
 const EXPLORER = "https://stellar.expert/explorer/testnet";
 const recorded = loadRecorded();
@@ -43,6 +45,7 @@ describe("toView on the recorded messy fixture", () => {
       spendable: "0.0000000",
       baseReserve: "0.5000000",
     });
+    expect(v.recovery?.merges).toBe(true);
     expect(v.recovery?.toDestination).toBe("4.0000007 XLM");
     expect(v.recovery?.detail).toBe("balance 4.0000000 + sale 0.0000007");
     expect(v.recovery?.sponsors).toEqual([
@@ -89,7 +92,13 @@ describe("toView on the recorded messy fixture", () => {
       ["Fee sponsor", messy.sponsor],
       ["Issuer of DUSTA, DUSTB, DUSTC, SPTA", messy.issuer],
     ]);
-    for (const l of v.links) expect(l.url).toBe(`${EXPLORER}/account/${l.address}`);
+    for (const l of v.links) {
+      expect(l.target).toBe(l.address);
+      expect(l.url).toBe(`${EXPLORER}/account/${l.address}`);
+    }
+    // A trailing slash on the explorer base does not double up.
+    const slashed = toView(plan, { allowPartial: false, explorerBase: `${EXPLORER}/` });
+    expect(slashed.links[0]?.url).toBe(`${EXPLORER}/account/${messy.fixture}`);
   });
 
   it("has no blockers, no unclosable items, a sequence guard that is ok, and the plan hash", () => {
@@ -127,7 +136,7 @@ describe("toView on derived plans", () => {
     expect(v.links.map((l) => l.label)).toEqual(["Account", "Destination"]);
   });
 
-  it("no destination: the cleanup is listed, the plan is BLOCKED by DESTINATION_MISSING", async () => {
+  it("no destination: the cleanup is listed, the plan is BLOCKED by DESTINATION_MISSING, and the note says the CLI needs --to", async () => {
     vi.stubGlobal("fetch", recordedFetch(recorded).fetch);
     const noDestination = await planInBrowser({
       account: messy.fixture,
@@ -140,10 +149,16 @@ describe("toView on derived plans", () => {
     expect(v.status.word).toBe("BLOCKED");
     expect(v.destination).toBeNull();
     expect(v.blockers.map((b) => b.code)).toEqual(["DESTINATION_MISSING"]);
-    expect(v.steps.length).toBeGreaterThan(0);
+    expect(v.steps).toHaveLength(11);
     expect(v.steps.some((s) => s.action.startsWith("merge"))).toBe(false);
-    expect(v.status.closeNote).toMatch(/^Without --partial, the close refuses to start/);
-    expect(view(noDestination, true).status.closeNote).toMatch(/^With --partial/);
+    // Neither note promises that --partial runs anything: without --to the CLI does not start (W1).
+    for (const allowPartial of [false, true]) {
+      const note = view(noDestination, allowPartial).status.closeNote;
+      expect(note).toMatch(/^The CLI needs --to; nothing runs until a destination is given\./);
+      expect(note).toMatch(/The 11 steps listed are the cleanup the planner can see without one/);
+      expect(note).not.toMatch(/would run|--partial/);
+    }
+    expect(v.recovery?.merges).toBe(false);
     expect(v.recovery?.detail).toBe("nothing arrives: the plan does not merge");
     expect(v.links.map((l) => l.label)).toEqual([
       "Account",
@@ -186,6 +201,81 @@ describe("toView on derived plans", () => {
     expect(view(partial, true).status.closeNote).toMatch(
       /^With --partial, the close would run the 12 steps listed and stop before the merge/,
     );
+    expect(v.recovery?.merges).toBe(false);
+  });
+
+  it("a blocked plan with a blocker --partial cannot clear: neither note promises a step (W1)", () => {
+    const blocked: ClosePlan = {
+      ...plan,
+      status: "blocked",
+      blockers: [
+        {
+          code: "SEQNUM_TOO_FAR",
+          permanent: false,
+          reason: "The account's sequence number is too far ahead of the ledger for a merge.",
+          remedy: "Wait until the ledger catches up, then plan again.",
+        },
+      ],
+    };
+    const without = view(blocked).status.closeNote;
+    const withPartial = view(blocked, true).status.closeNote;
+    expect(without).toMatch(
+      /^Without --partial, the close refuses to start while the blockers below hold \(exit code 3\)\./,
+    );
+    expect(without).toMatch(/--partial does not clear a blocker/);
+    expect(withPartial).toMatch(
+      /^With --partial, the close may go on without the merge, which the blockers below still block/,
+    );
+    for (const note of [without, withPartial]) {
+      expect(note).not.toMatch(/would run/);
+      expect(note).toMatch(/at most the 12 steps listed/);
+      expect(note).toMatch(/stay open \(exit code 4\)/);
+    }
+    expect(view(blocked).recovery?.merges).toBe(false);
+    // With no step at all, nothing can run.
+    expect(view({ ...blocked, steps: [], transactions: [] }).status.closeNote).toMatch(
+      /^Nothing can run today: the blockers below hold/,
+    );
+  });
+
+  it("a muxed destination links its base account and stays text itself; an invalid address is text only (W3)", () => {
+    const muxed = new MuxedAccount(new Account(messy.destination, "0"), "7").accountId();
+    const destination = view({ ...plan, destination: muxed }).links.find(
+      (l) => l.label === "Destination",
+    );
+    expect(destination).toEqual({
+      label: "Destination",
+      address: muxed,
+      url: `${EXPLORER}/account/${messy.destination}`,
+      target: messy.destination,
+    });
+    const shaped = `M${"A".repeat(68)}`;
+    const odd = view({ ...plan, destination: shaped, feeSponsor: "not an address" });
+    expect(odd.links.find((l) => l.label === "Destination")).toEqual({
+      label: "Destination",
+      address: shaped,
+      url: null,
+      target: null,
+    });
+    expect(odd.links.find((l) => l.label === "Fee sponsor")).toEqual({
+      label: "Fee sponsor",
+      address: "not an address",
+      url: null,
+      target: null,
+    });
+  });
+
+  it("prints a figure that is not a finite number as unknown (W3)", () => {
+    const odd: ClosePlan = {
+      ...plan,
+      observed: { ...plan.observed, ledger: Number.NaN },
+      fees: { ...plan.fees, totalStroops: Number.POSITIVE_INFINITY, baseFeeStroops: Number.NaN },
+    };
+    const v = view(odd);
+    expect(v.observed.ledger).toBe("unknown");
+    expect(v.fees?.bid).toBe("unknown");
+    expect(v.fees?.perOperation).toBe("unknown stroops per operation");
+    expect(v.fees?.budget).toBe("5.0000000 XLM");
   });
 });
 
@@ -196,6 +286,8 @@ describe("formatting", () => {
     expect(xlm(50_000_000)).toBe("5.0000000 XLM");
     expect(xlm(123_456_789_012)).toBe("12345.6789012 XLM");
     expect(xlm(-7)).toBe("-0.0000007 XLM");
+    expect(xlm(Number.NaN)).toBe("unknown");
+    expect(xlm(Number.NEGATIVE_INFINITY)).toBe("unknown");
   });
 
   it("shortens an address to its first and last four characters", () => {

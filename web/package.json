@@ -15,7 +15,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "test:e2e": "playwright test"
+    "test:e2e": "npm run build && playwright test",
+    "check:bundle": "node ../scripts/check-browser-safe.mjs dist/assets/*.js"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

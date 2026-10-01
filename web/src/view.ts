@@ -1,4 +1,5 @@
 import { stepAction, subjectLabel, type ClosePlan } from "stellar-dustin";
+import { baseAccount, isDestinationAddress } from "./address";
 
 /**
  * The plan as the page shows it: a pure mapping of the SDK's ClosePlan to words and rows, with
@@ -48,8 +49,16 @@ export interface UnclosableRow {
 
 export interface Link {
   label: string;
+  /** The address as the plan holds it, always shown as text. */
   address: string;
-  url: string;
+  /**
+   * The explorer page of `target`, or null when the address is not a G... or M... address with a
+   * valid checksum: then there is nothing safe to link, and the address is text only (E5-S1
+   * review, W3).
+   */
+  url: string | null;
+  /** The account the URL opens: the address itself, or the base G... account of a muxed one. */
+  target: string | null;
 }
 
 export interface PlanView {
@@ -68,6 +77,8 @@ export interface PlanView {
   balance: { balance: string; minimum: string; spendable: string; baseReserve: string } | null;
   /** Null when the account does not exist: nothing moves. */
   recovery: {
+    /** True for a closable plan, the only kind that ends in a merge and moves XLM to the destination. */
+    merges: boolean;
     toDestination: string;
     detail: string;
     sponsors: Array<{ sponsor: string; xlm: string; entries: string[] }>;
@@ -103,8 +114,12 @@ const SENTENCE: Record<ClosePlan["status"], string> = {
   blocked: "the merge is not possible today",
 };
 
-/** Stroops as the CLI prints XLM: 7 decimals, as a string, no floating point. */
+/**
+ * Stroops as the CLI prints XLM: 7 decimals, as a string, no floating point. A value that is not
+ * a finite number prints as "unknown" instead of "NaN.NaN XLM" (E5-S1 review, W3).
+ */
 export function xlm(stroops: number): string {
+  if (!Number.isFinite(stroops)) return "unknown";
   const sign = stroops < 0 ? "-" : "";
   const abs = Math.abs(Math.trunc(stroops));
   const whole = Math.floor(abs / 10_000_000);
@@ -112,12 +127,21 @@ export function xlm(stroops: number): string {
   return `${sign}${whole}.${fraction} XLM`;
 }
 
-const grouped = (n: number) => n.toLocaleString("en-US");
+/** A count with thousands separators, or "unknown" for a value that is not a finite number. */
+const grouped = (n: number) => (Number.isFinite(n) ? n.toLocaleString("en-US") : "unknown");
 
 export function shortAddress(address: string): string {
   return address.length > 12 ? `${address.slice(0, 4)}...${address.slice(-4)}` : address;
 }
 
+/**
+ * What the close would do with the `--partial` choice on the form, in the executor's own terms
+ * (src/execute/executor.ts): without `allowPartial` a plan that cannot end in a merge stops before
+ * anything is signed (exit code 3); with it the close goes on without the merge and the account
+ * stays open (exit code 4). `--partial` never clears a blocker, and without a destination the CLI
+ * cannot even start (`--to` is required), so neither note promises a step there (E5-S1 review,
+ * W1).
+ */
 function closeNote(plan: ClosePlan, allowPartial: boolean, missing: boolean): string {
   const n = plan.steps.length;
   const steps = `${n} step${n === 1 ? "" : "s"}`;
@@ -132,22 +156,39 @@ function closeNote(plan: ClosePlan, allowPartial: boolean, missing: boolean): st
         : `Without --partial, the close refuses to start because of the items below that cannot be disposed of (exit code 3); with it, the ${steps} listed would run and the account would stay open.`;
     case "blocked":
       if (missing) return "Nothing can run: the account does not exist on the ledger.";
+      if (plan.blockers.some((b) => b.code === "DESTINATION_MISSING")) {
+        return n === 0
+          ? "The CLI needs --to; nothing runs until a destination is given."
+          : `The CLI needs --to; nothing runs until a destination is given. The ${steps} listed are the cleanup the planner can see without one.`;
+      }
       if (n === 0) {
         return "Nothing can run today: the blockers below hold, and there is no cleanup the account's own key could do.";
       }
       return allowPartial
-        ? `With --partial, the close would run the ${steps} listed and stop before the merge, which is blocked; the account would stay open (exit code 4).`
-        : `Without --partial, the close refuses to start while the blockers below hold (exit code 3); with it, the ${steps} listed would run and the account would stay open.`;
+        ? `With --partial, the close may go on without the merge, which the blockers below still block: at most the ${steps} listed could run, and the account would stay open (exit code 4).`
+        : `Without --partial, the close refuses to start while the blockers below hold (exit code 3). --partial does not clear a blocker: it only lets the close go on without the merge, at most the ${steps} listed, and the account would stay open (exit code 4).`;
   }
+}
+
+/** The shape of a G... or M... address; the checksum is checked by the StrKey functions. */
+const ADDRESS_SHAPE = /^[GM][A-Z2-7]{55,68}$/;
+
+/**
+ * An explorer link for a G... or M... address with a valid checksum, and text only for anything
+ * else. A muxed address links the base account it wraps, as the CLI's report does, since the
+ * explorer has no page for the muxed form (E5-S1 review, W3).
+ */
+function explorerLink(base: string, label: string, address: string): Link {
+  if (!ADDRESS_SHAPE.test(address) || !isDestinationAddress(address)) {
+    return { label, address, url: null, target: null };
+  }
+  const target = baseAccount(address);
+  return { label, address, url: `${base}/account/${encodeURIComponent(target)}`, target };
 }
 
 function links(plan: ClosePlan, explorerBase: string): Link[] {
   const base = explorerBase.replace(/\/+$/, "");
-  const link = (label: string, address: string): Link => ({
-    label,
-    address,
-    url: `${base}/account/${address}`,
-  });
+  const link = (label: string, address: string): Link => explorerLink(base, label, address);
   const out: Link[] = [link("Account", plan.account)];
   if (plan.destination) out.push(link("Destination", plan.destination));
   if (plan.feeSponsor) out.push(link("Fee sponsor", plan.feeSponsor));
@@ -184,6 +225,7 @@ export function toView(plan: ClosePlan, options: ViewOptions): PlanView {
     recovery: missing
       ? null
       : {
+          merges: plan.status === "closable",
           toDestination: `${r.xlmToDestination} XLM`,
           detail:
             plan.status === "closable"

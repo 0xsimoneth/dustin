@@ -133,9 +133,13 @@ function facts(view: PlanView): HTMLElement {
   );
   if (view.recovery) {
     const r = view.recovery;
+    const where = view.destination ? shortAddress(view.destination) : "the destination";
+    // Only a closable plan merges; for any other the row says so instead of "0 XLM arrives" (W5).
     row(
       "Recovered",
-      `${r.toDestination} arrives at ${view.destination ? shortAddress(view.destination) : "the destination"} (${r.detail}); the account pays 0.0000000 XLM in fees`,
+      r.merges
+        ? `${r.toDestination} arrives at ${where} (${r.detail}); the account pays 0.0000000 XLM in fees`
+        : `${r.detail}, so the XLM stays in the account; the account pays 0.0000000 XLM in fees`,
     );
     row(
       "Reserves released to sponsors",
@@ -202,16 +206,29 @@ function stepsTable(view: PlanView): HTMLElement {
   ]);
 }
 
+/**
+ * Every address as text; a link only where the view found a G... or M... address with a valid
+ * checksum, and for a muxed address the link opens the base account it wraps (W3).
+ */
 function linkList(links: Link[]): HTMLElement {
+  const anchor = (url: string, address: string) =>
+    h("a", { href: url, target: "_blank", rel: "noopener noreferrer" }, [h("code", {}, [address])]);
   return h(
     "ul",
     { class: "links" },
     links.map((l) =>
       h("li", {}, [
         `${l.label}: `,
-        h("a", { href: l.url, target: "_blank", rel: "noopener noreferrer" }, [
-          h("code", {}, [l.address]),
-        ]),
+        ...(l.url === null || l.target === null
+          ? [h("code", {}, [l.address])]
+          : l.target === l.address
+            ? [anchor(l.url, l.address)]
+            : [
+                h("code", {}, [l.address]),
+                " (muxed; its base account ",
+                anchor(l.url, l.target),
+                ")",
+              ]),
       ]),
     ),
   );
@@ -229,19 +246,26 @@ export function renderError(error: PlainError): HTMLElement {
 export function renderCommands(inputs: PlanInputs): HTMLElement {
   const box = h("div", { class: "commands" });
   box.append(
-    command("Plan from the CLI (read-only, no secret)", planCommand(inputs), "copy-plan"),
+    command(
+      "Plan from the CLI (read-only, no secret)",
+      planCommand(inputs),
+      "copy-plan",
+      "Copy the plan command",
+    ),
     command(
       "Close from the CLI (after the plan, with the typed confirmation)",
       closeCommand(inputs),
       "copy-close",
+      "Copy the close command",
     ),
   );
   return box;
 }
 
-function command(title: string, commandText: string, id: string): HTMLElement {
+function command(title: string, commandText: string, id: string, label: string): HTMLElement {
   const note = h("span", { class: "copied", "aria-live": "polite" });
-  const button = h("button", { type: "button", id }, ["Copy"]);
+  // Both buttons read "Copy"; the accessible name says which command (W5).
+  const button = h("button", { type: "button", id, "aria-label": label }, ["Copy"]);
   button.addEventListener("click", () => void copyText(commandText, note));
   return h("div", { class: "command" }, [
     h("h3", {}, [title]),
@@ -250,6 +274,12 @@ function command(title: string, commandText: string, id: string): HTMLElement {
   ]);
 }
 
+/**
+ * The timer that clears a note, one per note: a second press within the four seconds restarts it,
+ * where before the first timer cleared the second note early (W5).
+ */
+const clearers = new WeakMap<HTMLElement, ReturnType<typeof setTimeout>>();
+
 async function copyText(value: string, note: HTMLElement): Promise<void> {
   try {
     await navigator.clipboard.writeText(value);
@@ -257,7 +287,13 @@ async function copyText(value: string, note: HTMLElement): Promise<void> {
   } catch {
     note.textContent = "Copying is not available here; select the text and copy it.";
   }
-  setTimeout(() => {
-    note.textContent = "";
-  }, 4000);
+  const previous = clearers.get(note);
+  if (previous !== undefined) clearTimeout(previous);
+  clearers.set(
+    note,
+    setTimeout(() => {
+      note.textContent = "";
+      clearers.delete(note);
+    }, 4000),
+  );
 }

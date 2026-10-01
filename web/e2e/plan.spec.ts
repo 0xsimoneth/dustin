@@ -62,6 +62,10 @@ test("plans the example account from the recorded fixture and renders the plan",
   page,
 }) => {
   const observed = await serveHorizon(page);
+  const cspViolations: string[] = [];
+  page.on("console", (message) => {
+    if (/Content Security Policy/i.test(message.text())) cspViolations.push(message.text());
+  });
   await page.goto("/");
   await expect(page).toHaveTitle(/testnet/i);
   await expect(page.locator(".banner")).toContainText("Testnet only");
@@ -135,7 +139,21 @@ test("plans the example account from the recorded fixture and renders the plan",
   await expect(commands.locator("pre").nth(1)).toContainText(
     `npx stellar-dustin close ${EXAMPLE.account} --to ${EXAMPLE.destination} --sponsor ${EXAMPLE.sponsor} --execute`,
   );
-  await expect(commands.getByRole("button", { name: "Copy" })).toHaveCount(2);
+  // The two copy buttons are told apart by their accessible names (W5).
+  await expect(
+    commands.getByRole("button", { name: "Copy the plan command", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    commands.getByRole("button", { name: "Copy the close command", exact: true }),
+  ).toHaveCount(1);
+
+  // The page carries its Content-Security-Policy, and nothing on it was refused by that policy
+  // (W9): Horizon is the one host connect-src allows besides the page's own.
+  await expect(page.locator('meta[http-equiv="Content-Security-Policy"]')).toHaveAttribute(
+    "content",
+    /connect-src 'self' https:\/\/horizon-testnet\.stellar\.org/,
+  );
+  expect(cspViolations).toEqual([]);
 
   // Horizon saw GET requests only, and nothing left for any other host.
   expect(observed.horizon.length).toBeGreaterThan(0);
@@ -234,6 +252,8 @@ test("an unreachable Horizon is said in plain words", async ({ page }) => {
   await page.goto("/");
   await page.getByRole("button", { name: "Load the example account" }).click();
   await planButton(page).click();
+  // Before the SDK gives up, the page says in plain words that Horizon is slow (W10).
+  await expect(status(page)).toContainText("Still waiting for Horizon", { timeout: 6_000 });
   // The SDK retries three times with a growing pause (1, 2 and 4 s) before it gives up.
   await expect(status(page).getByRole("alert")).toContainText("Horizon could not be reached", {
     timeout: 30_000,
@@ -265,4 +285,29 @@ test("is operable from the keyboard: the form submits with Enter and focus moves
   await destination(page).press("Enter");
   await expect(result(page)).toBeVisible();
   await expect(page.locator("#result-heading")).toBeFocused();
+});
+
+test("marks the plan stale once an input changes, until the next plan replaces it", async ({
+  page,
+}) => {
+  await serveHorizon(page);
+  await page.goto("/");
+  await page.getByRole("button", { name: "Load the example account" }).click();
+  await planButton(page).click();
+  await expect(result(page)).toBeVisible();
+  const note = page.locator("#stale-note");
+  await expect(note).toBeHidden();
+
+  await sponsor(page).fill("");
+  await expect(note).toBeVisible();
+  await expect(note).toContainText("The inputs changed since this plan was made");
+  await expect(result(page)).toHaveClass(/stale/);
+  await expect(page.locator("#commands pre").nth(0)).not.toContainText("--sponsor");
+
+  await planButton(page).click();
+  await expect(result(page)).toBeVisible();
+  await expect(note).toBeHidden();
+  await expect(result(page)).not.toHaveClass(/stale/);
+  await expect(result(page).locator(".status-word")).toHaveText("CLOSABLE");
+  await expect(result(page)).toContainText("the payer is named fee_sponsor");
 });

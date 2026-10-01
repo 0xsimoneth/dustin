@@ -6,6 +6,10 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="referrer" content="no-referrer" />
     <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self' https://horizon-testnet.stellar.org; object-src 'none'; base-uri 'none'; form-action 'self'"
+    />
+    <meta
       name="description"
       content="Plan the close of a Stellar testnet account in the browser with the stellar-dustin planner. Read-only: nothing is signed, no secret is asked for."
     />
@@ -119,6 +123,10 @@
       <div id="status" class="status" role="status" aria-live="polite" aria-atomic="true"></div>
       <section id="result" hidden aria-labelledby="result-heading">
         <h2 id="result-heading" tabindex="-1">Plan</h2>
+        <p id="stale-note" class="stale-note" hidden>
+          The inputs changed since this plan was made. The plan below is for the previous inputs;
+          press Plan to plan again.
+        </p>
         <div id="result-body"></div>
       </section>
       <section id="run-yourself" aria-labelledby="run-heading">

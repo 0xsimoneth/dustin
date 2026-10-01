@@ -18,8 +18,7 @@ export default defineConfig([
     },
   },
   {
-    // The page runs in a browser: no Node global; and no HTML parsed from data, since what Horizon
-    // answers (asset codes, data entry names) is untrusted text and is rendered as text.
+    // The page runs in a browser: no Node global in its source.
     files: ["src/**/*.ts"],
     rules: {
       "no-restricted-globals": [
@@ -27,6 +26,13 @@ export default defineConfig([
         { name: "Buffer", message: "The page runs in a browser, which has no Buffer." },
         { name: "process", message: "The page runs in a browser, which has no process." },
       ],
+    },
+  },
+  {
+    // No HTML parsed from data anywhere in the project, tests included: what Horizon answers
+    // (asset codes, data entry names) is untrusted text and is rendered as text.
+    files: ["**/*.ts"],
+    rules: {
       "no-restricted-properties": [
         "error",
         { property: "innerHTML", message: "Build nodes with h(); never parse HTML from data." },

@@ -367,3 +367,15 @@ footer {
     font-weight: 600;
   }
 }
+
+/* The plan on the page is for the inputs it was made from; once they change it is marked stale
+   until the next plan replaces it (E5-S1 review, W4). */
+.stale-note {
+  font-weight: 600;
+  padding: 0.5rem 0.75rem;
+  border-left: 4px solid var(--muted);
+}
+
+.stale .plan {
+  opacity: 0.7;
+}

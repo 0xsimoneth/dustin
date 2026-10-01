@@ -82,7 +82,10 @@ export function recordedFetch(
   const fetchImpl: typeof fetch = (input, init) => {
     const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
     const path = url.startsWith(HORIZON) ? url.slice(HORIZON.length) : url;
-    requests.push({ method: init?.method ?? "GET", path });
+    // A Request object carries its own method; reading `init` alone logged a POST Request as a GET
+    // (E5-S1 review, EC-9).
+    const method = init?.method ?? (input instanceof Request ? input.method : "GET");
+    requests.push({ method, path });
     const answer = answerFor(recorded, path, overrides);
     return Promise.resolve(
       new Response(JSON.stringify(answer.body), {
