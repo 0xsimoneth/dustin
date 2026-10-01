@@ -63,3 +63,42 @@ jobs:
       - run: npm run check:package
       - name: Audit runtime dependencies
         run: npm audit --omit=dev --audit-level=high
+
+  # The plan-only web demo (web/, story E5-S1, docs/web-demo.md): a post-sprint addition outside
+  # the SOW. It consumes the root build, so the SDK entry is checked for Node-only APIs here, then
+  # the page is linted, type-checked, built, unit-tested, and driven by Playwright against the
+  # recorded Horizon fixtures (no network). Nothing is deployed.
+  web:
+    name: Web demo (Node 24)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            web/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - name: The SDK entry reaches no Node-only API
+        run: node scripts/check-browser-safe.mjs
+      - run: npm ci
+        working-directory: web
+      - run: npm run lint
+        working-directory: web
+      - run: npm run typecheck
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - name: Install the Playwright browser
+        run: npx playwright install --with-deps chromium
+        working-directory: web
+      - run: npm run test:e2e
+        working-directory: web
