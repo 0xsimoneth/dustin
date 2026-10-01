@@ -104,6 +104,10 @@ jobs:
       - run: npm test
         working-directory: web
       - name: Install the Playwright browser
+        # Bounded: the first run of the E5-S1 review's code stalled for nineteen minutes in the
+        # apt-get update this runs against the runner's Ubuntu mirror, and the job's limit cancelled
+        # it before the smoke test ran; a stall now fails this step in ten, and a rerun is one command.
+        timeout-minutes: 10
         run: npx playwright install --with-deps chromium
         working-directory: web
       - name: Playwright smoke test against the build above
