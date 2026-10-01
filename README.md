@@ -154,6 +154,17 @@ Two programs show the SDK end to end, and CI type-checks both against the packag
 
 The [integration notes](docs/integration-notes.md) cover the whole wallet flow: rendering the plan, approval, signers, events, drift, partial closes, continuing a stopped run, errors, and how to fund and protect a sponsor.
 
+## Web demo (outside the SOW)
+
+A plan-only page, added after the sprint and outside the Instaward scope ([docs/web-demo.md](docs/web-demo.md), [ADR-0007](docs/adr/ADR-0007-web-demo-plan-only.md)): paste a testnet account, and the SDK's read-only planner runs in your browser against Horizon (GET requests only) and shows the plan the CLI would print, with the exact commands to run it yourself. It never asks for a secret key; closing happens in your terminal or your own code. It is local only and not hosted:
+
+```bash
+npm ci && npm run build            # the page imports the built SDK entry, dist/index.js
+cd web && npm ci && npm run dev    # http://localhost:5173/
+```
+
+`npm run build && npm run preview` in `web/` serves the production build. Making the page possible made the SDK entry browser-safe: `stellar-dustin` reaches no Node-only API (`scripts/check-browser-safe.mjs` checks the build in CI), so a wallet can run `planClose()` in a browser too; the CLI and `stellar-dustin/testing` stay Node programs.
+
 ## Safety model
 
 1. **Dry run by default.** `planClose()`, `dustin plan` and `dustin close` without `--execute` only read from Horizon; nothing is signed without `--execute` and the typed confirmation (or `--yes`).
@@ -257,6 +268,7 @@ The deliverable tracker of SOW Appendix A, with its evidence links, is in the [e
 ## More
 
 - [Integration notes](docs/integration-notes.md), for wallet developers.
+- [Web demo](docs/web-demo.md), the plan-only page (post-sprint, outside the SOW).
 - [Ordering rules and known limits](docs/write-up.md), the write-up.
 - [Evidence package](evidence/README.md), for the chapter lead.
 - [CHANGELOG](CHANGELOG.md), [CONTRIBUTING](CONTRIBUTING.md) and [SECURITY](SECURITY.md).

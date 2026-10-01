@@ -108,7 +108,7 @@ Sprint calendar (funds received 2026-09-22, final deadline 2026-10-22):
 | Buffer | 2026-10-20 to 2026-10-22 | Review fixes; **final deadline 2026-10-22** |
 
 
-Five epics. Epics 1 to 4 are the four weeks of the SOW execution plan (section 5.1); each week's "Expected Output" is that epic's definition of done. Epic 0 is the repository bootstrap the SOW leaves implicit; it is sized to fit inside Week 1 and charged to D1 because the planner ships in the repository it creates. Each epic is standalone: every epic leaves the CLI in a demonstrable state, and no epic depends on a later one.
+Five epics. Epics 1 to 4 are the four weeks of the SOW execution plan (section 5.1); each week's "Expected Output" is that epic's definition of done. Epic 0 is the repository bootstrap the SOW leaves implicit; it is sized to fit inside Week 1 and charged to D1 because the planner ships in the repository it creates. Each epic is standalone: every epic leaves the CLI in a demonstrable state, and no epic depends on a later one. A post-sprint Epic 5 (2026-10-01), outside the SOW and outside the ledger, is listed after Epic 4: the plan-only web demo.
 
 ### Epic 0: Repository Bootstrap
 
@@ -722,6 +722,20 @@ So that I can complete the verification checklist by clicking.
 - AC-E4-S7-3: **Then** `npm run evidence:check` verifies every link resolves and every listed hash exists on Horizon.
 
 **Dependencies:** E4-S3, E4-S4, E4-S5, E4-S6. **Estimate:** 5 h. **Evidence:** evidence package (SOW 6.1, all rows). **SOW deliverable:** D4.
+
+## Epic 5 (post-sprint, outside the SOW): Plan-only web demo
+
+Added on 2026-10-01, after the sprint's deliverables, outside the Instaward scope (`docs/README.md`, canonical decision 1; ADR-0007). Not part of the 200-hour ledger, no SOW deliverable, no change to the evidence. Someone without a terminal can see what `planClose()` says about a testnet account in a page that never touches a secret; the SDK entry becomes browser-safe on the way, which a wallet integrator gains too. Local only, not hosted.
+
+### Story 5.1 (E5-S1): Plan-only web demo (`5-1-web-demo-plan-only`)
+
+As the builder,
+I want a simple one-page web demo that plans the close of a testnet account in the browser, to be improved later,
+So that a reviewer or an integrator can see the planner's output without installing the CLI, and is never asked for a secret.
+
+**Acceptance Criteria:** AC-E5-S1-1 to AC-E5-S1-8 in `stories/5-1-web-demo-plan-only.md`: the browser-safe SDK entry with a CI guard and unchanged plan hashes; the `web/` Vite project with the alias to the root build; the page (the testnet banner, the sentence, the inputs and options, the example, the plan rendered in the CLI's words, errors in plain words); the "Run it yourself" box; accessibility, phone width, no external asset; the unit tests, the Playwright smoke test on the recorded fixtures and the live check; the documents and the CI job; nothing deployed.
+
+**Dependencies:** Epic 4's code. **Estimate:** outside the ledger. **Evidence:** none required (outside the SOW). **SOW deliverable:** none.
 
 ## Traceability
 

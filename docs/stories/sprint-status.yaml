@@ -14,7 +14,7 @@
 # Budget by SOW deliverable: D1 60 h, D2 80 h, D3 40 h, D4 20 h (total 200 h).
 
 generated: "2026-09-25"
-last_updated: "2026-09-30"
+last_updated: "2026-10-01"
 project: dustin
 project_key: dustin
 tracking_system: file-system
@@ -64,6 +64,9 @@ development_status:
   4-6-demo-video: review
   4-7-evidence-package: in-progress
   epic-4-retrospective: optional
+  # Post-sprint, outside the SOW and the 200 h ledger (docs/README.md canonical decision 1, ADR-0007).
+  epic-5: in-progress
+  5-1-web-demo-plan-only: review
 
 epics:
   - key: epic-0
@@ -91,6 +94,11 @@ epics:
     title: Publish, Demo and Evidence
     week: 4
     estimate_hours: 36
+  - key: epic-5
+    id: E5
+    title: Plan-only web demo (post-sprint, outside the SOW)
+    week: post-sprint
+    estimate_hours: 0 # outside the 200 h ledger
 
 stories:
   - key: 0-1-package-scaffold
@@ -341,6 +349,14 @@ stories:
     status: in-progress
     estimate_hours: 5
     deliverable: D4
+  - key: 5-1-web-demo-plan-only
+    id: E5-S1
+    title: Plan-only web demo (post-sprint, outside the SOW; local, not hosted)
+    epic: E5
+    week: post-sprint
+    status: review
+    estimate_hours: 0 # outside the 200 h ledger
+    deliverable: none
 
 # One entry per working session, newest last (the progress log has the full account).
 sessions:
@@ -448,3 +464,22 @@ sessions:
     next: >-
       The builder's actions in the order of docs/HANDOFF.md; after each, the agent records it; the release
       session closes E4-S3, E4-S4, E4-S6, E4-S7, E1-S2 and Epic 4 before 2026-10-22.
+  - date: "2026-10-01"
+    sprint_day: post-sprint
+    summary: >-
+      Story E5-S1, outside the SOW (canonical decision 1, ADR-0007): a plan-only web demo under web/, local
+      and not hosted by the builder's scope change of the day. The SDK entry made browser-safe (sha256 from
+      the Stellar SDK's hash(), no Buffer in the SDK zone, every plan hash unchanged and pinned;
+      scripts/check-browser-safe.mjs guards the built entry; stepAction and subjectLabel exported). The page:
+      Vite and TypeScript without a framework, planClose() in the browser against the testnet Horizon, the
+      plan in the CLI's words, no secret field, the "Run it yourself" commands; 28 unit tests and 16
+      Playwright runs on the recorded fixtures with every other host refused; a CI job beside the unchanged
+      offline matrix. Live check through the built page: the baseline fixture CLOSABLE in 12 steps and 3
+      transactions, 12 GET requests, ledger 4,967,599, the recorded plan hash. Root gates green: 128 files,
+      1254 tests; the package's 26 files unchanged.
+    blocked_on_builder:
+      - the builder's actions of docs/HANDOFF.md are unchanged by this session
+      - whether and where to host the page later (docs/web-demo.md, "Deployment"): not planned
+    next: >-
+      The review of E5-S1 (the quality gate's record in the story file), then the demo's next iterations as
+      docs/web-demo.md lists them ("Roadmap"); the builder's actions of docs/HANDOFF.md as before.

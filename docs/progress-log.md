@@ -280,3 +280,29 @@ Blocked (the builder's actions, in order):
 7. Optional: the GitHub Support request that drops the old commits, and the old agent worktrees and branches of the local copy (runbook steps 8 and 9).
 
 Next: the builder's actions in the order of `docs/HANDOFF.md`; the release session closes E4-S3, E4-S4, E4-S6, E4-S7, E1-S2 and Epic 4 before 2026-10-22.
+
+## 2026-10-01 (post-sprint), the plan-only web demo
+
+### Session summary (2026-10-01)
+
+A post-sprint addition, outside the SOW (canonical decision 1): a plan-only web demo, to be improved later. The builder's scope change arrived before any deployment work and was applied: local only, nothing hosted, GitHub Pages a possible later step. Story E5-S1, `docs/stories/5-1-web-demo-plan-only.md`.
+
+Done:
+
+- The SDK entry runs in a browser (baad305): `sha256Hex` takes its digest from the Stellar SDK's `hash()`, `src/bytes.ts` replaces every `Buffer` use of the SDK zone, every plan hash and snapshot hash is unchanged and the recorded fixture's are pinned; `scripts/check-browser-safe.mjs` fails on a Node-only API reachable from the built entry or its chunks; `stepAction()` and `subjectLabel()` exported. The package's 26 files are unchanged in number and the root gates are green (128 files, 1254 tests).
+- `web/` (679868c): a Vite + TypeScript page with no framework that runs `planClose()` in the browser against the testnet Horizon and renders the plan in the CLI's words; the SDK resolved by an alias to the built entry; no secret field, no external asset, no analytics; the "Run it yourself" box with the commands and the secrets' variable names; 28 unit tests and 16 Playwright runs on the recorded fixtures, with every other host refused and every Horizon request checked to be a GET.
+- CI (e1830b0): a `web` job beside the unchanged offline matrix: the guard on the root build, then the page's lint, typecheck, build, unit tests and Playwright run.
+- The documents: `docs/web-demo.md`, ADR-0007, the README section, the CHANGELOG's `[Unreleased]`, the note under canonical decision 1, Epic 5 in the epics and the tracker, the architecture's section 12.
+- The live check: the built page planned the baseline fixture through the real Horizon in 1.9 s (CLOSABLE, 12 steps, 3 transactions, 12 GET requests and nothing elsewhere, ledger 4,967,599, the recorded plan hash); the fixture was read, never touched. The dev server was driven the same way with the fixtures.
+
+Traps recorded this session:
+
+- **A table widens to its longest word.** The step reasons carry whole 56-character addresses; at phone width the table was 589 px wide in a 412 px viewport until its cells got `overflow-wrap: anywhere` and the table stacked.
+- **Playwright's `toHaveText` with a regular expression keeps the line breaks the HTML wraps across**; `toContainText` with a string normalises them.
+- **A label that contains another field's name matches both**: `getByLabel("Destination")` also found the `--prefer-destination` checkbox.
+- **`grep "Buffer\."` matches `ArrayBuffer.isView`**: the bundle's one hit was that, not the Node global.
+- **The Horizon source paths of `stellar/go` have moved**; the CORS evidence is the dated probe in `docs/web-demo.md`.
+
+Not done, by the builder's word: no deployment, no live URL.
+
+Next: the quality gate's record in the story file, then the demo's next iterations as `docs/web-demo.md` lists them ("Roadmap"); the builder's actions of `docs/HANDOFF.md` are unchanged.

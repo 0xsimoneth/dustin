@@ -4,6 +4,17 @@ All notable changes to `stellar-dustin` are listed here. The format follows [Kee
 
 ## [Unreleased]
 
+Post-sprint changes, outside the Instaward scope (`docs/README.md`, canonical decision 1). Nothing here changes a deliverable or the evidence.
+
+### Added
+
+- `stepAction()` and `subjectLabel()`, the words of a plan step and of what it acts on as `renderPlan()` prints them, so a user interface that lays a plan out itself keeps the CLI's wording.
+- A plan-only web demo under `web/`, not part of the package and not hosted: a static page, built with Vite, that runs `planClose()` in the browser against the testnet Horizon and renders the plan; it never asks for a secret, and closing stays in the CLI and the SDK ([docs/web-demo.md](docs/web-demo.md), ADR-0007).
+
+### Changed
+
+- The SDK entry (`stellar-dustin`) runs in a browser bundle: `sha256Hex` takes its digest from the Stellar SDK's `hash()` instead of `node:crypto`, and no module reachable from the entry uses `Buffer` or another Node-only API; `scripts/check-browser-safe.mjs` checks the built entry and its chunks in CI. Every plan hash and snapshot hash is unchanged (`test/unit/canonical-json.test.ts`). The CLI and `stellar-dustin/testing` keep Node's APIs.
+
 ## [0.1.0] - unreleased
 
 Prepared on 2026-09-29 for the first npm publish, which is the builder's action. Testnet only. Built during the Stellar Instaward sprint of 2026-09-22 to 2026-10-22 against the accepted SOW (`SUCCESSFUL_SOW.md`); the SOW's success metric was met on 2026-09-28 (`evidence/README.md`).

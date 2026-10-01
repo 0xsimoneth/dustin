@@ -11,6 +11,7 @@ adrs:
   - adr/ADR-0004-horizon-over-rpc.md
   - adr/ADR-0005-testing-strategy.md
   - adr/ADR-0006-error-taxonomy.md
+  - adr/ADR-0007-web-demo-plan-only.md
 ---
 
 # Dustin Architecture
@@ -588,6 +589,8 @@ Does Dustin need a frontend, a backend, or a contract for the 30-day SOW? **No, 
 - **No contract.** Every operation Dustin needs (`manageSellOffer`, `pathPaymentStrictSend`, `payment`, `changeTrust`, `manageData`, `accountMerge`, fee bumps, sponsored reserves) is a classic operation or envelope feature [F1], [F3], [F11]. A Soroban contract cannot be the source of a classic operation, cannot sign for a `G` account, cannot be the fee source of a fee-bump (`feeSource` is an account [S5]) and cannot merge an account. ADR-0001 records that no contract would help even after the SOW.
 
 Post-SOW shape, all **stretch (outside SOW)**: a hosted fee-bump relay with abuse controls (ADR-0002), a wallet integration where the wallet signs the inner transactions and the relay wraps them (the fee-bump split in ADR-0003 is what makes this a drop-in), mainnet with a managed sponsor key (KMS/HSM) and mainnet-grade fee policy, liquidity-pool withdrawal and claimable-balance handling, and RPC-based entry-level sponsorship attribution. None of these change the planner.
+
+**Post-sprint (2026-10-01), outside the SOW: a plan-only web demo.** `web/` holds a static Vite page that runs the read-only planner in the browser against the testnet Horizon and renders the plan in the CLI's words; it has no signer, no field for a secret and no server, and it is local, not hosted (ADR-0007, `web-demo.md`). It does not change the verdict above for the SOW. What it changed in the SDK: the entry `stellar-dustin` is browser-safe (no `node:` import and no `Buffer` reachable from it; `sha256Hex` from the Stellar SDK's `hash()`, every plan hash unchanged; `scripts/check-browser-safe.mjs` enforces it on the build), and `stepAction()` and `subjectLabel()` of `src/render/plan-text.ts` are exported; the CLI and `stellar-dustin/testing` keep Node's APIs.
 
 ## 13. SOW assumptions found technically wrong or risky
 
